@@ -28,7 +28,7 @@ for (const envVar of REQUIRED_ENV_VARS) {
 
   poller.on('newAlert', async (alert: Alert) => {
     try {
-      const imageBuffer = await generateMapImage(alert);
+      const imageBuffer = alert.type === 'newsFlash' ? null : await generateMapImage(alert);
       const topicId = getTopicId(alert.type);
       await sendAlert(alert, imageBuffer, topicId);
     } catch (err) {

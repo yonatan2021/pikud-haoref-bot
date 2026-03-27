@@ -89,7 +89,8 @@ export function formatAlertMessage(alert: Alert): string {
   if (cityList) parts.push(cityList);
 
   if (alert.instructions) {
-    parts.push(`🛡 <i>${escapeHtml(alert.instructions)}</i>`);
+    const instructionsPrefix = alert.type === 'newsFlash' ? '📌 <b>תוכן ההודעה:</b>' : '🛡';
+    parts.push(`${instructionsPrefix} <i>${escapeHtml(alert.instructions)}</i>`);
   }
 
   return parts.join('\n\n');
