@@ -130,17 +130,22 @@ export async function generateMapImage(alert: Alert): Promise<Buffer | null> {
     });
     const buffer = Buffer.from(response.data);
 
-    const currentMonth = new Date().toISOString().slice(0, 7);
-    const newCount = incrementMonthlyCount(currentMonth);
-    console.log(`[MapService] בקשת Mapbox מספר ${newCount} לחודש ${currentMonth}`);
-
+    // Cache the result (FIFO eviction: Map iterates in insertion order)
     if (imageCache.size >= maxCacheSize()) {
+      // FIFO eviction: Map iterates in insertion order, so .keys().next() yields the oldest entry
       const oldestKey = imageCache.keys().next().value;
-      if (oldestKey !== undefined) {
-        imageCache.delete(oldestKey);
-      }
+      if (oldestKey !== undefined) imageCache.delete(oldestKey);
     }
     imageCache.set(cacheKey, { buffer });
+
+    // Increment usage counter separately — failure here must not discard the image
+    try {
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      const newCount = incrementMonthlyCount(currentMonth);
+      console.log(`[MapService] בקשת Mapbox מספר ${newCount} לחודש ${currentMonth}`);
+    } catch (countErr) {
+      console.error('[MapService] שגיאה בעדכון מונה Mapbox — desync אפשרי:', countErr);
+    }
 
     return buffer;
   } catch (err) {
