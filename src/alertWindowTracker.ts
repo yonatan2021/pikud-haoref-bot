@@ -12,6 +12,7 @@ export interface TrackedMessage {
 const activeMessages = new Map<string, TrackedMessage>();
 
 function windowMs(): number {
+  // Re-read on each call so test code can change the env var without module reload
   const raw = process.env.ALERT_UPDATE_WINDOW_SECONDS;
   const parsed = parseInt(raw ?? '', 10);
   return (isNaN(parsed) || parsed <= 0 ? 120 : parsed) * 1000;
@@ -24,7 +25,7 @@ export function getActiveMessage(alertType: string): TrackedMessage | null {
     activeMessages.delete(alertType);
     return null;
   }
-  return tracked;
+  return { ...tracked };
 }
 
 export function trackMessage(alertType: string, msg: TrackedMessage): void {

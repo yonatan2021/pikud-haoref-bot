@@ -25,6 +25,11 @@ export function isMonthlyLimitReached(): boolean {
   const raw = process.env.MAPBOX_MONTHLY_LIMIT;
   if (!raw) return false;
   const limit = parseInt(raw, 10);
-  if (isNaN(limit)) return false;
+  if (isNaN(limit)) {
+    console.warn(
+      `[MapboxUsage] MAPBOX_MONTHLY_LIMIT="${raw}" אינו מספר תקין — מגבלת quota מבוטלת`
+    );
+    return false;
+  }
   return getMonthlyCount(currentMonth()) >= limit;
 }

@@ -34,7 +34,12 @@ for (const envVar of REQUIRED_ENV_VARS) {
 }
 
 (async () => {
-  initDb();
+  try {
+    initDb();
+  } catch (err) {
+    console.error('[Init] שגיאה באתחול מסד הנתונים — הבוט לא יכול לפעול:', err);
+    process.exit(1);
+  }
 
   const bot = getBot();
   await setupBotHandlers(bot);

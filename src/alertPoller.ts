@@ -66,7 +66,7 @@ export class AlertPoller extends EventEmitter {
       pikudHaoref.getActiveAlerts(
         (err: Error | null, alerts: Alert[]) => {
           if (err) {
-            console.error('[AlertPoller] שגיאה בקבלת התראות:', err.message);
+            console.error('[AlertPoller] שגיאה בקבלת התראות:', err);
             return resolve();
           }
 
@@ -120,7 +120,10 @@ export class AlertPoller extends EventEmitter {
       const res = await axios(axiosOptions);
       let buffer = Buffer.from(res.data as ArrayBuffer);
 
-      if (buffer.length < 2) return;
+      if (buffer.length < 2) {
+        console.warn('[AlertPoller] תגובת newsFlash ריקה או קצרה מדי — מדלג');
+        return;
+      }
 
       let encoding: BufferEncoding = 'utf8';
       if (buffer[0] === 255 && buffer[1] === 254) {
@@ -167,7 +170,7 @@ export class AlertPoller extends EventEmitter {
         this.emit('newAlert', alert);
       }
     } catch (err) {
-      console.error('[AlertPoller] שגיאה בבדיקת newsFlash ארצי:', (err as Error).message);
+      console.error('[AlertPoller] שגיאה בבדיקת newsFlash ארצי:', err);
     }
   }
 
