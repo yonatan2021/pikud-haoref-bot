@@ -30,6 +30,7 @@ function makeDeps(overrides: Partial<AlertHandlerDeps> = {}): AlertHandlerDeps {
     notifySubscribers: mock.fn(async () => {}),
     shouldSkipMap: mock.fn(() => false),
     getTopicId: mock.fn(() => 3),
+    insertAlertHistory: mock.fn(() => {}),
     ...overrides,
   };
 }
@@ -83,6 +84,14 @@ describe('handleNewAlert', () => {
       await handleNewAlert(BASE_ALERT, deps);
       const sendCall = (deps.sendAlert as unknown as ReturnType<typeof mock.fn>).mock.calls[0];
       assert.equal(sendCall.arguments[2], 3);
+    });
+
+    it('calls insertAlertHistory once after successful send', async () => {
+      const deps = makeDeps();
+      await handleNewAlert(BASE_ALERT, deps);
+      const calls = (deps.insertAlertHistory as unknown as ReturnType<typeof mock.fn>).mock.calls;
+      assert.equal(calls.length, 1);
+      assert.deepEqual(calls[0].arguments[0], BASE_ALERT);
     });
   });
 
@@ -172,6 +181,14 @@ describe('handleNewAlert', () => {
       const notifiedAlert = notifyCalls[0].arguments[0] as Alert;
       assert.ok(notifiedAlert.cities.includes('תל אביב'), 'must include pre-existing city');
       assert.ok(notifiedAlert.cities.includes('חיפה'), 'must include new city');
+    });
+
+    it('does NOT call insertAlertHistory on edit', async () => {
+      const tracked = makeTracked();
+      const deps = makeDeps({ getActiveMessage: mock.fn(() => tracked) });
+      await handleNewAlert(BASE_ALERT, deps);
+      const calls = (deps.insertAlertHistory as unknown as ReturnType<typeof mock.fn>).mock.calls;
+      assert.equal(calls.length, 0, 'edit path must not insert a new history row');
     });
   });
 });

@@ -19,6 +19,7 @@ export interface AlertHandlerDeps {
   notifySubscribers: (alert: Alert) => Promise<void>;
   shouldSkipMap: (alertType: string) => boolean;
   getTopicId: (alertType: string) => number | undefined;
+  insertAlertHistory: (alert: Alert) => void;
 }
 
 function isUnmodifiedError(err: unknown): boolean {
@@ -36,6 +37,7 @@ export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Prom
     notifySubscribers,
     shouldSkipMap,
     getTopicId,
+    insertAlertHistory,
   } = deps;
 
   const skipMap = shouldSkipMap(alert.type);
@@ -114,6 +116,11 @@ export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Prom
         sentAt: Date.now(),
         hasPhoto: sent.hasPhoto,
       });
+      try {
+        insertAlertHistory(alert);
+      } catch (histErr) {
+        console.error('[AlertHandler] Failed to insert alert history:', histErr);
+      }
     }
   } catch (err) {
     console.error('[AlertHandler] Error handling alert:', err);

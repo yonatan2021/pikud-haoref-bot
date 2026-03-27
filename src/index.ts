@@ -9,12 +9,10 @@ import { initDb } from './db/schema';
 import { setupBotHandlers } from './bot/botSetup';
 import { notifySubscribers } from './services/dmDispatcher';
 import { shouldSkipMap } from './alertHelpers';
+import { handleNewAlert } from './alertHandler';
+import { insertAlert as insertAlertHistory } from './db/alertHistoryRepository.js';
 
 const REQUIRED_ENV_VARS = ['TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID', 'MAPBOX_ACCESS_TOKEN'];
-
-function isUnmodifiedError(err: unknown): boolean {
-  return err instanceof Error && err.message.includes('message is not modified');
-}
 
 for (const envVar of REQUIRED_ENV_VARS) {
   if (!process.env[envVar]) {
@@ -39,73 +37,18 @@ for (const envVar of REQUIRED_ENV_VARS) {
 
   poller.on('newAlert', async (alert: Alert) => {
     const chatId = process.env.TELEGRAM_CHAT_ID!;
-    const skipMap = shouldSkipMap(alert.type);
-    const topicId = getTopicId(alert.type);
-
-    // Channel broadcast
-    try {
-      const active = getActiveMessage(alert.type);
-
-      if (active) {
-        const mergedAlert: Alert = {
-          ...active.alert,
-          cities: Array.from(new Set([...active.alert.cities, ...alert.cities])),
-          instructions: alert.instructions ?? active.alert.instructions,
-        };
-        const imageBuffer = skipMap ? null : await generateMapImage(mergedAlert);
-
-        let editHandled = false;
-        try {
-          await editAlert(active, mergedAlert, imageBuffer);
-          trackMessage(alert.type, { ...active, alert: mergedAlert });
-          editHandled = true;
-        } catch (editErr) {
-          if (isUnmodifiedError(editErr)) {
-            // Telegram 400 "message is not modified" — content already up-to-date, treat as success
-            trackMessage(alert.type, { ...active, alert: mergedAlert });
-            editHandled = true;
-          }
-        }
-        if (!editHandled) {
-          console.warn('[Index] Edit failed — sending new message:');
-          try {
-            const sent = await sendAlert(mergedAlert, imageBuffer, topicId);
-            trackMessage(alert.type, {
-              messageId: sent.messageId,
-              chatId,
-              topicId,
-              alert: mergedAlert,
-              sentAt: Date.now(),
-              hasPhoto: sent.hasPhoto,
-            });
-          } catch (sendErr) {
-            throw new Error(
-              `[Index] Sending new message failed. sendErr: ${sendErr}`
-            );
-          }
-        }
-      } else {
-        const imageBuffer = skipMap ? null : await generateMapImage(alert);
-        const sent = await sendAlert(alert, imageBuffer, topicId);
-        trackMessage(alert.type, {
-          messageId: sent.messageId,
-          chatId,
-          topicId,
-          alert,
-          sentAt: Date.now(),
-          hasPhoto: sent.hasPhoto,
-        });
-      }
-    } catch (err) {
-      console.error('[Index] Error handling alert:', err);
-    }
-
-    // DM notifications (unchanged)
-    try {
-      await notifySubscribers(alert);
-    } catch (err) {
-      console.error('[Index] Error sending DMs:', err);
-    }
+    await handleNewAlert(alert, {
+      chatId,
+      generateMapImage,
+      sendAlert,
+      editAlert,
+      getActiveMessage,
+      trackMessage,
+      notifySubscribers,
+      shouldSkipMap,
+      getTopicId,
+      insertAlertHistory,
+    });
   });
 
   poller.start(2000);
