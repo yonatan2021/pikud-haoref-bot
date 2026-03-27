@@ -26,7 +26,13 @@
 
 <div dir="rtl">
 
-_אין שינויים עדיין._
+### ⚡ שיפורי ביצועים
+
+- **Docker layer cache**: הסרת `.version` מ-`package.json` לפני `npm ci` — מייצב את שכבת ה-cache ומונע invalidation על bump גרסה בלבד
+
+### 🐛 תיקוני באגים
+
+- **TypeScript strict**: תיקון cast של `mock.fn` דרך `unknown` כדי לעמוד בבדיקת overlap קפדנית של TypeScript
 
 </div>
 
@@ -37,6 +43,11 @@ _אין שינויים עדיין._
 <div dir="rtl">
 
 ### ✨ תכונות חדשות
+
+#### `alertHandler` — coordinator מרכזי לעיבוד התראות
+- חילוץ לוגיקת עיבוד ההתראה מ-`index.ts` לקובץ ייעודי `alertHandler.ts` עם dependency injection מלא
+- כל התלויות (מפה, שליחה, עריכה, מעקב, DM) מוזרקות כפרמטרים — מאפשר בדיקות יחידה מלאות ללא side effects
+- `alertHelpers.ts`: עזרים `isDrillAlert` / `shouldSkipMap` מחולצים לקובץ נפרד לשימוש חוזר ובדיקות
 
 #### עריכת הודעות בתוך חלון זמן (`alertWindowTracker`)
 - התראות מאותו סוג שמגיעות בתוך חלון הזמן (ברירת מחדל: 120 שניות) **עורכות** את ההודעה הקיימת בטלגרם במקום לשלוח הודעה חדשה
@@ -63,15 +74,23 @@ _אין שינויים עדיין._
 
 - **newsFlash ארצי**: מניעת re-emission בעת התראות מקבילות — `citylessFingerprints` מנוהל בנפרד ולא נמחק על ידי לולאת הפקיעה הרגילה
 - **`noop` callback**: הוספת handler מפורש — ללא זה, כפתורי תצוגה (ספירת עמודים) הציגו ספינר טעינה בלתי-נגמר בטלגרם
+- **DM notifications**: התראות DM לא נשלחו כאשר עריכת ההודעה החזירה "message is not modified" — מטופל כ-no-op תקין, DM נשלח בכל מקרה
+- **Mapbox counter isolation**: הפרדת עדכון המונה מיצירת התמונה — מונע desync בין מונה SQLite לתמונה שנוצרה בעת כשל
+- **Error handling**: guard בהפעלה (missing env vars), לוג מלא של שגיאות, אזהרת מכסה Mapbox, shallow copy ב-tracker למניעת mutation
 
 ### 🧪 בדיקות
 
 - בדיקות guard לפרמטר `windowMs` (ערך אפס וערך סביבה לא חוקי)
 - בדיקות מלאות ל-`alertWindowTracker`
+- בדיקות ל-`alertHandler` ו-`alertHelpers` (כולל `isDrillAlert`, `shouldSkipMap`)
+- בדיקות ל-`mapService`: `selectEditMethod`, גודל מטמון מקסימלי, cache hit, מגבלה חודשית
+- `closeDb()` מיוצא לאיפוס ה-singleton בין קבצי בדיקות — מונע stale handle בעת ריצת כל הבדיקות יחד
 
 ### 🔧 תחזוקה
 
 - הרחבת `.gitignore`: קבצי WAL של SQLite, וריאנטים של `.env`, לוגים, כיסוי קוד, `tsbuildinfo`
+- **Node.js 24**: עדכון GitHub Actions runners ל-Node 24
+- **לוגים באנגלית**: תרגום כל הודעות ה-console log מעברית לאנגלית לאחידות
 
 </div>
 

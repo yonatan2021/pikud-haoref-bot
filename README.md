@@ -10,10 +10,15 @@
 
 [![גרסה](https://img.shields.io/badge/גרסה-0.1.1-brightgreen?style=for-the-badge)](CHANGELOG.md)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue?style=for-the-badge)](https://opensource.org/licenses/Apache-2.0)
-[![Node.js](https://img.shields.io/badge/Node.js-22-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org)
+[![Node.js](https://img.shields.io/badge/Node.js-24-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://hub.docker.com)
 [![CI](https://img.shields.io/badge/CI/CD-GitHub_Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/yonatan2021/pikud-haoref-bot/actions)
+[![Telegram](https://img.shields.io/badge/ערוץ_טלגרם-הצטרף-26A5E4?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/phalaret)
+
+<br/>
+
+[![הצטרף לערוץ ההתראות](https://img.shields.io/badge/🔔_הצטרף_לערוץ_ההתראות-26A5E4?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/phalaret)&nbsp;&nbsp;[![הרץ instance משלך](https://img.shields.io/badge/🚀_הרץ_instance_משלך-2ea44f?style=for-the-badge)](https://github.com/yonatan2021/pikud-haoref-bot#התקנה-מהירה)
 
 <br/>
 
@@ -64,7 +69,7 @@
 | תכונה | פרטים |
 |--------|-------|
 | ⚡ **התראות בזמן אמת** | סקירה רציפה של ה-API כל 2 שניות |
-| 🗺️ **מפות Mapbox** | פוליגוני ערים מדויקים — fallback לבounding box ולטקסט |
+| 🗺️ **מפות Mapbox** | פוליגוני ערים מדויקים — fallback לbounding box ולטקסט |
 | ✏️ **עריכת הודעות** | התראות מאותו סוג עורכות את ההודעה הקיימת בחלון זמן מוגדר |
 | 📊 **מגבלת Mapbox חודשית** | מונה SQLite + מטמון תמונות — חוסך קוטה ומונע חריגה |
 | 📢 **ניתוב נושאים** | 5 קטגוריות: ביטחוני, טבע, סביבתי, תרגילים, כללי |
@@ -80,6 +85,24 @@
 </div>
 
 ---
+
+<div dir="rtl">
+
+## 🤖 פקודות הבוט
+
+| פקודה | תיאור |
+|--------|-------|
+| `/start` | תפריט ראשי — רישום ערים, הגדרות, קישור לערוץ |
+| `/add` | חיפוש עיר לפי שם והרשמה |
+| `/zones` | עיון ורישום לפי אזור גיאוגרפי |
+| `/mycities` | הצגת הערים הרשומות עם אפשרות הסרה |
+| `/settings` | פורמט DM (קצר / מפורט) + ביטול מנויים |
+
+</div>
+
+---
+
+<a id="התקנה-מהירה"></a>
 
 <div dir="rtl">
 
@@ -101,13 +124,18 @@ npm start
 npm run dev
 ```
 
-### הרצה עם Docker
+### הרצה עם Docker (מומלץ)
+
+```bash
+# תמונה פומבית — מוכנה לשימוש מיידי
+docker run --env-file .env \
+  -v /host/data:/app/data \
+  ghcr.io/yonatan2021/pikud-haoref-bot:latest
+```
 
 ```bash
 # בנייה מקומית
 docker build -t pikud-haoref-bot .
-
-# הרצה (עם volume לשמירת SQLite)
 docker run --env-file .env \
   -v $(pwd)/data:/app/data \
   pikud-haoref-bot
@@ -171,22 +199,6 @@ docker run --env-file .env \
 
 <div dir="rtl">
 
-## 🤖 פקודות הבוט
-
-| פקודה | תיאור |
-|--------|-------|
-| `/start` | תפריט ראשי — רישום ערים, הגדרות, קישור לערוץ |
-| `/add` | חיפוש עיר לפי שם והרשמה |
-| `/zones` | עיון ורישום לפי אזור גיאוגרפי |
-| `/mycities` | הצגת הערים הרשומות עם אפשרות הסרה |
-| `/settings` | פורמט DM (קצר / מפורט) + ביטול מנויים |
-
-</div>
-
----
-
-<div dir="rtl">
-
 ## 🏗️ ארכיטקטורה
 
 ### זרימת נתונים
@@ -201,15 +213,16 @@ flowchart TD
     C --> D
     D --> E{🔑 כבר נשלח?}
     E -- כן --> F[⏭️ דלג]
-    E -- לא --> G[📍 topicRouter\nניתוב נושא]
-    G --> H{✏️ הודעה פעילה\nבחלון הזמן?}
-    H -- כן --> I[🗺️ mapService\nמפה מעודכנת]
-    H -- לא --> J[🗺️ mapService\nמפה חדשה]
-    I --> K[✏️ editAlert\nעריכת הודעה]
-    J --> L[📢 sendAlert\nשליחה לערוץ]
-    K --> M[🕑 alertWindowTracker\nעדכון מעקב]
-    L --> M
-    M --> N[👤 dmDispatcher\nהתראות DM אישיות]
+    E -- לא --> G[🎯 alertHandler\ncoordinator מרכזי]
+    G --> H[📍 topicRouter\nניתוב נושא]
+    G --> I{✏️ הודעה פעילה\nבחלון הזמן?}
+    I -- כן --> J[🗺️ mapService\nמפה מעודכנת]
+    I -- לא --> K[🗺️ mapService\nמפה חדשה]
+    J --> L[✏️ editAlert\nעריכת הודעה]
+    K --> M[📢 sendAlert\nשליחה לערוץ]
+    L --> N[🕑 alertWindowTracker\nעדכון מעקב]
+    M --> N
+    N --> O[👤 dmDispatcher\nהתראות DM אישיות]
 ```
 
 <div dir="rtl">
@@ -316,12 +329,17 @@ URL ארוך מ-8000 תווים?
 npm test
 
 # בדיקות לפי קובץ
-npx tsx --test src/__tests__/topicRouter.test.ts          # ניתוב נושאים
-npx tsx --test src/__tests__/telegramBot.test.ts          # עיצוב הודעות
-npx tsx --test src/__tests__/dmDispatcher.test.ts         # שליחת DM
-npx tsx --test src/__tests__/subscriptionService.test.ts  # שירות מנויים
-npx tsx --test src/__tests__/zoneConfig.test.ts           # תצורת אזורים
-npx tsx --test src/__tests__/alertWindowTracker.test.ts   # מעקב חלון עריכה
+npx tsx --test src/__tests__/alertHandler.test.ts        # handler מרכזי
+npx tsx --test src/__tests__/alertHelpers.test.ts        # עזרי התראה (isDrill, shouldSkipMap)
+npx tsx --test src/__tests__/alertWindowTracker.test.ts  # מעקב חלון עריכה
+npx tsx --test src/__tests__/dmDispatcher.test.ts        # שליחת DM
+npx tsx --test src/__tests__/index.test.ts               # נקודת כניסה
+npx tsx --test src/__tests__/mapService.test.ts          # שירות מפות
+npx tsx --test src/__tests__/mapboxUsageRepository.test.ts # מונה Mapbox
+npx tsx --test src/__tests__/subscriptionService.test.ts # שירות מנויים
+npx tsx --test src/__tests__/telegramBot.test.ts         # עיצוב הודעות
+npx tsx --test src/__tests__/topicRouter.test.ts         # ניתוב נושאים
+npx tsx --test src/__tests__/zoneConfig.test.ts          # תצורת אזורים
 
 # שליחת 5 התראות דמה לטלגרם (בדיקה ידנית)
 npx tsx test-alert.ts
@@ -341,6 +359,8 @@ npx tsx test-alert.ts
 ```
 src/
 ├── index.ts                    # נקודת כניסה — מאחד alertPoller + bot
+├── alertHandler.ts             # coordinator מרכזי — מעבד התראה חדשה (dependency injection)
+├── alertHelpers.ts             # עזרים: isDrillAlert, shouldSkipMap
 ├── alertPoller.ts              # סקירת API + deduplication + newsFlash ארצי
 ├── alertWindowTracker.ts       # מעקב הודעות פעילות לפי סוג עם TTL
 ├── telegramBot.ts              # עיצוב הודעות + sendAlert + editAlert
@@ -383,14 +403,6 @@ src/
 | GitHub Container Registry | `ghcr.io/yonatan2021/pikud-haoref-bot:latest` |
 | Docker Hub | `yonatan2021/pikud-haoref-bot:latest` |
 
-הרצה עם תמונה פומבית:
-
-```bash
-docker run --env-file .env \
-  -v /host/data:/app/data \
-  ghcr.io/yonatan2021/pikud-haoref-bot:latest
-```
-
 </div>
 
 ---
@@ -403,5 +415,13 @@ docker run --env-file .env \
 
 בנוי על גבי [pikud-haoref-api](https://github.com/eladnava/pikud-haoref-api) מאת [Elad Nava](https://github.com/eladnava) — Apache 2.0.
 ראה [NOTICE](NOTICE) לפרטי ייחוס מלאים.
+
+</div>
+
+---
+
+<div align="center">
+
+עשוי עם ❤️ בישראל 🇮🇱
 
 </div>
