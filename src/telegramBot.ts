@@ -77,14 +77,19 @@ export function buildCityList(cities: string[]): string {
 export function buildZonedCityList(cities: string[]): string {
   if (cities.length === 0) return '';
 
-  const zoneMap = new Map<string, string[]>();
+  const zoneMap = new Map<string, { cities: string[]; minCountdown: number }>();
   const noZone: string[] = [];
 
   for (const cityName of cities) {
-    const zone = getCityData(cityName)?.zone;
+    const cityData = getCityData(cityName);
+    const zone = cityData?.zone;
     if (zone) {
-      const existing = zoneMap.get(zone) ?? [];
-      zoneMap.set(zone, [...existing, cityName]);
+      const existing = zoneMap.get(zone) ?? { cities: [], minCountdown: Infinity };
+      const countdown = cityData?.countdown ?? 0;
+      zoneMap.set(zone, {
+        cities: [...existing.cities, cityName],
+        minCountdown: countdown > 0 ? Math.min(existing.minCountdown, countdown) : existing.minCountdown,
+      });
     } else {
       noZone.push(cityName);
     }
@@ -92,8 +97,10 @@ export function buildZonedCityList(cities: string[]): string {
 
   const sections: string[] = [];
 
-  for (const [zone, zoneCities] of zoneMap) {
-    sections.push(`📍 <b>${escapeHtml(zone)}</b>\n${buildCityList(zoneCities)}`);
+  for (const [zone, { cities: zoneCities, minCountdown }] of zoneMap) {
+    const countdownSuffix =
+      minCountdown > 0 && isFinite(minCountdown) ? `  ⏱ <b>${minCountdown} שנ׳</b>` : '';
+    sections.push(`📍 <b>${escapeHtml(zone)}</b>${countdownSuffix}\n${buildCityList(zoneCities)}`);
   }
 
   if (noZone.length > 0) {

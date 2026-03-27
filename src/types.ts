@@ -9,6 +9,7 @@ export interface CityEntry {
   id: number;
   name: string;
   zone: string;
+  countdown: number;
   lat: number;
   lng: number;
   value: string;

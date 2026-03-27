@@ -69,21 +69,35 @@ describe('buildZonedCityList', () => {
   });
 
   it('shows zone header for cities in a known zone', () => {
-    // אור יהודה and בני ברק are both in the "דן" zone
+    // אור יהודה and בני ברק are both in the "דן" zone (countdown: 90s each)
     const result = buildZonedCityList(['אור יהודה', 'בני ברק']);
     assert.ok(result.includes('📍'), 'should include pin emoji');
     assert.ok(result.includes('דן'), 'should show zone name');
     assert.ok(result.includes('אור יהודה'), 'should list city');
     assert.ok(result.includes('בני ברק'), 'should list city');
+    assert.ok(result.includes('90 שנ׳'), 'should show countdown for zone');
+  });
+
+  it('shows the minimum countdown when zone cities have different countdowns', () => {
+    // אבו גוש → "בית שמש" countdown:90, אביעזר → "בית שמש" countdown:90
+    // but test with a mix: אור יהודה (דן, 90s) and a city with lower countdown
+    // החותרים → "חיפה" countdown:60
+    const result = buildZonedCityList(['החותרים']);
+    assert.ok(result.includes('60 שנ׳'), 'should show 60s countdown for חיפה zone');
   });
 
   it('shows a separate section per zone for multi-zone alerts', () => {
-    // אור יהודה → "דן", החותרים → "חיפה", באר שבע - דרום → "מרכז הנגב"
+    // אור יהודה → "דן" (90s), החותרים → "חיפה" (60s), באר שבע - דרום → "מרכז הנגב" (60s)
     const result = buildZonedCityList(['אור יהודה', 'החותרים', 'באר שבע - דרום']);
     assert.ok(result.includes('דן'), 'should show "דן" zone');
     assert.ok(result.includes('חיפה'), 'should show "חיפה" zone');
     assert.ok(result.includes('מרכז הנגב'), 'should show "מרכז הנגב" zone');
     assert.equal((result.match(/📍/g) ?? []).length, 3, 'should have one pin per zone');
+  });
+
+  it('does not show countdown suffix for cities with no zone data', () => {
+    const result = buildZonedCityList(['עיר לא קיימת בכלל']);
+    assert.ok(!result.includes('⏱'), 'no-zone entries should not show countdown');
   });
 
   it('truncates at 25 cities per zone with overflow line', () => {
