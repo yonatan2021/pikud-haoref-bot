@@ -27,7 +27,7 @@ export function isMonthlyLimitReached(): boolean {
   const limit = parseInt(raw, 10);
   if (isNaN(limit)) {
     console.warn(
-      `[MapboxUsage] MAPBOX_MONTHLY_LIMIT="${raw}" אינו מספר תקין — מגבלת quota מבוטלת`
+      `[MapboxUsage] MAPBOX_MONTHLY_LIMIT="${raw}" is not a valid number — quota limit disabled`
     );
     return false;
   }

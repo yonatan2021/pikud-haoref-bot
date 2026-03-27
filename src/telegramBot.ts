@@ -134,7 +134,7 @@ export async function sendAlert(
         ...threadOptions,
       });
       console.log(
-        `[Telegram] נשלח: ${alert.type} — ${alert.cities.length} ערים + מפה${topicStr}`
+        `[Telegram] Sent: ${alert.type} — ${alert.cities.length} cities + map${topicStr}`
       );
       return { messageId: sent.message_id, hasPhoto: true };
     } else {
@@ -143,12 +143,12 @@ export async function sendAlert(
         ...threadOptions,
       });
       console.log(
-        `[Telegram] נשלח: ${alert.type} — ${alert.cities.length} ערים${topicStr}`
+        `[Telegram] Sent: ${alert.type} — ${alert.cities.length} cities${topicStr}`
       );
       return { messageId: sent.message_id, hasPhoto: false };
     }
   } catch (err) {
-    console.error('[Telegram] שגיאה בשליחת הודעה:', err);
+    console.error('[Telegram] Error sending message:', err);
     throw err;
   }
 }
@@ -191,11 +191,11 @@ export async function editAlert(
       });
     }
     console.log(
-      `[Telegram] עודכן הודעה ${tracked.messageId}: ${alert.type} — ${alert.cities.length} ערים` +
-      `${imageBuffer ? ' + מפה' : ''} (${method})`
+      `[Telegram] Updated message ${tracked.messageId}: ${alert.type} — ${alert.cities.length} cities` +
+      `${imageBuffer ? ' + map' : ''} (${method})`
     );
   } catch (err) {
-    console.warn('[Telegram] שגיאה בעדכון הודעה:', err);
+    console.warn('[Telegram] Error updating message:', err);
     throw err;
   }
 }

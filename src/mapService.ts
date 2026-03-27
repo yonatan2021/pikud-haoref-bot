@@ -85,12 +85,12 @@ export async function generateMapImage(alert: Alert): Promise<Buffer | null> {
     const cacheKey = buildCacheKey(alert);
     const cached = imageCache.get(cacheKey);
     if (cached) {
-      console.log('[MapService] תמונה נמצאה ב-cache — מדלג על בקשת Mapbox');
+      console.log('[MapService] Cache hit — skipping Mapbox request');
       return cached.buffer;
     }
 
     if (isMonthlyLimitReached()) {
-      console.warn('[MapService] הגעת למגבלה החודשית של Mapbox — שולח ללא תמונה');
+      console.warn('[MapService] Monthly Mapbox limit reached — sending without map');
       return null;
     }
 
@@ -99,21 +99,21 @@ export async function generateMapImage(alert: Alert): Promise<Buffer | null> {
     for (const cityName of alert.cities) {
       const cityData = getCityData(cityName);
       if (!cityData) {
-        console.warn(`[MapService] עיר לא נמצאה: ${cityName}`);
+        console.warn(`[MapService] City not found: ${cityName}`);
         continue;
       }
       cityIds.push(cityData.id);
     }
 
     if (cityIds.length === 0) {
-      console.warn('[MapService] אין פוליגונים — שולח ללא תמונה');
+      console.warn('[MapService] No polygons — sending without map');
       return null;
     }
 
     const geojson = buildGeoJSON(cityIds);
 
     if (geojson.features.length === 0) {
-      console.warn('[MapService] לא נמצאו פוליגונים בקבצי הנתונים — שולח ללא תמונה');
+      console.warn('[MapService] No polygons in data files — sending without map');
       return null;
     }
 
@@ -123,14 +123,14 @@ export async function generateMapImage(alert: Alert): Promise<Buffer | null> {
 
     // ניסיון 2: bounding box אם URL ארוך מדי
     if (url.length > MAPBOX_URL_MAX_LENGTH) {
-      console.warn('[MapService] URL ארוך מדי — עובר ל-bounding box');
+      console.warn('[MapService] URL too long — falling back to bounding box');
       const bboxFc = buildBboxFeatureCollection(geojson);
       url = buildMapboxUrl(bboxFc);
     }
 
     // ניסיון 3: אין תמונה
     if (url.length > MAPBOX_URL_MAX_LENGTH) {
-      console.warn('[MapService] URL עדיין ארוך — שולח ללא תמונה');
+      console.warn('[MapService] URL still too long — sending without map');
       return null;
     }
 
@@ -152,14 +152,14 @@ export async function generateMapImage(alert: Alert): Promise<Buffer | null> {
     try {
       const currentMonth = new Date().toISOString().slice(0, 7);
       const newCount = incrementMonthlyCount(currentMonth);
-      console.log(`[MapService] בקשת Mapbox מספר ${newCount} לחודש ${currentMonth}`);
+      console.log(`[MapService] Mapbox request #${newCount} for ${currentMonth}`);
     } catch (countErr) {
-      console.error('[MapService] שגיאה בעדכון מונה Mapbox — desync אפשרי:', countErr);
+      console.error('[MapService] Mapbox counter update failed — possible desync:', countErr);
     }
 
     return buffer;
   } catch (err) {
-    console.error('[MapService] שגיאה ביצירת תמונת מפה:', err);
+    console.error('[MapService] Error generating map image:', err);
     return null;
   }
 }

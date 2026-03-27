@@ -18,8 +18,8 @@ function isUnmodifiedError(err: unknown): boolean {
 
 for (const envVar of REQUIRED_ENV_VARS) {
   if (!process.env[envVar]) {
-    console.error(`[Error] משתנה סביבה חסר: ${envVar}`);
-    console.error('העתק את env.example לקובץ .env ומלא את הערכים הנדרשים');
+    console.error(`[Error] Missing env var: ${envVar}`);
+    console.error('Copy env.example to .env and fill in the required values');
     process.exit(1);
   }
 }
@@ -28,7 +28,7 @@ for (const envVar of REQUIRED_ENV_VARS) {
   try {
     initDb();
   } catch (err) {
-    console.error('[Init] שגיאה באתחול מסד הנתונים — הבוט לא יכול לפעול:', err);
+    console.error('[Init] Database init failed — bot cannot start:', err);
     process.exit(1);
   }
 
@@ -67,7 +67,7 @@ for (const envVar of REQUIRED_ENV_VARS) {
           }
         }
         if (!editHandled) {
-          console.warn('[Index] עריכת הודעה נכשלה — שולח הודעה חדשה:');
+          console.warn('[Index] Edit failed — sending new message:');
           try {
             const sent = await sendAlert(mergedAlert, imageBuffer, topicId);
             trackMessage(alert.type, {
@@ -80,7 +80,7 @@ for (const envVar of REQUIRED_ENV_VARS) {
             });
           } catch (sendErr) {
             throw new Error(
-              `[Index] שליחת הודעה חדשה נכשלה. sendErr: ${sendErr}`
+              `[Index] Sending new message failed. sendErr: ${sendErr}`
             );
           }
         }
@@ -97,22 +97,22 @@ for (const envVar of REQUIRED_ENV_VARS) {
         });
       }
     } catch (err) {
-      console.error('[Index] שגיאה בטיפול בהתרעה:', err);
+      console.error('[Index] Error handling alert:', err);
     }
 
     // DM notifications (unchanged)
     try {
       await notifySubscribers(alert);
     } catch (err) {
-      console.error('[Index] שגיאה בשליחת DMs:', err);
+      console.error('[Index] Error sending DMs:', err);
     }
   });
 
   poller.start(2000);
-  console.log('🤖 בוט פיקוד העורף פעיל — סוקר כל 2 שניות');
+  console.log('🤖 Pikud HaOref bot active — polling every 2 seconds');
 
   bot.start().catch((err) => {
-    console.error('[Bot] שגיאה בהפעלת הבוט:', err);
+    console.error('[Bot] Bot startup error:', err);
     process.exit(1);
   });
 })();
