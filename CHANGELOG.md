@@ -26,7 +26,7 @@
 
 ---
 
-## [0.1.3] — 2026-03-28
+## [0.1.3] — 2026-03-27
 
 <div dir="rtl">
 
@@ -49,14 +49,49 @@
 - **לוגו**: קימפוס 674KB → 18KB (37×) דרך `sips`; גרסה מקוצרת שמורה ב-`landing/template/logo.jpg`
 - **צילומי מסך**: קימפוס 340KB → 29-31KB (11×) לכל תמונה; גרסאות מקוצרות ב-`landing/template/screenshots/`
 
-### 🐛 תיקוני באגים
+### 🔧 תחזוקה
+
+- `landing/dist/` מכוסה ע"י כלל `dist/` הקיים ב-`.gitignore`
+
+</div>
+
+---
+
+## [0.1.2] — 2026-03-27
+
+<div dir="rtl">
+
+### ✨ תכונות חדשות
+
+#### פורמט DM מבוסס-אזורים עבור newsFlash
+- `buildNewsFlashDmMessage()` — הודעות DM ל-newsFlash מציגות שמות אזורים במקום ערים (`📢 הודעה מיוחדת | גליל עליון, קריות`)
+- `alert.instructions` מוצג בשורה נפרדת כשקיים
+- שימוש ב-`Set` לדדופ אזורים ב-`buildNewsFlashDmMessage`
+
+#### קיבוץ ערים לפי אזור בהודעות הערוץ
+- `buildZonedCityList()` — מקבץ ערי התראה לפי אזור עם כותרת `📍 <b>Zone</b>` לכל אזור
+- ערים ללא match ב-`cities.json` נצמדות כרשימה שטוחה בסוף
+- סדר אזורים לפי סדר הופעה ראשון במערך הערים של ההתראה
+
+#### שיפורי fallback ליצירת מפות Mapbox
+- שלב חדש: פישוט פוליגונים אגרסיבי (tolerance 0.01) לפני מעבר ל-bounding box
+- שלב חדש: pin markers קומפקטיים (~30 תווים לעיר) כ-fallback לפני bounding box
+- `truncateToCaptionLimit()` — חיתוך caption ב-1,024 תווים בגבול section אחרון שלם למניעת שבירת HTML
+
+#### נורמליזציה של שמות ערים
+- `normalizeCityName()` — trim, כיווץ רווחים כפולים, ואיחוד כל גרסאות המקף (`-`, `–`, `—`) ל-`" - "` עם רווח עקבי
+
+### ⚡ שיפורי ביצועים
 
 - **Docker layer cache**: הסרת `.version` מ-`package.json` לפני `npm ci` — מייצב את שכבת ה-cache ומונע invalidation על bump גרסה בלבד
+
+### 🐛 תיקוני באגים
+
 - **TypeScript strict**: תיקון cast של `mock.fn` דרך `unknown` כדי לעמוד בבדיקת overlap קפדנית של TypeScript
 
 ### 🔧 תחזוקה
 
-- `landing/dist/` מכוסה ע"י כלל `dist/` הקיים ב-`.gitignore`
+- הוספת לוגו הפרויקט ל-README
 
 </div>
 
@@ -141,7 +176,9 @@
 
 <div dir="rtl">
 
-[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.1.2...v0.1.3
+[0.1.2]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/yonatan2021/pikud-haoref-bot/releases/tag/v0.1.0
 
