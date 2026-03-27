@@ -108,37 +108,82 @@ export function getBot(): Bot {
   return botInstance;
 }
 
+export interface SentMessage {
+  messageId: number;
+  hasPhoto: boolean;
+}
+
 export async function sendAlert(
   alert: Alert,
   imageBuffer: Buffer | null,
   messageThreadId?: number
-): Promise<void> {
+): Promise<SentMessage> {
   const bot = getBot();
   const chatId = process.env.TELEGRAM_CHAT_ID;
   if (!chatId) throw new Error('TELEGRAM_CHAT_ID חסר בקובץ .env');
 
   const message = formatAlertMessage(alert);
   const threadOptions = messageThreadId ? { message_thread_id: messageThreadId } : {};
+  const topicStr = messageThreadId ? ` → topic ${messageThreadId}` : '';
 
   try {
     if (imageBuffer) {
-      await bot.api.sendPhoto(chatId, new InputFile(imageBuffer, 'map.png'), {
+      const sent = await bot.api.sendPhoto(chatId, new InputFile(imageBuffer, 'map.png'), {
         caption: message,
         parse_mode: 'HTML',
         ...threadOptions,
       });
+      console.log(
+        `[Telegram] נשלח: ${alert.type} — ${alert.cities.length} ערים + מפה${topicStr}`
+      );
+      return { messageId: sent.message_id, hasPhoto: true };
     } else {
-      await bot.api.sendMessage(chatId, message, {
+      const sent = await bot.api.sendMessage(chatId, message, {
         parse_mode: 'HTML',
         ...threadOptions,
       });
+      console.log(
+        `[Telegram] נשלח: ${alert.type} — ${alert.cities.length} ערים${topicStr}`
+      );
+      return { messageId: sent.message_id, hasPhoto: false };
     }
-    const topicStr = messageThreadId ? ` → topic ${messageThreadId}` : '';
-    console.log(
-      `[Telegram] נשלח: ${alert.type} — ${alert.cities.length} ערים${imageBuffer ? ' + מפה' : ''}${topicStr}`
-    );
   } catch (err) {
     console.error('[Telegram] שגיאה בשליחת הודעה:', err);
+    throw err;
+  }
+}
+
+export async function editAlert(
+  tracked: { messageId: number; chatId: string; hasPhoto: boolean },
+  alert: Alert,
+  imageBuffer: Buffer | null
+): Promise<void> {
+  const bot = getBot();
+  const message = formatAlertMessage(alert);
+
+  try {
+    if (tracked.hasPhoto && imageBuffer) {
+      await bot.api.editMessageMedia(tracked.chatId, tracked.messageId, {
+        type: 'photo',
+        media: new InputFile(imageBuffer, 'map.png'),
+        caption: message,
+        parse_mode: 'HTML',
+      });
+    } else if (tracked.hasPhoto) {
+      await bot.api.editMessageCaption(tracked.chatId, tracked.messageId, {
+        caption: message,
+        parse_mode: 'HTML',
+      });
+    } else {
+      await bot.api.editMessageText(tracked.chatId, tracked.messageId, message, {
+        parse_mode: 'HTML',
+      });
+    }
+    console.log(
+      `[Telegram] עודכן הודעה ${tracked.messageId}: ${alert.type} — ${alert.cities.length} ערים${imageBuffer ? ' + מפה' : ''}`
+    );
+  } catch (err) {
+    console.error('[Telegram] שגיאה בעדכון הודעה:', err);
     throw err;
   }
 }
