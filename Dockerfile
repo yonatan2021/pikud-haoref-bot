@@ -5,12 +5,17 @@ FROM node:22-slim AS builder
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     python3 \
+    jq \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 # Copy lockfile and package manifests first (layer caching)
 COPY package.json package-lock.json ./
+
+# Strip the version field so this layer's hash stays stable across version bumps —
+# npm ci only cares about dependencies, not the version field.
+RUN jq 'del(.version)' package.json > /tmp/pkg.json && mv /tmp/pkg.json package.json
 
 # Install all dependencies; also compiles better-sqlite3 native .node addon via node-gyp
 RUN npm ci
