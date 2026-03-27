@@ -1,0 +1,15 @@
+pikud-haoref-bot
+Copyright 2024 Yonatan Gelfman
+
+This product makes use of the following third-party software:
+
+pikud-haoref-api
+Copyright 2016 Elad Nava (https://github.com/eladnava)
+Source: https://github.com/eladnava/pikud-haoref-api
+Licensed under the Apache License, Version 2.0
+http://www.apache.org/licenses/LICENSE-2.0
+
+This project uses pikud-haoref-api to:
+- Poll the IDF Home Front Command API for real-time alerts
+- Access bundled city coordinates (cities.json)
+- Access bundled city polygon boundaries (polygons.json)
