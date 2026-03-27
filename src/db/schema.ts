@@ -29,5 +29,10 @@ export function initDb(): void {
       PRIMARY KEY (chat_id, city_name),
       FOREIGN KEY (chat_id) REFERENCES users(chat_id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS mapbox_usage (
+      month         TEXT PRIMARY KEY,
+      request_count INTEGER NOT NULL DEFAULT 0
+    );
   `);
 }
