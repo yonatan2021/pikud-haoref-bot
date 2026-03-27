@@ -1,0 +1,29 @@
+{
+  "name": "pikud-haoref-bot",
+  "version": "1.0.0",
+  "license": "Apache-2.0",
+  "description": "בוט טלגרם להתראות פיקוד העורף בזמן אמת עם מפות Mapbox",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts"
+  },
+  "dependencies": {
+    "@grammyjs/auto-retry": "^2.0.0",
+    "@turf/bbox": "^7.2.0",
+    "@turf/helpers": "^7.2.0",
+    "@turf/simplify": "^7.2.0",
+    "axios": "^1.9.0",
+    "better-sqlite3": "^12.8.0",
+    "dotenv": "^16.5.0",
+    "grammy": "^1.36.0",
+    "pikud-haoref-api": "^5.0.3"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.0"
+  }
+}
