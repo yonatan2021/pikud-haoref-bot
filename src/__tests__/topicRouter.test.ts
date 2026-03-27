@@ -1,6 +1,6 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { getTopicId } from '../topicRouter';
+import { getTopicId, ALERT_TYPE_CATEGORY } from '../topicRouter';
 
 describe('getTopicId', () => {
   const originalEnv = process.env;
@@ -47,5 +47,20 @@ describe('getTopicId', () => {
   it('returns undefined when env var is not set', () => {
     delete process.env.TELEGRAM_TOPIC_ID_SECURITY;
     assert.equal(getTopicId('missiles'), undefined);
+  });
+});
+
+describe('ALERT_TYPE_CATEGORY export', () => {
+  it('maps missiles to security', () => {
+    assert.equal(ALERT_TYPE_CATEGORY['missiles'], 'security');
+  });
+  it('maps missilesDrill to drills', () => {
+    assert.equal(ALERT_TYPE_CATEGORY['missilesDrill'], 'drills');
+  });
+  it('maps newsFlash to general', () => {
+    assert.equal(ALERT_TYPE_CATEGORY['newsFlash'], 'general');
+  });
+  it('unmapped type returns undefined', () => {
+    assert.equal(ALERT_TYPE_CATEGORY['nonExistentType'], undefined);
   });
 });

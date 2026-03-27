@@ -1,6 +1,6 @@
-type AlertCategory = 'security' | 'nature' | 'environmental' | 'drills' | 'general';
+export type AlertCategory = 'security' | 'nature' | 'environmental' | 'drills' | 'general';
 
-const ALERT_TYPE_CATEGORY: Record<string, AlertCategory> = {
+export const ALERT_TYPE_CATEGORY: Record<string, AlertCategory> = {
   missiles: 'security',
   hostileAircraftIntrusion: 'security',
   terroristInfiltration: 'security',
