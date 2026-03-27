@@ -153,6 +153,16 @@ export async function sendAlert(
   }
 }
 
+/** Exported for testing — determines which Telegram API method to use for editing. */
+export function selectEditMethod(
+  hasPhoto: boolean,
+  imageBuffer: Buffer | null
+): 'media' | 'caption' | 'text' {
+  if (hasPhoto && imageBuffer) return 'media';
+  if (hasPhoto) return 'caption';
+  return 'text';
+}
+
 export async function editAlert(
   tracked: { messageId: number; chatId: string; hasPhoto: boolean },
   alert: Alert,
@@ -160,16 +170,17 @@ export async function editAlert(
 ): Promise<void> {
   const bot = getBot();
   const message = formatAlertMessage(alert);
+  const method = selectEditMethod(tracked.hasPhoto, imageBuffer);
 
   try {
-    if (tracked.hasPhoto && imageBuffer) {
+    if (method === 'media') {
       await bot.api.editMessageMedia(tracked.chatId, tracked.messageId, {
         type: 'photo',
-        media: new InputFile(imageBuffer, 'map.png'),
+        media: new InputFile(imageBuffer!, 'map.png'),
         caption: message,
         parse_mode: 'HTML',
       });
-    } else if (tracked.hasPhoto) {
+    } else if (method === 'caption') {
       await bot.api.editMessageCaption(tracked.chatId, tracked.messageId, {
         caption: message,
         parse_mode: 'HTML',
@@ -180,7 +191,8 @@ export async function editAlert(
       });
     }
     console.log(
-      `[Telegram] עודכן הודעה ${tracked.messageId}: ${alert.type} — ${alert.cities.length} ערים${imageBuffer ? ' + מפה' : ''}`
+      `[Telegram] עודכן הודעה ${tracked.messageId}: ${alert.type} — ${alert.cities.length} ערים` +
+      `${imageBuffer ? ' + מפה' : ''} (${method})`
     );
   } catch (err) {
     console.error('[Telegram] שגיאה בעדכון הודעה:', err);

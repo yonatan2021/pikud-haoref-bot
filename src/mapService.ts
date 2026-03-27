@@ -20,10 +20,20 @@ function buildCacheKey(alert: Alert): string {
   return `${alert.type}:${[...alert.cities].sort().join('|')}`;
 }
 
-function maxCacheSize(): number {
+export function maxCacheSize(): number {
   const raw = process.env.MAPBOX_IMAGE_CACHE_SIZE;
   const parsed = parseInt(raw ?? '', 10);
   return isNaN(parsed) || parsed <= 0 ? 20 : parsed;
+}
+
+/** Exported for testing — clears the in-memory image cache. */
+export function clearImageCache(): void {
+  imageCache.clear();
+}
+
+/** Exported for testing — seeds the cache with a known buffer to simulate a prior Mapbox request. */
+export function _seedCache(alert: Alert, buffer: Buffer): void {
+  imageCache.set(buildCacheKey(alert), { buffer });
 }
 
 function buildMapboxUrl(geojson: FeatureCollection<Polygon>): string {

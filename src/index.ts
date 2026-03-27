@@ -8,18 +8,9 @@ import { Alert } from './types';
 import { initDb } from './db/schema';
 import { setupBotHandlers } from './bot/botSetup';
 import { notifySubscribers } from './services/dmDispatcher';
+import { isDrillAlert, shouldSkipMap } from './alertHelpers';
 
 const REQUIRED_ENV_VARS = ['TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID', 'MAPBOX_ACCESS_TOKEN'];
-
-function isDrillAlert(alertType: string): boolean {
-  return alertType.endsWith('Drill');
-}
-
-function shouldSkipMap(alertType: string): boolean {
-  if (alertType === 'newsFlash') return true;
-  if (process.env.MAPBOX_SKIP_DRILLS === 'true' && isDrillAlert(alertType)) return true;
-  return false;
-}
 
 function isUnmodifiedError(err: unknown): boolean {
   return err instanceof Error && err.message.includes('message is not modified');
