@@ -2,6 +2,7 @@ import { Alert } from '../types.js';
 import { getUsersForCities } from '../db/subscriptionRepository.js';
 import { deleteUser } from '../db/userRepository.js';
 import { formatAlertMessage, getBot, ALERT_TYPE_EMOJI, ALERT_TYPE_HE } from '../telegramBot.js';
+import { getCityData } from '../cityLookup.js';
 
 function buildShortMessage(alert: Alert): string {
   const emoji = ALERT_TYPE_EMOJI[alert.type] ?? '⚠️';
@@ -9,6 +10,38 @@ function buildShortMessage(alert: Alert): string {
   const cities = alert.cities.slice(0, 10).join(', ');
   const more = alert.cities.length > 10 ? ` ועוד ${alert.cities.length - 10}` : '';
   return `${emoji} ${title} | ${cities}${more}`;
+}
+
+export function buildNewsFlashDmMessage(alert: Alert): string {
+  const emoji = ALERT_TYPE_EMOJI['newsFlash'] ?? '📢';
+  const title = ALERT_TYPE_HE['newsFlash'] ?? 'הודעה מיוחדת';
+
+  const zones: string[] = [];
+  const noZoneCities: string[] = [];
+
+  for (const city of alert.cities) {
+    const zone = getCityData(city)?.zone;
+    if (zone) {
+      if (!zones.includes(zone)) zones.push(zone);
+    } else {
+      if (!noZoneCities.includes(city)) noZoneCities.push(city);
+    }
+  }
+
+  const allLabels = [...zones, ...noZoneCities];
+
+  const parts: string[] = [];
+  if (allLabels.length > 0) {
+    parts.push(`${emoji} ${title} | ${allLabels.join(', ')}`);
+  } else {
+    parts.push(`${emoji} ${title}`);
+  }
+
+  if (alert.instructions) {
+    parts.push(alert.instructions);
+  }
+
+  return parts.join('\n');
 }
 
 export async function notifySubscribers(alert: Alert): Promise<void> {
