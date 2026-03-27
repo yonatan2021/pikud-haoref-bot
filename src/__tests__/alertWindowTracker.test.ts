@@ -82,4 +82,18 @@ describe('alertWindowTracker', () => {
     assert.equal(getActiveMessage('missiles'), null);
     assert.equal(getActiveMessage('earthQuake'), null);
   });
+
+  it('falls back to 120s window when env var is 0', () => {
+    process.env.ALERT_UPDATE_WINDOW_SECONDS = '0';
+    const msg = makeMsg({ sentAt: Date.now() - 130_000 }); // 130s ago, beyond 120s default
+    trackMessage('missiles', msg);
+    assert.equal(getActiveMessage('missiles'), null);
+  });
+
+  it('falls back to 120s window when env var is not a number', () => {
+    process.env.ALERT_UPDATE_WINDOW_SECONDS = 'invalid';
+    const msg = makeMsg({ sentAt: Date.now() - 130_000 });
+    trackMessage('missiles', msg);
+    assert.equal(getActiveMessage('missiles'), null);
+  });
 });
