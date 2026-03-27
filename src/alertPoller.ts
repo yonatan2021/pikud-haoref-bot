@@ -16,7 +16,10 @@ const ALERTS_HEADERS = {
 };
 
 export function normalizeCityName(city: string): string {
-  return city.trim().replace(/\s+/g, ' ');
+  return city
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/\s*[-–—]\s*/g, ' - ');
 }
 
 function buildFingerprint(alert: Alert): string {

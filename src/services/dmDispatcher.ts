@@ -13,6 +13,10 @@ function buildShortMessage(alert: Alert): string {
 
 export async function notifySubscribers(alert: Alert): Promise<void> {
   const subscribers = getUsersForCities(alert.cities);
+  console.log(
+    `[DM] ${alert.type} — ${alert.cities.length} cities, ${subscribers.length} subscriber(s)` +
+    (subscribers.length === 0 && alert.cities.length > 0 ? ' (no city match)' : '')
+  );
   if (subscribers.length === 0) return;
 
   const bot = getBot();

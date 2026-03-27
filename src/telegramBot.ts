@@ -47,6 +47,20 @@ export const ALERT_TYPE_EMOJI: Record<string, string> = {
 
 const MAX_CITIES_DISPLAYED = 25;
 
+/** Telegram's hard caption limit for photo messages (sendPhoto / editMessageCaption). */
+export const TELEGRAM_CAPTION_MAX = 1024;
+const TRUNCATION_SUFFIX = '\n<i>…</i>';
+
+/** Truncates a formatted message to fit within the photo caption limit.
+ *  Cuts at the last zone-section boundary (\n\n) that fits, so HTML tags are never split. */
+export function truncateToCaptionLimit(message: string): string {
+  if (message.length <= TELEGRAM_CAPTION_MAX) return message;
+  const limit = TELEGRAM_CAPTION_MAX - TRUNCATION_SUFFIX.length;
+  const boundary = message.lastIndexOf('\n\n', limit);
+  const cutAt = boundary > 0 ? boundary : limit;
+  return message.slice(0, cutAt) + TRUNCATION_SUFFIX;
+}
+
 export function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
@@ -145,7 +159,7 @@ export async function sendAlert(
   const topicStr = messageThreadId ? ` → topic ${messageThreadId}` : '';
 
   try {
-    if (imageBuffer) {
+    if (imageBuffer && message.length <= TELEGRAM_CAPTION_MAX) {
       const sent = await bot.api.sendPhoto(chatId, new InputFile(imageBuffer, 'map.png'), {
         caption: message,
         parse_mode: 'HTML',
@@ -156,6 +170,11 @@ export async function sendAlert(
       );
       return { messageId: sent.message_id, hasPhoto: true };
     } else {
+      if (imageBuffer) {
+        console.warn(
+          `[Telegram] Caption too long (${message.length} chars) — sending as text-only`
+        );
+      }
       const sent = await bot.api.sendMessage(chatId, message, {
         parse_mode: 'HTML',
         ...threadOptions,
@@ -191,15 +210,17 @@ export async function editAlert(
   const method = selectEditMethod(tracked.hasPhoto, imageBuffer);
 
   if (method === 'media') {
+    const caption = truncateToCaptionLimit(message);
     await bot.api.editMessageMedia(tracked.chatId, tracked.messageId, {
       type: 'photo',
       media: new InputFile(imageBuffer!, 'map.png'),
-      caption: message,
+      caption,
       parse_mode: 'HTML',
     });
   } else if (method === 'caption') {
+    const caption = truncateToCaptionLimit(message);
     await bot.api.editMessageCaption(tracked.chatId, tracked.messageId, {
-      caption: message,
+      caption,
       parse_mode: 'HTML',
     });
   } else {
