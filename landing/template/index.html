@@ -111,7 +111,68 @@
     </div>
   </section>
 
-  <!-- ④  Screenshots --------------------------------------------------------- -->
+  <!-- ④  Two Paths ---------------------------------------------------------- -->
+  <section class="paths section section--alt" id="paths">
+    <div class="container">
+      <h2 class="section-title">🛣️ שתי דרכים להשתמש</h2>
+      <p class="section-subtitle">בחר מה מתאים לך — אפשר גם וגם</p>
+
+      <div class="paths-grid">
+
+        <div class="path-card path-card--join">
+          <div class="path-icon" aria-hidden="true">📡</div>
+          <h3 class="path-title">הצטרף לערוץ הקיים</h3>
+          <p class="path-desc">
+            הכי מהיר — ללא התקנה, ללא שרת, ללא קוד.
+            הערוץ רץ 24/7 ומכסה את כל ישראל.
+          </p>
+          <ul class="path-features">
+            <li>✅ מיידי — לחיצה אחת</li>
+            <li>✅ DM אישי לפי הערים שלך</li>
+            <li>✅ 5 נושאים מסווגים בערוץ</li>
+            <li>✅ אפס תחזוקה מצדך</li>
+          </ul>
+          <a
+            href="https://t.me/phalaret"
+            class="btn btn-primary btn--path"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            🔔 הצטרף עכשיו
+          </a>
+        </div>
+
+        <div class="path-card path-card--selfhost">
+          <div class="path-icon" aria-hidden="true">🖥️</div>
+          <h3 class="path-title">הקם instance משלך</h3>
+          <p class="path-desc">
+            שליטה מלאה — ערוץ פרטי, הגדרות משלך, הנתונים אצלך.
+            Docker one-liner, קוד פתוח Apache 2.0.
+          </p>
+          <ul class="path-features">
+            <li>✅ ערוץ/קבוצה פרטית</li>
+            <li>✅ קונפיגורציה מלאה</li>
+            <li>✅ נתונים רק אצלך (SQLite)</li>
+            <li>✅ Docker one-liner</li>
+          </ul>
+          <div class="path-code">
+            <code>docker run --env-file .env \<br/>&nbsp;&nbsp;-v /data:/app/data \<br/>&nbsp;&nbsp;ghcr.io/yonatan2021/pikud-haoref-bot:latest</code>
+          </div>
+          <a
+            href="https://github.com/yonatan2021/pikud-haoref-bot"
+            class="btn btn-secondary btn--path"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            🚀 הוראות הגדרה
+          </a>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ⑤  Screenshots --------------------------------------------------------- -->
   <section class="screenshots section section--alt" id="screenshots">
     <div class="container">
       <h2 class="section-title">📸 תצוגה מקדימה</h2>
@@ -244,7 +305,7 @@
       { threshold: 0.1 }
     );
     document
-      .querySelectorAll('.feature-card, .screenshot-item')
+      .querySelectorAll('.feature-card, .screenshot-item, .path-card')
       .forEach(el => observer.observe(el));
 
     // ── Stats counter (count-up animation) ────────────────────────────────
