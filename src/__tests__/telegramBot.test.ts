@@ -1,6 +1,13 @@
 import { strict as assert } from 'node:assert';
 import { describe, it, test } from 'node:test';
-import { escapeHtml, buildCityList, buildZonedCityList, selectEditMethod } from '../telegramBot.js';
+import {
+  escapeHtml,
+  buildCityList,
+  buildZonedCityList,
+  selectEditMethod,
+  truncateToCaptionLimit,
+  TELEGRAM_CAPTION_MAX,
+} from '../telegramBot.js';
 
 test('escapeHtml escapes ampersand', () => {
   assert.equal(escapeHtml('a & b'), 'a &amp; b');
@@ -90,6 +97,44 @@ describe('buildZonedCityList', () => {
     const result = buildZonedCityList(['אור יהודה']);
     // Zone name is wrapped in <b> tags from our template, not injected raw
     assert.ok(!result.includes('<script>'), 'zone should not allow script injection');
+  });
+});
+
+describe('truncateToCaptionLimit', () => {
+  it('returns the message unchanged when it is within the caption limit', () => {
+    const short = 'שלום עולם';
+    assert.equal(truncateToCaptionLimit(short), short);
+  });
+
+  it('returns the message unchanged when it is exactly at the caption limit', () => {
+    const atLimit = 'א'.repeat(TELEGRAM_CAPTION_MAX);
+    assert.equal(truncateToCaptionLimit(atLimit), atLimit);
+  });
+
+  it('truncates at a zone-section boundary when the message exceeds the limit', () => {
+    // Build a message with two sections separated by \n\n
+    const section1 = '📍 <b>אזור א</b>\n' + 'א'.repeat(400);
+    const section2 = '📍 <b>אזור ב</b>\n' + 'ב'.repeat(600);
+    const message = section1 + '\n\n' + section2;
+
+    assert.ok(message.length > TELEGRAM_CAPTION_MAX, 'pre-condition: message must exceed limit');
+
+    const result = truncateToCaptionLimit(message);
+
+    assert.ok(result.length <= TELEGRAM_CAPTION_MAX, 'result must fit within caption limit');
+    assert.ok(result.includes('📍 <b>אזור א</b>'), 'first section should be retained');
+    assert.ok(!result.includes('📍 <b>אזור ב</b>'), 'overflowing section should be cut');
+    assert.ok(result.endsWith('\n<i>…</i>'), 'result must end with truncation marker');
+  });
+
+  it('falls back to a hard character cut when no zone boundary fits within the limit', () => {
+    // A single continuous block longer than the limit
+    const message = 'א'.repeat(TELEGRAM_CAPTION_MAX + 100);
+
+    const result = truncateToCaptionLimit(message);
+
+    assert.ok(result.length <= TELEGRAM_CAPTION_MAX);
+    assert.ok(result.endsWith('\n<i>…</i>'));
   });
 });
 

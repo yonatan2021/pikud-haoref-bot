@@ -1,5 +1,7 @@
 <div dir="rtl" align="center">
 
+<img src="./logo.jpg" alt="לוגו בוט התראות פיקוד העורף" width="180" />
+
 # 🚨 בוט התראות פיקוד העורף
 
 **התראות IDF Home Front Command בזמן אמת — ישירות לטלגרם**
