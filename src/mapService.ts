@@ -5,9 +5,26 @@ import { polygon as turfPolygon, featureCollection } from '@turf/helpers';
 import type { FeatureCollection, Polygon } from 'geojson';
 import { Alert } from './types';
 import { getCityData, buildGeoJSON } from './cityLookup';
+import { isMonthlyLimitReached, incrementMonthlyCount } from './db/mapboxUsageRepository.js';
 
 const MAPBOX_URL_MAX_LENGTH = 8000;
 const SIMPLIFY_TOLERANCE = 0.001;
+
+interface CacheEntry {
+  buffer: Buffer;
+}
+
+const imageCache = new Map<string, CacheEntry>();
+
+function buildCacheKey(alert: Alert): string {
+  return `${alert.type}:${[...alert.cities].sort().join('|')}`;
+}
+
+function maxCacheSize(): number {
+  const raw = process.env.MAPBOX_IMAGE_CACHE_SIZE;
+  const parsed = parseInt(raw ?? '', 10);
+  return isNaN(parsed) || parsed <= 0 ? 20 : parsed;
+}
 
 function buildMapboxUrl(geojson: FeatureCollection<Polygon>): string {
   const encoded = encodeURIComponent(JSON.stringify(geojson));
@@ -55,6 +72,18 @@ function buildBboxFeatureCollection(
 
 export async function generateMapImage(alert: Alert): Promise<Buffer | null> {
   try {
+    const cacheKey = buildCacheKey(alert);
+    const cached = imageCache.get(cacheKey);
+    if (cached) {
+      console.log('[MapService] תמונה נמצאה ב-cache — מדלג על בקשת Mapbox');
+      return cached.buffer;
+    }
+
+    if (isMonthlyLimitReached()) {
+      console.warn('[MapService] הגעת למגבלה החודשית של Mapbox — שולח ללא תמונה');
+      return null;
+    }
+
     const cityIds: number[] = [];
 
     for (const cityName of alert.cities) {
@@ -99,7 +128,21 @@ export async function generateMapImage(alert: Alert): Promise<Buffer | null> {
       responseType: 'arraybuffer',
       timeout: 10_000,
     });
-    return Buffer.from(response.data);
+    const buffer = Buffer.from(response.data);
+
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    const newCount = incrementMonthlyCount(currentMonth);
+    console.log(`[MapService] בקשת Mapbox מספר ${newCount} לחודש ${currentMonth}`);
+
+    if (imageCache.size >= maxCacheSize()) {
+      const oldestKey = imageCache.keys().next().value;
+      if (oldestKey !== undefined) {
+        imageCache.delete(oldestKey);
+      }
+    }
+    imageCache.set(cacheKey, { buffer });
+
+    return buffer;
   } catch (err) {
     console.error('[MapService] שגיאה ביצירת תמונת מפה:', err);
     return null;
