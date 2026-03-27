@@ -16,15 +16,23 @@ export function buildNewsFlashDmMessage(alert: Alert): string {
   const emoji = ALERT_TYPE_EMOJI['newsFlash'] ?? '📢';
   const title = ALERT_TYPE_HE['newsFlash'] ?? 'הודעה מיוחדת';
 
+  const seenZones = new Set<string>();
+  const seenCities = new Set<string>();
   const zones: string[] = [];
   const noZoneCities: string[] = [];
 
   for (const city of alert.cities) {
     const zone = getCityData(city)?.zone;
     if (zone) {
-      if (!zones.includes(zone)) zones.push(zone);
+      if (!seenZones.has(zone)) {
+        seenZones.add(zone);
+        zones.push(zone);
+      }
     } else {
-      if (!noZoneCities.includes(city)) noZoneCities.push(city);
+      if (!seenCities.has(city)) {
+        seenCities.add(city);
+        noZoneCities.push(city);
+      }
     }
   }
 
