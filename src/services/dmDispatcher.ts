@@ -63,9 +63,10 @@ export async function notifySubscribers(alert: Alert): Promise<void> {
   const bot = getBot();
   const detailedMessage = formatAlertMessage(alert);
   const shortMessage = buildShortMessage(alert);
+  const newsFlashMessage = alert.type === 'newsFlash' ? buildNewsFlashDmMessage(alert) : null;
 
   for (const { chat_id, format } of subscribers) {
-    const text = format === 'detailed' ? detailedMessage : shortMessage;
+    const text = newsFlashMessage ?? (format === 'detailed' ? detailedMessage : shortMessage);
     try {
       await bot.api.sendMessage(chat_id, text, { parse_mode: 'HTML' });
     } catch (err: unknown) {
