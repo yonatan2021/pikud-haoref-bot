@@ -21,6 +21,10 @@ function shouldSkipMap(alertType: string): boolean {
   return false;
 }
 
+function isUnmodifiedError(err: unknown): boolean {
+  return err instanceof Error && err.message.includes('message is not modified');
+}
+
 for (const envVar of REQUIRED_ENV_VARS) {
   if (!process.env[envVar]) {
     console.error(`[Error] משתנה סביבה חסר: ${envVar}`);
@@ -58,16 +62,27 @@ for (const envVar of REQUIRED_ENV_VARS) {
           await editAlert(active, mergedAlert, imageBuffer);
           trackMessage(alert.type, { ...active, alert: mergedAlert });
         } catch (editErr) {
+          if (isUnmodifiedError(editErr)) {
+            // Telegram 400 "message is not modified" — content already up-to-date, treat as success
+            trackMessage(alert.type, { ...active, alert: mergedAlert });
+            return;
+          }
           console.warn('[Index] עריכת הודעה נכשלה — שולח הודעה חדשה:', editErr);
-          const sent = await sendAlert(mergedAlert, imageBuffer, topicId);
-          trackMessage(alert.type, {
-            messageId: sent.messageId,
-            chatId,
-            topicId,
-            alert: mergedAlert,
-            sentAt: Date.now(),
-            hasPhoto: sent.hasPhoto,
-          });
+          try {
+            const sent = await sendAlert(mergedAlert, imageBuffer, topicId);
+            trackMessage(alert.type, {
+              messageId: sent.messageId,
+              chatId,
+              topicId,
+              alert: mergedAlert,
+              sentAt: Date.now(),
+              hasPhoto: sent.hasPhoto,
+            });
+          } catch (sendErr) {
+            throw new Error(
+              `[Index] גם עריכה וגם שליחת הודעה חדשה נכשלו. editErr: ${editErr}. sendErr: ${sendErr}`
+            );
+          }
         }
       } else {
         const imageBuffer = skipMap ? null : await generateMapImage(alert);
