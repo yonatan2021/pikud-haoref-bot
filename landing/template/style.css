@@ -505,6 +505,7 @@ img {
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
   scrollbar-color: var(--color-accent) transparent;
+  justify-content: center;
 }
 
 .screenshots-strip::-webkit-scrollbar {
@@ -559,8 +560,7 @@ img {
 
 .screenshot-frame img {
   width: 100%;
-  aspect-ratio: 9 / 16;
-  object-fit: cover;
+  height: auto;
   display: block;
 }
 

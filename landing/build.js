@@ -75,8 +75,12 @@ const logoSrc = fs.existsSync('landing/template/logo.jpg')
   : 'logo.jpg';
 fs.copyFileSync(logoSrc, 'landing/dist/logo.jpg');
 
-// Step 7: Copy docs/screenshots/*.jpg
-const screenshotsDir = 'docs/screenshots';
+// Step 7: Copy screenshots — prefer pre-optimized from landing/template/screenshots/
+const optimizedScreenshots = 'landing/template/screenshots';
+const originalScreenshots = 'docs/screenshots';
+const screenshotsDir = fs.existsSync(optimizedScreenshots)
+  ? optimizedScreenshots
+  : originalScreenshots;
 if (fs.existsSync(screenshotsDir)) {
   const screenshotFiles = fs.readdirSync(screenshotsDir);
   for (const file of screenshotFiles) {
