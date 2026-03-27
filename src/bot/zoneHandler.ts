@@ -72,7 +72,15 @@ function buildCitiesMenu(chatId: number, superRegionIdx: number, zoneIdx: number
   });
   if (slice.length % 2 !== 0) keyboard.row();
 
-  keyboard.text('✓ בחר כל האזור', `ca:${superRegionIdx}:${zoneIdx}`).row();
+  const subscribedInZone = cities.filter((c) => isSubscribed(chatId, c.name));
+  if (subscribedInZone.length > 0) {
+    keyboard
+      .text('✓ בחר כל האזור', `ca:${superRegionIdx}:${zoneIdx}`)
+      .text('✗ הסר את כל האזור', `cr:${superRegionIdx}:${zoneIdx}`)
+      .row();
+  } else {
+    keyboard.text('✓ בחר כל האזור', `ca:${superRegionIdx}:${zoneIdx}`).row();
+  }
 
   const navRow: string[] = [];
   if (safePage > 0) navRow.push(`zp:${safePage - 1}`);
@@ -176,6 +184,23 @@ export function registerZoneHandler(bot: Bot): void {
     const toAdd = cities.filter((c) => !alreadySubscribed.includes(c.name));
     toAdd.forEach((c) => addSubscription(chatId, c.name));
     await ctx.answerCallbackQuery(`✅ נוספו ${toAdd.length} ערים מ${zoneName}`);
+    const state = zoneStates.get(chatId) ?? { superRegionIdx, zoneIdx, page: 0 };
+    const { text, keyboard } = buildCitiesMenu(chatId, state.superRegionIdx, state.zoneIdx, state.page);
+    await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
+  });
+
+  bot.callbackQuery(/^cr:(\d+):(\d+)$/, async (ctx: Context) => {
+    const chatId = ctx.chat?.id;
+    if (!chatId) return;
+    const superRegionIdx = parseInt(ctx.match![1]);
+    const zoneIdx = parseInt(ctx.match![2]);
+    const sr = SUPER_REGIONS[superRegionIdx];
+    if (!sr) return;
+    const zoneName = sr.zones[zoneIdx];
+    const cities = getCitiesByZone(zoneName);
+    const toRemove = cities.filter((c) => isSubscribed(chatId, c.name));
+    toRemove.forEach((c) => removeSubscription(chatId, c.name));
+    await ctx.answerCallbackQuery(`❌ הוסרו ${toRemove.length} ערים מ${zoneName}`);
     const state = zoneStates.get(chatId) ?? { superRegionIdx, zoneIdx, page: 0 };
     const { text, keyboard } = buildCitiesMenu(chatId, state.superRegionIdx, state.zoneIdx, state.page);
     await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
