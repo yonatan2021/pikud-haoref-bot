@@ -120,12 +120,24 @@ describe('subscriptionService', () => {
       assert.deepEqual(chatIds, [CHAT_A, CHAT_B].sort());
     });
 
-    it('returns no duplicates when user subscribes to multiple matching cities', () => {
+    it('populates matchedCities with only the cities that matched', () => {
+      upsertUser(CHAT_A);
+      addSubscription(CHAT_A, 'תל אביב');
+      addSubscription(CHAT_A, 'רמת גן');
+      const subs = getUsersForCities(['תל אביב']);
+      assert.equal(subs.length, 1);
+      assert.deepEqual(subs[0].matchedCities, ['תל אביב']);
+    });
+
+    it('includes all matched cities when user has multiple matching subscriptions', () => {
       upsertUser(CHAT_A);
       addSubscription(CHAT_A, 'תל אביב');
       addSubscription(CHAT_A, 'רמת גן');
       const subs = getUsersForCities(['תל אביב', 'רמת גן']);
       assert.equal(subs.length, 1);
+      assert.equal(subs[0].matchedCities.length, 2);
+      assert.ok(subs[0].matchedCities.includes('תל אביב'));
+      assert.ok(subs[0].matchedCities.includes('רמת גן'));
     });
 
     it('returns the correct format for each user', () => {
@@ -134,6 +146,14 @@ describe('subscriptionService', () => {
       addSubscription(CHAT_A, 'תל אביב');
       const subs = getUsersForCities(['תל אביב']);
       assert.equal(subs[0].format, 'detailed');
+    });
+
+    it('includes quiet_hours_enabled field defaulting to 0', () => {
+      upsertUser(CHAT_A);
+      addSubscription(CHAT_A, 'תל אביב');
+      const subs = getUsersForCities(['תל אביב']);
+      assert.equal(typeof subs[0].quiet_hours_enabled, 'number');
+      assert.equal(subs[0].quiet_hours_enabled, 0);
     });
 
     it('returns empty array when city list is empty', () => {
