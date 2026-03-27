@@ -1,0 +1,685 @@
+/* ============================================================
+   Pikud HaOref Bot — Landing Page Stylesheet
+   Design: Tactical Command Center
+   Direction: RTL / Hebrew
+   ============================================================ */
+
+/* ----------------------------------------------------------
+   0. CSS Custom Properties
+   ---------------------------------------------------------- */
+:root {
+  --color-bg:          #070c10;
+  --color-surface:     #0d1318;
+  --color-surface-alt: #111920;
+  --color-border:      rgba(38, 165, 228, 0.15);
+  --color-accent:      #26A5E4;
+  --color-accent-glow: rgba(38, 165, 228, 0.25);
+  --color-amber:       #F59E0B;
+  --color-text:        #e2eaf2;
+  --color-muted:       #5c7d96;
+  --color-red:         #e53935;
+  --color-green:       #2ea44f;
+  --font:              'Heebo', 'Arial Hebrew', sans-serif;
+  --container-max:     1100px;
+  --section-py:        5rem;
+  --radius-card:       12px;
+  --radius-btn:        8px;
+  --transition-base:   0.22s ease;
+}
+
+/* ----------------------------------------------------------
+   1. Reset & Base
+   ---------------------------------------------------------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  font-size: 16px;
+}
+
+body {
+  font-family: var(--font);
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.7;
+  direction: rtl;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+a {
+  color: var(--color-accent);
+  text-decoration: none;
+  transition: color var(--transition-base), opacity var(--transition-base);
+}
+
+a:hover {
+  opacity: 0.85;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+/* ----------------------------------------------------------
+   2. Layout Utilities
+   ---------------------------------------------------------- */
+.container {
+  width: 100%;
+  max-width: var(--container-max);
+  margin-inline: auto;
+  padding-inline: 1.5rem;
+}
+
+.section {
+  padding-block: var(--section-py);
+}
+
+.section--alt {
+  background-color: var(--color-surface-alt);
+}
+
+/* ----------------------------------------------------------
+   3. Keyframes
+   ---------------------------------------------------------- */
+
+/* Radar sweep rotation */
+@keyframes radar-sweep {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* Live pulse dot */
+@keyframes pulse-ring {
+  0%   { transform: scale(1);   opacity: 1; }
+  70%  { transform: scale(2.2); opacity: 0; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+
+/* Fade-in for cards and screenshots */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ----------------------------------------------------------
+   4. Hero Section
+   ---------------------------------------------------------- */
+.hero {
+  position: relative;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding-block: 6rem 4rem;
+  padding-inline: 1.5rem;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* Radial glow — Telegram blue at top-center */
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      ellipse 70% 55% at 50% -5%,
+      rgba(38, 165, 228, 0.18) 0%,
+      transparent 70%
+    );
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Horizontal scan lines overlay */
+.hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 2px,
+    rgba(38, 165, 228, 0.03) 2px,
+    rgba(38, 165, 228, 0.03) 3px
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Radar ring container */
+.radar-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(700px, 90vw);
+  height: min(700px, 90vw);
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Static concentric ring borders */
+.radar-ring::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at center, transparent 30%, transparent 31%),
+    radial-gradient(circle, transparent 49%, rgba(38,165,228,0.06) 50%, transparent 51%),
+    radial-gradient(circle, transparent 69%, rgba(38,165,228,0.05) 70%, transparent 71%),
+    radial-gradient(circle, transparent 89%, rgba(38,165,228,0.04) 90%, transparent 91%);
+}
+
+/* The animated sweep */
+.radar-ring::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    rgba(38, 165, 228, 0.05) 0deg,
+    transparent 60deg
+  );
+  animation: radar-sweep 8s linear infinite;
+  transform-origin: center center;
+}
+
+/* Hero content sits above backgrounds */
+.hero-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  max-width: 780px;
+}
+
+.hero-logo {
+  width: 90px;
+  height: 90px;
+  border-radius: 22px;
+  border: 2px solid var(--color-border);
+  box-shadow:
+    0 0 30px var(--color-accent-glow),
+    0 4px 24px rgba(0, 0, 0, 0.5);
+  object-fit: cover;
+}
+
+.hero-title {
+  font-size: clamp(2rem, 5vw, 3.2rem);
+  font-weight: 900;
+  line-height: 1.2;
+  color: var(--color-text);
+  letter-spacing: -0.5px;
+}
+
+.hero-title span {
+  color: var(--color-accent);
+}
+
+.hero-subtitle {
+  font-size: clamp(1rem, 2.5vw, 1.2rem);
+  color: var(--color-muted);
+  max-width: 600px;
+  line-height: 1.8;
+}
+
+/* CTA group */
+.cta-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.875rem;
+  justify-content: center;
+  margin-top: 0.5rem;
+}
+
+/* Live badge */
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  color: var(--color-muted);
+  background: rgba(38, 165, 228, 0.07);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 0.3rem 0.9rem;
+  margin-top: 0.25rem;
+}
+
+/* Pulsing red dot */
+.badge-pulse {
+  position: relative;
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+}
+
+.badge-pulse::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--color-red);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+.badge-pulse::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--color-red);
+  animation: pulse-ring 2s ease-out infinite;
+}
+
+/* ----------------------------------------------------------
+   5. Buttons
+   ---------------------------------------------------------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.6rem 1.4rem;
+  border-radius: var(--radius-btn);
+  font-family: var(--font);
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition:
+    transform var(--transition-base),
+    box-shadow var(--transition-base),
+    background-color var(--transition-base);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+}
+
+.btn-primary {
+  background-color: var(--color-accent);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background-color: #1e93cc;
+  box-shadow: 0 6px 28px var(--color-accent-glow);
+  color: #fff;
+  opacity: 1;
+}
+
+.btn-secondary {
+  background-color: var(--color-green);
+  color: #fff;
+}
+
+.btn-secondary:hover {
+  background-color: #278a44;
+  box-shadow: 0 6px 28px rgba(46, 164, 79, 0.35);
+  color: #fff;
+  opacity: 1;
+}
+
+.btn--large {
+  padding: 0.8rem 2rem;
+  font-size: 1.05rem;
+}
+
+/* ----------------------------------------------------------
+   6. Stats Strip
+   ---------------------------------------------------------- */
+.stats-strip {
+  background: var(--color-surface);
+  border-block: 1px solid var(--color-border);
+  padding-block: 2.75rem;
+}
+
+.stats-inner {
+  max-width: var(--container-max);
+  margin-inline: auto;
+  padding-inline: 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2.5rem 4rem;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.stat-value {
+  display: flex;
+  align-items: baseline;
+  gap: 0.1rem;
+  line-height: 1;
+}
+
+.stat-num {
+  font-size: 2.8rem;
+  font-weight: 900;
+  color: var(--color-accent);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -1px;
+}
+
+.stat-unit {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--color-accent);
+}
+
+.stat-label {
+  font-size: 0.85rem;
+  color: var(--color-muted);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* ----------------------------------------------------------
+   7. Section Titles
+   ---------------------------------------------------------- */
+.section-title {
+  display: inline-block;
+  font-size: clamp(1.4rem, 3vw, 1.9rem);
+  font-weight: 800;
+  color: var(--color-text);
+  margin-bottom: 2.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--color-accent);
+}
+
+/* ----------------------------------------------------------
+   8. Features Grid
+   ---------------------------------------------------------- */
+.features {
+  padding-block: var(--section-py);
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.25rem;
+}
+
+/* Feature cards — start with invisible, animate to visible */
+.feature-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  border-inline-start: 3px solid var(--color-accent);
+  padding: 1.5rem 1.6rem;
+  opacity: 0;
+  transform: translateY(20px);
+  transition:
+    opacity 0.45s ease,
+    transform 0.45s ease,
+    box-shadow var(--transition-base),
+    border-color var(--transition-base);
+}
+
+.feature-card.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.feature-card:hover {
+  box-shadow: 0 4px 32px var(--color-accent-glow);
+  border-color: rgba(38, 165, 228, 0.3);
+}
+
+.feature-icon {
+  font-size: 1.75rem;
+  margin-bottom: 0.75rem;
+  display: block;
+}
+
+.feature-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: 0.4rem;
+}
+
+.feature-desc {
+  font-size: 0.9rem;
+  color: var(--color-muted);
+  line-height: 1.75;
+}
+
+/* ----------------------------------------------------------
+   9. Screenshots Strip
+   ---------------------------------------------------------- */
+.screenshots {
+  padding-block: var(--section-py);
+}
+
+.screenshots-strip {
+  display: flex;
+  gap: 1.25rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding-block: 0.5rem 1.25rem;
+  padding-inline: 0.25rem;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-accent) transparent;
+}
+
+.screenshots-strip::-webkit-scrollbar {
+  height: 5px;
+}
+
+.screenshots-strip::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.screenshots-strip::-webkit-scrollbar-thumb {
+  background: var(--color-accent);
+  border-radius: 99px;
+}
+
+.screenshot-item {
+  flex: 0 0 auto;
+  width: 220px;
+  scroll-snap-align: start;
+  opacity: 0;
+  transform: translateY(20px);
+  transition:
+    opacity 0.45s ease,
+    transform 0.45s ease,
+    box-shadow var(--transition-base);
+}
+
+.screenshot-item.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.screenshot-frame {
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1.5px solid var(--color-border);
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(38, 165, 228, 0.06);
+  transition:
+    transform var(--transition-base),
+    box-shadow var(--transition-base);
+  background: var(--color-surface);
+}
+
+.screenshot-item:hover .screenshot-frame {
+  transform: scale(1.03);
+  box-shadow:
+    0 8px 40px rgba(0, 0, 0, 0.6),
+    0 0 24px var(--color-accent-glow);
+}
+
+.screenshot-frame img {
+  width: 100%;
+  aspect-ratio: 9 / 16;
+  object-fit: cover;
+  display: block;
+}
+
+.screenshot-caption {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--color-muted);
+  margin-top: 0.6rem;
+  font-weight: 500;
+}
+
+/* ----------------------------------------------------------
+   10. CTA Section
+   ---------------------------------------------------------- */
+.cta-section {
+  padding-block: var(--section-py);
+  text-align: center;
+}
+
+.cta-section h2 {
+  font-size: clamp(1.5rem, 3.5vw, 2.2rem);
+  font-weight: 800;
+  margin-bottom: 0.75rem;
+}
+
+.cta-section p {
+  color: var(--color-muted);
+  margin-bottom: 2rem;
+  font-size: 1.05rem;
+}
+
+.cta-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.875rem;
+  justify-content: center;
+}
+
+/* ----------------------------------------------------------
+   11. Footer
+   ---------------------------------------------------------- */
+.footer {
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  padding-block: 2rem;
+  font-size: 0.83rem;
+  color: var(--color-muted);
+}
+
+.footer-inner {
+  max-width: var(--container-max);
+  margin-inline: auto;
+  padding-inline: 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem 1rem;
+  text-align: center;
+}
+
+.footer-sep {
+  color: var(--color-border);
+  user-select: none;
+}
+
+.footer-credit {
+  margin-top: 0.75rem;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--color-muted);
+}
+
+/* ----------------------------------------------------------
+   12. Responsive — 700px breakpoint
+   ---------------------------------------------------------- */
+@media (max-width: 700px) {
+  :root {
+    --section-py: 3.5rem;
+  }
+
+  .hero {
+    padding-block: 5rem 3rem;
+  }
+
+  .hero-title {
+    font-size: 1.75rem;
+  }
+
+  .hero-subtitle {
+    font-size: 0.95rem;
+  }
+
+  .cta-group {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .btn--large {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .stats-inner {
+    gap: 1.75rem 2.5rem;
+  }
+
+  .stat-num {
+    font-size: 2.2rem;
+  }
+
+  .features-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .screenshot-item {
+    width: 180px;
+  }
+
+  .cta-buttons {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .footer-inner {
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+}

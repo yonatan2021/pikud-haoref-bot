@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="בוט טלגרם לקבלת התראות פיקוד העורף בזמן אמת — עם מפות, ניתוב נושאים ו-DM אישי לפי ערים. קוד פתוח, Apache 2.0." />
+  <title>בוט התראות פיקוד העורף</title>
+
+  <!-- Preconnect to Google Fonts for faster load -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800;900&display=swap"
+    rel="stylesheet"
+  />
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ①  Hero ---------------------------------------------------------------- -->
+  <header class="hero">
+    <!-- Animated radar background ring -->
+    <div class="radar-ring" aria-hidden="true"></div>
+
+    <div class="hero-content">
+      <img
+        src="logo.jpg"
+        alt="לוגו בוט התראות פיקוד העורף"
+        class="hero-logo"
+        width="90"
+        height="90"
+      />
+
+      <h1 class="hero-title">בוט התראות פיקוד העורף</h1>
+
+      <p class="hero-subtitle">
+        התראות IDF Home Front Command בזמן אמת — ישירות לטלגרם, עם מפות,
+        ניתוב נושאים, ו-DM אישי לפי ערים
+      </p>
+
+      <div class="cta-group">
+        <a
+          href="https://t.me/phalaret"
+          class="btn btn-primary btn--large"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          🔔 הצטרף לערוץ
+        </a>
+        <a
+          href="https://github.com/yonatan2021/pikud-haoref-bot"
+          class="btn btn-secondary btn--large"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          🚀 הרץ instance משלך
+        </a>
+      </div>
+
+      <div class="hero-badge">
+        <span class="badge-pulse" aria-hidden="true"></span>
+        פעיל עכשיו · עדכון כל 2 שניות
+      </div>
+    </div>
+  </header>
+
+  <!-- ②  Stats Strip --------------------------------------------------------- -->
+  <section class="stats-strip" aria-label="נתוני מפתח">
+    <div class="stats-inner">
+
+      <div class="stat-item">
+        <div class="stat-value">
+          <span class="stat-num" data-target="2">0</span>
+          <span class="stat-unit">s</span>
+        </div>
+        <span class="stat-label">עדכון API</span>
+      </div>
+
+      <div class="stat-item">
+        <div class="stat-value">
+          <span class="stat-num" data-target="28">0</span>
+        </div>
+        <span class="stat-label">אזורים</span>
+      </div>
+
+      <div class="stat-item">
+        <div class="stat-value">
+          <span class="stat-num" data-target="5">0</span>
+        </div>
+        <span class="stat-label">קטגוריות נושא</span>
+      </div>
+
+      <div class="stat-item">
+        <div class="stat-value">
+          <span class="stat-num">DM</span>
+        </div>
+        <span class="stat-label">התראה אישית</span>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ③  Features ------------------------------------------------------------ -->
+  <section class="features section" id="features">
+    <div class="container">
+      <h2 class="section-title">✨ תכונות</h2>
+      <div class="features-grid">
+        {{FEATURES_HTML}}
+      </div>
+    </div>
+  </section>
+
+  <!-- ④  Screenshots --------------------------------------------------------- -->
+  <section class="screenshots section section--alt" id="screenshots">
+    <div class="container">
+      <h2 class="section-title">📸 תצוגה מקדימה</h2>
+    </div>
+
+    <!-- Strip spans full width for edge-to-edge scroll -->
+    <div class="screenshots-strip" role="list" aria-label="צילומי מסך מהבוט">
+
+      <div class="screenshot-item" role="listitem">
+        <div class="screenshot-frame">
+          <img
+            src="start.jpg"
+            alt="תפריט ראשי של הבוט"
+            loading="lazy"
+            width="220"
+            height="391"
+          />
+        </div>
+        <p class="screenshot-caption">תפריט ראשי</p>
+      </div>
+
+      <div class="screenshot-item" role="listitem">
+        <div class="screenshot-frame">
+          <img
+            src="zones.jpg"
+            alt="ממשק בחירת אזור"
+            loading="lazy"
+            width="220"
+            height="391"
+          />
+        </div>
+        <p class="screenshot-caption">בחירת אזור</p>
+      </div>
+
+      <div class="screenshot-item" role="listitem">
+        <div class="screenshot-frame">
+          <img
+            src="add.jpg"
+            alt="חיפוש עיר להוספה"
+            loading="lazy"
+            width="220"
+            height="391"
+          />
+        </div>
+        <p class="screenshot-caption">חיפוש עיר</p>
+      </div>
+
+      <div class="screenshot-item" role="listitem">
+        <div class="screenshot-frame">
+          <img
+            src="mycities.jpg"
+            alt="רשימת הערים שהמשתמש עקב אחריהן"
+            loading="lazy"
+            width="220"
+            height="391"
+          />
+        </div>
+        <p class="screenshot-caption">הערים שלי</p>
+      </div>
+
+      <div class="screenshot-item" role="listitem">
+        <div class="screenshot-frame">
+          <img
+            src="settings.jpg"
+            alt="הגדרות הבוט"
+            loading="lazy"
+            width="220"
+            height="391"
+          />
+        </div>
+        <p class="screenshot-caption">הגדרות</p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ⑤  CTA Repeat --------------------------------------------------------- -->
+  <section class="cta-section section" id="join">
+    <div class="container">
+      <h2>מוכן להצטרף?</h2>
+      <p>קבל התראות ישירות לטלגרם — או הרץ instance פרטי משלך</p>
+      <div class="cta-buttons">
+        <a
+          href="https://t.me/phalaret"
+          class="btn btn-primary btn--large"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          🔔 הצטרף לערוץ
+        </a>
+        <a
+          href="https://github.com/yonatan2021/pikud-haoref-bot"
+          class="btn btn-secondary btn--large"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          🚀 הרץ instance משלך
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ⑥  Footer ------------------------------------------------------------- -->
+  <footer class="footer">
+    <div class="footer-inner">
+      <span>גרסה {{VERSION}}</span>
+      <span class="footer-sep" aria-hidden="true">·</span>
+      <a
+        href="https://github.com/yonatan2021/pikud-haoref-bot"
+        target="_blank"
+        rel="noopener noreferrer"
+      >GitHub</a>
+      <span class="footer-sep" aria-hidden="true">·</span>
+      <span>Apache 2.0</span>
+      <span class="footer-sep" aria-hidden="true">·</span>
+      <span>עודכן {{BUILD_DATE}}</span>
+    </div>
+    <p class="footer-credit">עשוי עם ❤️ בישראל 🇮🇱</p>
+  </footer>
+
+  <!-- -----------------------------------------------------------------------
+       Inline JS: scroll animations + stats counter
+  ------------------------------------------------------------------------ -->
+  <script>
+    // ── Scroll animations (feature cards + screenshot items) ──────────────
+    const observer = new IntersectionObserver(
+      entries => entries.forEach(e => {
+        if (e.isIntersecting) e.target.classList.add('visible');
+      }),
+      { threshold: 0.1 }
+    );
+    document
+      .querySelectorAll('.feature-card, .screenshot-item')
+      .forEach(el => observer.observe(el));
+
+    // ── Stats counter (count-up animation) ────────────────────────────────
+    const statObserver = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (!e.isIntersecting) return;
+        const el = e.target;
+        const target = parseInt(el.dataset.target);
+        if (!target || el.classList.contains('counted')) return;
+        el.classList.add('counted');
+        let start = 0;
+        const dur = 1200;
+        const step = timestamp => {
+          if (!start) start = timestamp;
+          const progress = Math.min((timestamp - start) / dur, 1);
+          el.textContent = Math.floor(progress * target);
+          if (progress < 1) requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      });
+    }, { threshold: 0.5 });
+    document
+      .querySelectorAll('.stat-num[data-target]')
+      .forEach(el => statObserver.observe(el));
+  </script>
+
+</body>
+</html>

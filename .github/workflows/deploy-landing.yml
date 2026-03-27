@@ -1,0 +1,62 @@
+name: Deploy Landing Page
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Build & push to landing repo
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout main repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build landing page
+        run: node landing/build.js
+
+      - name: Setup SSH deploy key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.LANDING_DEPLOY_KEY }}" > ~/.ssh/landing_deploy_key
+          chmod 600 ~/.ssh/landing_deploy_key
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+          cat >> ~/.ssh/config <<'SSHEOF'
+          Host github-landing
+            HostName github.com
+            IdentityFile ~/.ssh/landing_deploy_key
+            StrictHostKeyChecking no
+          SSHEOF
+
+      - name: Push dist to landing repo
+        run: |
+          git config --global user.email "actions@github.com"
+          git config --global user.name "GitHub Actions"
+
+          LANDING_REPO="yonatan2021/pikud-haoref-bot-landing"
+          VERSION=$(node -p "require('./package.json').version")
+
+          git clone git@github-landing:${LANDING_REPO}.git /tmp/landing-repo
+
+          # Wipe old content (preserve .git dir), copy fresh dist
+          find /tmp/landing-repo -mindepth 1 -not -path '/tmp/landing-repo/.git*' -delete
+          cp -r landing/dist/. /tmp/landing-repo/
+
+          cd /tmp/landing-repo
+          git add -A
+
+          # Exit cleanly if nothing changed
+          if git diff --staged --quiet; then
+            echo "No changes to deploy — skipping push"
+            exit 0
+          fi
+
+          git commit -m "chore: deploy landing page v${VERSION}"
+          git push origin main

@@ -10,7 +10,7 @@
 
 <div align="center">
 
-[![גרסה](https://img.shields.io/badge/גרסה-0.1.1-brightgreen?style=for-the-badge)](CHANGELOG.md)
+[![גרסה](https://img.shields.io/badge/גרסה-0.1.3-brightgreen?style=for-the-badge)](CHANGELOG.md)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue?style=for-the-badge)](https://opensource.org/licenses/Apache-2.0)
 [![Node.js](https://img.shields.io/badge/Node.js-24-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
@@ -404,6 +404,52 @@ src/
 |----------|-------|
 | GitHub Container Registry | `ghcr.io/yonatan2021/pikud-haoref-bot:latest` |
 | Docker Hub | `yonatan2021/pikud-haoref-bot:latest` |
+
+</div>
+
+---
+
+<div dir="rtl">
+
+## 🌐 דף נחיתה
+
+דף נחיתה סטטי בעברית נמצא בתיקיית `landing/` ומתפרסם אוטומטית ל-GitHub Pages בכל push ל-`main`.
+
+### מה מסונכרן אוטומטית
+
+| מקור | תוכן |
+|------|------|
+| `package.json` | גרסה (`{{VERSION}}`) |
+| `README.md` | טבלת פיצ'רים (`## ✨ תכונות`) |
+| `docs/screenshots/*.jpg` | צילומי מסך |
+| `logo.jpg` | לוגו |
+
+### הגדרה חד-פעמית
+
+**1. צור ריפו GitHub Pages:**
+צור ריפו חדש בשם `pikud-haoref-bot-landing` ואפשר GitHub Pages מ-branch `main`.
+
+**2. צור SSH deploy key:**
+
+```bash
+ssh-keygen -t ed25519 -C "landing-deploy" -f ~/.ssh/landing_deploy -N ""
+```
+
+**3. הוסף את המפתח הציבורי לריפו הנחיתה:**
+- כנס ל-`pikud-haoref-bot-landing` → Settings → Deploy keys → Add deploy key
+- הדבק את תוכן `~/.ssh/landing_deploy.pub`
+- סמן **Allow write access** ✓
+
+**4. הוסף את המפתח הפרטי לריפו הראשי:**
+- כנס ל-`pikud-haoref-bot` → Settings → Secrets and variables → Actions → New repository secret
+- שם: `LANDING_DEPLOY_KEY`
+- ערך: תוכן הקובץ `~/.ssh/landing_deploy` (כולל שורות ה-header וה-footer)
+
+### בנייה מקומית
+
+```bash
+node landing/build.js   # מייצר landing/dist/ — פתח index.html בדפדפן לבדיקה
+```
 
 </div>
 
