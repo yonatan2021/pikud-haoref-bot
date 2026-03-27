@@ -274,7 +274,7 @@ img {
   margin-top: 0.25rem;
 }
 
-/* Pulsing red dot */
+/* Pulsing green dot — "live/online" */
 .badge-pulse {
   position: relative;
   display: inline-block;
@@ -288,7 +288,7 @@ img {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: var(--color-red);
+  background: #22c55e;
   animation: pulse-dot 2s ease-in-out infinite;
 }
 
@@ -297,7 +297,7 @@ img {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: var(--color-red);
+  background: #22c55e;
   animation: pulse-ring 2s ease-out infinite;
 }
 

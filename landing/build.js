@@ -59,8 +59,11 @@ fs.writeFileSync('landing/dist/index.html', output, 'utf8');
 // Step 5: Copy style.css
 fs.copyFileSync('landing/template/style.css', 'landing/dist/style.css');
 
-// Step 6: Copy logo.jpg
-fs.copyFileSync('logo.jpg', 'landing/dist/logo.jpg');
+// Step 6: Copy logo — use pre-optimized version from template/ (18KB vs 674KB original)
+const logoSrc = fs.existsSync('landing/template/logo.jpg')
+  ? 'landing/template/logo.jpg'
+  : 'logo.jpg';
+fs.copyFileSync(logoSrc, 'landing/dist/logo.jpg');
 
 // Step 7: Copy docs/screenshots/*.jpg
 const screenshotsDir = 'docs/screenshots';
