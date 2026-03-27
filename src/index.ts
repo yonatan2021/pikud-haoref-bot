@@ -10,6 +10,16 @@ import { notifySubscribers } from './services/dmDispatcher';
 
 const REQUIRED_ENV_VARS = ['TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID', 'MAPBOX_ACCESS_TOKEN'];
 
+function isDrillAlert(alertType: string): boolean {
+  return alertType.endsWith('Drill');
+}
+
+function shouldSkipMap(alertType: string): boolean {
+  if (alertType === 'newsFlash') return true;
+  if (process.env.MAPBOX_SKIP_DRILLS === 'true' && isDrillAlert(alertType)) return true;
+  return false;
+}
+
 for (const envVar of REQUIRED_ENV_VARS) {
   if (!process.env[envVar]) {
     console.error(`[Error] משתנה סביבה חסר: ${envVar}`);
@@ -28,7 +38,7 @@ for (const envVar of REQUIRED_ENV_VARS) {
 
   poller.on('newAlert', async (alert: Alert) => {
     try {
-      const imageBuffer = alert.type === 'newsFlash' ? null : await generateMapImage(alert);
+      const imageBuffer = shouldSkipMap(alert.type) ? null : await generateMapImage(alert);
       const topicId = getTopicId(alert.type);
       await sendAlert(alert, imageBuffer, topicId);
     } catch (err) {
