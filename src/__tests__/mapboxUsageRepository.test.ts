@@ -6,7 +6,7 @@ import path from 'path';
 const dataDir = path.join(process.cwd(), 'data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir);
 
-import { initDb, getDb } from '../db/schema';
+import { initDb, getDb, closeDb } from '../db/schema';
 import {
   getMonthlyCount,
   incrementMonthlyCount,
@@ -30,7 +30,7 @@ describe('mapboxUsageRepository', () => {
   });
 
   after(() => {
-    getDb().close();
+    closeDb();
   });
 
   describe('getMonthlyCount', () => {
