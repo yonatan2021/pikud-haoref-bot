@@ -42,4 +42,27 @@ export function initDb(): void {
       request_count INTEGER NOT NULL DEFAULT 0
     );
   `);
+
+  database.exec(
+    [
+      'CREATE TABLE IF NOT EXISTS alert_history (',
+      '  id           INTEGER PRIMARY KEY AUTOINCREMENT,',
+      '  type         TEXT NOT NULL,',
+      '  cities       TEXT NOT NULL,',
+      '  instructions TEXT,',
+      '  fired_at     TEXT NOT NULL DEFAULT (datetime(\'now\'))',
+      ');',
+      'CREATE INDEX IF NOT EXISTS idx_alert_history_fired_at ON alert_history(fired_at);',
+      'CREATE INDEX IF NOT EXISTS idx_alert_history_type     ON alert_history(type);',
+      "DELETE FROM alert_history WHERE fired_at < datetime('now', '-7 days');",
+    ].join('\n')
+  );
+
+  try {
+    database.exec(
+      'ALTER TABLE users ADD COLUMN quiet_hours_enabled INTEGER NOT NULL DEFAULT 0'
+    );
+  } catch (e: unknown) {
+    if (!(e instanceof Error && e.message.includes('duplicate column name'))) throw e;
+  }
 }
