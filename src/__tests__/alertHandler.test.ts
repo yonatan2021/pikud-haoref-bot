@@ -39,9 +39,9 @@ describe('handleNewAlert', () => {
     it('calls sendAlert with the original alert', async () => {
       const deps = makeDeps();
       await handleNewAlert(BASE_ALERT, deps);
-      assert.equal((deps.sendAlert as ReturnType<typeof mock.fn>).mock.calls.length, 1);
+      assert.equal((deps.sendAlert as unknown as ReturnType<typeof mock.fn>).mock.calls.length, 1);
       assert.deepEqual(
-        (deps.sendAlert as ReturnType<typeof mock.fn>).mock.calls[0].arguments[0],
+        (deps.sendAlert as unknown as ReturnType<typeof mock.fn>).mock.calls[0].arguments[0],
         BASE_ALERT
       );
     });
@@ -49,13 +49,13 @@ describe('handleNewAlert', () => {
     it('calls trackMessage after sendAlert', async () => {
       const deps = makeDeps();
       await handleNewAlert(BASE_ALERT, deps);
-      assert.equal((deps.trackMessage as ReturnType<typeof mock.fn>).mock.calls.length, 1);
+      assert.equal((deps.trackMessage as unknown as ReturnType<typeof mock.fn>).mock.calls.length, 1);
     });
 
     it('passes original alert to notifySubscribers', async () => {
       const deps = makeDeps();
       await handleNewAlert(BASE_ALERT, deps);
-      const notifyCalls = (deps.notifySubscribers as ReturnType<typeof mock.fn>).mock.calls;
+      const notifyCalls = (deps.notifySubscribers as unknown as ReturnType<typeof mock.fn>).mock.calls;
       assert.equal(notifyCalls.length, 1);
       assert.deepEqual(notifyCalls[0].arguments[0], BASE_ALERT);
     });
@@ -63,8 +63,8 @@ describe('handleNewAlert', () => {
     it('skips generateMapImage when shouldSkipMap returns true', async () => {
       const deps = makeDeps({ shouldSkipMap: mock.fn(() => true) });
       await handleNewAlert(BASE_ALERT, deps);
-      assert.equal((deps.generateMapImage as ReturnType<typeof mock.fn>).mock.calls.length, 0);
-      const sendCall = (deps.sendAlert as ReturnType<typeof mock.fn>).mock.calls[0];
+      assert.equal((deps.generateMapImage as unknown as ReturnType<typeof mock.fn>).mock.calls.length, 0);
+      const sendCall = (deps.sendAlert as unknown as ReturnType<typeof mock.fn>).mock.calls[0];
       assert.equal(sendCall.arguments[1], null); // imageBuffer is null
     });
 
@@ -73,7 +73,7 @@ describe('handleNewAlert', () => {
         sendAlert: mock.fn(async () => { throw new Error('Broadcast failed'); }),
       });
       await handleNewAlert(BASE_ALERT, deps);
-      const notifyCalls = (deps.notifySubscribers as ReturnType<typeof mock.fn>).mock.calls;
+      const notifyCalls = (deps.notifySubscribers as unknown as ReturnType<typeof mock.fn>).mock.calls;
       assert.equal(notifyCalls.length, 1);
       assert.deepEqual(notifyCalls[0].arguments[0], BASE_ALERT);
     });
@@ -81,7 +81,7 @@ describe('handleNewAlert', () => {
     it('H-6: sendAlert is called with the topicId returned by getTopicId', async () => {
       const deps = makeDeps(); // getTopicId returns 3 by default
       await handleNewAlert(BASE_ALERT, deps);
-      const sendCall = (deps.sendAlert as ReturnType<typeof mock.fn>).mock.calls[0];
+      const sendCall = (deps.sendAlert as unknown as ReturnType<typeof mock.fn>).mock.calls[0];
       assert.equal(sendCall.arguments[2], 3);
     });
   });
@@ -92,7 +92,7 @@ describe('handleNewAlert', () => {
       const deps = makeDeps({ getActiveMessage: mock.fn(() => active) });
       await handleNewAlert({ type: 'missiles', cities: ['חיפה'] }, deps);
 
-      const editCalls = (deps.editAlert as ReturnType<typeof mock.fn>).mock.calls;
+      const editCalls = (deps.editAlert as unknown as ReturnType<typeof mock.fn>).mock.calls;
       assert.equal(editCalls.length, 1);
       const mergedAlert = editCalls[0].arguments[1] as Alert;
       assert.deepEqual(new Set(mergedAlert.cities), new Set(['תל אביב', 'חיפה']));
@@ -103,7 +103,7 @@ describe('handleNewAlert', () => {
       const deps = makeDeps({ getActiveMessage: mock.fn(() => active) });
       await handleNewAlert({ type: 'missiles', cities: ['חיפה'] }, deps);
 
-      const notifyCalls = (deps.notifySubscribers as ReturnType<typeof mock.fn>).mock.calls;
+      const notifyCalls = (deps.notifySubscribers as unknown as ReturnType<typeof mock.fn>).mock.calls;
       assert.equal(notifyCalls.length, 1);
       const notifiedAlert = notifyCalls[0].arguments[0] as Alert;
       // Must include BOTH old and new cities — not just the incoming alert's cities
@@ -121,8 +121,8 @@ describe('handleNewAlert', () => {
       const active = makeTracked();
       const deps = makeDeps({ getActiveMessage: mock.fn(() => active) });
       await handleNewAlert(BASE_ALERT, deps);
-      assert.equal((deps.trackMessage as ReturnType<typeof mock.fn>).mock.calls.length, 1);
-      assert.equal((deps.sendAlert as ReturnType<typeof mock.fn>).mock.calls.length, 0);
+      assert.equal((deps.trackMessage as unknown as ReturnType<typeof mock.fn>).mock.calls.length, 1);
+      assert.equal((deps.sendAlert as unknown as ReturnType<typeof mock.fn>).mock.calls.length, 0);
     });
 
     it('handles "message is not modified" as success — does not sendAlert', async () => {
@@ -133,9 +133,9 @@ describe('handleNewAlert', () => {
         editAlert: mock.fn(async () => { throw notModifiedErr; }),
       });
       await handleNewAlert(BASE_ALERT, deps);
-      assert.equal((deps.sendAlert as ReturnType<typeof mock.fn>).mock.calls.length, 0);
+      assert.equal((deps.sendAlert as unknown as ReturnType<typeof mock.fn>).mock.calls.length, 0);
       // trackMessage should still be called to update the stored alert
-      assert.equal((deps.trackMessage as ReturnType<typeof mock.fn>).mock.calls.length, 1);
+      assert.equal((deps.trackMessage as unknown as ReturnType<typeof mock.fn>).mock.calls.length, 1);
     });
 
     it('falls back to sendAlert when edit fails with non-unmodified error', async () => {
@@ -146,7 +146,7 @@ describe('handleNewAlert', () => {
         editAlert: mock.fn(async () => { throw networkErr; }),
       });
       await handleNewAlert(BASE_ALERT, deps);
-      assert.equal((deps.sendAlert as ReturnType<typeof mock.fn>).mock.calls.length, 1);
+      assert.equal((deps.sendAlert as unknown as ReturnType<typeof mock.fn>).mock.calls.length, 1);
     });
 
     it('fallback sendAlert receives topicId as third argument when edit fails', async () => {
@@ -156,7 +156,7 @@ describe('handleNewAlert', () => {
         editAlert: mock.fn(async () => { throw new Error('Network error'); }),
       });
       await handleNewAlert(BASE_ALERT, deps);
-      const sendCall = (deps.sendAlert as unknown as ReturnType<typeof mock.fn>).mock.calls[0];
+      const sendCall = (deps.sendAlert as unknown as unknown as ReturnType<typeof mock.fn>).mock.calls[0];
       assert.equal(sendCall.arguments[2], 3);
     });
 
@@ -168,7 +168,7 @@ describe('handleNewAlert', () => {
       });
       await handleNewAlert({ type: 'missiles', cities: ['חיפה'] }, deps);
 
-      const notifyCalls = (deps.notifySubscribers as unknown as ReturnType<typeof mock.fn>).mock.calls;
+      const notifyCalls = (deps.notifySubscribers as unknown as unknown as ReturnType<typeof mock.fn>).mock.calls;
       const notifiedAlert = notifyCalls[0].arguments[0] as Alert;
       assert.ok(notifiedAlert.cities.includes('תל אביב'), 'must include pre-existing city');
       assert.ok(notifiedAlert.cities.includes('חיפה'), 'must include new city');
