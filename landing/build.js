@@ -30,9 +30,19 @@ const featureCards = featuresSection
   .map((line) => {
     const inner = line.slice(1, -1);
     const cells = inner.split('|').map((cell) => cell.trim());
-    const featureName = cells[0].replace(/\*\*/g, '');
-    const featureDetail = cells[1];
-    return `<div class="feature-card"><span class="feature-name">${featureName}</span><span class="feature-detail">${featureDetail}</span></div>`;
+    const fullName = cells[0].replace(/\*\*/g, '');
+    const detail = cells[1];
+    // Split emoji icon from title text (emoji is always first "word")
+    const spaceIdx = fullName.indexOf(' ');
+    const icon = spaceIdx !== -1 ? fullName.slice(0, spaceIdx) : '';
+    const title = spaceIdx !== -1 ? fullName.slice(spaceIdx + 1) : fullName;
+    return [
+      `<div class="feature-card">`,
+      `  <span class="feature-icon">${icon}</span>`,
+      `  <span class="feature-title">${title}</span>`,
+      `  <span class="feature-desc">${detail}</span>`,
+      `</div>`,
+    ].join('\n');
   })
   .join('\n');
 
