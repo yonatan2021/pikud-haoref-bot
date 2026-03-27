@@ -24,15 +24,39 @@
 <!-- העתק את המקטע הזה כשפותחים ענף גרסה חדשה -->
 ## [Unreleased]
 
+---
+
+## [0.1.3] — 2026-03-28
+
 <div dir="rtl">
+
+### ✨ תכונות חדשות
+
+#### דף נחיתה — GitHub Pages
+- דף נחיתה עברי RTL ב-`landing/` עם עיצוב dark tactical theme (Heebo + Telegram blue)
+- Hero עם לוגו, אינדיקטור live ירוק, ושני CTAs: "הצטרף לערוץ" + "הרץ instance משלך"
+- גריד פיצ'רים — מסונכרן אוטומטית מטבלת `## ✨ תכונות` ב-README.md
+- תצוגה מקדימה של 5 צילומי מסך עם scroll-snap אופקי
+- Footer עם גרסה ותאריך בנייה שמוזרקים אוטומטית מ-`package.json`
+- דף חי: https://yonatan2021.github.io/pikud-haoref-bot-landing/
+
+#### GitHub Action לסנכרון אוטומטי
+- `deploy-landing.yml` — בכל push ל-`main`: מריץ `node landing/build.js`, דוחף `landing/dist/` לריפו `pikud-haoref-bot-landing`
+- SSH deploy key (`LANDING_DEPLOY_KEY`) מאפשר דחיפה מ-CI ללא אישור ידני
 
 ### ⚡ שיפורי ביצועים
 
-- **Docker layer cache**: הסרת `.version` מ-`package.json` לפני `npm ci` — מייצב את שכבת ה-cache ומונע invalidation על bump גרסה בלבד
+- **לוגו**: קימפוס 674KB → 18KB (37×) דרך `sips`; גרסה מקוצרת שמורה ב-`landing/template/logo.jpg`
+- **צילומי מסך**: קימפוס 340KB → 29-31KB (11×) לכל תמונה; גרסאות מקוצרות ב-`landing/template/screenshots/`
 
 ### 🐛 תיקוני באגים
 
+- **Docker layer cache**: הסרת `.version` מ-`package.json` לפני `npm ci` — מייצב את שכבת ה-cache ומונע invalidation על bump גרסה בלבד
 - **TypeScript strict**: תיקון cast של `mock.fn` דרך `unknown` כדי לעמוד בבדיקת overlap קפדנית של TypeScript
+
+### 🔧 תחזוקה
+
+- `landing/dist/` מכוסה ע"י כלל `dist/` הקיים ב-`.gitignore`
 
 </div>
 
