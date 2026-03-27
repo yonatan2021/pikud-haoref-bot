@@ -172,30 +172,25 @@ export async function editAlert(
   const message = formatAlertMessage(alert);
   const method = selectEditMethod(tracked.hasPhoto, imageBuffer);
 
-  try {
-    if (method === 'media') {
-      await bot.api.editMessageMedia(tracked.chatId, tracked.messageId, {
-        type: 'photo',
-        media: new InputFile(imageBuffer!, 'map.png'),
-        caption: message,
-        parse_mode: 'HTML',
-      });
-    } else if (method === 'caption') {
-      await bot.api.editMessageCaption(tracked.chatId, tracked.messageId, {
-        caption: message,
-        parse_mode: 'HTML',
-      });
-    } else {
-      await bot.api.editMessageText(tracked.chatId, tracked.messageId, message, {
-        parse_mode: 'HTML',
-      });
-    }
-    console.log(
-      `[Telegram] Updated message ${tracked.messageId}: ${alert.type} — ${alert.cities.length} cities` +
-      `${imageBuffer ? ' + map' : ''} (${method})`
-    );
-  } catch (err) {
-    console.warn('[Telegram] Error updating message:', err);
-    throw err;
+  if (method === 'media') {
+    await bot.api.editMessageMedia(tracked.chatId, tracked.messageId, {
+      type: 'photo',
+      media: new InputFile(imageBuffer!, 'map.png'),
+      caption: message,
+      parse_mode: 'HTML',
+    });
+  } else if (method === 'caption') {
+    await bot.api.editMessageCaption(tracked.chatId, tracked.messageId, {
+      caption: message,
+      parse_mode: 'HTML',
+    });
+  } else {
+    await bot.api.editMessageText(tracked.chatId, tracked.messageId, message, {
+      parse_mode: 'HTML',
+    });
   }
+  console.log(
+    `[Telegram] Updated message ${tracked.messageId}: ${alert.type} — ${alert.cities.length} cities` +
+    `${imageBuffer ? ' + map' : ''} (${method})`
+  );
 }
