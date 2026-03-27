@@ -60,6 +60,35 @@ export function buildCityList(cities: string[]): string {
   return `${cityStr}\n<i>ועוד ${remaining} ערים נוספות</i>`;
 }
 
+export function buildZonedCityList(cities: string[]): string {
+  if (cities.length === 0) return '';
+
+  const zoneMap = new Map<string, string[]>();
+  const noZone: string[] = [];
+
+  for (const cityName of cities) {
+    const zone = getCityData(cityName)?.zone;
+    if (zone) {
+      const existing = zoneMap.get(zone) ?? [];
+      zoneMap.set(zone, [...existing, cityName]);
+    } else {
+      noZone.push(cityName);
+    }
+  }
+
+  const sections: string[] = [];
+
+  for (const [zone, zoneCities] of zoneMap) {
+    sections.push(`📍 <b>${escapeHtml(zone)}</b>\n${buildCityList(zoneCities)}`);
+  }
+
+  if (noZone.length > 0) {
+    sections.push(buildCityList(noZone));
+  }
+
+  return sections.join('\n\n');
+}
+
 export function formatAlertMessage(alert: Alert): string {
   const emoji = ALERT_TYPE_EMOJI[alert.type] ?? '⚠️';
   const title = ALERT_TYPE_HE[alert.type] ?? ALERT_TYPE_HE.unknown;
@@ -71,22 +100,11 @@ export function formatAlertMessage(alert: Alert): string {
     hour12: false,
   });
 
-  let zoneStr = '';
-  for (const cityName of alert.cities) {
-    const cityData = getCityData(cityName);
-    if (cityData?.zone) {
-      zoneStr = cityData.zone;
-      break;
-    }
-  }
-
-  const zonePart = zoneStr ? `  ·  📍 ${escapeHtml(zoneStr)}` : '';
-
   const parts: string[] = [];
-  parts.push(`${emoji}  <b>${escapeHtml(title)}</b>\n🕐 ${escapeHtml(timeStr)}${zonePart}`);
+  parts.push(`${emoji}  <b>${escapeHtml(title)}</b>\n🕐 ${escapeHtml(timeStr)}`);
 
-  const cityList = buildCityList(alert.cities);
-  if (cityList) parts.push(cityList);
+  const zonedList = buildZonedCityList(alert.cities);
+  if (zonedList) parts.push(zonedList);
 
   if (alert.instructions) {
     const instructionsPrefix = alert.type === 'newsFlash' ? '📌 <b>תוכן ההודעה:</b>' : '🛡';
