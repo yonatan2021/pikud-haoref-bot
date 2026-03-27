@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
-import { test } from 'node:test';
-import { escapeHtml, buildCityList } from '../telegramBot.js';
+import { describe, it, test } from 'node:test';
+import { escapeHtml, buildCityList, selectEditMethod } from '../telegramBot.js';
 
 test('escapeHtml escapes ampersand', () => {
   assert.equal(escapeHtml('a & b'), 'a &amp; b');
@@ -48,4 +48,20 @@ test('buildCityList truncates at 25 and shows overflow', () => {
 test('buildCityList escapes HTML in city names', () => {
   const result = buildCityList(['תל & אביב']);
   assert.ok(result.includes('תל &amp; אביב'));
+});
+
+describe('selectEditMethod', () => {
+  it('returns "media" when hasPhoto=true and imageBuffer is provided', () => {
+    const result = selectEditMethod(true, Buffer.from('img'));
+    assert.equal(result, 'media');
+  });
+
+  it('returns "caption" when hasPhoto=true but imageBuffer is null', () => {
+    assert.equal(selectEditMethod(true, null), 'caption');
+  });
+
+  it('returns "text" when hasPhoto=false regardless of imageBuffer', () => {
+    assert.equal(selectEditMethod(false, null), 'text');
+    assert.equal(selectEditMethod(false, Buffer.from('img')), 'text');
+  });
 });
