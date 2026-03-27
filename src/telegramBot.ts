@@ -195,7 +195,7 @@ export async function editAlert(
       `${imageBuffer ? ' + מפה' : ''} (${method})`
     );
   } catch (err) {
-    console.error('[Telegram] שגיאה בעדכון הודעה:', err);
+    console.warn('[Telegram] שגיאה בעדכון הודעה:', err);
     throw err;
   }
 }

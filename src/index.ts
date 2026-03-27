@@ -8,7 +8,7 @@ import { Alert } from './types';
 import { initDb } from './db/schema';
 import { setupBotHandlers } from './bot/botSetup';
 import { notifySubscribers } from './services/dmDispatcher';
-import { isDrillAlert, shouldSkipMap } from './alertHelpers';
+import { shouldSkipMap } from './alertHelpers';
 
 const REQUIRED_ENV_VARS = ['TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID', 'MAPBOX_ACCESS_TOKEN'];
 
@@ -54,16 +54,20 @@ for (const envVar of REQUIRED_ENV_VARS) {
         };
         const imageBuffer = skipMap ? null : await generateMapImage(mergedAlert);
 
+        let editHandled = false;
         try {
           await editAlert(active, mergedAlert, imageBuffer);
           trackMessage(alert.type, { ...active, alert: mergedAlert });
+          editHandled = true;
         } catch (editErr) {
           if (isUnmodifiedError(editErr)) {
             // Telegram 400 "message is not modified" — content already up-to-date, treat as success
             trackMessage(alert.type, { ...active, alert: mergedAlert });
-            return;
+            editHandled = true;
           }
-          console.warn('[Index] עריכת הודעה נכשלה — שולח הודעה חדשה:', editErr);
+        }
+        if (!editHandled) {
+          console.warn('[Index] עריכת הודעה נכשלה — שולח הודעה חדשה:');
           try {
             const sent = await sendAlert(mergedAlert, imageBuffer, topicId);
             trackMessage(alert.type, {
@@ -76,7 +80,7 @@ for (const envVar of REQUIRED_ENV_VARS) {
             });
           } catch (sendErr) {
             throw new Error(
-              `[Index] גם עריכה וגם שליחת הודעה חדשה נכשלו. editErr: ${editErr}. sendErr: ${sendErr}`
+              `[Index] שליחת הודעה חדשה נכשלה. sendErr: ${sendErr}`
             );
           }
         }
