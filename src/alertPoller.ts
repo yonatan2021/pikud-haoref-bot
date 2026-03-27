@@ -69,27 +69,32 @@ export class AlertPoller extends EventEmitter {
             return resolve();
           }
 
-          if (!alerts || alerts.length === 0) {
-            if (this.seenFingerprints.size > 0) {
-              console.log('[AlertPoller] אין התראות פעילות — מאפס זיכרון');
-              this.seenFingerprints.clear();
+          const groupedAlerts = groupAlertsByType(alerts ?? []);
+          const normalizedAlerts = groupedAlerts.map((alert) => ({
+            ...alert,
+            cities: alert.cities.map(normalizeCityName),
+          }));
+          const currentFingerprints = new Set(normalizedAlerts.map(buildFingerprint));
+
+          // Expire fingerprints for alerts no longer present in the API response
+          for (const fp of this.seenFingerprints) {
+            if (!currentFingerprints.has(fp)) {
+              this.seenFingerprints.delete(fp);
             }
+          }
+
+          if (!alerts || alerts.length === 0) {
             return resolve();
           }
 
-          const groupedAlerts = groupAlertsByType(alerts);
-          for (const alert of groupedAlerts) {
-            const normalizedAlert: Alert = {
-              ...alert,
-              cities: alert.cities.map(normalizeCityName),
-            };
-            const fingerprint = buildFingerprint(normalizedAlert);
+          for (const alert of normalizedAlerts) {
+            const fingerprint = buildFingerprint(alert);
             if (!this.seenFingerprints.has(fingerprint)) {
               this.seenFingerprints.add(fingerprint);
               console.log(
-                `[AlertPoller] התרעה חדשה: ${alert.type} — ${normalizedAlert.cities.length} ערים`
+                `[AlertPoller] התרעה חדשה: ${alert.type} — ${alert.cities.length} ערים`
               );
-              this.emit('newAlert', normalizedAlert);
+              this.emit('newAlert', alert);
             }
           }
           resolve();
