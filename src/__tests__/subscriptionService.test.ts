@@ -17,7 +17,7 @@ import {
   isSubscribed,
   getSubscriptionCount,
 } from '../db/subscriptionRepository';
-import { upsertUser, setFormat, deleteUser } from '../db/userRepository';
+import { upsertUser, setFormat, setQuietHours, deleteUser } from '../db/userRepository';
 
 describe('subscriptionService', () => {
   const CHAT_A = 111111;
@@ -167,6 +167,27 @@ describe('subscriptionService', () => {
       addSubscription(CHAT_A, 'תל אביב');
       deleteUser(CHAT_A);
       assert.equal(getSubscriptionCount(CHAT_A), 0);
+    });
+  });
+
+  describe('setQuietHours', () => {
+    it('enables quiet hours', () => {
+      upsertUser(CHAT_A);
+      setQuietHours(CHAT_A, true);
+      const row = getDb()
+        .prepare('SELECT quiet_hours_enabled FROM users WHERE chat_id = ?')
+        .get(CHAT_A) as { quiet_hours_enabled: number };
+      assert.equal(row.quiet_hours_enabled, 1);
+    });
+
+    it('disables quiet hours', () => {
+      upsertUser(CHAT_A);
+      setQuietHours(CHAT_A, true);
+      setQuietHours(CHAT_A, false);
+      const row = getDb()
+        .prepare('SELECT quiet_hours_enabled FROM users WHERE chat_id = ?')
+        .get(CHAT_A) as { quiet_hours_enabled: number };
+      assert.equal(row.quiet_hours_enabled, 0);
     });
   });
 });
