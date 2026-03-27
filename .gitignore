@@ -2,7 +2,13 @@ node_modules/
 dist/
 data/
 .env
+.env.*
 *.db
+*.db-shm
+*.db-wal
+npm-debug.log*
+coverage/
+*.tsbuildinfo
 .DS_Store
 docs/superpowers/
 CLAUDE.md

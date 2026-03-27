@@ -108,37 +108,89 @@ export function getBot(): Bot {
   return botInstance;
 }
 
+export interface SentMessage {
+  messageId: number;
+  hasPhoto: boolean;
+}
+
 export async function sendAlert(
   alert: Alert,
   imageBuffer: Buffer | null,
   messageThreadId?: number
-): Promise<void> {
+): Promise<SentMessage> {
   const bot = getBot();
   const chatId = process.env.TELEGRAM_CHAT_ID;
   if (!chatId) throw new Error('TELEGRAM_CHAT_ID חסר בקובץ .env');
 
   const message = formatAlertMessage(alert);
   const threadOptions = messageThreadId ? { message_thread_id: messageThreadId } : {};
+  const topicStr = messageThreadId ? ` → topic ${messageThreadId}` : '';
 
   try {
     if (imageBuffer) {
-      await bot.api.sendPhoto(chatId, new InputFile(imageBuffer, 'map.png'), {
+      const sent = await bot.api.sendPhoto(chatId, new InputFile(imageBuffer, 'map.png'), {
         caption: message,
         parse_mode: 'HTML',
         ...threadOptions,
       });
+      console.log(
+        `[Telegram] Sent: ${alert.type} — ${alert.cities.length} cities + map${topicStr}`
+      );
+      return { messageId: sent.message_id, hasPhoto: true };
     } else {
-      await bot.api.sendMessage(chatId, message, {
+      const sent = await bot.api.sendMessage(chatId, message, {
         parse_mode: 'HTML',
         ...threadOptions,
       });
+      console.log(
+        `[Telegram] Sent: ${alert.type} — ${alert.cities.length} cities${topicStr}`
+      );
+      return { messageId: sent.message_id, hasPhoto: false };
     }
-    const topicStr = messageThreadId ? ` → topic ${messageThreadId}` : '';
-    console.log(
-      `[Telegram] נשלח: ${alert.type} — ${alert.cities.length} ערים${imageBuffer ? ' + מפה' : ''}${topicStr}`
-    );
   } catch (err) {
-    console.error('[Telegram] שגיאה בשליחת הודעה:', err);
+    console.error('[Telegram] Error sending message:', err);
     throw err;
   }
+}
+
+/** Exported for testing — determines which Telegram API method to use for editing. */
+export function selectEditMethod(
+  hasPhoto: boolean,
+  imageBuffer: Buffer | null
+): 'media' | 'caption' | 'text' {
+  if (hasPhoto && imageBuffer) return 'media';
+  if (hasPhoto) return 'caption';
+  return 'text';
+}
+
+export async function editAlert(
+  tracked: { messageId: number; chatId: string; hasPhoto: boolean },
+  alert: Alert,
+  imageBuffer: Buffer | null
+): Promise<void> {
+  const bot = getBot();
+  const message = formatAlertMessage(alert);
+  const method = selectEditMethod(tracked.hasPhoto, imageBuffer);
+
+  if (method === 'media') {
+    await bot.api.editMessageMedia(tracked.chatId, tracked.messageId, {
+      type: 'photo',
+      media: new InputFile(imageBuffer!, 'map.png'),
+      caption: message,
+      parse_mode: 'HTML',
+    });
+  } else if (method === 'caption') {
+    await bot.api.editMessageCaption(tracked.chatId, tracked.messageId, {
+      caption: message,
+      parse_mode: 'HTML',
+    });
+  } else {
+    await bot.api.editMessageText(tracked.chatId, tracked.messageId, message, {
+      parse_mode: 'HTML',
+    });
+  }
+  console.log(
+    `[Telegram] Updated message ${tracked.messageId}: ${alert.type} — ${alert.cities.length} cities` +
+    `${imageBuffer ? ' + map' : ''} (${method})`
+  );
 }

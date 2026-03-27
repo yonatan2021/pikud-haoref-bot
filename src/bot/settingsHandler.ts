@@ -153,6 +153,10 @@ export function registerSettingsHandler(bot: Bot): void {
     await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
   });
 
+  bot.callbackQuery('noop', async (ctx: Context) => {
+    await ctx.answerCallbackQuery();
+  });
+
   // rm:CITY_ID:PAGE — remove city by numeric ID, return to given page
   bot.callbackQuery(/^rm:(\d+):(\d+)$/, async (ctx: Context) => {
     const chatId = ctx.chat?.id;

@@ -42,9 +42,10 @@ function groupAlertsByType(alerts: Alert[]): Alert[] {
 
 export class AlertPoller extends EventEmitter {
   private seenFingerprints = new Set<string>();
+  private citylessFingerprints = new Set<string>();
 
   start(intervalMs = 2000): void {
-    console.log(`[AlertPoller] מתחיל סקר כל ${intervalMs / 1000} שניות`);
+    console.log(`[AlertPoller] Starting poll every ${intervalMs / 1000}s`);
     const schedule = (): void => {
       this.poll().finally(() => setTimeout(schedule, intervalMs));
     };
@@ -65,7 +66,7 @@ export class AlertPoller extends EventEmitter {
       pikudHaoref.getActiveAlerts(
         (err: Error | null, alerts: Alert[]) => {
           if (err) {
-            console.error('[AlertPoller] שגיאה בקבלת התראות:', err.message);
+            console.error('[AlertPoller] Error fetching alerts:', err);
             return resolve();
           }
 
@@ -76,9 +77,10 @@ export class AlertPoller extends EventEmitter {
           }));
           const currentFingerprints = new Set(normalizedAlerts.map(buildFingerprint));
 
-          // Expire fingerprints for alerts no longer present in the API response
+          // Expire fingerprints for alerts no longer present in the API response.
+          // Cityless fingerprints are managed by pollCitylessNewsFlash — skip them here.
           for (const fp of this.seenFingerprints) {
-            if (!currentFingerprints.has(fp)) {
+            if (!currentFingerprints.has(fp) && !this.citylessFingerprints.has(fp)) {
               this.seenFingerprints.delete(fp);
             }
           }
@@ -92,7 +94,7 @@ export class AlertPoller extends EventEmitter {
             if (!this.seenFingerprints.has(fingerprint)) {
               this.seenFingerprints.add(fingerprint);
               console.log(
-                `[AlertPoller] התרעה חדשה: ${alert.type} — ${alert.cities.length} ערים`
+                `[AlertPoller] New alert: ${alert.type} — ${alert.cities.length} cities`
               );
               this.emit('newAlert', alert);
             }
@@ -118,7 +120,10 @@ export class AlertPoller extends EventEmitter {
       const res = await axios(axiosOptions);
       let buffer = Buffer.from(res.data as ArrayBuffer);
 
-      if (buffer.length < 2) return;
+      if (buffer.length < 2) {
+        console.warn('[AlertPoller] newsFlash response too short — skipping');
+        return;
+      }
 
       let encoding: BufferEncoding = 'utf8';
       if (buffer[0] === 255 && buffer[1] === 254) {
@@ -135,13 +140,20 @@ export class AlertPoller extends EventEmitter {
       const json = JSON.parse(body);
 
       // Only handle newsFlash (cat=10) with no cities — the library already handles all other cases
-      if (parseInt(json.cat) !== 10) return;
+      if (parseInt(json.cat) !== 10) {
+        this.clearCitylessFingerprints();
+        return;
+      }
 
       const cities: string[] = (json.data ?? [])
         .map((c: string) => c?.trim())
         .filter((c: string) => c && !c.includes('בדיקה'));
 
-      if (cities.length > 0) return; // library handles this
+      if (cities.length > 0) {
+        // newsFlash now has cities — library handles it; release our fingerprint so it can expire normally
+        this.clearCitylessFingerprints();
+        return;
+      }
 
       const alert: Alert = {
         type: 'newsFlash',
@@ -153,11 +165,19 @@ export class AlertPoller extends EventEmitter {
       const fingerprint = buildFingerprint(alert);
       if (!this.seenFingerprints.has(fingerprint)) {
         this.seenFingerprints.add(fingerprint);
-        console.log('[AlertPoller] התרעה חדשה: newsFlash ארצי (ללא ערים)');
+        this.citylessFingerprints.add(fingerprint);
+        console.log('[AlertPoller] New alert: nationwide newsFlash (no cities)');
         this.emit('newAlert', alert);
       }
     } catch (err) {
-      console.error('[AlertPoller] שגיאה בבדיקת newsFlash ארצי:', (err as Error).message);
+      console.error('[AlertPoller] Error checking nationwide newsFlash:', err);
     }
+  }
+
+  private clearCitylessFingerprints(): void {
+    for (const fp of this.citylessFingerprints) {
+      this.seenFingerprints.delete(fp);
+    }
+    this.citylessFingerprints.clear();
   }
 }
