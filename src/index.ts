@@ -1,7 +1,8 @@
 import 'dotenv/config';
 import { AlertPoller } from './alertPoller';
 import { generateMapImage } from './mapService';
-import { sendAlert, getBot } from './telegramBot';
+import { sendAlert, getBot, editAlert } from './telegramBot';
+import { getActiveMessage, trackMessage } from './alertWindowTracker';
 import { getTopicId } from './topicRouter';
 import { Alert } from './types';
 import { initDb } from './db/schema';
@@ -37,14 +38,54 @@ for (const envVar of REQUIRED_ENV_VARS) {
   const poller = new AlertPoller();
 
   poller.on('newAlert', async (alert: Alert) => {
+    const chatId = process.env.TELEGRAM_CHAT_ID!;
+    const skipMap = shouldSkipMap(alert.type);
+    const topicId = getTopicId(alert.type);
+
+    // Channel broadcast
     try {
-      const imageBuffer = shouldSkipMap(alert.type) ? null : await generateMapImage(alert);
-      const topicId = getTopicId(alert.type);
-      await sendAlert(alert, imageBuffer, topicId);
+      const active = getActiveMessage(alert.type);
+
+      if (active) {
+        const mergedAlert: Alert = {
+          ...active.alert,
+          cities: Array.from(new Set([...active.alert.cities, ...alert.cities])),
+          instructions: alert.instructions ?? active.alert.instructions,
+        };
+        const imageBuffer = skipMap ? null : await generateMapImage(mergedAlert);
+
+        try {
+          await editAlert(active, mergedAlert, imageBuffer);
+          trackMessage(alert.type, { ...active, alert: mergedAlert });
+        } catch (editErr) {
+          console.warn('[Index] עריכת הודעה נכשלה — שולח הודעה חדשה:', editErr);
+          const sent = await sendAlert(mergedAlert, imageBuffer, topicId);
+          trackMessage(alert.type, {
+            messageId: sent.messageId,
+            chatId,
+            topicId,
+            alert: mergedAlert,
+            sentAt: Date.now(),
+            hasPhoto: sent.hasPhoto,
+          });
+        }
+      } else {
+        const imageBuffer = skipMap ? null : await generateMapImage(alert);
+        const sent = await sendAlert(alert, imageBuffer, topicId);
+        trackMessage(alert.type, {
+          messageId: sent.messageId,
+          chatId,
+          topicId,
+          alert,
+          sentAt: Date.now(),
+          hasPhoto: sent.hasPhoto,
+        });
+      }
     } catch (err) {
       console.error('[Index] שגיאה בטיפול בהתרעה:', err);
     }
 
+    // DM notifications (unchanged)
     try {
       await notifySubscribers(alert);
     } catch (err) {
