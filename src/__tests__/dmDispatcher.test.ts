@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { ALERT_TYPE_EMOJI, ALERT_TYPE_HE } from '../telegramBot';
 import type { Alert } from '../types';
-import { buildNewsFlashDmMessage } from '../services/dmDispatcher';
+import { buildNewsFlashDmMessage, buildDmText } from '../services/dmDispatcher';
 
 // Test the short message format logic (extracted for unit testing)
 function buildShortMessage(alert: Alert): string {
@@ -122,5 +122,29 @@ describe('buildNewsFlashDmMessage', () => {
     };
     const msg = buildNewsFlashDmMessage(alert);
     assert.ok(msg.includes('עיר_לא_קיימת_בכלל'), 'should fall back to city name');
+  });
+});
+
+describe('buildDmText — personalization integration', () => {
+  it('short format shows only matchedCities, not all alert cities', () => {
+    const personalAlert: Alert = { type: 'missiles', cities: ['אבו גוש'] };
+    const msg = buildDmText(personalAlert, 'short');
+    assert.ok(msg.includes('אבו גוש'), 'matched city must appear');
+    assert.ok(!msg.includes('נהריה'), 'unmatched city must not appear');
+    assert.ok(!msg.includes('חיפה'), 'unmatched city must not appear');
+  });
+
+  it('detailed format uses formatAlertMessage with matched cities only', () => {
+    const personalAlert: Alert = { type: 'missiles', cities: ['אבו גוש'] };
+    const msg = buildDmText(personalAlert, 'detailed');
+    assert.ok(msg.includes('אבו גוש'));
+    assert.ok(!msg.includes('נהריה'));
+  });
+
+  it('newsFlash uses buildNewsFlashDmMessage regardless of format', () => {
+    const personalAlert: Alert = { type: 'newsFlash', cities: ['אבו גוש'], instructions: 'הנחיות' };
+    const msg = buildDmText(personalAlert, 'short');
+    assert.ok(msg.startsWith('📢'), 'newsFlash must use newsFlash formatter');
+    assert.ok(msg.includes('הנחיות'));
   });
 });

@@ -3,6 +3,7 @@ import { getUsersForCities } from '../db/subscriptionRepository.js';
 import { deleteUser } from '../db/userRepository.js';
 import { formatAlertMessage, getBot, ALERT_TYPE_EMOJI, ALERT_TYPE_HE } from '../telegramBot.js';
 import { getCityData } from '../cityLookup.js';
+import type { NotificationFormat } from '../db/userRepository.js';
 
 function buildShortMessage(alert: Alert): string {
   const emoji = ALERT_TYPE_EMOJI[alert.type] ?? '⚠️';
@@ -52,6 +53,12 @@ export function buildNewsFlashDmMessage(alert: Alert): string {
   return parts.join('\n');
 }
 
+export function buildDmText(alert: Alert, format: NotificationFormat): string {
+  if (alert.type === 'newsFlash') return buildNewsFlashDmMessage(alert);
+  if (format === 'detailed') return formatAlertMessage(alert);
+  return buildShortMessage(alert);
+}
+
 export async function notifySubscribers(alert: Alert): Promise<void> {
   const subscribers = getUsersForCities(alert.cities);
   console.log(
@@ -61,12 +68,10 @@ export async function notifySubscribers(alert: Alert): Promise<void> {
   if (subscribers.length === 0) return;
 
   const bot = getBot();
-  const detailedMessage = formatAlertMessage(alert);
-  const shortMessage = buildShortMessage(alert);
-  const newsFlashMessage = alert.type === 'newsFlash' ? buildNewsFlashDmMessage(alert) : null;
 
-  for (const { chat_id, format } of subscribers) {
-    const text = newsFlashMessage ?? (format === 'detailed' ? detailedMessage : shortMessage);
+  for (const { chat_id, format, matchedCities } of subscribers) {
+    const personalAlert: Alert = { ...alert, cities: matchedCities };
+    const text = buildDmText(personalAlert, format);
     try {
       await bot.api.sendMessage(chat_id, text, { parse_mode: 'HTML' });
     } catch (err: unknown) {
