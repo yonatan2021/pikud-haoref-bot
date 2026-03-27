@@ -45,7 +45,7 @@ export class AlertPoller extends EventEmitter {
   private citylessFingerprints = new Set<string>();
 
   start(intervalMs = 2000): void {
-    console.log(`[AlertPoller] מתחיל סקר כל ${intervalMs / 1000} שניות`);
+    console.log(`[AlertPoller] Starting poll every ${intervalMs / 1000}s`);
     const schedule = (): void => {
       this.poll().finally(() => setTimeout(schedule, intervalMs));
     };
@@ -66,7 +66,7 @@ export class AlertPoller extends EventEmitter {
       pikudHaoref.getActiveAlerts(
         (err: Error | null, alerts: Alert[]) => {
           if (err) {
-            console.error('[AlertPoller] שגיאה בקבלת התראות:', err);
+            console.error('[AlertPoller] Error fetching alerts:', err);
             return resolve();
           }
 
@@ -94,7 +94,7 @@ export class AlertPoller extends EventEmitter {
             if (!this.seenFingerprints.has(fingerprint)) {
               this.seenFingerprints.add(fingerprint);
               console.log(
-                `[AlertPoller] התרעה חדשה: ${alert.type} — ${alert.cities.length} ערים`
+                `[AlertPoller] New alert: ${alert.type} — ${alert.cities.length} cities`
               );
               this.emit('newAlert', alert);
             }
@@ -121,7 +121,7 @@ export class AlertPoller extends EventEmitter {
       let buffer = Buffer.from(res.data as ArrayBuffer);
 
       if (buffer.length < 2) {
-        console.warn('[AlertPoller] תגובת newsFlash ריקה או קצרה מדי — מדלג');
+        console.warn('[AlertPoller] newsFlash response too short — skipping');
         return;
       }
 
@@ -166,11 +166,11 @@ export class AlertPoller extends EventEmitter {
       if (!this.seenFingerprints.has(fingerprint)) {
         this.seenFingerprints.add(fingerprint);
         this.citylessFingerprints.add(fingerprint);
-        console.log('[AlertPoller] התרעה חדשה: newsFlash ארצי (ללא ערים)');
+        console.log('[AlertPoller] New alert: nationwide newsFlash (no cities)');
         this.emit('newAlert', alert);
       }
     } catch (err) {
-      console.error('[AlertPoller] שגיאה בבדיקת newsFlash ארצי:', err);
+      console.error('[AlertPoller] Error checking nationwide newsFlash:', err);
     }
   }
 

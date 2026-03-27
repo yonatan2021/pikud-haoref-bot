@@ -11,7 +11,7 @@ export async function setupBotHandlers(bot: Bot): Promise<void> {
   registerSettingsHandler(bot);
 
   bot.catch((err) => {
-    console.error('[Bot] שגיאה לא מטופלת:', err);
+    console.error('[Bot] Unhandled error:', err);
   });
 
   await bot.api.setMyCommands([

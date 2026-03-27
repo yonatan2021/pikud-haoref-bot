@@ -30,10 +30,10 @@ export async function notifySubscribers(alert: Alert): Promise<void> {
           err.message.includes('user is deactivated') ||
           err.message.includes('chat not found'));
       if (isBlocked) {
-        console.log(`[DM] משתמש ${chat_id} חסם את הבוט — מוחק מנויים`);
+        console.log(`[DM] User ${chat_id} blocked the bot — removing subscriptions`);
         deleteUser(chat_id);
       } else {
-        console.error(`[DM] שגיאה בשליחה ל-${chat_id}:`, err);
+        console.error(`[DM] Error sending to ${chat_id}:`, err);
       }
     }
   }
