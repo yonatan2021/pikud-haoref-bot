@@ -1,6 +1,6 @@
 import { Bot, InlineKeyboard } from 'grammy';
 import type { Context } from 'grammy';
-import { getUser, setFormat, upsertUser } from '../db/userRepository.js';
+import { getUser, setFormat, setQuietHours, upsertUser } from '../db/userRepository.js';
 import {
   removeSubscription,
   removeAllSubscriptions,
@@ -17,10 +17,14 @@ function buildSettingsMenu(chatId: number): { text: string; keyboard: InlineKeyb
   const format = user?.format ?? 'short';
   const shortMark = format === 'short' ? '●' : '○';
   const detailMark = format === 'detailed' ? '●' : '○';
+  const quietEnabled = (user?.quiet_hours_enabled ?? 0) === 1;
+  const quietLabel = quietEnabled ? 'פעיל ✓' : 'כבוי';
 
   const keyboard = new InlineKeyboard()
     .text(`${shortMark} קצר`, 'fmt:short')
     .text(`${detailMark} מפורט`, 'fmt:detailed')
+    .row()
+    .text(`🔕 שעות שקט: ${quietLabel}`, 'quiet:toggle')
     .row()
     .text('🔕 בטל כל המנויים', 'settings:clearall')
     .row()
@@ -101,6 +105,17 @@ export function registerSettingsHandler(bot: Bot): void {
     if (!chatId) return;
     const format = ctx.match![1] as 'short' | 'detailed';
     setFormat(chatId, format);
+    const { text, keyboard } = buildSettingsMenu(chatId);
+    await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
+  });
+
+  bot.callbackQuery('quiet:toggle', async (ctx: Context) => {
+    await ctx.answerCallbackQuery();
+    const chatId = ctx.chat?.id;
+    if (!chatId) return;
+    const user = getUser(chatId);
+    const current = (user?.quiet_hours_enabled ?? 0) === 1;
+    setQuietHours(chatId, !current);
     const { text, keyboard } = buildSettingsMenu(chatId);
     await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
   });

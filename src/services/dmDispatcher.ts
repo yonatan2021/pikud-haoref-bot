@@ -4,6 +4,7 @@ import { deleteUser } from '../db/userRepository.js';
 import { formatAlertMessage, getBot, ALERT_TYPE_EMOJI, ALERT_TYPE_HE } from '../telegramBot.js';
 import { getCityData } from '../cityLookup.js';
 import type { NotificationFormat } from '../db/userRepository.js';
+import { ALERT_TYPE_CATEGORY } from '../topicRouter.js';
 
 function buildShortMessage(alert: Alert): string {
   const emoji = ALERT_TYPE_EMOJI[alert.type] ?? '⚠️';
@@ -59,6 +60,28 @@ export function buildDmText(alert: Alert, format: NotificationFormat): string {
   return buildShortMessage(alert);
 }
 
+function getIsraelHour(now: Date): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Jerusalem',
+    hour: 'numeric',
+    hourCycle: 'h23',
+  }).formatToParts(now);
+  const hourPart = parts.find((p) => p.type === 'hour');
+  return parseInt(hourPart?.value ?? '0', 10);
+}
+
+export function shouldSkipForQuietHours(
+  alertType: string,
+  quietEnabled: boolean,
+  now: Date = new Date()
+): boolean {
+  if (!quietEnabled) return false;
+  const hour = getIsraelHour(now);
+  if (!(hour >= 23 || hour < 6)) return false;
+  const category = ALERT_TYPE_CATEGORY[alertType] ?? 'general';
+  return category === 'drills' || category === 'general';
+}
+
 export async function notifySubscribers(alert: Alert): Promise<void> {
   const subscribers = getUsersForCities(alert.cities);
   console.log(
@@ -69,7 +92,8 @@ export async function notifySubscribers(alert: Alert): Promise<void> {
 
   const bot = getBot();
 
-  for (const { chat_id, format, matchedCities } of subscribers) {
+  for (const { chat_id, format, quiet_hours_enabled, matchedCities } of subscribers) {
+    if (shouldSkipForQuietHours(alert.type, quiet_hours_enabled === 1)) continue;
     const personalAlert: Alert = { ...alert, cities: matchedCities };
     const text = buildDmText(personalAlert, format);
     try {
