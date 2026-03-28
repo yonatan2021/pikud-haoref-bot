@@ -1,0 +1,21 @@
+import { Outlet } from 'react-router-dom';
+import { useState } from 'react';
+import { Sidebar } from './Sidebar';
+import { StatusStrip } from './StatusStrip';
+import { CommandPalette } from './CommandPalette';
+
+export function Root() {
+  const [uptime, setUptime] = useState(0);
+  return (
+    <div className="flex h-screen overflow-hidden bg-base text-text-primary">
+      <CommandPalette />
+      <main className="flex-1 flex flex-col overflow-hidden min-w-0">
+        <StatusStrip onUptime={setUptime} />
+        <div className="flex-1 overflow-y-auto p-6">
+          <Outlet />
+        </div>
+      </main>
+      <Sidebar uptime={uptime} />
+    </div>
+  );
+}
