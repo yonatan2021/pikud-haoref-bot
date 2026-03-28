@@ -58,6 +58,18 @@ export function initDb(): void {
     ].join('\n')
   );
 
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS alert_window (
+      alert_type  TEXT PRIMARY KEY,
+      message_id  INTEGER NOT NULL,
+      chat_id     TEXT NOT NULL,
+      topic_id    INTEGER,
+      alert_json  TEXT NOT NULL,
+      sent_at     INTEGER NOT NULL,
+      has_photo   INTEGER NOT NULL
+    );
+  `);
+
   try {
     database.exec(
       'ALTER TABLE users ADD COLUMN quiet_hours_enabled INTEGER NOT NULL DEFAULT 0'

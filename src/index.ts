@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { AlertPoller } from './alertPoller';
 import { generateMapImage } from './mapService';
 import { sendAlert, getBot, editAlert } from './telegramBot';
-import { getActiveMessage, trackMessage } from './alertWindowTracker';
+import { getActiveMessage, trackMessage, loadActiveMessages } from './alertWindowTracker';
 import { getTopicId } from './topicRouter';
 import { Alert } from './types';
 import { initDb } from './db/schema';
@@ -25,6 +25,7 @@ for (const envVar of REQUIRED_ENV_VARS) {
 (async () => {
   try {
     initDb();
+    loadActiveMessages();
   } catch (err) {
     console.error('[Init] Database init failed — bot cannot start:', err);
     process.exit(1);

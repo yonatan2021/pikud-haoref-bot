@@ -1,4 +1,5 @@
 import { Alert } from './types';
+import { upsertWindow, deleteWindow, clearAllWindows, loadAllWindows } from './db/alertWindowRepository.js';
 
 export interface TrackedMessage {
   messageId: number;
@@ -22,6 +23,7 @@ export function getActiveMessage(alertType: string): TrackedMessage | null {
   const tracked = activeMessages.get(alertType);
   if (!tracked) return null;
   if (Date.now() - tracked.sentAt > windowMs()) {
+    deleteWindow(alertType);
     activeMessages.delete(alertType);
     return null;
   }
@@ -30,8 +32,27 @@ export function getActiveMessage(alertType: string): TrackedMessage | null {
 
 export function trackMessage(alertType: string, msg: TrackedMessage): void {
   activeMessages.set(alertType, msg);
+  upsertWindow(alertType, msg);
 }
 
 export function clearAll(): void {
   activeMessages.clear();
+  clearAllWindows();
+}
+
+export function clearMemoryOnly(): void {
+  activeMessages.clear();
+}
+
+export function loadActiveMessages(): void {
+  const windows = loadAllWindows();
+  const now = Date.now();
+  const windowMs_ = (parseInt(process.env.ALERT_UPDATE_WINDOW_SECONDS ?? '120', 10)) * 1000;
+  for (const { alertType, msg } of windows) {
+    if (now - msg.sentAt <= windowMs_) {
+      activeMessages.set(alertType, msg);
+    } else {
+      deleteWindow(alertType);
+    }
+  }
 }
