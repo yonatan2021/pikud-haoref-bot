@@ -13,7 +13,7 @@ interface GlassCardProps {
 const glowBorderColor: Record<NonNullable<GlassCardProps['glow']>, string> = {
   amber: 'var(--color-border-glow)',
   blue:  'var(--color-border-glow-blue)',
-  green: 'rgba(34,197,94,0.35)',
+  green: 'var(--color-border-glow-green)',
   none:  'var(--color-border)',
 }
 
