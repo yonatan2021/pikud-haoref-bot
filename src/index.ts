@@ -11,6 +11,8 @@ import { notifySubscribers } from './services/dmDispatcher';
 import { shouldSkipMap } from './alertHelpers';
 import { handleNewAlert } from './alertHandler';
 import { insertAlert as insertAlertHistory } from './db/alertHistoryRepository.js';
+import { startHealthServer } from './healthServer.js';
+import { updateLastAlertAt } from './metrics.js';
 
 const REQUIRED_ENV_VARS = ['TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID', 'MAPBOX_ACCESS_TOKEN'];
 
@@ -31,12 +33,15 @@ for (const envVar of REQUIRED_ENV_VARS) {
     process.exit(1);
   }
 
+  startHealthServer();
+
   const bot = getBot();
   await setupBotHandlers(bot);
 
   const poller = new AlertPoller();
 
   poller.on('newAlert', async (alert: Alert) => {
+    updateLastAlertAt();
     const chatId = process.env.TELEGRAM_CHAT_ID!;
     await handleNewAlert(alert, {
       chatId,
