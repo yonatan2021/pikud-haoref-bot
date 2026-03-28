@@ -26,6 +26,31 @@
 
 ---
 
+## [0.1.6] — 2026-03-29
+
+<div dir="rtl">
+
+### ✨ תכונות חדשות
+
+#### התקנה בפקודה אחת
+- `npx @haoref-boti/pikud-haoref-bot` — wizard אינטראקטיבי להגדרת הבוט
+- שואל על `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `MAPBOX_ACCESS_TOKEN` (חובה)
+- תמיכה בדגלים: `--token`, `--chat-id`, `--mapbox`, `--dashboard`, `--proxy`, `--invite-link`, `--full`, `--output`
+- בחירת אופן הרצה: Docker (מומלץ) או Node.js
+- החבילה מפורסמת ב-npm: `@haoref-boti/pikud-haoref-bot`
+
+### 🔧 תחזוקה
+
+- `publish-npm` job נוסף ל-`release.yml` — פרסום אוטומטי ל-npm בכל tag גרסה
+- `bin/setup.js` נוסף לפרויקט (plain JS, ללא תלויות)
+- `package.json`: נוספו שדות `bin`, `files`, `publishConfig`
+- דף הנחיתה עודכן: כפתור "הרץ instance משלך" מציג `npx @haoref-boti/pikud-haoref-bot`
+- גריד "שתי דרכים" אוזן לגובה שווה בין שני הכרטיסים
+
+</div>
+
+---
+
 ## [0.1.5] — 2026-03-28
 
 <div dir="rtl">
@@ -284,7 +309,8 @@
 
 <div dir="rtl">
 
-[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.1.5...HEAD
+[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.1.6...HEAD
+[0.1.6]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.1.2...v0.1.3

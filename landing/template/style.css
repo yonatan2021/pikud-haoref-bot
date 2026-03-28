@@ -586,7 +586,7 @@ img {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1.5rem;
-  align-items: start;
+  align-items: stretch;
 }
 
 .path-card {
@@ -670,7 +670,7 @@ img {
 
 .btn--path {
   align-self: flex-start;
-  margin-top: 0.25rem;
+  margin-top: auto;
 }
 
 /* ----------------------------------------------------------
