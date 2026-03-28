@@ -36,6 +36,9 @@ jobs:
       - name: Run tests
         run: npx tsx --test src/__tests__/*.test.ts
 
+      - name: Run dashboard tests
+        run: DB_PATH=:memory: npx tsx --test 'src/__tests__/dashboard/**/*.test.ts'
+
   dashboard-build:
     runs-on: ubuntu-latest
     steps:
@@ -71,3 +74,29 @@ jobs:
           tags: pikud-haoref-bot:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  wizard-check:
+    name: Wizard Type-check & Test
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: wizard/package-lock.json
+
+      - name: Install wizard dependencies
+        run: cd wizard && npm ci
+
+      - name: TypeScript type-check
+        run: cd wizard && npx tsc --noEmit
+
+      - name: Run wizard tests
+        run: cd wizard && npm test
