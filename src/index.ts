@@ -13,6 +13,8 @@ import { handleNewAlert } from './alertHandler';
 import { insertAlert as insertAlertHistory } from './db/alertHistoryRepository.js';
 import { startHealthServer } from './healthServer.js';
 import { updateLastAlertAt } from './metrics.js';
+import { startDashboardServer } from './dashboard/server.js';
+import { getDb } from './db/schema.js';
 
 const REQUIRED_ENV_VARS = ['TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID', 'MAPBOX_ACCESS_TOKEN'];
 
@@ -35,8 +37,17 @@ for (const envVar of REQUIRED_ENV_VARS) {
 
   startHealthServer();
 
+  const dashboardSecret = process.env.DASHBOARD_SECRET;
+  const dashboardPort = parseInt(process.env.DASHBOARD_PORT ?? '4000', 10);
+
   const bot = getBot();
   await setupBotHandlers(bot);
+
+  if (dashboardSecret) {
+    startDashboardServer(getDb(), bot, dashboardPort, dashboardSecret);
+  } else {
+    console.warn('[dashboard] DASHBOARD_SECRET not set — dashboard disabled');
+  }
 
   const poller = new AlertPoller();
 
