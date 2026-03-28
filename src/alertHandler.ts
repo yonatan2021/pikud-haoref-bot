@@ -16,7 +16,7 @@ export interface AlertHandlerDeps {
   ) => Promise<void>;
   getActiveMessage: (alertType: string) => TrackedMessage | null;
   trackMessage: (alertType: string, msg: TrackedMessage) => void;
-  notifySubscribers: (alert: Alert) => Promise<void>;
+  notifySubscribers: (alert: Alert) => void;
   shouldSkipMap: (alertType: string) => boolean;
   getTopicId: (alertType: string) => number | undefined;
   insertAlertHistory: (alert: Alert) => void;
@@ -127,9 +127,5 @@ export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Prom
   }
 
   // DM notifications — use the merged alert so subscribers see all cities
-  try {
-    await notifySubscribers(finalAlert);
-  } catch (err) {
-    console.error('[AlertHandler] Error sending DMs:', err);
-  }
+  notifySubscribers(finalAlert);
 }
