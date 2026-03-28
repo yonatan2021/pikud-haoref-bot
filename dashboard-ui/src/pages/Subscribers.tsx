@@ -1,3 +1,4 @@
+import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -113,12 +114,10 @@ export function Subscribers() {
 
   const bulkDeleteMutation = useMutation({
     mutationFn: async (ids: number[]) => {
-      for (const id of ids) {
-        await api.delete(`/api/subscribers/${id}`);
-      }
+      await Promise.all(ids.map(id => api.delete(`/api/subscribers/${id}`)));
     },
-    onSuccess: () => {
-      toast.success(`${selected.size} מנויים נמחקו`);
+    onSuccess: (_, ids) => {
+      toast.success(`${ids.length} מנויים נמחקו`);
       setSelected(new Set());
       setBulkDeleteOpen(false);
       qc.invalidateQueries({ queryKey: ['subscribers'] });
@@ -264,9 +263,8 @@ export function Subscribers() {
                 </thead>
                 <tbody>
                   {users.map(user => (
-                    <>
+                    <React.Fragment key={user.chat_id}>
                       <tr
-                        key={user.chat_id}
                         className="border-b border-[var(--color-border)]/50 hover:bg-white/5 cursor-pointer transition-colors"
                         onClick={() => handleRowClick(user.chat_id)}
                       >
@@ -397,7 +395,7 @@ export function Subscribers() {
                           </tr>
                         )}
                       </AnimatePresence>
-                    </>
+                    </React.Fragment>
                   ))}
                 </tbody>
               </table>
@@ -434,7 +432,7 @@ export function Subscribers() {
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 80, opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-[var(--color-glass)] backdrop-blur-md border border-[var(--color-border)] rounded-full px-6 py-3 flex items-center gap-4 shadow-lg z-50"
+              className="fixed bottom-6 start-1/2 -translate-x-1/2 bg-[var(--color-glass)] backdrop-blur-md border border-[var(--color-border)] rounded-full px-6 py-3 flex items-center gap-4 shadow-lg z-50"
             >
               <span className="text-sm text-text-secondary">{selected.size} נבחרו</span>
               <button

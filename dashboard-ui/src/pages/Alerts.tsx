@@ -123,7 +123,8 @@ export function Alerts() {
                     key={d}
                     onClick={() => updateParam('days', String(d))}
                     whileTap={{ scale: 0.95 }}
-                    className={`px-3 py-1 rounded-full text-xs border transition-colors ${
+                    aria-pressed={days === String(d)}
+                    className={`px-3 py-1 rounded-full text-xs border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60 ${
                       days === String(d)
                         ? 'bg-amber-500 text-black border-amber-500 font-medium'
                         : 'bg-[var(--color-glass)] border-[var(--color-border)] text-text-secondary hover:text-text-primary hover:border-amber-500/50'
@@ -142,7 +143,8 @@ export function Alerts() {
                 <motion.button
                   onClick={() => updateParam('type', '')}
                   whileTap={{ scale: 0.95 }}
-                  className={`px-3 py-1 rounded-full text-xs border transition-colors ${
+                  aria-pressed={type === ''}
+                  className={`px-3 py-1 rounded-full text-xs border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60 ${
                     type === ''
                       ? 'bg-amber-500 text-black border-amber-500 font-medium'
                       : 'bg-[var(--color-glass)] border-[var(--color-border)] text-text-secondary hover:text-text-primary hover:border-amber-500/50'
@@ -155,7 +157,8 @@ export function Alerts() {
                     key={val}
                     onClick={() => updateParam('type', val)}
                     whileTap={{ scale: 0.95 }}
-                    className={`px-3 py-1 rounded-full text-xs border transition-colors ${
+                    aria-pressed={type === val}
+                    className={`px-3 py-1 rounded-full text-xs border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60 ${
                       type === val
                         ? 'bg-amber-500 text-black border-amber-500 font-medium'
                         : 'bg-[var(--color-glass)] border-[var(--color-border)] text-text-secondary hover:text-text-primary hover:border-amber-500/50'
