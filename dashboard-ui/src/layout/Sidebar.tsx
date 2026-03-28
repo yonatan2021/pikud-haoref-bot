@@ -1,10 +1,13 @@
 import { NavLink } from 'react-router-dom';
 import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { LayoutDashboard, Bell, Users, Radio, Settings, Globe, ChevronRight, ChevronLeft } from 'lucide-react';
+import { LiveDot } from '../components/ui';
 
 const GROUPS = [
-  { label: 'מידע', items: [{ to: '/overview', icon: '📊', label: 'לוח בקרה' }, { to: '/alerts', icon: '🔔', label: 'התראות' }] },
-  { label: 'פעולות', items: [{ to: '/subscribers', icon: '👥', label: 'מנויים' }, { to: '/operations', icon: '📡', label: 'מרכז פיקוד' }] },
-  { label: 'ניהול', items: [{ to: '/settings', icon: '⚙️', label: 'הגדרות' }, { to: '/landing', icon: '🌐', label: 'אתר נחיתה' }] },
+  { label: 'מידע', items: [{ to: '/overview', icon: LayoutDashboard, label: 'לוח בקרה' }, { to: '/alerts', icon: Bell, label: 'התראות' }] },
+  { label: 'פעולות', items: [{ to: '/subscribers', icon: Users, label: 'מנויים' }, { to: '/operations', icon: Radio, label: 'מרכז פיקוד' }] },
+  { label: 'ניהול', items: [{ to: '/settings', icon: Settings, label: 'הגדרות' }, { to: '/landing', icon: Globe, label: 'אתר נחיתה' }] },
 ];
 
 function formatUptime(s: number): string {
@@ -17,47 +20,97 @@ export function Sidebar({ uptime }: { uptime: number }) {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <aside className={`flex flex-col h-screen bg-surface border-l border-border transition-all duration-200 ${collapsed ? 'w-16' : 'w-56'}`}>
+    <motion.aside
+      animate={{ width: collapsed ? 64 : 224 }}
+      transition={{ duration: 0.2, ease: 'easeInOut' }}
+      className="flex flex-col h-screen backdrop-blur-md bg-glass border-l border-border overflow-hidden flex-shrink-0"
+    >
       <div className="flex items-center gap-2 p-4 border-b border-border">
-        <span className="text-amber text-xl">🔴</span>
-        {!collapsed && <span className="font-bold text-sm text-text-primary">פיקוד העורף</span>}
-        <button onClick={() => setCollapsed(c => !c)} className="mr-auto text-text-muted hover:text-text-secondary text-xs px-1">
-          {collapsed ? '◀' : '▶'}
+        <Bell className="text-amber flex-shrink-0" size={20} />
+        <AnimatePresence mode="wait">
+          {!collapsed && (
+            <motion.span
+              key="title"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="font-bold text-sm text-text-primary whitespace-nowrap"
+            >
+              פיקוד העורף
+            </motion.span>
+          )}
+        </AnimatePresence>
+        <button
+          onClick={() => setCollapsed(c => !c)}
+          className="mr-auto text-text-muted hover:text-text-secondary flex-shrink-0"
+        >
+          {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </button>
       </div>
+
       <nav className="flex-1 overflow-y-auto py-3 space-y-1">
         {GROUPS.map(group => (
           <div key={group.label}>
-            {!collapsed && <p className="text-text-muted text-xs px-4 py-1 uppercase tracking-wider">{group.label}</p>}
+            <AnimatePresence mode="wait">
+              {!collapsed && (
+                <motion.p
+                  key={`label-${group.label}`}
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                  className="text-text-muted text-xs px-4 py-1 uppercase tracking-wider"
+                >
+                  {group.label}
+                </motion.p>
+              )}
+            </AnimatePresence>
             {group.items.map(item => (
               <NavLink
                 key={item.to}
                 to={item.to}
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-4 py-2 text-sm transition-colors ${isActive
-                    ? 'border-r-2 border-amber text-amber bg-amber/10'
-                    : 'text-text-secondary hover:text-text-primary hover:bg-white/5'}`
+                    ? 'border-r-2 border-amber text-amber bg-[var(--color-glow-amber)]'
+                    : 'text-text-secondary hover:bg-white/5 hover:text-text-primary'}`
                 }
               >
-                <span className="text-base">{item.icon}</span>
-                {!collapsed && <span>{item.label}</span>}
+                <motion.div whileHover={{ x: -2 }} className="flex items-center gap-3 w-full">
+                  <item.icon size={16} className="flex-shrink-0" />
+                  <AnimatePresence mode="wait">
+                    {!collapsed && (
+                      <motion.span
+                        key={`item-${item.to}`}
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        transition={{ duration: 0.15 }}
+                        className="whitespace-nowrap"
+                      >
+                        {item.label}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
               </NavLink>
             ))}
             {!collapsed && <div className="border-t border-border mx-4 my-1" />}
           </div>
         ))}
       </nav>
+
       <div className="p-4 border-t border-border">
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-green animate-pulse flex-shrink-0" />
-          {!collapsed && (
-            <div>
-              <p className="text-xs text-green">מערכת פעילה</p>
-              <p className="text-xs text-text-muted">{formatUptime(uptime)}</p>
-            </div>
-          )}
+          <LiveDot color="green" />
+          <AnimatePresence mode="wait">
+            {!collapsed && (
+              <motion.div
+                key="status"
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+              >
+                <p className="text-xs text-green">מערכת פעילה</p>
+                <p className="text-xs text-text-muted">{formatUptime(uptime)}</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
-    </aside>
+    </motion.aside>
   );
 }
