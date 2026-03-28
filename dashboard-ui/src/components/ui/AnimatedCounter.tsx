@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useMotionValue, useTransform, animate, motion } from 'framer-motion'
+import { useMotionValue, useTransform, animate, motion, useReducedMotion } from 'framer-motion'
 
 interface AnimatedCounterProps {
   value: number
@@ -16,21 +16,19 @@ export function AnimatedCounter({
   className,
   formatter = defaultFormatter,
 }: AnimatedCounterProps) {
-  const prefersReducedMotion =
-    typeof window !== 'undefined' &&
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const reducedMotion = useReducedMotion()
 
   const motionValue = useMotionValue(0)
   const formatted = useTransform(motionValue, (n) => formatter(n))
 
   useEffect(() => {
-    if (prefersReducedMotion) {
+    if (reducedMotion) {
       motionValue.set(value)
       return
     }
     const controls = animate(motionValue, value, { duration, ease: 'easeOut' })
     return () => controls.stop()
-  }, [value, duration, prefersReducedMotion, motionValue])
+  }, [value, duration, reducedMotion, motionValue])
 
   return <motion.span className={className}>{formatted}</motion.span>
 }
