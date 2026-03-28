@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { LayoutDashboard, Bell, Users, Radio, Settings, Globe, ChevronRight, ChevronLeft } from 'lucide-react';
 import { LiveDot } from '../components/ui';
 
@@ -18,12 +18,13 @@ function formatUptime(s: number): string {
 
 export function Sidebar({ uptime }: { uptime: number }) {
   const [collapsed, setCollapsed] = useState(false);
+  const prefersReduced = useReducedMotion();
 
   return (
     <motion.aside
       animate={{ width: collapsed ? 64 : 224 }}
-      transition={{ duration: 0.2, ease: 'easeInOut' }}
-      className="flex flex-col h-screen backdrop-blur-md bg-glass border-l border-border overflow-hidden flex-shrink-0"
+      transition={prefersReduced ? { duration: 0 } : { duration: 0.2, ease: 'easeInOut' }}
+      className="flex flex-col h-screen backdrop-blur-md bg-[var(--color-glass)] border-l border-border overflow-hidden flex-shrink-0"
     >
       <div className="flex items-center gap-2 p-4 border-b border-border">
         <Bell className="text-amber flex-shrink-0" size={20} />
@@ -41,14 +42,16 @@ export function Sidebar({ uptime }: { uptime: number }) {
         </AnimatePresence>
         <button
           onClick={() => setCollapsed(c => !c)}
+          aria-label={collapsed ? 'הרחב סרגל צד' : 'כווץ סרגל צד'}
+          aria-expanded={!collapsed}
           className="mr-auto text-text-muted hover:text-text-secondary flex-shrink-0"
         >
           {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </button>
       </div>
 
-      <nav className="flex-1 overflow-y-auto py-3 space-y-1">
-        {GROUPS.map(group => (
+      <nav aria-label="ניווט ראשי" className="flex-1 overflow-y-auto py-3 space-y-1">
+        {GROUPS.map((group, index) => (
           <div key={group.label}>
             <AnimatePresence mode="wait">
               {!collapsed && (
@@ -72,7 +75,7 @@ export function Sidebar({ uptime }: { uptime: number }) {
                     : 'text-text-secondary hover:bg-white/5 hover:text-text-primary'}`
                 }
               >
-                <motion.div whileHover={{ x: -2 }} className="flex items-center gap-3 w-full">
+                <motion.div whileHover={{ x: 2 }} className="flex items-center gap-3 w-full">
                   <item.icon size={16} className="flex-shrink-0" />
                   <AnimatePresence mode="wait">
                     {!collapsed && (
@@ -89,7 +92,7 @@ export function Sidebar({ uptime }: { uptime: number }) {
                 </motion.div>
               </NavLink>
             ))}
-            {!collapsed && <div className="border-t border-border mx-4 my-1" />}
+            {!collapsed && index < GROUPS.length - 1 && <div className="border-t border-border mx-4 my-1" />}
           </div>
         ))}
       </nav>
