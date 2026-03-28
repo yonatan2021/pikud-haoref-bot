@@ -2,8 +2,15 @@ import { Bot, InlineKeyboard } from 'grammy';
 import type { Context } from 'grammy';
 import { getSubscriptionCount } from '../db/subscriptionRepository.js';
 import { upsertUser } from '../db/userRepository.js';
+import { getRecentAlerts } from '../db/alertHistoryRepository.js';
+import { ALERT_TYPE_EMOJI, ALERT_TYPE_HE } from '../telegramBot.js';
+import { formatRelativeHe } from './historyHandler.js';
+import type { AlertHistoryRow } from '../db/alertHistoryRepository.js';
 
-export function buildMainMenu(cityCount: number): { text: string; keyboard: InlineKeyboard } {
+export function buildMainMenu(
+  cityCount: number,
+  lastAlert?: Pick<AlertHistoryRow, 'type' | 'fired_at'>
+): { text: string; keyboard: InlineKeyboard } {
   const inviteLink = process.env.TELEGRAM_INVITE_LINK;
   const keyboard = new InlineKeyboard();
 
@@ -18,9 +25,13 @@ export function buildMainMenu(cityCount: number): { text: string; keyboard: Inli
     .row()
     .text('⚙️ הגדרות', 'menu:settings');
 
+  const lastAlertLine = lastAlert
+    ? `\n\n📡 ההתרעה האחרונה: ${formatRelativeHe(lastAlert.fired_at)} — ${ALERT_TYPE_EMOJI[lastAlert.type] ?? '⚠️'} ${ALERT_TYPE_HE[lastAlert.type] ?? lastAlert.type}`
+    : '';
+
   const text = cityCount > 0
-    ? `🔔 <b>בוט פיקוד העורף</b>\n\nאתה רשום להתראות על <b>${cityCount} ערים</b>.`
-    : '🔔 <b>בוט פיקוד העורף</b>\n\nקבל התראות אישיות על ערים שאתה בוחר.';
+    ? `🔔 <b>בוט פיקוד העורף</b>\n\nאתה רשום להתראות על <b>${cityCount} ערים</b>.${lastAlertLine}`
+    : `🔔 <b>בוט פיקוד העורף</b>\n\nקבל התראות אישיות על ערים שאתה בוחר.${lastAlertLine}`;
 
   return { text, keyboard };
 }
@@ -31,7 +42,8 @@ export function registerMenuHandler(bot: Bot): void {
     const chatId = ctx.chat.id;
     upsertUser(chatId);
     const count = getSubscriptionCount(chatId);
-    const { text, keyboard } = buildMainMenu(count);
+    const lastAlert = getRecentAlerts(168)[0];
+    const { text, keyboard } = buildMainMenu(count, lastAlert);
     await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard });
   });
 
@@ -40,7 +52,8 @@ export function registerMenuHandler(bot: Bot): void {
     const chatId = ctx.chat?.id;
     if (!chatId) return;
     const count = getSubscriptionCount(chatId);
-    const { text, keyboard } = buildMainMenu(count);
+    const lastAlert = getRecentAlerts(168)[0];
+    const { text, keyboard } = buildMainMenu(count, lastAlert);
     await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
   });
 
