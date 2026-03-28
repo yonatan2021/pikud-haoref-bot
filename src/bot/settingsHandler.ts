@@ -1,6 +1,6 @@
 import { Bot, InlineKeyboard } from 'grammy';
 import type { Context } from 'grammy';
-import { getUser, setFormat, setQuietHours, upsertUser } from '../db/userRepository.js';
+import { getUser, setFormat, setQuietHours, setMutedUntil, isMuted, upsertUser } from '../db/userRepository.js';
 import {
   removeSubscription,
   removeAllSubscriptions,
@@ -12,34 +12,52 @@ import { escapeHtml } from '../telegramBot.js';
 
 const PAGE_SIZE = 15;
 
-function buildSettingsMenu(chatId: number): { text: string; keyboard: InlineKeyboard } {
+export function buildSettingsMenu(chatId: number): { text: string; keyboard: InlineKeyboard } {
   const user = getUser(chatId);
   const format = user?.format ?? 'short';
   const shortMark = format === 'short' ? '●' : '○';
   const detailMark = format === 'detailed' ? '●' : '○';
   const quietEnabled = user?.quiet_hours_enabled ?? false;
   const quietLabel = quietEnabled ? 'פעיל ✓' : 'כבוי';
+  const muted = isMuted(chatId);
 
   const keyboard = new InlineKeyboard()
     .text(`${shortMark} קצר`, 'fmt:short')
     .text(`${detailMark} מפורט`, 'fmt:detailed')
     .row()
     .text(`🔕 שעות שקט: ${quietLabel}`, 'quiet:toggle')
-    .row()
+    .row();
+
+  if (muted) {
+    keyboard.text('🔔 בטל השתקה', 'snooze:clear').row();
+  } else {
+    keyboard
+      .text('🔇 השתק שעה', 'snooze:1h')
+      .text('🔇 4 שעות', 'snooze:4h')
+      .text('🔇 24 שעות', 'snooze:24h')
+      .row();
+  }
+
+  keyboard
     .text('🔕 בטל כל המנויים', 'settings:clearall')
     .row()
     .text('↩️ חזור', 'menu:main');
+
+  const muteNote = muted && user?.muted_until
+    ? `\n\n🔇 <b>התראות מושתקות</b> עד ${new Date(user.muted_until).toLocaleTimeString('he-IL', { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit', hour12: false })}`
+    : '';
 
   const text =
     '⚙️ <b>הגדרות</b>\n\n' +
     '<b>פורמט התראות:</b>\n' +
     '• קצר — "🔴 טילים | תל אביב, רמת גן"\n' +
-    '• מפורט — אותה הודעה כמו בערוץ (ללא תמונה)';
+    '• מפורט — אותה הודעה כמו בערוץ (ללא תמונה)' +
+    muteNote;
 
   return { text, keyboard };
 }
 
-function buildMyCitiesPage(chatId: number, page: number): { text: string; keyboard: InlineKeyboard } {
+export function buildMyCitiesPage(chatId: number, page: number): { text: string; keyboard: InlineKeyboard } {
   const cities = getUserCities(chatId);
   const totalPages = Math.max(1, Math.ceil(cities.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
@@ -49,7 +67,11 @@ function buildMyCitiesPage(chatId: number, page: number): { text: string; keyboa
   slice.forEach((cityName) => {
     const city = getCityData(cityName);
     const cityId = city?.id ?? 0;
-    keyboard.text(`❌ ${escapeHtml(cityName)}`, `rm:${cityId}:${safePage}`).row();
+    const zone = city?.zone;
+    const label = zone
+      ? `❌ ${escapeHtml(cityName)} · ${escapeHtml(zone)}`
+      : `❌ ${escapeHtml(cityName)}`;
+    keyboard.text(label, `rm:${cityId}:${safePage}`).row();
   });
 
   if (safePage > 0) keyboard.text('‹ הקודם', `mycities:${safePage - 1}`);
@@ -143,6 +165,25 @@ export function registerSettingsHandler(bot: Bot): void {
       await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
     } catch (err) {
       console.error('[Settings] quiet:toggle callback failed:', err);
+    }
+  });
+
+  bot.callbackQuery(/^snooze:(1h|4h|24h|clear)$/, async (ctx: Context) => {
+    await ctx.answerCallbackQuery();
+    const chatId = ctx.chat?.id;
+    if (!chatId) return;
+    try {
+      const action = ctx.match![1];
+      if (action === 'clear') {
+        setMutedUntil(chatId, null);
+      } else {
+        const hours = action === '1h' ? 1 : action === '4h' ? 4 : 24;
+        setMutedUntil(chatId, new Date(Date.now() + hours * 3_600_000));
+      }
+      const { text, keyboard } = buildSettingsMenu(chatId);
+      await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
+    } catch (err) {
+      console.error('[Settings] snooze callback failed:', err);
     }
   });
 

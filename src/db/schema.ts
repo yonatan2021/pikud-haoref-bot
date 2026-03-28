@@ -21,6 +21,14 @@ export function closeDb(): void {
   }
 }
 
+function addColumnIfMissing(database: Database.Database, sql: string): void {
+  try {
+    database.prepare(sql).run();
+  } catch (e: unknown) {
+    if (!(e instanceof Error && e.message.includes('duplicate column name'))) throw e;
+  }
+}
+
 /**
  * Initialise all tables on a given Database instance.
  * Useful for testing with an in-memory database and for the singleton `initDb()`.
@@ -77,14 +85,9 @@ export function initSchema(database: Database.Database): void {
   );
 
   // SQLite has no ADD COLUMN IF NOT EXISTS — ALTER TABLE throws 'duplicate column name'
-  // on repeat runs (e.g. after restart). Catch and ignore that specific error; re-throw all others.
-  try {
-    database.exec(
-      'ALTER TABLE users ADD COLUMN quiet_hours_enabled INTEGER NOT NULL DEFAULT 0'
-    );
-  } catch (e: unknown) {
-    if (!(e instanceof Error && e.message.includes('duplicate column name'))) throw e;
-  }
+  // on repeat runs (e.g. after restart). addColumnIfMissing catches that specific error.
+  addColumnIfMissing(database, 'ALTER TABLE users ADD COLUMN quiet_hours_enabled INTEGER NOT NULL DEFAULT 0');
+  addColumnIfMissing(database, 'ALTER TABLE users ADD COLUMN muted_until TEXT');
 }
 
 export function initDb(): void {
