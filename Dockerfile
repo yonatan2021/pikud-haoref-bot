@@ -33,7 +33,8 @@ COPY src/ ./src/
 COPY --from=dashboard-builder /app/dashboard-ui/dist ./dashboard-ui/dist
 
 # Compile TypeScript to dist/
-RUN npm run build
+# Use the binary directly to avoid npm's PATH manipulation (E2BIG in large node_modules)
+RUN ./node_modules/.bin/tsc -p tsconfig.json
 
 # Drop devDependencies without recompiling better-sqlite3
 RUN npm prune --omit=dev
