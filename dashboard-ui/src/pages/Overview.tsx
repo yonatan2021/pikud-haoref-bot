@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { Users, Bell, MapPin, Map } from 'lucide-react';
 import { api } from '../api/client';
 import { KpiCard } from '../components/KpiCard';
 import { EmptyState } from '../components/EmptyState';
@@ -101,10 +102,10 @@ export function Overview() {
           Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28" />)
         ) : (
           <>
-            <KpiCard icon="👥" label="מנויים פעילים" value={stats?.totalSubscribers ?? 0} />
-            <KpiCard icon="🔴" label="התראות היום" value={stats?.alertsToday ?? 0} accent />
-            <KpiCard icon="📍" label="מנויים לערים" value={stats?.totalSubscriptions ?? 0} />
-            <KpiCard icon="🗺️" label="Mapbox החודש" value={stats?.mapboxMonth ?? 0} sub="בקשות" />
+            <KpiCard icon={Users} label="מנויים פעילים" value={stats?.totalSubscribers ?? 0} />
+            <KpiCard icon={Bell} label="התראות היום" value={stats?.alertsToday ?? 0} glow="amber" />
+            <KpiCard icon={MapPin} label="מנויים לערים" value={stats?.totalSubscriptions ?? 0} />
+            <KpiCard icon={Map} label="Mapbox החודש" value={stats?.mapboxMonth ?? 0} sub="בקשות" />
           </>
         )}
       </div>
