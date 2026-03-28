@@ -48,4 +48,12 @@ describe('buildStatsMessage', () => {
     const msg = buildStatsMessage([], []);
     assert.ok(msg.includes('0'), 'shows zero counts');
   });
+
+  it('unknown alert type falls into the general category bucket', () => {
+    const rows = [makeRow('unknownType9999')];
+    const msg = buildStatsMessage(rows, []);
+    // The general category emoji (📢) should appear because unknownType9999 is not in ALERT_TYPE_CATEGORY
+    assert.ok(msg.includes('📢'), 'unknown type should fall into general (📢) bucket');
+    assert.ok(msg.includes('1'), 'count of 1 should appear');
+  });
 });

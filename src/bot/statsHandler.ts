@@ -51,7 +51,9 @@ export function registerStatsHandler(bot: Bot): void {
       await ctx.reply(buildStatsMessage(rows, userCities), { parse_mode: 'HTML' });
     } catch (err) {
       console.error('[Stats] Command failed:', err);
-      await ctx.reply('אירעה שגיאה בטעינת הסטטיסטיקה. נסה שוב מאוחר יותר.').catch(() => {});
+      await ctx.reply('אירעה שגיאה בטעינת הסטטיסטיקה. נסה שוב מאוחר יותר.').catch((e) =>
+        console.error('[Stats] Failed to send error reply:', e)
+      );
     }
   });
 }

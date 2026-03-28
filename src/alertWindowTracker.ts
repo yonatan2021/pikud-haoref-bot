@@ -13,7 +13,8 @@ export interface TrackedMessage {
 const activeMessages = new Map<string, TrackedMessage>();
 
 function windowMs(): number {
-  // Re-read on each call so test code can change the env var without module reload
+  // Re-read on each call — caching at module load would capture the env before .env is loaded;
+  // also allows test overrides of the env var without requiring a module reload.
   const raw = process.env.ALERT_UPDATE_WINDOW_SECONDS;
   const parsed = parseInt(raw ?? '', 10);
   return (isNaN(parsed) || parsed <= 0 ? 120 : parsed) * 1000;
@@ -31,7 +32,7 @@ export function getActiveMessage(alertType: string): TrackedMessage | null {
     activeMessages.delete(alertType);
     return null;
   }
-  return { ...tracked };
+  return { ...tracked }; // Shallow copy — callers must not mutate the stored reference
 }
 
 export function trackMessage(alertType: string, msg: TrackedMessage): void {
@@ -39,7 +40,7 @@ export function trackMessage(alertType: string, msg: TrackedMessage): void {
   try {
     upsertWindow(alertType, msg);
   } catch (err) {
-    console.error(`[AlertWindow] Failed to persist window for type=${alertType}:`, err);
+    console.error(`[AlertWindow] Failed to persist window for type=${alertType} — restart within window may cause duplicate channel message:`, err);
   }
 }
 
@@ -52,6 +53,8 @@ export function clearAll(): void {
   }
 }
 
+// Clears only the in-memory map. Use in tests to reset state between cases without touching
+// the DB. Use clearAll() in production reset flows (clears both memory and the DB).
 export function clearMemoryOnly(): void {
   activeMessages.clear();
 }

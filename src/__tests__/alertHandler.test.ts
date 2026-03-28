@@ -93,6 +93,18 @@ describe('handleNewAlert', () => {
       assert.equal(calls.length, 1);
       assert.deepEqual(calls[0].arguments[0], BASE_ALERT);
     });
+
+    it('continues normally when insertAlertHistory throws — sendAlert and notifySubscribers still called', async () => {
+      const deps = makeDeps({
+        insertAlertHistory: mock.fn(() => { throw new Error('DB locked'); }),
+      });
+      // Should not throw — insertAlertHistory failure is non-fatal
+      await assert.doesNotReject(() => handleNewAlert(BASE_ALERT, deps));
+      assert.equal((deps.sendAlert as unknown as ReturnType<typeof mock.fn>).mock.calls.length, 1,
+        'sendAlert must have been called despite insertAlertHistory failure');
+      assert.equal((deps.notifySubscribers as unknown as ReturnType<typeof mock.fn>).mock.calls.length, 1,
+        'notifySubscribers must be called despite insertAlertHistory failure');
+    });
   });
 
   describe('active message exists (edit path)', () => {

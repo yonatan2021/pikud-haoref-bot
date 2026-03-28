@@ -4,6 +4,7 @@ import { deleteUser } from '../db/userRepository.js';
 export interface DmTask {
   chatId: string;
   text: string;
+  retries?: number; // tracks 429 retry attempts; incremented on each rate-limit re-queue
 }
 
 type SendFn = (task: DmTask) => Promise<void>;
@@ -31,6 +32,8 @@ export class DmQueue {
     this.drain();
   }
 
+  // In-flight sends (already past running++) complete even when paused; their
+  // finally() re-calls drain() which is a no-op while paused is true.
   private drain(): void {
     while (!this.paused && this.running < this.concurrency && this.queue.length > 0) {
       const task = this.queue.shift()!;
@@ -42,6 +45,9 @@ export class DmQueue {
           this.drain();
         });
     }
+    if (this.queue.length > 100) {
+      console.warn(`[DM] Queue depth warning: ${this.queue.length} tasks pending`);
+    }
   }
 
   private handleError(err: unknown, task: DmTask): void {
@@ -49,8 +55,14 @@ export class DmQueue {
     const retryAfter = extractRetryAfter(err);
 
     if (retryAfter !== null) {
-      console.warn(`[DM] Rate-limited by Telegram — pausing ${retryAfter}s. Queue depth: ${this.queue.length + 1}`);
-      this.queue.unshift(task);
+      const MAX_RETRIES = 5;
+      const attempts = (task.retries ?? 0) + 1;
+      if (attempts > MAX_RETRIES) {
+        console.error(`[DM] Giving up on ${task.chatId} after ${MAX_RETRIES} rate-limit retries — dropping task`);
+        return;
+      }
+      console.warn(`[DM] Rate-limited — pausing ${retryAfter}s (attempt ${attempts}/${MAX_RETRIES}). Queue depth: ${this.queue.length + 1}`);
+      this.queue.unshift({ ...task, retries: attempts });
       this.paused = true;
       setTimeout(() => {
         console.log('[DM] Rate-limit pause ended — resuming drain');
@@ -66,11 +78,19 @@ export class DmQueue {
       msg.includes('chat not found');
 
     if (isBlocked) {
-      console.log(`[DM] User ${task.chatId} blocked bot — removing`);
-      try {
-        deleteUser(parseInt(task.chatId, 10));
-      } catch (dbErr) {
-        console.error(`[DM] Failed to remove blocked user ${task.chatId}:`, dbErr);
+      const reason = msg.includes('bot was blocked')
+        ? 'blocked'
+        : msg.includes('user is deactivated')
+          ? 'deactivated'
+          : 'chat not found';
+      console.log(`[DM] User ${task.chatId} unreachable (${reason}) — removing`);
+      const chatIdNum = parseInt(task.chatId, 10);
+      if (!isNaN(chatIdNum)) {
+        try {
+          deleteUser(chatIdNum);
+        } catch (dbErr) {
+          console.error(`[DM] Failed to remove blocked user ${task.chatId}:`, dbErr);
+        }
       }
     } else {
       console.error(`[DM] Error sending to ${task.chatId}:`, err);
@@ -78,9 +98,10 @@ export class DmQueue {
   }
 }
 
-function extractRetryAfter(err: unknown): number | null {
+export function extractRetryAfter(err: unknown): number | null {
   if (err != null && typeof err === 'object') {
     const params = (err as any).parameters;
+    // Cap at 300s — same ceiling as the regex path below; Telegram rarely sends higher
     if (typeof params?.retry_after === 'number') return Math.min(params.retry_after, 300);
   }
   if (err instanceof Error) {
@@ -95,5 +116,10 @@ function extractRetryAfter(err: unknown): number | null {
 }
 
 export const dmQueue = new DmQueue(async (task) => {
-  await getBot().api.sendMessage(parseInt(task.chatId, 10), task.text, { parse_mode: 'HTML' });
+  const chatIdNum = parseInt(task.chatId, 10);
+  if (isNaN(chatIdNum)) {
+    console.error(`[DM] Invalid chatId (NaN) — skipping task for chatId="${task.chatId}"`);
+    return;
+  }
+  await getBot().api.sendMessage(chatIdNum, task.text, { parse_mode: 'HTML' });
 });

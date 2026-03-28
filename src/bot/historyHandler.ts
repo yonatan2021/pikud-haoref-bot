@@ -1,5 +1,8 @@
 import { Bot } from 'grammy';
 import type { Context } from 'grammy';
+
+/** 7 days expressed in hours — matches the alert_history retention window */
+const HISTORY_WINDOW_HOURS = 168;
 import { upsertUser } from '../db/userRepository.js';
 import { getUserCities, getSubscriptionCount } from '../db/subscriptionRepository.js';
 import {
@@ -45,6 +48,10 @@ export function registerHistoryHandler(bot: Bot): void {
     try {
       upsertUser(chatId);
       const cityArg = String(ctx.match ?? '').trim();
+      if (cityArg.length > 100) {
+        await ctx.reply('שם העיר ארוך מדי.');
+        return;
+      }
       const safeCityArg = escapeHtml(cityArg);
 
       if (cityArg.length > 0) {
@@ -65,7 +72,7 @@ export function registerHistoryHandler(bot: Bot): void {
         return;
       }
 
-      const rows = getRecentAlerts(168).slice(0, 10);
+      const rows = getRecentAlerts(HISTORY_WINDOW_HOURS).slice(0, 10);
       const tip =
         '\n\nℹ️ אלו ההתראות האחרונות בכל הארץ.\n' +
         'כדי לקבל התראות לאזורך בלבד, הוסף ערים עם /zones\n' +
@@ -76,7 +83,9 @@ export function registerHistoryHandler(bot: Bot): void {
       );
     } catch (err) {
       console.error('[History] Command failed:', err);
-      await ctx.reply('אירעה שגיאה בטעינת היסטוריית ההתראות. נסה שוב מאוחר יותר.').catch(() => {});
+      await ctx.reply('אירעה שגיאה בטעינת היסטוריית ההתראות. נסה שוב מאוחר יותר.').catch((e) =>
+        console.error('[History] Failed to send error reply:', e)
+      );
     }
   });
 }

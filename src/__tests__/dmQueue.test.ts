@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { DmQueue } from '../services/dmQueue.js';
+import { DmQueue, extractRetryAfter } from '../services/dmQueue.js';
 
 describe('DmQueue', () => {
   it('calls send for every enqueued task', async () => {
@@ -61,5 +61,58 @@ describe('DmQueue', () => {
   it('throws if concurrency is 0 or negative', () => {
     assert.throws(() => new DmQueue(async () => {}, { concurrency: 0 }), /concurrency must be positive/);
     assert.throws(() => new DmQueue(async () => {}, { concurrency: -1 }), /concurrency must be positive/);
+  });
+
+  it('retries task after message-string 429 (regex path)', async () => {
+    let attempts = 0;
+    const calls: string[] = [];
+    const q = new DmQueue(async (task) => {
+      attempts++;
+      if (attempts === 1) {
+        // Telegram sometimes sends 429 as a plain error message without a parameters object
+        throw new Error('Too Many Requests: retry after 1');
+      }
+      calls.push(task.chatId);
+    }, { concurrency: 1 });
+    q.enqueueAll([{ chatId: '99', text: 'hello' }]);
+    await new Promise((r) => setTimeout(r, 1500));
+    assert.deepEqual(calls, ['99'], 'task should be delivered after message-string 429 retry');
+    assert.equal(attempts, 2);
+  });
+
+  it('gives up after MAX_RETRIES (5) rate-limit retries', async () => {
+    let attempts = 0;
+    const calls: string[] = [];
+    const q = new DmQueue(async (task) => {
+      attempts++;
+      // Always throw 429 with a very short retry_after so the test completes quickly
+      const err = Object.assign(new Error('Too Many Requests'), {
+        parameters: { retry_after: 0.02 },
+      });
+      throw err;
+    }, { concurrency: 1 });
+    q.enqueueAll([{ chatId: '77', text: 'x' }]);
+    // Wait long enough for 5 retries at 20ms each (~200ms) plus some buffer
+    await new Promise((r) => setTimeout(r, 600));
+    // Task should have been attempted 6 times (1 initial + 5 retries) then dropped
+    assert.ok(attempts >= 6, `expected at least 6 attempts, got ${attempts}`);
+    assert.deepEqual(calls, [], 'task should be dropped after max retries, not delivered');
+  });
+
+  it('extractRetryAfter: clamps retry_after > 300 to 300 (structured params path)', () => {
+    const err = Object.assign(new Error('Too Many Requests'), {
+      parameters: { retry_after: 999 },
+    });
+    assert.equal(extractRetryAfter(err), 300);
+  });
+
+  it('extractRetryAfter: clamps retry_after > 300 to 300 (message string path)', () => {
+    assert.equal(extractRetryAfter(new Error('retry after 500')), 300);
+  });
+
+  it('extractRetryAfter: returns null for non-429 errors', () => {
+    assert.equal(extractRetryAfter(new Error('bot was blocked')), null);
+    assert.equal(extractRetryAfter(new Error('random error')), null);
+    assert.equal(extractRetryAfter(null), null);
   });
 });

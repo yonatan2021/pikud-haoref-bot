@@ -35,6 +35,9 @@ export function getUserCities(chatId: number): string[] {
   return rows.map((r) => r.city_name);
 }
 
+// Returns one SubscriberInfo per subscriber with all their matched cities.
+// The raw query produces N rows per subscriber (one per matched city);
+// aggregation into matchedCities is done in application code to avoid GROUP_CONCAT + JSON parsing.
 export function getUsersForCities(cityNames: string[]): SubscriberInfo[] {
   if (cityNames.length === 0) return [];
   const placeholders = cityNames.map(() => '?').join(', ');

@@ -128,9 +128,14 @@ export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Prom
       }
     }
   } catch (err) {
-    console.error('[AlertHandler] Error handling alert:', err);
+    console.error(
+      `[AlertHandler] Channel broadcast failed type=${alert.type} cities=${alert.cities.length}:`,
+      err
+    );
+    // DM dispatch still runs below — alert data is valid even if channel post failed
   }
 
-  // DM notifications — use the merged alert so subscribers see all cities
+  // DM dispatch is outside the channel try/catch — a channel failure must not prevent
+  // subscriber notification; alert data is valid regardless of whether the channel post succeeded
   notifySubscribers(finalAlert);
 }

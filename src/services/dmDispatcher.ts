@@ -67,10 +67,14 @@ function getIsraelHour(now: Date): number {
     hourCycle: 'h23',
   }).formatToParts(now);
   const hourPart = parts.find((p) => p.type === 'hour');
+  if (!hourPart) {
+    console.error('[DM] getIsraelHour: no hour part from Intl.DateTimeFormat — defaulting to 0 (quiet hours may be incorrectly applied)');
+  }
   return parseInt(hourPart?.value ?? '0', 10);
 }
 
 // Quiet hours: 23:00–06:00 Israel time (Asia/Jerusalem).
+// Suppressed window: [23:00, 06:00) — 23:00 inclusive, 06:00 exclusive (alerts at exactly 06:00 are delivered).
 // Only 'drills' and 'general' categories are suppressed — security, nature,
 // and environmental alerts always get through regardless of user preference.
 export function shouldSkipForQuietHours(

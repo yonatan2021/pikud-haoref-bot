@@ -130,6 +130,10 @@ export class AlertPoller extends EventEmitter {
         return;
       }
 
+      // Oref API returns one of three encodings — detect BOM and strip:
+      //   UTF-16 LE: BOM bytes 0xFF 0xFE → decode as utf16le, skip 2 BOM bytes
+      //   UTF-8 BOM: bytes 0xEF 0xBB 0xBF → plain UTF-8, skip 3 BOM bytes
+      //   Plain UTF-8: no BOM → read as-is
       let encoding: BufferEncoding = 'utf8';
       if (buffer[0] === 255 && buffer[1] === 254) {
         encoding = 'utf16le';
@@ -139,18 +143,36 @@ export class AlertPoller extends EventEmitter {
       }
 
       // eslint-disable-next-line no-control-regex
-      const body = buffer.toString(encoding).replace(/\x00/g, '').replace(/\u0A7B/g, '').trim();
+      const body = buffer.toString(encoding)
+        .replace(/\x00/g, '')
+        .replace(/\u0A7B/g, '') // Oref API occasionally emits \u0A7B (stray Punjabi char) as separator — strip
+        .trim();
       if (!body) return;
 
-      const json = JSON.parse(body);
+      let json: unknown;
+      try {
+        json = JSON.parse(body);
+      } catch (parseErr) {
+        console.error('[AlertPoller] newsFlash JSON parse failed:', parseErr,
+          `— body preview: ${body.slice(0, 200)}`);
+        return;
+      }
+
+      if (json == null || typeof json !== 'object' || !('cat' in json)) {
+        console.error('[AlertPoller] newsFlash response has unexpected shape — skipping:',
+          JSON.stringify(json).slice(0, 200));
+        return;
+      }
+
+      const jsonObj = json as Record<string, unknown>;
 
       // Only handle newsFlash (cat=10) with no cities — the library already handles all other cases
-      if (parseInt(json.cat) !== 10) {
+      if (parseInt(jsonObj.cat as string) !== 10) {
         this.clearCitylessFingerprints();
         return;
       }
 
-      const cities: string[] = (json.data ?? [])
+      const cities: string[] = ((jsonObj.data ?? []) as string[])
         .map((c: string) => c?.trim())
         .filter((c: string) => c && !c.includes('בדיקה'));
 
@@ -163,8 +185,8 @@ export class AlertPoller extends EventEmitter {
       const alert: Alert = {
         type: 'newsFlash',
         cities: [],
-        ...(json.title ? { instructions: json.title as string } : {}),
-        ...(json.id ? { id: String(json.id) } : {}),
+        ...(jsonObj.title ? { instructions: jsonObj.title as string } : {}),
+        ...(jsonObj.id ? { id: String(jsonObj.id) } : {}),
       };
 
       const fingerprint = buildFingerprint(alert);

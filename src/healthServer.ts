@@ -4,15 +4,15 @@ import { getDb } from './db/schema.js';
 
 // 'start of day' boundary is UTC midnight — alertsToday may be off by 2–3h
 // vs. Israel local time (UTC+2/+3); acceptable for monitoring purposes.
-function alertsToday(): number {
+function alertsToday(): { count: number; error: boolean } {
   try {
     const row = getDb()
       .prepare("SELECT COUNT(*) as cnt FROM alert_history WHERE fired_at >= datetime('now','start of day')")
       .get() as { cnt: number };
-    return row.cnt;
+    return { count: row.cnt, error: false };
   } catch (err) {
     console.error('[Health] Failed to query alertsToday:', err);
-    return 0;
+    return { count: 0, error: true };
   }
 }
 
@@ -25,11 +25,13 @@ export function startHealthServer(port?: number): http.Server {
         return;
       }
       const { lastAlertAt, lastPollAt } = getMetrics();
+      const today = alertsToday();
       const body = JSON.stringify({
         uptime: process.uptime(),
         lastAlertAt: lastAlertAt?.toISOString() ?? null,
         lastPollAt: lastPollAt?.toISOString() ?? null,
-        alertsToday: alertsToday(),
+        alertsToday: today.count,
+        ...(today.error ? { alertsTodayError: true } : {}),
       });
       res.writeHead(200, { 'Content-Type': 'application/json' }).end(body);
     } catch (err) {

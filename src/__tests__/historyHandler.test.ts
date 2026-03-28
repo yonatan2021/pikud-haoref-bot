@@ -31,6 +31,21 @@ describe('formatRelativeHe', () => {
     const firedAt = new Date(Date.now() - 3 * 24 * 3_600_000).toISOString().replace('T', ' ').slice(0, 19);
     assert.equal(formatRelativeHe(firedAt), 'לפני 3 ימים');
   });
+
+  it('singular: exactly 1 minute → "לפני דקה"', () => {
+    const firedAt = new Date(Date.now() - 60_000).toISOString().replace('T', ' ').slice(0, 19);
+    assert.equal(formatRelativeHe(firedAt), 'לפני דקה');
+  });
+
+  it('singular: exactly 1 hour → "לפני שעה"', () => {
+    const firedAt = new Date(Date.now() - 3_600_000).toISOString().replace('T', ' ').slice(0, 19);
+    assert.equal(formatRelativeHe(firedAt), 'לפני שעה');
+  });
+
+  it('singular: exactly 1 day → "אתמול"', () => {
+    const firedAt = new Date(Date.now() - 24 * 3_600_000).toISOString().replace('T', ' ').slice(0, 19);
+    assert.equal(formatRelativeHe(firedAt), 'אתמול');
+  });
 });
 
 describe('buildHistoryMessage', () => {

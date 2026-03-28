@@ -69,103 +69,141 @@ export function registerSettingsHandler(bot: Bot): void {
   bot.command('settings', async (ctx: Context) => {
     if (ctx.chat?.type !== 'private') return;
     const chatId = ctx.chat.id;
-    upsertUser(chatId);
-    const { text, keyboard } = buildSettingsMenu(chatId);
-    await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard });
+    try {
+      upsertUser(chatId);
+      const { text, keyboard } = buildSettingsMenu(chatId);
+      await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard });
+    } catch (err) {
+      console.error('[Settings] /settings command failed:', err);
+      await ctx.reply('אירעה שגיאה. נסה שוב מאוחר יותר.').catch((e) =>
+        console.error('[Settings] Failed to send error reply:', e)
+      );
+    }
   });
 
   bot.command('mycities', async (ctx: Context) => {
     if (ctx.chat?.type !== 'private') return;
     const chatId = ctx.chat.id;
-    upsertUser(chatId);
-    const count = getSubscriptionCount(chatId);
-    if (count === 0) {
-      await ctx.reply('📋 אין ערים רשומות.', {
-        reply_markup: new InlineKeyboard()
-          .text('📍 הוסף לפי אזור', 'menu:zones')
-          .text('↩️ תפריט', 'menu:main'),
-      });
-      return;
+    try {
+      upsertUser(chatId);
+      const count = getSubscriptionCount(chatId);
+      if (count === 0) {
+        await ctx.reply('📋 אין ערים רשומות.', {
+          reply_markup: new InlineKeyboard()
+            .text('📍 הוסף לפי אזור', 'menu:zones')
+            .text('↩️ תפריט', 'menu:main'),
+        });
+        return;
+      }
+      const { text, keyboard } = buildMyCitiesPage(chatId, 0);
+      await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard });
+    } catch (err) {
+      console.error('[Settings] /mycities command failed:', err);
+      await ctx.reply('אירעה שגיאה. נסה שוב מאוחר יותר.').catch((e) =>
+        console.error('[Settings] Failed to send error reply:', e)
+      );
     }
-    const { text, keyboard } = buildMyCitiesPage(chatId, 0);
-    await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard });
   });
 
   bot.callbackQuery('menu:settings', async (ctx: Context) => {
     await ctx.answerCallbackQuery();
     const chatId = ctx.chat?.id;
     if (!chatId) return;
-    const { text, keyboard } = buildSettingsMenu(chatId);
-    await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
+    try {
+      const { text, keyboard } = buildSettingsMenu(chatId);
+      await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
+    } catch (err) {
+      console.error('[Settings] menu:settings callback failed:', err);
+    }
   });
 
   bot.callbackQuery(/^fmt:(short|detailed)$/, async (ctx: Context) => {
     await ctx.answerCallbackQuery();
     const chatId = ctx.chat?.id;
     if (!chatId) return;
-    const format = ctx.match![1] as 'short' | 'detailed';
-    setFormat(chatId, format);
-    const { text, keyboard } = buildSettingsMenu(chatId);
-    await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
+    try {
+      const format = ctx.match![1] as 'short' | 'detailed';
+      setFormat(chatId, format);
+      const { text, keyboard } = buildSettingsMenu(chatId);
+      await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
+    } catch (err) {
+      console.error('[Settings] fmt callback failed:', err);
+    }
   });
 
   bot.callbackQuery('quiet:toggle', async (ctx: Context) => {
     await ctx.answerCallbackQuery();
     const chatId = ctx.chat?.id;
     if (!chatId) return;
-    const user = getUser(chatId);
-    const current = user?.quiet_hours_enabled ?? false;
-    setQuietHours(chatId, !current);
-    const { text, keyboard } = buildSettingsMenu(chatId);
-    await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
+    try {
+      const user = getUser(chatId);
+      const current = user?.quiet_hours_enabled ?? false;
+      setQuietHours(chatId, !current);
+      const { text, keyboard } = buildSettingsMenu(chatId);
+      await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
+    } catch (err) {
+      console.error('[Settings] quiet:toggle callback failed:', err);
+    }
   });
 
   bot.callbackQuery('settings:clearall', async (ctx: Context) => {
     await ctx.answerCallbackQuery();
     const chatId = ctx.chat?.id;
     if (!chatId) return;
-    const count = getSubscriptionCount(chatId);
-    if (count === 0) {
-      await ctx.editMessageText('אין מנויים פעילים.', {
-        reply_markup: new InlineKeyboard().text('↩️ חזור', 'menu:main'),
+    try {
+      const count = getSubscriptionCount(chatId);
+      if (count === 0) {
+        await ctx.editMessageText('אין מנויים פעילים.', {
+          reply_markup: new InlineKeyboard().text('↩️ חזור', 'menu:main'),
+        });
+        return;
+      }
+      const keyboard = new InlineKeyboard()
+        .text('✅ כן, בטל הכל', 'settings:clearall:ok')
+        .text('❌ ביטול', 'menu:settings');
+      await ctx.editMessageText(`⚠️ בטוח? תוסר מ-<b>${count} ערים</b>.`, {
+        parse_mode: 'HTML',
+        reply_markup: keyboard,
       });
-      return;
+    } catch (err) {
+      console.error('[Settings] settings:clearall callback failed:', err);
     }
-    const keyboard = new InlineKeyboard()
-      .text('✅ כן, בטל הכל', 'settings:clearall:ok')
-      .text('❌ ביטול', 'menu:settings');
-    await ctx.editMessageText(`⚠️ בטוח? תוסר מ-<b>${count} ערים</b>.`, {
-      parse_mode: 'HTML',
-      reply_markup: keyboard,
-    });
   });
 
   bot.callbackQuery('settings:clearall:ok', async (ctx: Context) => {
     await ctx.answerCallbackQuery('✅ כל המנויים בוטלו');
     const chatId = ctx.chat?.id;
     if (!chatId) return;
-    removeAllSubscriptions(chatId);
-    await ctx.editMessageText('✅ כל המנויים בוטלו.', {
-      reply_markup: new InlineKeyboard().text('↩️ חזור', 'menu:main'),
-    });
+    try {
+      removeAllSubscriptions(chatId);
+      await ctx.editMessageText('✅ כל המנויים בוטלו.', {
+        reply_markup: new InlineKeyboard().text('↩️ חזור', 'menu:main'),
+      });
+    } catch (err) {
+      console.error('[Settings] settings:clearall:ok callback failed:', err);
+    }
   });
 
   bot.callbackQuery(/^mycities:(\d+)$/, async (ctx: Context) => {
     await ctx.answerCallbackQuery();
     const chatId = ctx.chat?.id;
     if (!chatId) return;
-    const page = parseInt(ctx.match![1]);
-    const count = getSubscriptionCount(chatId);
-    if (count === 0) {
-      await ctx.editMessageText('📋 אין ערים רשומות.', {
-        reply_markup: new InlineKeyboard()
-          .text('📍 הוסף לפי אזור', 'menu:zones')
-          .text('↩️ חזור', 'menu:alerts'),
-      });
-      return;
+    try {
+      const page = parseInt(ctx.match![1]);
+      const count = getSubscriptionCount(chatId);
+      if (count === 0) {
+        await ctx.editMessageText('📋 אין ערים רשומות.', {
+          reply_markup: new InlineKeyboard()
+            .text('📍 הוסף לפי אזור', 'menu:zones')
+            .text('↩️ חזור', 'menu:alerts'),
+        });
+        return;
+      }
+      const { text, keyboard } = buildMyCitiesPage(chatId, page);
+      await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
+    } catch (err) {
+      console.error('[Settings] mycities callback failed:', err);
     }
-    const { text, keyboard } = buildMyCitiesPage(chatId, page);
-    await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
   });
 
   bot.callbackQuery('noop', async (ctx: Context) => {
@@ -176,28 +214,32 @@ export function registerSettingsHandler(bot: Bot): void {
   bot.callbackQuery(/^rm:(\d+):(\d+)$/, async (ctx: Context) => {
     const chatId = ctx.chat?.id;
     if (!chatId) return;
-    const cityId = parseInt(ctx.match![1]);
-    const page = parseInt(ctx.match![2]);
+    try {
+      const cityId = parseInt(ctx.match![1]);
+      const page = parseInt(ctx.match![2]);
 
-    const { getCityById } = await import('../cityLookup.js');
-    const city = getCityById(cityId);
-    if (!city) {
-      await ctx.answerCallbackQuery('עיר לא נמצאה');
-      return;
-    }
-    removeSubscription(chatId, city.name);
-    await ctx.answerCallbackQuery(`❌ הוסר: ${city.name}`);
+      const { getCityById } = await import('../cityLookup.js');
+      const city = getCityById(cityId);
+      if (!city) {
+        await ctx.answerCallbackQuery('עיר לא נמצאה');
+        return;
+      }
+      removeSubscription(chatId, city.name);
+      await ctx.answerCallbackQuery(`❌ הוסר: ${city.name}`);
 
-    const remaining = getSubscriptionCount(chatId);
-    if (remaining === 0) {
-      await ctx.editMessageText('📋 אין ערים רשומות.', {
-        reply_markup: new InlineKeyboard()
-          .text('📍 הוסף לפי אזור', 'menu:zones')
-          .text('↩️ חזור', 'menu:alerts'),
-      });
-      return;
+      const remaining = getSubscriptionCount(chatId);
+      if (remaining === 0) {
+        await ctx.editMessageText('📋 אין ערים רשומות.', {
+          reply_markup: new InlineKeyboard()
+            .text('📍 הוסף לפי אזור', 'menu:zones')
+            .text('↩️ חזור', 'menu:alerts'),
+        });
+        return;
+      }
+      const { text, keyboard } = buildMyCitiesPage(chatId, page);
+      await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
+    } catch (err) {
+      console.error('[Settings] rm callback failed:', err);
     }
-    const { text, keyboard } = buildMyCitiesPage(chatId, page);
-    await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
   });
 }
