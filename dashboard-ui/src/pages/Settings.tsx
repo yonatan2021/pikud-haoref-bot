@@ -35,8 +35,8 @@ function ToggleSwitch({ value, onChange }: ToggleSwitchProps) {
       aria-checked={value}
     >
       <motion.span
-        layout
-        className="inline-block h-4 w-4 transform rounded-full bg-white shadow"
+        className="absolute h-4 w-4 rounded-full bg-white shadow"
+        style={{ top: 4, left: 0 }}
         animate={{ x: value ? 24 : 4 }}
         transition={{ type: 'spring', stiffness: 500, damping: 30 }}
       />
@@ -67,6 +67,7 @@ export function Settings() {
         mapbox_skip_drills: settings.mapbox_skip_drills ?? 'false',
         quiet_hours_global: settings.quiet_hours_global ?? 'false',
       });
+      setDirty(false);
     }
   }, [settings]);
 
@@ -79,7 +80,6 @@ export function Settings() {
       if (form.quiet_hours_global) body.quiet_hours_global = form.quiet_hours_global;
       return api.patch('/api/settings', body);
     },
-    onMutate: () => setSaveState('loading'),
     onSuccess: () => {
       toast.success('הגדרות נשמרו');
       setDirty(false);
@@ -117,7 +117,7 @@ export function Settings() {
           <h1 className="text-2xl font-bold text-text-primary">הגדרות</h1>
           <button
             disabled={!dirty || saveState === 'loading'}
-            onClick={() => saveMutation.mutate()}
+            onClick={() => { setSaveState('loading'); saveMutation.mutate(); }}
             className={`px-6 py-2 text-sm font-bold rounded-lg disabled:opacity-40 transition-colors flex items-center gap-2 min-w-[140px] justify-center ${
               saveState === 'success'
                 ? 'bg-green text-white'

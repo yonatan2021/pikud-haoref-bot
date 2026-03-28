@@ -65,7 +65,6 @@ export function Operations() {
 
   const broadcastMutation = useMutation({
     mutationFn: () => api.post('/api/operations/broadcast', { text: broadcastText }),
-    onMutate: () => setSendState('loading'),
     onSuccess: (data: unknown) => {
       const result = data as { queued?: number; sent?: number; failed?: number };
       if (result.queued !== undefined) {
@@ -254,29 +253,32 @@ export function Operations() {
                   </tr>
                 </thead>
                 <tbody>
-                  {alertWindow.map(row => (
-                    <tr key={row.id} className="border-b border-border/50 hover:bg-base/40">
-                      <td className="py-3 px-3">
-                        <span className="flex items-center gap-1.5">
-                          <LiveDot color="amber" size="sm" aria-label="" />
-                          <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full">{row.alert_type}</span>
-                        </span>
-                      </td>
-                      <td className="py-3 px-3 text-text-secondary text-xs">
-                        {parsedCities(row).slice(0, 3).join(', ')}
-                        {parsedCities(row).length > 3 && ` +${parsedCities(row).length - 3}`}
-                      </td>
-                      <td className="py-3 px-3 text-text-muted text-xs">{relTime(row.sent_at)}</td>
-                      <td className="py-3 px-3">
-                        <button
-                          onClick={() => setClearTypeConfirm(row.alert_type)}
-                          className="text-xs text-red-400 hover:text-red-300"
-                        >
-                          נקה
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {alertWindow.map(row => {
+                    const cities = parsedCities(row);
+                    return (
+                      <tr key={row.id} className="border-b border-border/50 hover:bg-base/40">
+                        <td className="py-3 px-3">
+                          <span className="flex items-center gap-1.5">
+                            <LiveDot color="amber" size="sm" aria-label="" />
+                            <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full">{row.alert_type}</span>
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-text-secondary text-xs">
+                          {cities.slice(0, 3).join(', ')}
+                          {cities.length > 3 && ` +${cities.length - 3}`}
+                        </td>
+                        <td className="py-3 px-3 text-text-muted text-xs">{relTime(row.sent_at)}</td>
+                        <td className="py-3 px-3">
+                          <button
+                            onClick={() => setClearTypeConfirm(row.alert_type)}
+                            className="text-xs text-red-400 hover:text-red-300"
+                          >
+                            נקה
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -322,7 +324,7 @@ export function Operations() {
           open={broadcastConfirm}
           title="אישור Broadcast"
           description={`תשלח ל-${overview?.totalSubscribers ?? '?'} מנויים. האם להמשיך?`}
-          onConfirm={() => broadcastMutation.mutate()}
+          onConfirm={() => { setSendState('loading'); broadcastMutation.mutate(); }}
           onCancel={() => setBroadcastConfirm(false)}
           danger={false}
         />

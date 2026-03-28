@@ -49,17 +49,14 @@ export function LandingPage() {
 
   const deployMutation = useMutation({
     mutationFn: () => api.post('/api/landing/deploy', {}),
-    onMutate: () => setDeployState('loading'),
     onSuccess: () => {
       toast.success('Deploy הופעל בהצלחה');
-      setDeployConfirm(false);
       qc.invalidateQueries({ queryKey: ['landing-config'] });
       setDeployState('success');
       setTimeout(() => setDeployState('idle'), 3000);
     },
     onError: () => {
       toast.error('שגיאה בהפעלת deploy');
-      setDeployConfirm(false);
       setDeployState('error');
       setTimeout(() => setDeployState('idle'), 3000);
     },
@@ -200,7 +197,7 @@ export function LandingPage() {
               <p className="text-text-secondary text-sm flex-1">האם להפעיל GitHub Actions deploy?</p>
               <button
                 disabled={deployMutation.isPending}
-                onClick={() => deployMutation.mutate()}
+                onClick={() => { setDeployConfirm(false); setDeployState('loading'); deployMutation.mutate(); }}
                 className="px-4 py-2 bg-amber hover:bg-amber-dark text-black text-sm font-bold rounded-lg disabled:opacity-40"
               >
                 {deployMutation.isPending ? 'מפעיל...' : 'אישור'}
