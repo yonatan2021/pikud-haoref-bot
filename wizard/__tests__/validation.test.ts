@@ -9,8 +9,8 @@ import {
 
 describe('validateToken', () => {
   it('accepts a valid bot token', () => {
-    // Secret part is exactly 35 chars (real Telegram token format)
-    assert.equal(validateToken('7843291047:AAF-xKp_abc123defGHIJKLMNOPQRSTUVWX'), undefined)
+    // Low-entropy placeholder — intentionally fake, not a real secret
+    assert.equal(validateToken('7843291047:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'), undefined)
   })
 
   it('rejects an empty string', () => {
@@ -30,7 +30,8 @@ describe('validateToken', () => {
   })
 
   it('accepts token with exactly 7 digit ID', () => {
-    assert.equal(validateToken('1234567:AAF-xKp_abc123defGHIJKLMNOPQRSTUVWX'), undefined)
+    // Low-entropy placeholder — intentionally fake, not a real secret
+    assert.equal(validateToken('1234567:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'), undefined)
   })
 })
 
