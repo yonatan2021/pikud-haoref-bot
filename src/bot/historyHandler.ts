@@ -42,7 +42,7 @@ export function registerHistoryHandler(bot: Bot): void {
     if (ctx.chat?.type !== 'private') return;
     const chatId = ctx.chat.id;
     upsertUser(chatId);
-    const cityArg = (ctx.match ?? '').trim();
+    const cityArg = String(ctx.match ?? '').trim();
 
     if (cityArg.length > 0) {
       const rows = getAlertsForCity(cityArg, 10);

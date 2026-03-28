@@ -3,12 +3,16 @@ import { registerMenuHandler } from './menuHandler.js';
 import { registerZoneHandler } from './zoneHandler.js';
 import { registerSearchHandler } from './searchHandler.js';
 import { registerSettingsHandler } from './settingsHandler.js';
+import { registerStatsHandler } from './statsHandler.js';
+import { registerHistoryHandler } from './historyHandler.js';
 
 export async function setupBotHandlers(bot: Bot): Promise<void> {
   registerMenuHandler(bot);
   registerZoneHandler(bot);
   registerSearchHandler(bot);
   registerSettingsHandler(bot);
+  registerStatsHandler(bot);
+  registerHistoryHandler(bot);
 
   bot.catch((err) => {
     console.error('[Bot] Unhandled error:', err);
@@ -20,5 +24,7 @@ export async function setupBotHandlers(bot: Bot): Promise<void> {
     { command: 'zones',    description: 'הוסף ערים לפי אזור' },
     { command: 'mycities', description: 'הערים שנרשמת אליהן' },
     { command: 'settings', description: 'הגדרות והעדפות' },
+    { command: 'stats',    description: 'סטטיסטיקת 24 שעות אחרונות' },
+    { command: 'history',  description: 'היסטוריית התראות לאזורך' },
   ]);
 }
