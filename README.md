@@ -202,6 +202,16 @@ docker run --env-file .env \
 |--------|:----------:|-------|
 | `HEALTH_PORT` | `3000` | פורט ל-`GET /health` — מחזיר uptime, lastAlertAt, lastPollAt, alertsToday |
 
+### לוח בקרה (אופציונלי)
+
+| משתנה | ברירת מחדל | תיאור |
+|--------|:----------:|-------|
+| `DASHBOARD_SECRET` | — | סיסמת לוח הבקרה — מפעיל את לוח הבקרה כשמוגדר |
+| `DASHBOARD_PORT` | `4000` | פורט שרת לוח הבקרה |
+| `GA4_MEASUREMENT_ID` | — | Google Analytics 4 Measurement ID לדף הנחיתה |
+| `GITHUB_PAT` | — | GitHub Personal Access Token להפעלת deploy לדף הנחיתה |
+| `GITHUB_REPO` | — | ריפו GitHub (owner/repo) להפעלת deploy לדף הנחיתה |
+
 ### כללי (אופציונלי)
 
 | משתנה | תיאור |
@@ -486,6 +496,24 @@ ssh-keygen -t ed25519 -C "landing-deploy" -f ~/.ssh/landing_deploy -N ""
 ```bash
 node landing/build.js   # מייצר landing/dist/ — פתח index.html בדפדפן לבדיקה
 ```
+
+</div>
+
+---
+
+<div dir="rtl">
+
+## 🖥️ לוח בקרה (Admin Dashboard)
+
+לוח בקרה בעברית RTL זמין כאשר `DASHBOARD_SECRET` מוגדר. ניתן לגשת אליו בכתובת `http://localhost:4000`.
+
+### תכונות
+
+- ניטור והיסטוריית התראות בזמן אמת
+- ניהול מנויים (יצירה, עריכה, מחיקה, ייצוא CSV)
+- שליחת הודעות broadcast לכל המנויים
+- ניהול הגדרות הבוט
+- שליטה ב-GA4 ו-deploy לדף הנחיתה
 
 </div>
 

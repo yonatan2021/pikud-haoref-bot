@@ -21,8 +21,11 @@ export function closeDb(): void {
   }
 }
 
-export function initDb(): void {
-  const database = getDb();
+/**
+ * Initialise all tables on a given Database instance.
+ * Useful for testing with an in-memory database and for the singleton `initDb()`.
+ */
+export function initSchema(database: Database.Database): void {
   database.exec(`
     CREATE TABLE IF NOT EXISTS users (
       chat_id    INTEGER PRIMARY KEY,
@@ -41,24 +44,7 @@ export function initDb(): void {
       month         TEXT PRIMARY KEY,
       request_count INTEGER NOT NULL DEFAULT 0
     );
-  `);
 
-  database.exec(
-    [
-      'CREATE TABLE IF NOT EXISTS alert_history (',
-      '  id           INTEGER PRIMARY KEY AUTOINCREMENT,',
-      '  type         TEXT NOT NULL,',
-      '  cities       TEXT NOT NULL,',
-      '  instructions TEXT,',
-      '  fired_at     TEXT NOT NULL DEFAULT (datetime(\'now\'))',
-      ');',
-      'CREATE INDEX IF NOT EXISTS idx_alert_history_fired_at ON alert_history(fired_at);',
-      'CREATE INDEX IF NOT EXISTS idx_alert_history_type     ON alert_history(type);',
-      "DELETE FROM alert_history WHERE fired_at < datetime('now', '-7 days');",
-    ].join('\n')
-  );
-
-  database.exec(`
     CREATE TABLE IF NOT EXISTS alert_window (
       alert_type  TEXT PRIMARY KEY,
       message_id  INTEGER NOT NULL,
@@ -68,7 +54,27 @@ export function initDb(): void {
       sent_at     INTEGER NOT NULL,
       has_photo   INTEGER NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS settings (
+      key        TEXT PRIMARY KEY,
+      value      TEXT NOT NULL,
+      updated_at TIMESTAMP DEFAULT (datetime('now'))
+    );
   `);
+
+  database.exec(
+    [
+      'CREATE TABLE IF NOT EXISTS alert_history (',
+      '  id           INTEGER PRIMARY KEY AUTOINCREMENT,',
+      '  type         TEXT NOT NULL,',
+      '  cities       TEXT NOT NULL,',
+      '  instructions TEXT,',
+      "  fired_at     TEXT NOT NULL DEFAULT (datetime('now'))",
+      ');',
+      'CREATE INDEX IF NOT EXISTS idx_alert_history_fired_at ON alert_history(fired_at);',
+      'CREATE INDEX IF NOT EXISTS idx_alert_history_type     ON alert_history(type);',
+    ].join('\n')
+  );
 
   // SQLite has no ADD COLUMN IF NOT EXISTS — ALTER TABLE throws 'duplicate column name'
   // on repeat runs (e.g. after restart). Catch and ignore that specific error; re-throw all others.
@@ -79,4 +85,11 @@ export function initDb(): void {
   } catch (e: unknown) {
     if (!(e instanceof Error && e.message.includes('duplicate column name'))) throw e;
   }
+}
+
+export function initDb(): void {
+  const database = getDb();
+  initSchema(database);
+  // Prune alert history older than 7 days on startup
+  database.exec(`DELETE FROM alert_history WHERE fired_at < datetime('now', '-7 days')`);
 }
