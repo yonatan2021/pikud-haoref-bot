@@ -1,17 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { ALERT_TYPE_EMOJI, ALERT_TYPE_HE } from '../telegramBot';
 import type { Alert } from '../types';
-import { buildNewsFlashDmMessage, buildDmText, shouldSkipForQuietHours } from '../services/dmDispatcher';
-
-// Test the short message format logic (extracted for unit testing)
-function buildShortMessage(alert: Alert): string {
-  const emoji = ALERT_TYPE_EMOJI[alert.type] ?? '⚠️';
-  const title = ALERT_TYPE_HE[alert.type] ?? ALERT_TYPE_HE.unknown ?? 'התרעה';
-  const cities = alert.cities.slice(0, 10).join(', ');
-  const more = alert.cities.length > 10 ? ` ועוד ${alert.cities.length - 10}` : '';
-  return `${emoji} ${title} | ${cities}${more}`;
-}
+import { buildShortMessage, buildNewsFlashDmMessage, buildDmText, shouldSkipForQuietHours } from '../services/dmDispatcher';
 
 describe('dmDispatcher short format', () => {
   it('formats missiles alert correctly', () => {
@@ -48,6 +38,28 @@ describe('dmDispatcher short format', () => {
     const alert: Alert = { type: 'unknownType', cities: ['תל אביב'] };
     const msg = buildShortMessage(alert);
     assert.ok(msg.startsWith('⚠️'));
+  });
+});
+
+describe('buildShortMessage — countdown suffix', () => {
+  it('appends countdown for a city with known countdown > 0', () => {
+    // אבו גוש has countdown > 0 in cities.json
+    const alert: Alert = { type: 'missiles', cities: ['אבו גוש'] };
+    const msg = buildShortMessage(alert);
+    assert.ok(msg.includes('⏱'), 'expected ⏱ countdown indicator');
+    assert.ok(msg.includes("שנ׳"), "expected שנ׳ unit");
+  });
+
+  it('omits countdown suffix for empty city list', () => {
+    const alert: Alert = { type: 'missiles', cities: [] };
+    const msg = buildShortMessage(alert);
+    assert.ok(!msg.includes('⏱'), 'no countdown expected for empty city list');
+  });
+
+  it('omits countdown suffix for cities with no data', () => {
+    const alert: Alert = { type: 'missiles', cities: ['עיר_לא_קיימת_בכלל'] };
+    const msg = buildShortMessage(alert);
+    assert.ok(!msg.includes('⏱'), 'no countdown for unknown city');
   });
 });
 

@@ -3,15 +3,27 @@ import { getUsersForCities } from '../db/subscriptionRepository.js';
 import { formatAlertMessage, ALERT_TYPE_EMOJI, ALERT_TYPE_HE } from '../telegramBot.js';
 import { getCityData } from '../cityLookup.js';
 import type { NotificationFormat } from '../db/userRepository.js';
+import { isMuted } from '../db/userRepository.js';
 import { ALERT_TYPE_CATEGORY } from '../topicRouter.js';
 import { dmQueue } from './dmQueue.js';
 
-function buildShortMessage(alert: Alert): string {
+function getMinCountdown(cityNames: string[]): number {
+  let min = Infinity;
+  for (const name of cityNames) {
+    const cd = getCityData(name)?.countdown ?? 0;
+    if (cd > 0) min = Math.min(min, cd);
+  }
+  return isFinite(min) ? min : 0;
+}
+
+export function buildShortMessage(alert: Alert): string {
   const emoji = ALERT_TYPE_EMOJI[alert.type] ?? '⚠️';
   const title = ALERT_TYPE_HE[alert.type] ?? ALERT_TYPE_HE.unknown ?? 'התרעה';
   const cities = alert.cities.slice(0, 10).join(', ');
   const more = alert.cities.length > 10 ? ` ועוד ${alert.cities.length - 10}` : '';
-  return `${emoji} ${title} | ${cities}${more}`;
+  const cd = getMinCountdown(alert.cities);
+  const cdSuffix = cd > 0 ? ` | ⏱ ${cd}שנ׳` : '';
+  return `${emoji} ${title} | ${cities}${more}${cdSuffix}`;
 }
 
 export function buildNewsFlashDmMessage(alert: Alert): string {
@@ -102,16 +114,30 @@ export function notifySubscribers(alert: Alert): void {
     );
     if (subscribers.length === 0) return;
 
-    const tasks = subscribers
-      .filter(({ quiet_hours_enabled }) => !shouldSkipForQuietHours(alert.type, quiet_hours_enabled))
-      .map(({ chat_id, format, matchedCities }) => {
-        const personalAlert: Alert = { ...alert, cities: matchedCities };
-        return { chatId: String(chat_id), text: buildDmText(personalAlert, format) };
-      });
+    const afterQuietHours = subscribers.filter(
+      ({ quiet_hours_enabled }) => !shouldSkipForQuietHours(alert.type, quiet_hours_enabled)
+    );
 
-    const skipped = subscribers.length - tasks.length;
-    if (skipped > 0) {
-      console.log(`[DM] Quiet hours: skipped ${skipped} subscriber(s) for type ${alert.type}`);
+    // Snooze filter: mirrors quiet-hours category logic — only suppresses drills/general.
+    // Security, nature, and environmental alerts always pass through even when muted.
+    const category = ALERT_TYPE_CATEGORY[alert.type] ?? 'general';
+    const muteApplies = category === 'drills' || category === 'general';
+    const afterMute = muteApplies
+      ? afterQuietHours.filter(({ chat_id }) => !isMuted(chat_id))
+      : afterQuietHours;
+
+    const tasks = afterMute.map(({ chat_id, format, matchedCities }) => {
+      const personalAlert: Alert = { ...alert, cities: matchedCities };
+      return { chatId: String(chat_id), text: buildDmText(personalAlert, format) };
+    });
+
+    const skippedQH = subscribers.length - afterQuietHours.length;
+    const skippedMuted = afterQuietHours.length - afterMute.length;
+    if (skippedQH > 0) {
+      console.log(`[DM] Quiet hours: skipped ${skippedQH} subscriber(s) for type ${alert.type}`);
+    }
+    if (skippedMuted > 0) {
+      console.log(`[DM] Muted: skipped ${skippedMuted} subscriber(s) for type ${alert.type}`);
     }
 
     dmQueue.enqueueAll(tasks);
