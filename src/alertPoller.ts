@@ -166,7 +166,7 @@ export class AlertPoller extends EventEmitter {
 
       const jsonObj = json as Record<string, unknown>;
 
-      // Only handle newsFlash (cat=10) with no cities — the library already handles all other cases
+      // Not a newsFlash — clear any tracked fingerprints and return
       if (parseInt(jsonObj.cat as string) !== 10) {
         this.clearCitylessFingerprints();
         return;
@@ -176,24 +176,35 @@ export class AlertPoller extends EventEmitter {
         .map((c: string) => c?.trim())
         .filter((c: string) => c && !c.includes('בדיקה'));
 
-      if (cities.length > 0) {
-        // newsFlash now has cities — library handles it; release our fingerprint so it can expire normally
-        this.clearCitylessFingerprints();
-        return;
-      }
-
+      // Build the alert regardless of whether cities are present.
+      // Previously we returned early when cities were present, trusting pollViaLibrary to handle it.
+      // But when another alert type (e.g. missiles, cat=1) is simultaneously active, Alerts.json
+      // returns that category and pollViaLibrary never sees the newsFlash — so we must emit it here.
+      const normalizedCities = cities.map(normalizeCityName);
       const alert: Alert = {
         type: 'newsFlash',
-        cities: [],
+        cities: normalizedCities,
         ...(jsonObj.title ? { instructions: jsonObj.title as string } : {}),
         ...(jsonObj.id ? { id: String(jsonObj.id) } : {}),
       };
 
       const fingerprint = buildFingerprint(alert);
+
+      // If the fingerprint changed (city set changed), evict the stale entry and track the new one.
+      // citylessFingerprints acts as a guard that prevents pollViaLibrary's expiry loop from
+      // removing fingerprints it never saw (because its concurrent Alerts.json call returned
+      // a different category).
+      if (!this.citylessFingerprints.has(fingerprint)) {
+        this.clearCitylessFingerprints();
+        this.citylessFingerprints.add(fingerprint);
+      }
+
       if (!this.seenFingerprints.has(fingerprint)) {
         this.seenFingerprints.add(fingerprint);
-        this.citylessFingerprints.add(fingerprint);
-        console.log('[AlertPoller] New alert: nationwide newsFlash (no cities)');
+        const desc = normalizedCities.length > 0
+          ? `newsFlash — ${normalizedCities.length} cities (direct fetch)`
+          : 'nationwide newsFlash (no cities)';
+        console.log(`[AlertPoller] New alert: ${desc}`);
         this.emit('newAlert', alert);
       }
     } catch (err) {

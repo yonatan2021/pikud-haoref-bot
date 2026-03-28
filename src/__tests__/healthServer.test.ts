@@ -1,6 +1,7 @@
-import { describe, it } from 'node:test';
+import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
+import { initDb, closeDb } from '../db/schema.js';
 
 async function getHealth(port: number): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {
@@ -26,6 +27,9 @@ describe('metrics', () => {
 });
 
 describe('healthServer', () => {
+  before(() => { initDb(); });
+  after(() => { closeDb(); });
+
   it('GET /health returns required fields', async () => {
     const { startHealthServer } = await import('../healthServer.js');
     const server = startHealthServer(0);
