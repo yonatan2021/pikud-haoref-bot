@@ -6,7 +6,6 @@
   <meta name="description" content="בוט טלגרם לקבלת התראות פיקוד העורף בזמן אמת — עם מפות, ניתוב נושאים ו-DM אישי לפי ערים. קוד פתוח, Apache 2.0." />
   <title>בוט התראות פיקוד העורף</title>
 
-  <!-- Preconnect to Google Fonts for faster load -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
@@ -20,25 +19,31 @@
 </head>
 <body>
 
-  <!-- ①  Hero ---------------------------------------------------------------- -->
+  <!-- ① Hero ---------------------------------------------------------------- -->
   <header class="hero">
-    <!-- Animated radar background ring -->
-    <div class="radar-ring" aria-hidden="true"></div>
+    <!-- Aurora background blobs -->
+    <div class="aurora" aria-hidden="true">
+      <div class="aurora-blob aurora-blob--1"></div>
+      <div class="aurora-blob aurora-blob--2"></div>
+    </div>
 
-    <div class="hero-content">
+    <!-- Cursor spotlight (position driven by JS CSS vars) -->
+    <div class="spotlight" aria-hidden="true"></div>
+
+    <!-- Main glass panel -->
+    <div class="hero-panel glass-card">
       <img
         src="logo.jpg"
         alt="לוגו בוט התראות פיקוד העורף"
         class="hero-logo"
-        width="90"
-        height="90"
+        width="86"
+        height="86"
       />
 
       <h1 class="hero-title">בוט התראות פיקוד העורף</h1>
 
-      <p class="hero-subtitle">
-        התראות IDF Home Front Command בזמן אמת — ישירות לטלגרם, עם מפות,
-        ניתוב נושאים, ו-DM אישי לפי ערים
+      <p class="hero-subtitle-wrap">
+        <span class="typing-text">התראות IDF בזמן אמת — ישירות לטלגרם, עם מפות ו-DM אישי</span><span class="typing-cursor" aria-hidden="true"></span>
       </p>
 
       <div class="cta-group">
@@ -63,13 +68,42 @@
         פעיל עכשיו · עדכון כל 2 שניות
       </div>
     </div>
+
+    <!-- Simulated alert cards (rotate every ~7s, hidden on narrow viewports) -->
+    <div class="alert-sim alert-sim--1" aria-hidden="true">
+      <div class="alert-sim-header">
+        <span class="alert-sim-dot"></span> התראה · עכשיו
+      </div>
+      <div class="alert-sim-type">🚀 ירי טילים ורקטות</div>
+      <div class="alert-sim-cities">תל אביב · רמת גן · גבעתיים</div>
+      <div class="alert-sim-action">היכנס למרחב המוגן מיד</div>
+    </div>
+
+    <div class="alert-sim alert-sim--2" aria-hidden="true">
+      <div class="alert-sim-header">
+        <span class="alert-sim-dot"></span> התראה · עכשיו
+      </div>
+      <div class="alert-sim-type">✈️ חדירת כלי טיס עוין</div>
+      <div class="alert-sim-cities">חיפה · חוף הכרמל · עתלית</div>
+      <div class="alert-sim-action">היכנס למרחב המוגן מיד</div>
+    </div>
+
+    <div class="alert-sim alert-sim--3" aria-hidden="true">
+      <div class="alert-sim-header">
+        <span class="alert-sim-dot"></span> התראה · עכשיו
+      </div>
+      <div class="alert-sim-type">🔒 סייגור</div>
+      <div class="alert-sim-cities">ירושלים · מבשרת ציון</div>
+      <div class="alert-sim-action">נעל דלתות, הישאר בפנים</div>
+    </div>
   </header>
 
-  <!-- ②  Stats Strip --------------------------------------------------------- -->
+  <!-- ② Stats Strip --------------------------------------------------------- -->
   <section class="stats-strip" aria-label="נתוני מפתח">
     <div class="stats-inner">
 
-      <div class="stat-item">
+      <div class="stat-item reveal">
+        <span class="stat-icon">⚡</span>
         <div class="stat-value">
           <span class="stat-num" data-target="2">0</span>
           <span class="stat-unit">s</span>
@@ -77,21 +111,24 @@
         <span class="stat-label">עדכון API</span>
       </div>
 
-      <div class="stat-item">
+      <div class="stat-item reveal" style="--reveal-delay: 0.1s">
+        <span class="stat-icon">🗺️</span>
         <div class="stat-value">
           <span class="stat-num" data-target="28">0</span>
         </div>
-        <span class="stat-label">אזורים</span>
+        <span class="stat-label">אזורים מכוסים</span>
       </div>
 
-      <div class="stat-item">
+      <div class="stat-item reveal" style="--reveal-delay: 0.2s">
+        <span class="stat-icon">🏷️</span>
         <div class="stat-value">
           <span class="stat-num" data-target="5">0</span>
         </div>
         <span class="stat-label">קטגוריות נושא</span>
       </div>
 
-      <div class="stat-item">
+      <div class="stat-item reveal" style="--reveal-delay: 0.3s">
+        <span class="stat-icon">👤</span>
         <div class="stat-value">
           <span class="stat-num">DM</span>
         </div>
@@ -101,25 +138,93 @@
     </div>
   </section>
 
-  <!-- ③  Features ------------------------------------------------------------ -->
-  <section class="features section" id="features">
+  <!-- ③ How It Works (new section) ----------------------------------------- -->
+  <section class="how-it-works section" id="how">
     <div class="container">
-      <h2 class="section-title">✨ תכונות</h2>
-      <div class="features-grid">
-        {{FEATURES_HTML}}
+      <h2 class="section-title reveal">איך זה עובד</h2>
+
+      <div class="steps">
+
+        <div class="step glass-card reveal">
+          <span class="step-number">01</span>
+          <span class="step-icon">🏛️</span>
+          <h3>פיקוד העורף מפרסם</h3>
+          <p>נתוני פיקוד העורף, מתעדכנים כל 2 שניות סביב השעון</p>
+        </div>
+
+        <div class="step-connector" aria-hidden="true">
+          <div class="step-connector-line"></div>
+          <div class="step-connector-dot"></div>
+        </div>
+
+        <div class="step glass-card reveal" style="--reveal-delay: 0.15s">
+          <span class="step-number">02</span>
+          <span class="step-icon">⚡</span>
+          <h3>הבוט קולט ומעבד</h3>
+          <p>זיהוי כפילויות, ניתוב לפי עיר ונושא, תורים חכמים</p>
+        </div>
+
+        <div class="step-connector" aria-hidden="true">
+          <div class="step-connector-line"></div>
+          <div class="step-connector-dot"></div>
+        </div>
+
+        <div class="step glass-card reveal" style="--reveal-delay: 0.3s">
+          <span class="step-number">03</span>
+          <span class="step-icon">📱</span>
+          <h3>אתה מקבל</h3>
+          <p>DM אישי לטלגרם, רק על הערים שבחרת, כולל מפה</p>
+        </div>
+
       </div>
     </div>
   </section>
 
-  <!-- ④  Two Paths ---------------------------------------------------------- -->
-  <section class="paths section section--alt" id="paths">
+  <!-- ④ Features ------------------------------------------------------------ -->
+  <section class="features section section--alt" id="features">
     <div class="container">
-      <h2 class="section-title">🛣️ שתי דרכים להשתמש</h2>
+      <h2 class="section-title reveal">✨ תכונות</h2>
+      <div class="features-columns">
+
+        <div class="features-panel features-panel--user glass-card reveal">
+          <div class="features-panel-header">
+            <span class="features-panel-icon">🔔</span>
+            <div>
+              <h3 class="features-panel-title">אם תצטרף לבוט והקבוצה הקיימים</h3>
+              <p class="features-panel-sub">ללא התקנה, ללא קוד</p>
+            </div>
+          </div>
+          <div class="features-grid">
+            {{USER_FEATURES_HTML}}
+          </div>
+        </div>
+
+        <div class="features-panel features-panel--dev glass-card reveal" style="--reveal-delay: 0.1s">
+          <div class="features-panel-header">
+            <span class="features-panel-icon">⚙️</span>
+            <div>
+              <h3 class="features-panel-title">מתחת למכסה</h3>
+              <p class="features-panel-sub">למתכנתים ו-DevOps</p>
+            </div>
+          </div>
+          <div class="features-grid">
+            {{DEV_FEATURES_HTML}}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ⑤ Two Paths ----------------------------------------------------------- -->
+  <section class="paths section" id="paths">
+    <div class="container">
+      <h2 class="section-title reveal">🛣️ שתי דרכים להשתמש</h2>
       <p class="section-subtitle">בחר מה מתאים לך — אפשר גם וגם</p>
 
       <div class="paths-grid">
 
-        <div class="path-card path-card--join">
+        <div class="path-card path-card--join glass-card reveal">
           <div class="path-icon" aria-hidden="true">📡</div>
           <h3 class="path-title">הצטרף לערוץ הקיים</h3>
           <p class="path-desc">
@@ -142,7 +247,7 @@
           </a>
         </div>
 
-        <div class="path-card path-card--selfhost">
+        <div class="path-card path-card--selfhost glass-card reveal" style="--reveal-delay: 0.15s">
           <div class="path-icon" aria-hidden="true">🖥️</div>
           <h3 class="path-title">הקם instance משלך</h3>
           <p class="path-desc">
@@ -157,6 +262,17 @@
           </ul>
           <div class="path-code">
             <code>npx @haoref-boti/pikud-haoref-bot</code>
+            <button
+              class="copy-btn"
+              data-copy="npx @haoref-boti/pikud-haoref-bot"
+              aria-label="העתק פקודה"
+            >
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                <rect x="5.5" y="1.5" width="9" height="11" rx="1.5"/>
+                <rect x="1.5" y="4.5" width="7" height="9" rx="1.5"/>
+              </svg>
+              <span class="copy-feedback" aria-live="polite">הועתק!</span>
+            </button>
           </div>
           <a
             href="https://github.com/yonatan2021/pikud-haoref-bot"
@@ -172,89 +288,122 @@
     </div>
   </section>
 
-  <!-- ⑤  Screenshots --------------------------------------------------------- -->
+  <!-- ⑥ Screenshots --------------------------------------------------------- -->
   <section class="screenshots section section--alt" id="screenshots">
     <div class="container">
-      <h2 class="section-title">📸 תצוגה מקדימה</h2>
+      <h2 class="section-title reveal">📸 תצוגה מקדימה</h2>
     </div>
 
-    <!-- Strip spans full width for edge-to-edge scroll -->
-    <div class="screenshots-strip" role="list" aria-label="צילומי מסך מהבוט">
+    <!-- LTR wrapper for seamless infinite auto-scroll -->
+    <div class="screenshots-overflow" role="list" aria-label="צילומי מסך מהבוט">
+      <div class="screenshots-track">
 
-      <div class="screenshot-item" role="listitem">
-        <div class="screenshot-frame">
-          <img
-            src="screenshots/start.jpg"
-            alt="תפריט ראשי של הבוט"
-            loading="lazy"
-            width="220"
-            height="391"
-          />
+        <div class="screenshot-item" role="listitem">
+          <div class="screenshot-frame">
+            <img src="screenshots/start.jpg" alt="תפריט ראשי של הבוט" loading="lazy" width="200" height="356" />
+          </div>
+          <p class="screenshot-caption">תפריט ראשי</p>
         </div>
-        <p class="screenshot-caption">תפריט ראשי</p>
-      </div>
 
-      <div class="screenshot-item" role="listitem">
-        <div class="screenshot-frame">
-          <img
-            src="screenshots/zones.jpg"
-            alt="ממשק בחירת אזור"
-            loading="lazy"
-            width="220"
-            height="391"
-          />
+        <div class="screenshot-item" role="listitem">
+          <div class="screenshot-frame">
+            <img src="screenshots/zones.jpg" alt="ממשק בחירת אזור" loading="lazy" width="200" height="356" />
+          </div>
+          <p class="screenshot-caption">בחירת אזור</p>
         </div>
-        <p class="screenshot-caption">בחירת אזור</p>
-      </div>
 
-      <div class="screenshot-item" role="listitem">
-        <div class="screenshot-frame">
-          <img
-            src="screenshots/add.jpg"
-            alt="חיפוש עיר להוספה"
-            loading="lazy"
-            width="220"
-            height="391"
-          />
+        <div class="screenshot-item" role="listitem">
+          <div class="screenshot-frame">
+            <img src="screenshots/add.jpg" alt="חיפוש עיר להוספה" loading="lazy" width="200" height="356" />
+          </div>
+          <p class="screenshot-caption">חיפוש עיר</p>
         </div>
-        <p class="screenshot-caption">חיפוש עיר</p>
-      </div>
 
-      <div class="screenshot-item" role="listitem">
-        <div class="screenshot-frame">
-          <img
-            src="screenshots/mycities.jpg"
-            alt="רשימת הערים שהמשתמש עקב אחריהן"
-            loading="lazy"
-            width="220"
-            height="391"
-          />
+        <div class="screenshot-item" role="listitem">
+          <div class="screenshot-frame">
+            <img src="screenshots/mycities.jpg" alt="רשימת הערים שהמשתמש עקב אחריהן" loading="lazy" width="200" height="356" />
+          </div>
+          <p class="screenshot-caption">הערים שלי</p>
         </div>
-        <p class="screenshot-caption">הערים שלי</p>
-      </div>
 
-      <div class="screenshot-item" role="listitem">
-        <div class="screenshot-frame">
-          <img
-            src="screenshots/settings.jpg"
-            alt="הגדרות הבוט"
-            loading="lazy"
-            width="220"
-            height="391"
-          />
+        <div class="screenshot-item" role="listitem">
+          <div class="screenshot-frame">
+            <img src="screenshots/settings.jpg" alt="הגדרות הבוט" loading="lazy" width="200" height="356" />
+          </div>
+          <p class="screenshot-caption">הגדרות</p>
         </div>
-        <p class="screenshot-caption">הגדרות</p>
-      </div>
 
+        <!-- Duplicate set for seamless loop -->
+        <div class="screenshot-item" aria-hidden="true">
+          <div class="screenshot-frame">
+            <img src="screenshots/start.jpg" alt="" loading="lazy" width="200" height="356" />
+          </div>
+          <p class="screenshot-caption">תפריט ראשי</p>
+        </div>
+
+        <div class="screenshot-item" aria-hidden="true">
+          <div class="screenshot-frame">
+            <img src="screenshots/zones.jpg" alt="" loading="lazy" width="200" height="356" />
+          </div>
+          <p class="screenshot-caption">בחירת אזור</p>
+        </div>
+
+        <div class="screenshot-item" aria-hidden="true">
+          <div class="screenshot-frame">
+            <img src="screenshots/add.jpg" alt="" loading="lazy" width="200" height="356" />
+          </div>
+          <p class="screenshot-caption">חיפוש עיר</p>
+        </div>
+
+        <div class="screenshot-item" aria-hidden="true">
+          <div class="screenshot-frame">
+            <img src="screenshots/mycities.jpg" alt="" loading="lazy" width="200" height="356" />
+          </div>
+          <p class="screenshot-caption">הערים שלי</p>
+        </div>
+
+        <div class="screenshot-item" aria-hidden="true">
+          <div class="screenshot-frame">
+            <img src="screenshots/settings.jpg" alt="" loading="lazy" width="200" height="356" />
+          </div>
+          <p class="screenshot-caption">הגדרות</p>
+        </div>
+
+      </div>
     </div>
   </section>
 
-  <!-- ⑤  CTA Repeat --------------------------------------------------------- -->
-  <section class="cta-section section" id="join">
+  <!-- ⑦ Live Counter (social proof) ---------------------------------------- -->
+  <section class="live-counter section" id="stats">
     <div class="container">
-      <h2>מוכן להצטרף?</h2>
-      <p>קבל התראות ישירות לטלגרם — או הרץ instance פרטי משלך</p>
-      <div class="cta-buttons">
+      <h2 class="section-title reveal">📊 במספרים</h2>
+      <div class="counters-grid">
+
+        <div class="counter-item reveal">
+          <div class="counter-value" data-target="1400">0</div>
+          <div class="counter-label">ערים ויישובים מכוסים</div>
+        </div>
+
+        <div class="counter-item reveal" style="--reveal-delay: 0.1s">
+          <div class="counter-value">99.9%</div>
+          <div class="counter-label">זמינות שירות</div>
+        </div>
+
+        <div class="counter-item reveal" style="--reveal-delay: 0.2s">
+          <div class="counter-value">24/7</div>
+          <div class="counter-label">ניטור רציף</div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ⑧ CTA Final ----------------------------------------------------------- -->
+  <section class="cta-section section section--alt" id="join">
+    <div class="container">
+      <h2 class="reveal">מוכן להצטרף?</h2>
+      <p class="reveal" style="--reveal-delay: 0.1s">קבל התראות ישירות לטלגרם — או הרץ instance פרטי משלך</p>
+      <div class="cta-buttons reveal" style="--reveal-delay: 0.2s">
         <a
           href="https://t.me/phalaret"
           class="btn btn-primary btn--large"
@@ -273,16 +422,12 @@
     </div>
   </section>
 
-  <!-- ⑥  Footer ------------------------------------------------------------- -->
+  <!-- ⑨ Footer -------------------------------------------------------------- -->
   <footer class="footer">
     <div class="footer-inner">
       <span>גרסה {{VERSION}}</span>
       <span class="footer-sep" aria-hidden="true">·</span>
-      <a
-        href="https://github.com/yonatan2021/pikud-haoref-bot"
-        target="_blank"
-        rel="noopener noreferrer"
-      >GitHub</a>
+      <a href="https://github.com/yonatan2021/pikud-haoref-bot" target="_blank" rel="noopener noreferrer">GitHub</a>
       <span class="footer-sep" aria-hidden="true">·</span>
       <span>Apache 2.0</span>
       <span class="footer-sep" aria-hidden="true">·</span>
@@ -292,42 +437,108 @@
   </footer>
 
   <!-- -----------------------------------------------------------------------
-       Inline JS: scroll animations + stats counter
+       Inline JS — cursor spotlight, scroll reveal, counters,
+                   How It Works connector, copy button
   ------------------------------------------------------------------------ -->
   <script>
-    // ── Scroll animations (feature cards + screenshot items) ──────────────
-    const observer = new IntersectionObserver(
-      entries => entries.forEach(e => {
-        if (e.isIntersecting) e.target.classList.add('visible');
-      }),
-      { threshold: 0.1 }
-    );
-    document
-      .querySelectorAll('.feature-card, .screenshot-item, .path-card')
-      .forEach(el => observer.observe(el));
+    // ── 1. Cursor spotlight ─────────────────────────────────────────────────
+    document.addEventListener('mousemove', function(e) {
+      document.documentElement.style.setProperty('--cursor-x', e.clientX + 'px');
+      document.documentElement.style.setProperty('--cursor-y', e.clientY + 'px');
+    });
 
-    // ── Stats counter (count-up animation) ────────────────────────────────
-    const statObserver = new IntersectionObserver(entries => {
-      entries.forEach(e => {
+    // ── 2. Scroll reveal (.reveal elements) ─────────────────────────────────
+    var revealObserver = new IntersectionObserver(function(entries) {
+      entries.forEach(function(e) {
+        if (e.isIntersecting) {
+          e.target.classList.add('visible');
+          revealObserver.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.1 });
+
+    document.querySelectorAll('.reveal').forEach(function(el) {
+      revealObserver.observe(el);
+    });
+
+    // ── 3. Feature cards stagger reveal ─────────────────────────────────────
+    var featureObserver = new IntersectionObserver(function(entries) {
+      entries.forEach(function(e) {
+        if (e.isIntersecting) {
+          e.target.classList.add('visible');
+          featureObserver.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.08 });
+
+    document.querySelectorAll('.feature-card').forEach(function(el, i) {
+      el.style.setProperty('--reveal-delay', (i * 0.07) + 's');
+      featureObserver.observe(el);
+    });
+
+    // ── 4. Count-up animation (stats strip + live counters) ─────────────────
+    var countObserver = new IntersectionObserver(function(entries) {
+      entries.forEach(function(e) {
         if (!e.isIntersecting) return;
-        const el = e.target;
-        const target = parseInt(el.dataset.target);
+        var el = e.target;
+        var target = parseInt(el.dataset.target);
         if (!target || el.classList.contains('counted')) return;
         el.classList.add('counted');
-        let start = 0;
-        const dur = 1200;
-        const step = timestamp => {
-          if (!start) start = timestamp;
-          const progress = Math.min((timestamp - start) / dur, 1);
-          el.textContent = Math.floor(progress * target);
-          if (progress < 1) requestAnimationFrame(step);
+        var startTime = null;
+        var duration = 1400;
+        var animate = function(ts) {
+          if (!startTime) startTime = ts;
+          var progress = Math.min((ts - startTime) / duration, 1);
+          var eased = 1 - Math.pow(1 - progress, 3);
+          el.textContent = Math.floor(eased * target).toLocaleString('he-IL');
+          if (progress < 1) {
+            requestAnimationFrame(animate);
+          } else {
+            el.textContent = target.toLocaleString('he-IL');
+          }
         };
-        requestAnimationFrame(step);
+        requestAnimationFrame(animate);
       });
     }, { threshold: 0.5 });
-    document
-      .querySelectorAll('.stat-num[data-target]')
-      .forEach(el => statObserver.observe(el));
+
+    document.querySelectorAll('[data-target]').forEach(function(el) {
+      countObserver.observe(el);
+    });
+
+    // ── 5. How It Works — connector line animation on scroll ────────────────
+    var howSection = document.querySelector('.how-it-works');
+    if (howSection) {
+      var howObserver = new IntersectionObserver(function(entries) {
+        if (entries[0].isIntersecting) {
+          howSection.classList.add('animated');
+          howObserver.disconnect();
+        }
+      }, { threshold: 0.3 });
+      howObserver.observe(howSection);
+    }
+
+    // ── 6. Copy-to-clipboard (npx command) ──────────────────────────────────
+    document.querySelectorAll('.copy-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var text = btn.dataset.copy;
+        var apply = function() {
+          btn.classList.add('copied');
+          setTimeout(function() { btn.classList.remove('copied'); }, 2000);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(apply).catch(apply);
+        } else {
+          var ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.cssText = 'position:fixed;opacity:0;';
+          document.body.appendChild(ta);
+          ta.select();
+          try { document.execCommand('copy'); } catch(err) {}
+          document.body.removeChild(ta);
+          apply();
+        }
+      });
+    });
   </script>
 
 </body>

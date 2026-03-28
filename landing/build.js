@@ -7,7 +7,7 @@ const path = require('path');
 const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 const version = pkg.version;
 
-// Step 2: Parse README.md features table
+// Step 2: Parse README.md features — two sub-sections
 const readme = fs.readFileSync('README.md', 'utf8');
 
 const sectionMarker = '## ✨ תכונות';
@@ -23,28 +23,49 @@ if (sectionEnd === -1) {
 
 const featuresSection = readme.slice(sectionStart, sectionEnd);
 
-const featureCards = featuresSection
-  .split('\n')
-  .filter((line) => line.startsWith('|'))
-  .filter((line) => !line.includes('תכונה') && !line.includes('----'))
-  .map((line) => {
-    const inner = line.slice(1, -1);
-    const cells = inner.split('|').map((cell) => cell.trim());
-    const fullName = cells[0].replace(/\*\*/g, '');
-    const detail = cells[1];
-    // Split emoji icon from title text (emoji is always first "word")
-    const spaceIdx = fullName.indexOf(' ');
-    const icon = spaceIdx !== -1 ? fullName.slice(0, spaceIdx) : '';
-    const title = spaceIdx !== -1 ? fullName.slice(spaceIdx + 1) : fullName;
-    return [
-      `<div class="feature-card">`,
-      `  <span class="feature-icon">${icon}</span>`,
-      `  <span class="feature-title">${title}</span>`,
-      `  <span class="feature-desc">${detail}</span>`,
-      `</div>`,
-    ].join('\n');
-  })
-  .join('\n');
+// Parse a markdown table block into feature-card HTML
+function parseFeatureTable(text) {
+  return text
+    .split('\n')
+    .filter((line) => line.startsWith('|'))
+    .filter((line) => !line.includes('תכונה') && !line.includes('----'))
+    .map((line) => {
+      const inner = line.slice(1, -1);
+      const cells = inner.split('|').map((cell) => cell.trim());
+      const fullName = cells[0].replace(/\*\*/g, '');
+      const detail = cells[1];
+      const spaceIdx = fullName.indexOf(' ');
+      const icon = spaceIdx !== -1 ? fullName.slice(0, spaceIdx) : '';
+      const title = spaceIdx !== -1 ? fullName.slice(spaceIdx + 1) : fullName;
+      return [
+        `<div class="feature-card">`,
+        `  <span class="feature-icon">${icon}</span>`,
+        `  <span class="feature-text">`,
+        `    <span class="feature-title">${title}</span>`,
+        `    <span class="feature-desc">${detail}</span>`,
+        `  </span>`,
+        `</div>`,
+      ].join('\n');
+    })
+    .join('\n');
+}
+
+// Split on the two sub-section markers
+const userMarker = '### 🔔 למשתמש הקצה';
+const devMarker  = '### ⚙️ למתכנתים ו-DevOps';
+
+const userStart = featuresSection.indexOf(userMarker);
+const devStart  = featuresSection.indexOf(devMarker);
+
+if (userStart === -1 || devStart === -1) {
+  throw new Error('Could not find user/dev sub-sections in features table');
+}
+
+const userSection = featuresSection.slice(userStart, devStart);
+const devSection  = featuresSection.slice(devStart);
+
+const userFeaturesHtml = parseFeatureTable(userSection);
+const devFeaturesHtml  = parseFeatureTable(devSection);
 
 // Step 3: Get current date in Hebrew
 const buildDate = new Date().toLocaleDateString('he-IL', {
@@ -57,7 +78,8 @@ const buildDate = new Date().toLocaleDateString('he-IL', {
 const template = fs.readFileSync('landing/template/index.html', 'utf8');
 let output = template
   .replaceAll('{{VERSION}}', version)
-  .replaceAll('{{FEATURES_HTML}}', featureCards)
+  .replaceAll('{{USER_FEATURES_HTML}}', userFeaturesHtml)
+  .replaceAll('{{DEV_FEATURES_HTML}}', devFeaturesHtml)
   .replaceAll('{{BUILD_DATE}}', buildDate);
 
 // Inject GA4 tracking script if measurement ID is configured
