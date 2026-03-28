@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { useEffect, useState } from 'react';
 import { Radio, Bell, WifiOff } from 'lucide-react';
+import { useReducedMotion } from 'framer-motion';
 import { AnimatedCounter, LiveDot } from '../components/ui';
 
 interface Health {
@@ -25,9 +26,16 @@ export function StatusStrip({ onUptime }: { onUptime: (u: number) => void }) {
     refetchInterval: 5000,
   });
   const [countdown, setCountdown] = useState(5);
+  const prefersReduced = useReducedMotion();
 
+  // Reset countdown when fresh data arrives
   useEffect(() => {
-    const t = setInterval(() => setCountdown(c => (c <= 1 ? 5 : c - 1)), 1000);
+    setCountdown(5);
+  }, [data]);
+
+  // Tick down every second
+  useEffect(() => {
+    const t = setInterval(() => setCountdown(c => (c <= 1 ? 1 : c - 1)), 1000);
     return () => clearInterval(t);
   }, []);
 
@@ -68,7 +76,7 @@ export function StatusStrip({ onUptime }: { onUptime: (u: number) => void }) {
       <span className="mr-auto text-text-muted">מתרענן בעוד {countdown}שנ׳</span>
 
       <div
-        className="absolute bottom-0 right-0 h-[2px] bg-amber/40 transition-all duration-1000"
+        className={`absolute bottom-0 right-0 h-[2px] bg-amber/40 ${!prefersReduced ? 'transition-all duration-1000' : ''}`}
         style={{ width: `${(countdown / 5) * 100}%` }}
       />
     </div>
