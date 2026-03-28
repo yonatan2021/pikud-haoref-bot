@@ -6,7 +6,7 @@
   "main": "dist/index.js",
   "scripts": {
     "start": "tsx src/index.ts",
-    "build": "tsc",
+    "build": "tsc -p tsconfig.json && npm run build:dashboard",
     "dev": "tsx watch src/index.ts",
     "test": "DB_PATH=:memory: tsx --test src/__tests__/*.test.ts",
     "build:dashboard": "cd dashboard-ui && npm ci && npm run build",

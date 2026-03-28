@@ -36,6 +36,20 @@ jobs:
       - name: Run tests
         run: npx tsx --test src/__tests__/*.test.ts
 
+  dashboard-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: dashboard-ui/package-lock.json
+      - name: Install dashboard dependencies
+        run: cd dashboard-ui && npm ci
+      - name: Build dashboard
+        run: cd dashboard-ui && npm run build
+
   docker-build:
     name: Docker Build Validation
     runs-on: ubuntu-latest

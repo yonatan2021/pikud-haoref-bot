@@ -1,3 +1,11 @@
+# ── Stage 0: Build dashboard UI ───────────────────────────────────────────────
+FROM node:22-alpine AS dashboard-builder
+WORKDIR /app
+COPY dashboard-ui/package*.json ./dashboard-ui/
+RUN cd dashboard-ui && npm ci
+COPY dashboard-ui/ ./dashboard-ui/
+RUN cd dashboard-ui && npm run build
+
 # ── Stage 1: builder ──────────────────────────────────────────────────────────
 FROM node:22-slim AS builder
 
@@ -22,6 +30,7 @@ RUN npm ci
 
 COPY tsconfig.json ./
 COPY src/ ./src/
+COPY --from=dashboard-builder /app/dashboard-ui/dist ./dashboard-ui/dist
 
 # Compile TypeScript to dist/
 RUN npm run build
