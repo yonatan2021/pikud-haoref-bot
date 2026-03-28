@@ -59,6 +59,6 @@ describe('POST /api/operations/broadcast', () => {
   it('sends to provided chatIds', async () => {
     const res = await request(app).post('/api/operations/broadcast').send({ text: 'שלום', chatIds: [111, 222] });
     assert.equal(res.status, 200);
-    assert.equal(res.body.total, 2);
+    assert.equal(res.body.queued, 2);
   });
 });

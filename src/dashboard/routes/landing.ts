@@ -15,7 +15,13 @@ export function createLandingRouter(db: Database.Database): Router {
 
   router.patch('/config', (req, res) => {
     const { ga4MeasurementId, siteUrl } = req.body as { ga4MeasurementId?: string; siteUrl?: string };
-    if (ga4MeasurementId !== undefined) setSetting(db, 'ga4_measurement_id', ga4MeasurementId);
+    if (ga4MeasurementId !== undefined) {
+      if (!/^G-[A-Z0-9]{4,12}$/.test(ga4MeasurementId) && ga4MeasurementId !== '') {
+        res.status(400).json({ error: 'GA4 Measurement ID פורמט לא חוקי (דוגמה: G-XXXXXXXXXX)' });
+        return;
+      }
+      setSetting(db, 'ga4_measurement_id', ga4MeasurementId);
+    }
     if (siteUrl !== undefined) setSetting(db, 'landing_url', siteUrl);
     res.json({ ok: true });
   });
@@ -25,6 +31,11 @@ export function createLandingRouter(db: Database.Database): Router {
     const repo = getSetting(db, 'github_repo') ?? process.env.GITHUB_REPO ?? '';
     if (!token || !repo) {
       res.status(400).json({ error: 'GITHUB_PAT או GITHUB_REPO לא מוגדרים' });
+      return;
+    }
+    const REPO_PATTERN = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
+    if (!REPO_PATTERN.test(repo)) {
+      res.status(400).json({ error: 'GITHUB_REPO פורמט לא חוקי (צפוי: owner/repo)' });
       return;
     }
     try {

@@ -61,7 +61,12 @@ let output = template
   .replaceAll('{{BUILD_DATE}}', buildDate);
 
 // Inject GA4 tracking script if measurement ID is configured
-const ga4Id = process.env.GA4_MEASUREMENT_ID || '';
+const GA4_PATTERN = /^G-[A-Z0-9]{4,12}$/;
+let ga4Id = process.env.GA4_MEASUREMENT_ID || '';
+if (ga4Id && !GA4_PATTERN.test(ga4Id)) {
+  console.warn(`[landing] Invalid GA4_MEASUREMENT_ID format: ${ga4Id} — skipping GA4 injection`);
+  ga4Id = ''; // treat as unset, no injection
+}
 const ga4Script = ga4Id
   ? `<script async src="https://www.googletagmanager.com/gtag/js?id=${ga4Id}"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${ga4Id}');</script>`
