@@ -10,7 +10,7 @@
 
 <div align="center">
 
-[![גרסה](https://img.shields.io/badge/גרסה-0.1.3-brightgreen?style=for-the-badge)](CHANGELOG.md)
+[![גרסה](https://img.shields.io/badge/גרסה-0.1.4-brightgreen?style=for-the-badge)](CHANGELOG.md)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue?style=for-the-badge)](https://opensource.org/licenses/Apache-2.0)
 [![Node.js](https://img.shields.io/badge/Node.js-24-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
@@ -80,6 +80,12 @@
 | 🔍 **חיפוש עיר** | חיפוש חופשי בשם, תוצאות מיידיות |
 | 🛡️ **מניעת כפילויות** | fingerprint חכם — פוקע כשהתרעה נעלמת, לא רק ב-all-clear |
 | 📡 **newsFlash ארצי** | תפיסת הודעות ללא ערים שהספרייה מדלגת עליהן |
+| 📜 **היסטוריית התראות** | שמירת כל התראה ב-SQLite (7 ימים) — `/stats` ו-`/history` לסיכום ולחיפוש |
+| 🔕 **שעות שקט** | ניתן לבטל DMs בשעות לילה (23:00–06:00) — התראות קריטיות תמיד עוברות |
+| 👤 **DM מותאם אישית** | כל מנוי מקבל רק את הערים שרשום אליהן, לא את כל ערי ההתראה |
+| 🏥 **Health endpoint** | `GET /health` עם uptime, lastAlertAt ו-alertsToday לניטור חיצוני |
+| ⚡ **DM Queue** | תור שליחה עם מגבלת מקביליות (10) ו-backoff אוטומטי לשגיאות 429 |
+| 🔄 **עמידות לאיתחול** | חלון ההתראות נשמר ב-SQLite — אין הודעות כפולות בערוץ לאחר הפעלה מחדש |
 | 🐳 **Docker** | תמיכה מלאה — multi-stage build, non-root user, volume לנתונים |
 | 🚀 **CI/CD** | GitHub Actions: בדיקות + בנייה אוטומטית + דחיפה ל-Docker Hub |
 | 🌐 **תמיכה ב-Proxy** | לשימוש מחוץ לישראל (ה-API חסום גיאוגרפית) |
@@ -98,7 +104,9 @@
 | `/add` | חיפוש עיר לפי שם והרשמה |
 | `/zones` | עיון ורישום לפי אזור גיאוגרפי |
 | `/mycities` | הצגת הערים הרשומות עם אפשרות הסרה |
-| `/settings` | פורמט DM (קצר / מפורט) + ביטול מנויים |
+| `/settings` | פורמט DM (קצר / מפורט) + שעות שקט + ביטול מנויים |
+| `/stats` | סטטיסטיקת 24 שעות אחרונות לפי קטגוריה + ספירה אישית לאזורך |
+| `/history` | 10 התראות אחרונות — לאזורך, לעיר ספציפית, או כלל-ארצי |
 
 </div>
 
@@ -188,6 +196,12 @@ docker run --env-file .env \
 |--------|:----------:|-------|
 | `ALERT_UPDATE_WINDOW_SECONDS` | `120` | שניות שבהן הודעה נשארת עריכה. התראות מאותו סוג בתוך החלון עורכות את ההודעה הקיימת במקום לשלוח חדשה |
 
+### ניטור (אופציונלי)
+
+| משתנה | ברירת מחדל | תיאור |
+|--------|:----------:|-------|
+| `HEALTH_PORT` | `3000` | פורט ל-`GET /health` — מחזיר uptime, lastAlertAt, lastPollAt, alertsToday |
+
 ### כללי (אופציונלי)
 
 | משתנה | תיאור |
@@ -211,20 +225,27 @@ docker run --env-file .env \
 flowchart TD
     A[⏱️ AlertPoller\nכל 2 שניות] --> B[📚 pikud-haoref-api\nספרייה]
     A --> C[🌐 Direct fetch\nnewsFlash ארצי]
+    A --> P[📊 metrics\nupdateLastPollAt]
     B --> D[🔀 Group & Fingerprint\nמיזוג + dedup]
     C --> D
     D --> E{🔑 כבר נשלח?}
     E -- כן --> F[⏭️ דלג]
     E -- לא --> G[🎯 alertHandler\ncoordinator מרכזי]
+    G --> P2[📊 metrics\nupdateLastAlertAt]
     G --> H[📍 topicRouter\nניתוב נושא]
     G --> I{✏️ הודעה פעילה\nבחלון הזמן?}
     I -- כן --> J[🗺️ mapService\nמפה מעודכנת]
     I -- לא --> K[🗺️ mapService\nמפה חדשה]
     J --> L[✏️ editAlert\nעריכת הודעה]
     K --> M[📢 sendAlert\nשליחה לערוץ]
-    L --> N[🕑 alertWindowTracker\nעדכון מעקב]
+    L --> N[🕑 alertWindowTracker\nעדכון + SQLite]
     M --> N
-    N --> O[👤 dmDispatcher\nהתראות DM אישיות]
+    M --> Q[📜 alertHistory\ninsertAlert]
+    N --> O[👤 dmDispatcher\nשעות שקט + matchedCities]
+    O --> R[⚡ DmQueue\nמקביליות 10 + backoff 429]
+    P --> S[🏥 GET /health\nuptime · lastAlertAt · alertsToday]
+    P2 --> S
+    Q --> S
 ```
 
 <div dir="rtl">
@@ -333,17 +354,23 @@ URL ארוך מ-8000 תווים?
 npm test
 
 # בדיקות לפי קובץ
-npx tsx --test src/__tests__/alertHandler.test.ts        # handler מרכזי
-npx tsx --test src/__tests__/alertHelpers.test.ts        # עזרי התראה (isDrill, shouldSkipMap)
-npx tsx --test src/__tests__/alertWindowTracker.test.ts  # מעקב חלון עריכה
-npx tsx --test src/__tests__/dmDispatcher.test.ts        # שליחת DM
-npx tsx --test src/__tests__/index.test.ts               # נקודת כניסה
-npx tsx --test src/__tests__/mapService.test.ts          # שירות מפות
-npx tsx --test src/__tests__/mapboxUsageRepository.test.ts # מונה Mapbox
-npx tsx --test src/__tests__/subscriptionService.test.ts # שירות מנויים
-npx tsx --test src/__tests__/telegramBot.test.ts         # עיצוב הודעות
-npx tsx --test src/__tests__/topicRouter.test.ts         # ניתוב נושאים
-npx tsx --test src/__tests__/zoneConfig.test.ts          # תצורת אזורים
+npx tsx --test src/__tests__/alertHandler.test.ts           # handler מרכזי
+npx tsx --test src/__tests__/alertHelpers.test.ts           # עזרי התראה (isDrill, shouldSkipMap)
+npx tsx --test src/__tests__/alertHistoryRepository.test.ts # שמירה וקריאה של היסטוריית התראות
+npx tsx --test src/__tests__/alertPoller.test.ts            # סקירת API + deduplication
+npx tsx --test src/__tests__/alertWindowTracker.test.ts     # מעקב חלון עריכה
+npx tsx --test src/__tests__/dmDispatcher.test.ts           # שליחת DM + שעות שקט
+npx tsx --test src/__tests__/dmQueue.test.ts                # תור שליחה + backoff 429
+npx tsx --test src/__tests__/healthServer.test.ts           # GET /health endpoint
+npx tsx --test src/__tests__/historyHandler.test.ts         # פקודת /history
+npx tsx --test src/__tests__/index.test.ts                  # נקודת כניסה
+npx tsx --test src/__tests__/mapService.test.ts             # שירות מפות
+npx tsx --test src/__tests__/mapboxUsageRepository.test.ts  # מונה Mapbox
+npx tsx --test src/__tests__/statsHandler.test.ts           # פקודת /stats
+npx tsx --test src/__tests__/subscriptionService.test.ts    # שירות מנויים
+npx tsx --test src/__tests__/telegramBot.test.ts            # עיצוב הודעות
+npx tsx --test src/__tests__/topicRouter.test.ts            # ניתוב נושאים
+npx tsx --test src/__tests__/zoneConfig.test.ts             # תצורת אזורים
 
 # שליחת 5 התראות דמה לטלגרם (בדיקה ידנית)
 npx tsx test-alert.ts
@@ -362,29 +389,36 @@ npx tsx test-alert.ts
 
 ```
 src/
-├── index.ts                    # נקודת כניסה — מאחד alertPoller + bot
+├── index.ts                    # נקודת כניסה — מאחד alertPoller + bot + healthServer
 ├── alertHandler.ts             # coordinator מרכזי — מעבד התראה חדשה (dependency injection)
 ├── alertHelpers.ts             # עזרים: isDrillAlert, shouldSkipMap
 ├── alertPoller.ts              # סקירת API + deduplication + newsFlash ארצי
-├── alertWindowTracker.ts       # מעקב הודעות פעילות לפי סוג עם TTL
+├── alertWindowTracker.ts       # מעקב הודעות פעילות לפי סוג עם TTL + SQLite persistence
+├── healthServer.ts             # GET /health — uptime, lastAlertAt, lastPollAt, alertsToday
+├── metrics.ts                  # מצב גלובלי: lastAlertAt, lastPollAt
 ├── telegramBot.ts              # עיצוב הודעות + sendAlert + editAlert
 ├── mapService.ts               # Mapbox: יצירת מפה + cache + fallback
 ├── cityLookup.ts               # נתוני ערים + פוליגונים + חיפוש
-├── topicRouter.ts              # ניתוב סוג התראה → נושא טלגרם
+├── topicRouter.ts              # ניתוב סוג התראה → נושא טלגרם + ALERT_TYPE_CATEGORY
 ├── types.ts                    # TypeScript interfaces
 ├── bot/
 │   ├── botSetup.ts             # רישום handlers + setMyCommands
 │   ├── menuHandler.ts          # /start, תפריט ראשי
 │   ├── zoneHandler.ts          # /zones, מנוי לפי אזור
 │   ├── searchHandler.ts        # /add, חיפוש חופשי
-│   └── settingsHandler.ts      # /settings, /mycities
+│   ├── settingsHandler.ts      # /settings, /mycities, שעות שקט
+│   ├── statsHandler.ts         # /stats — סיכום 24 שעות + ספירה אישית
+│   └── historyHandler.ts       # /history [עיר] — 10 התראות אחרונות
 ├── db/                         # SQLite — better-sqlite3 (סינכרוני)
-│   ├── schema.ts               # initDb(), getDb() singleton
-│   ├── userRepository.ts
+│   ├── schema.ts               # initDb(), getDb() singleton; auto-migrate
+│   ├── userRepository.ts       # quiet_hours_enabled כ-boolean
 │   ├── subscriptionRepository.ts
-│   └── mapboxUsageRepository.ts # מונה בקשות Mapbox חודשי
+│   ├── alertHistoryRepository.ts # שמירת ושאילתת היסטוריית התראות (7 ימים)
+│   ├── alertWindowRepository.ts  # persistence לחלון ההתראה הפעיל
+│   └── mapboxUsageRepository.ts  # מונה בקשות Mapbox חודשי
 ├── services/
-│   ├── dmDispatcher.ts         # שליחת DM למנויים
+│   ├── dmDispatcher.ts         # שליחת DM למנויים + פילטר שעות שקט
+│   ├── dmQueue.ts              # תור שליחה: מקביליות 10 + backoff 429
 │   └── subscriptionService.ts
 └── config/
     └── zones.ts                # 28 אזורים → 6 אזורי-על

@@ -26,6 +26,62 @@
 
 ---
 
+## [0.1.4] — 2026-03-28
+
+<div dir="rtl">
+
+### ✨ תכונות חדשות
+
+#### היסטוריית התראות
+- טבלת `alert_history` ב-SQLite — כל התראה שנשלחת נשמרת עם type, ערים, instructions ו-fired_at
+- ניקוי אוטומטי של רשומות ישנות מ-7 ימים בכל הפעלה
+- `alertHistoryRepository` — `insertAlert`, `getRecentAlerts(hours)`, `getAlertsForCity`, `getAlertsForCities`
+
+#### פקודת `/stats`
+- סיכום 24 שעות אחרונות לפי קטגוריה (🔴 ביטחוני, 🌍 טבע, ☢️ סביבתי, 🔵 תרגילים, 📢 כללי)
+- ספירה אישית: כמה מהתראות נגעו לאזורים שהמשתמש רשום אליהם
+
+#### פקודת `/history`
+- `/history` — 10 התראות אחרונות לערים שהמשתמש רשום אליהן
+- `/history [עיר]` — 10 התראות אחרונות לעיר ספציפית
+- fallback לכלל-ארצי כשאין מנויים, עם טיפ להצטרפות
+- זמן יחסי בעברית: "עכשיו" / "לפני X דקות" / "לפני X שעות" / "לפני X ימים"
+
+#### DM מותאם אישית
+- כל מנוי מקבל רק ערים שרשום אליהן (`matchedCities`) — לא את כל ערי ההתראה
+- `buildDmText` — helper לבניית הודעה לפי פורמט + type
+
+#### שעות שקט (23:00–06:00 שעון ישראל)
+- `shouldSkipForQuietHours` — מסנן DMs מסוג drills ו-general בשעות הלילה
+- התראות קריטיות (missiles, earthquake, hazmat) תמיד עוברות
+- לחצן toggle בתפריט `/settings`: 🔕 שעות שקט: כבוי / פעיל ✓
+
+#### Health endpoint
+- `GET /health` — מחזיר JSON: `uptime`, `lastAlertAt`, `lastPollAt`, `alertsToday`
+- פורט מוגדר דרך `HEALTH_PORT` (ברירת מחדל: 3000)
+- `updateLastAlertAt()` נקרא אוטומטית בכל התראה חדשה
+
+#### עמידות לאיתחול — Persistent Alert Window Tracker
+- טבלת `alert_window` ב-SQLite — מצב חלון ההתראות הפעיל נשמר על הדיסק
+- `loadActiveMessages()` בהפעלה — משחזר מצב מ-DB, מונע הודעות כפולות בערוץ לאחר restart
+- `upsertWindow`, `deleteWindow`, `loadAllWindows`, `clearAllWindows` ב-`alertWindowRepository`
+
+#### DM Rate Limiting — DmQueue
+- `DmQueue` — תור שליחה עם מגבלת מקביליות מוגדרת (ברירת מחדל: 10)
+- backoff אוטומטי לשגיאות 429: מחזיר לראש התור ומשהה לפי `retry_after`
+- ניהול משתמשים חסומים: מסיר אוטומטית ממסד הנתונים
+- `notifySubscribers` הפכה ל-sync — השליחה אסינכרונית בתור
+
+### 🔧 תחזוקה
+
+- `ALERT_TYPE_CATEGORY` ו-`AlertCategory` מיוצאים מ-`topicRouter.ts` לשימוש ב-statsHandler ו-dmDispatcher
+- `User` interface מכיל `quiet_hours_enabled: number`
+- `getUsersForCities` מחזיר `matchedCities[]` + `quiet_hours_enabled` לכל מנוי
+
+</div>
+
+---
+
 ## [0.1.3] — 2026-03-27
 
 <div dir="rtl">
@@ -176,7 +232,8 @@
 
 <div dir="rtl">
 
-[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.1.0...v0.1.1

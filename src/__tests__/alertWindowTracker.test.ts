@@ -1,12 +1,15 @@
 // src/__tests__/alertWindowTracker.test.ts
-import { describe, it, beforeEach, afterEach } from 'node:test';
+import { describe, it, beforeEach, afterEach, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   getActiveMessage,
   trackMessage,
   clearAll,
+  clearMemoryOnly,
+  loadActiveMessages,
   TrackedMessage,
 } from '../alertWindowTracker.js';
+import { initDb, closeDb } from '../db/schema.js';
 
 function makeMsg(overrides: Partial<TrackedMessage> = {}): TrackedMessage {
   return {
@@ -95,5 +98,49 @@ describe('alertWindowTracker', () => {
     const msg = makeMsg({ sentAt: Date.now() - 130_000 });
     trackMessage('missiles', msg);
     assert.equal(getActiveMessage('missiles'), null);
+  });
+});
+
+describe('alertWindowTracker — DB persistence', () => {
+  before(() => { initDb(); });
+  after(() => { closeDb(); });
+  beforeEach(() => { clearAll(); });
+
+  it('restores tracked message from DB after loadActiveMessages()', () => {
+    const msg: TrackedMessage = {
+      messageId: 42,
+      chatId: '-1001234567890',
+      topicId: undefined,
+      alert: { type: 'missiles', cities: ['אבו גוש'] },
+      sentAt: Date.now(),
+      hasPhoto: false,
+    };
+    trackMessage('missiles', msg);
+    // Simulate restart: clear in-memory map without touching DB
+    clearMemoryOnly();
+    // Restore from DB
+    loadActiveMessages();
+    const restored = getActiveMessage('missiles');
+    assert.ok(restored !== null, 'message should be restored');
+    assert.equal(restored!.messageId, 42);
+    assert.equal(restored!.chatId, '-1001234567890');
+    assert.deepEqual(restored!.alert.cities, ['אבו גוש']);
+  });
+
+  it('evicts expired windows from DB during loadActiveMessages()', () => {
+    const expiredMsg: TrackedMessage = {
+      messageId: 99,
+      chatId: '-100987654321',
+      topicId: undefined,
+      alert: { type: 'earthQuake', cities: ['נהריה'] },
+      sentAt: Date.now() - 400_000, // far beyond the 120s default window
+      hasPhoto: false,
+    };
+    trackMessage('earthQuake', expiredMsg);
+    // Simulate restart
+    clearMemoryOnly();
+    // loadActiveMessages should evict the expired entry rather than restore it
+    loadActiveMessages();
+    assert.equal(getActiveMessage('earthQuake'), null, 'expired window must not be restored from DB');
   });
 });

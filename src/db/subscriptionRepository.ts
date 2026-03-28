@@ -5,6 +5,8 @@ import type { NotificationFormat } from './userRepository.js';
 export interface SubscriberInfo {
   chat_id: number;
   format: NotificationFormat;
+  quiet_hours_enabled: boolean;
+  matchedCities: string[];
 }
 
 export function addSubscription(chatId: number, cityName: string): void {
@@ -33,18 +35,44 @@ export function getUserCities(chatId: number): string[] {
   return rows.map((r) => r.city_name);
 }
 
+// Returns one SubscriberInfo per subscriber with all their matched cities.
+// The raw query produces N rows per subscriber (one per matched city);
+// aggregation into matchedCities is done in application code to avoid GROUP_CONCAT + JSON parsing.
 export function getUsersForCities(cityNames: string[]): SubscriberInfo[] {
   if (cityNames.length === 0) return [];
   const placeholders = cityNames.map(() => '?').join(', ');
-  const rows = getDb()
+  const rawRows = getDb()
     .prepare(
-      `SELECT DISTINCT s.chat_id, u.format
+      `SELECT s.chat_id, u.format, u.quiet_hours_enabled, s.city_name AS matched_city
        FROM subscriptions s
        JOIN users u ON u.chat_id = s.chat_id
        WHERE s.city_name IN (${placeholders})`
     )
-    .all(...cityNames) as SubscriberInfo[];
-  return rows;
+    .all(...cityNames) as {
+      chat_id: number;
+      format: NotificationFormat;
+      quiet_hours_enabled: number;
+      matched_city: string;
+    }[];
+
+  const map = new Map<number, SubscriberInfo>();
+  for (const row of rawRows) {
+    const existing = map.get(row.chat_id);
+    if (existing) {
+      map.set(row.chat_id, {
+        ...existing,
+        matchedCities: [...existing.matchedCities, row.matched_city],
+      });
+    } else {
+      map.set(row.chat_id, {
+        chat_id: row.chat_id,
+        format: row.format,
+        quiet_hours_enabled: row.quiet_hours_enabled === 1,
+        matchedCities: [row.matched_city],
+      });
+    }
+  }
+  return Array.from(map.values());
 }
 
 export function isSubscribed(chatId: number, cityName: string): boolean {

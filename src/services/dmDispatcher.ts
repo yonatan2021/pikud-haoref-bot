@@ -1,8 +1,10 @@
 import { Alert } from '../types.js';
 import { getUsersForCities } from '../db/subscriptionRepository.js';
-import { deleteUser } from '../db/userRepository.js';
-import { formatAlertMessage, getBot, ALERT_TYPE_EMOJI, ALERT_TYPE_HE } from '../telegramBot.js';
+import { formatAlertMessage, ALERT_TYPE_EMOJI, ALERT_TYPE_HE } from '../telegramBot.js';
 import { getCityData } from '../cityLookup.js';
+import type { NotificationFormat } from '../db/userRepository.js';
+import { ALERT_TYPE_CATEGORY } from '../topicRouter.js';
+import { dmQueue } from './dmQueue.js';
 
 function buildShortMessage(alert: Alert): string {
   const emoji = ALERT_TYPE_EMOJI[alert.type] ?? '⚠️';
@@ -52,35 +54,68 @@ export function buildNewsFlashDmMessage(alert: Alert): string {
   return parts.join('\n');
 }
 
-export async function notifySubscribers(alert: Alert): Promise<void> {
-  const subscribers = getUsersForCities(alert.cities);
-  console.log(
-    `[DM] ${alert.type} — ${alert.cities.length} cities, ${subscribers.length} subscriber(s)` +
-    (subscribers.length === 0 && alert.cities.length > 0 ? ' (no city match)' : '')
-  );
-  if (subscribers.length === 0) return;
+export function buildDmText(alert: Alert, format: NotificationFormat): string {
+  if (alert.type === 'newsFlash') return buildNewsFlashDmMessage(alert);
+  if (format === 'detailed') return formatAlertMessage(alert);
+  return buildShortMessage(alert);
+}
 
-  const bot = getBot();
-  const detailedMessage = formatAlertMessage(alert);
-  const shortMessage = buildShortMessage(alert);
-  const newsFlashMessage = alert.type === 'newsFlash' ? buildNewsFlashDmMessage(alert) : null;
+function getIsraelHour(now: Date): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Jerusalem',
+    hour: 'numeric',
+    hourCycle: 'h23',
+  }).formatToParts(now);
+  const hourPart = parts.find((p) => p.type === 'hour');
+  if (!hourPart) {
+    // Fallback to 12 (midday) — outside the quiet window — so a failure delivers rather than suppresses.
+    console.error('[DM] getIsraelHour: no hour part from Intl.DateTimeFormat — defaulting to 12 to avoid suppressing alerts');
+  }
+  return parseInt(hourPart?.value ?? '12', 10);
+}
 
-  for (const { chat_id, format } of subscribers) {
-    const text = newsFlashMessage ?? (format === 'detailed' ? detailedMessage : shortMessage);
-    try {
-      await bot.api.sendMessage(chat_id, text, { parse_mode: 'HTML' });
-    } catch (err: unknown) {
-      const isBlocked =
-        err instanceof Error &&
-        (err.message.includes('bot was blocked') ||
-          err.message.includes('user is deactivated') ||
-          err.message.includes('chat not found'));
-      if (isBlocked) {
-        console.log(`[DM] User ${chat_id} blocked the bot — removing subscriptions`);
-        deleteUser(chat_id);
-      } else {
-        console.error(`[DM] Error sending to ${chat_id}:`, err);
-      }
+// Quiet hours: 23:00–06:00 Israel time (Asia/Jerusalem).
+// Suppressed window: [23:00, 06:00) — 23:00 inclusive, 06:00 exclusive (alerts at exactly 06:00 are delivered).
+// Only 'drills' and 'general' categories are suppressed — security, nature,
+// and environmental alerts always get through regardless of user preference.
+// NOTE: 'newsFlash' maps to category 'general' (see ALERT_TYPE_CATEGORY in topicRouter.ts)
+// and IS suppressed during quiet hours. This is intentional — newsFlash is informational
+// (all-clear / announcements), not an immediate security threat.
+export function shouldSkipForQuietHours(
+  alertType: string,
+  quietEnabled: boolean,
+  now: Date = new Date()
+): boolean {
+  if (!quietEnabled) return false;
+  const hour = getIsraelHour(now);
+  if (!(hour >= 23 || hour < 6)) return false;
+  const category = ALERT_TYPE_CATEGORY[alertType] ?? 'general';
+  return category === 'drills' || category === 'general';
+}
+
+export function notifySubscribers(alert: Alert): void {
+  try {
+    const subscribers = getUsersForCities(alert.cities);
+    console.log(
+      `[DM] ${alert.type} — ${alert.cities.length} cities, ${subscribers.length} subscriber(s)` +
+      (subscribers.length === 0 && alert.cities.length > 0 ? ' (no city match)' : '')
+    );
+    if (subscribers.length === 0) return;
+
+    const tasks = subscribers
+      .filter(({ quiet_hours_enabled }) => !shouldSkipForQuietHours(alert.type, quiet_hours_enabled))
+      .map(({ chat_id, format, matchedCities }) => {
+        const personalAlert: Alert = { ...alert, cities: matchedCities };
+        return { chatId: String(chat_id), text: buildDmText(personalAlert, format) };
+      });
+
+    const skipped = subscribers.length - tasks.length;
+    if (skipped > 0) {
+      console.log(`[DM] Quiet hours: skipped ${skipped} subscriber(s) for type ${alert.type}`);
     }
+
+    dmQueue.enqueueAll(tasks);
+  } catch (err) {
+    console.error(`[DM] Failed to dispatch notifications for alert type=${alert.type}:`, err);
   }
 }

@@ -16,9 +16,10 @@ export interface AlertHandlerDeps {
   ) => Promise<void>;
   getActiveMessage: (alertType: string) => TrackedMessage | null;
   trackMessage: (alertType: string, msg: TrackedMessage) => void;
-  notifySubscribers: (alert: Alert) => Promise<void>;
+  notifySubscribers: (alert: Alert) => void;
   shouldSkipMap: (alertType: string) => boolean;
   getTopicId: (alertType: string) => number | undefined;
+  insertAlertHistory: (alert: Alert) => void;
 }
 
 function isUnmodifiedError(err: unknown): boolean {
@@ -36,6 +37,7 @@ export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Prom
     notifySubscribers,
     shouldSkipMap,
     getTopicId,
+    insertAlertHistory,
   } = deps;
 
   const skipMap = shouldSkipMap(alert.type);
@@ -92,6 +94,11 @@ export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Prom
             sentAt: Date.now(),
             hasPhoto: sent.hasPhoto,
           });
+          try {
+            insertAlertHistory(mergedAlert);
+          } catch (histErr) {
+            console.error(`[AlertHandler] Failed to insert alert history (type=${alert.type}, cities=${mergedAlert.cities.length}):`, histErr);
+          }
         } catch (sendErr) {
           throw new Error('[AlertHandler] Sending new message failed after edit failure', { cause: sendErr });
         }
@@ -114,15 +121,21 @@ export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Prom
         sentAt: Date.now(),
         hasPhoto: sent.hasPhoto,
       });
+      try {
+        insertAlertHistory(alert);
+      } catch (histErr) {
+        console.error(`[AlertHandler] Failed to insert alert history (type=${alert.type}, cities=${alert.cities.length}):`, histErr);
+      }
     }
   } catch (err) {
-    console.error('[AlertHandler] Error handling alert:', err);
+    console.error(
+      `[AlertHandler] Channel broadcast failed type=${alert.type} cities=${alert.cities.length}:`,
+      err
+    );
+    // DM dispatch still runs below — alert data is valid even if channel post failed
   }
 
-  // DM notifications — use the merged alert so subscribers see all cities
-  try {
-    await notifySubscribers(finalAlert);
-  } catch (err) {
-    console.error('[AlertHandler] Error sending DMs:', err);
-  }
+  // DM dispatch is outside the channel try/catch — a channel failure must not prevent
+  // subscriber notification; alert data is valid regardless of whether the channel post succeeded
+  notifySubscribers(finalAlert);
 }

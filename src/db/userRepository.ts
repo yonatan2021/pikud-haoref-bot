@@ -5,6 +5,7 @@ export type NotificationFormat = 'short' | 'detailed';
 export interface User {
   chat_id: number;
   format: NotificationFormat;
+  quiet_hours_enabled: boolean;
   created_at: string;
 }
 
@@ -15,9 +16,11 @@ export function upsertUser(chatId: number): void {
 }
 
 export function getUser(chatId: number): User | undefined {
-  return getDb()
+  const raw = getDb()
     .prepare('SELECT * FROM users WHERE chat_id = ?')
-    .get(chatId) as User | undefined;
+    .get(chatId) as { chat_id: number; format: NotificationFormat; quiet_hours_enabled: number; created_at: string } | undefined;
+  if (!raw) return undefined;
+  return { ...raw, quiet_hours_enabled: raw.quiet_hours_enabled === 1 };
 }
 
 export function setFormat(chatId: number, format: NotificationFormat): void {
@@ -25,6 +28,13 @@ export function setFormat(chatId: number, format: NotificationFormat): void {
   getDb()
     .prepare('UPDATE users SET format = ? WHERE chat_id = ?')
     .run(format, chatId);
+}
+
+export function setQuietHours(chatId: number, enabled: boolean): void {
+  upsertUser(chatId);
+  getDb()
+    .prepare('UPDATE users SET quiet_hours_enabled = ? WHERE chat_id = ?')
+    .run(enabled ? 1 : 0, chatId);
 }
 
 export function deleteUser(chatId: number): void {

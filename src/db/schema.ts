@@ -42,4 +42,41 @@ export function initDb(): void {
       request_count INTEGER NOT NULL DEFAULT 0
     );
   `);
+
+  database.exec(
+    [
+      'CREATE TABLE IF NOT EXISTS alert_history (',
+      '  id           INTEGER PRIMARY KEY AUTOINCREMENT,',
+      '  type         TEXT NOT NULL,',
+      '  cities       TEXT NOT NULL,',
+      '  instructions TEXT,',
+      '  fired_at     TEXT NOT NULL DEFAULT (datetime(\'now\'))',
+      ');',
+      'CREATE INDEX IF NOT EXISTS idx_alert_history_fired_at ON alert_history(fired_at);',
+      'CREATE INDEX IF NOT EXISTS idx_alert_history_type     ON alert_history(type);',
+      "DELETE FROM alert_history WHERE fired_at < datetime('now', '-7 days');",
+    ].join('\n')
+  );
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS alert_window (
+      alert_type  TEXT PRIMARY KEY,
+      message_id  INTEGER NOT NULL,
+      chat_id     TEXT NOT NULL,
+      topic_id    INTEGER,
+      alert_json  TEXT NOT NULL,
+      sent_at     INTEGER NOT NULL,
+      has_photo   INTEGER NOT NULL
+    );
+  `);
+
+  // SQLite has no ADD COLUMN IF NOT EXISTS — ALTER TABLE throws 'duplicate column name'
+  // on repeat runs (e.g. after restart). Catch and ignore that specific error; re-throw all others.
+  try {
+    database.exec(
+      'ALTER TABLE users ADD COLUMN quiet_hours_enabled INTEGER NOT NULL DEFAULT 0'
+    );
+  } catch (e: unknown) {
+    if (!(e instanceof Error && e.message.includes('duplicate column name'))) throw e;
+  }
 }

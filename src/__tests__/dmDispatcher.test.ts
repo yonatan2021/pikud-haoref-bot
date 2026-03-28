@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { ALERT_TYPE_EMOJI, ALERT_TYPE_HE } from '../telegramBot';
 import type { Alert } from '../types';
-import { buildNewsFlashDmMessage } from '../services/dmDispatcher';
+import { buildNewsFlashDmMessage, buildDmText, shouldSkipForQuietHours } from '../services/dmDispatcher';
 
 // Test the short message format logic (extracted for unit testing)
 function buildShortMessage(alert: Alert): string {
@@ -122,5 +122,95 @@ describe('buildNewsFlashDmMessage', () => {
     };
     const msg = buildNewsFlashDmMessage(alert);
     assert.ok(msg.includes('עיר_לא_קיימת_בכלל'), 'should fall back to city name');
+  });
+});
+
+describe('buildDmText — personalization integration', () => {
+  it('short format shows only matchedCities, not all alert cities', () => {
+    const personalAlert: Alert = { type: 'missiles', cities: ['אבו גוש'] };
+    const msg = buildDmText(personalAlert, 'short');
+    assert.ok(msg.includes('אבו גוש'), 'matched city must appear');
+    assert.ok(!msg.includes('נהריה'), 'unmatched city must not appear');
+    assert.ok(!msg.includes('חיפה'), 'unmatched city must not appear');
+  });
+
+  it('detailed format uses formatAlertMessage with matched cities only', () => {
+    const personalAlert: Alert = { type: 'missiles', cities: ['אבו גוש'] };
+    const msg = buildDmText(personalAlert, 'detailed');
+    assert.ok(msg.includes('אבו גוש'));
+    assert.ok(!msg.includes('נהריה'));
+  });
+
+  it('newsFlash uses buildNewsFlashDmMessage regardless of format', () => {
+    const personalAlert: Alert = { type: 'newsFlash', cities: ['אבו גוש'], instructions: 'הנחיות' };
+    const msg = buildDmText(personalAlert, 'short');
+    assert.ok(msg.startsWith('📢'), 'newsFlash must use newsFlash formatter');
+    assert.ok(msg.includes('הנחיות'));
+  });
+});
+
+describe('shouldSkipForQuietHours', () => {
+  // UTC 23:00 → Israel 01:00–02:00 — always in quiet window
+  const NIGHT = new Date('2026-03-28T23:00:00.000Z');
+  // UTC 08:00 → Israel 10:00–11:00 — always daytime
+  const DAY   = new Date('2026-03-28T08:00:00.000Z');
+
+  it('returns false when quiet hours disabled, even at night', () => {
+    assert.equal(shouldSkipForQuietHours('newsFlash', false, NIGHT), false);
+  });
+
+  it('returns false during daytime when enabled', () => {
+    assert.equal(shouldSkipForQuietHours('newsFlash', true, DAY), false);
+  });
+
+  it('blocks newsFlash at night when enabled', () => {
+    assert.equal(shouldSkipForQuietHours('newsFlash', true, NIGHT), true);
+  });
+
+  it('blocks general type at night', () => {
+    assert.equal(shouldSkipForQuietHours('general', true, NIGHT), true);
+  });
+
+  it('blocks unknown type at night', () => {
+    assert.equal(shouldSkipForQuietHours('unknown', true, NIGHT), true);
+  });
+
+  it('blocks drill types at night', () => {
+    assert.equal(shouldSkipForQuietHours('missilesDrill', true, NIGHT), true);
+    assert.equal(shouldSkipForQuietHours('generalDrill', true, NIGHT), true);
+  });
+
+  it('never blocks missiles', () => {
+    assert.equal(shouldSkipForQuietHours('missiles', true, NIGHT), false);
+  });
+
+  it('never blocks earthquake', () => {
+    assert.equal(shouldSkipForQuietHours('earthQuake', true, NIGHT), false);
+  });
+
+  it('never blocks hazardous materials', () => {
+    assert.equal(shouldSkipForQuietHours('hazardousMaterials', true, NIGHT), false);
+  });
+
+  it('blocks all drill subtypes at night when enabled', () => {
+    const drills = [
+      'missilesDrill', 'earthQuakeDrill', 'tsunamiDrill',
+      'hostileAircraftIntrusionDrill', 'hazardousMaterialsDrill',
+      'terroristInfiltrationDrill', 'radiologicalEventDrill', 'generalDrill',
+    ];
+    for (const type of drills) {
+      assert.equal(shouldSkipForQuietHours(type, true, NIGHT), true, `${type} must be suppressed at night`);
+    }
+  });
+
+  it('never blocks security/nature/environmental types regardless of time or setting', () => {
+    const alwaysThrough = [
+      'missiles', 'hostileAircraftIntrusion', 'terroristInfiltration',
+      'earthQuake', 'tsunami',
+      'hazardousMaterials', 'radiologicalEvent',
+    ];
+    for (const type of alwaysThrough) {
+      assert.equal(shouldSkipForQuietHours(type, true, NIGHT), false, `${type} must never be suppressed`);
+    }
   });
 });
