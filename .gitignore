@@ -13,3 +13,4 @@ coverage/
 docs/superpowers/
 CLAUDE.md
 .claude.local.md
+.claude/
