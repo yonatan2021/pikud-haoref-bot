@@ -14,8 +14,11 @@
   --color-text-secondary: #8b949e;
   --color-text-muted: #484f58;
   --font-family-sans: 'Heebo', sans-serif;
+}
 
-  /* Glassmorphism tokens */
+/* Glassmorphism tokens — kept in :root because rgba() values cannot be
+   decomposed by Tailwind 4 for opacity modifiers when inside @theme */
+:root {
   --color-glass: rgba(22, 27, 34, 0.75);
   --color-glass-hover: rgba(30, 38, 50, 0.85);
   --color-glow-amber: rgba(245, 158, 11, 0.12);
@@ -28,11 +31,10 @@
 }
 
 body {
-  background: #0d1117;
+  background: var(--color-base);
   background-image:
-    radial-gradient(ellipse at 80% 20%, rgba(245,158,11,0.06) 0%, transparent 60%),
-    radial-gradient(ellipse at 20% 80%, rgba(59,130,246,0.06) 0%, transparent 60%);
-  background-attachment: fixed;
+    radial-gradient(ellipse at 80% 20%, var(--color-glow-amber) 0%, transparent 60%),
+    radial-gradient(ellipse at 20% 80%, var(--color-glow-blue) 0%, transparent 60%);
   color: #f0f6fc;
   font-family: 'Heebo', sans-serif;
   margin: 0;
@@ -47,5 +49,5 @@ body::before {
     linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
   background-size: 40px 40px;
   pointer-events: none;
-  z-index: 0;
+  z-index: -1;
 }
