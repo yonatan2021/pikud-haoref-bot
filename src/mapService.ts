@@ -8,8 +8,33 @@ import { getCityData, getCityById, buildGeoJSON } from './cityLookup';
 import { isMonthlyLimitReached, incrementMonthlyCount } from './db/mapboxUsageRepository.js';
 
 const MAPBOX_URL_MAX_LENGTH = 8000;
-const SIMPLIFY_TOLERANCE = 0.001;
-const SIMPLIFY_TOLERANCE_AGGRESSIVE = 0.01;
+export const SIMPLIFY_TOLERANCE = 0.0003;
+export const SIMPLIFY_TOLERANCE_AGGRESSIVE = 0.003;
+
+export const ALERT_TYPE_COLOR: Record<string, string> = {
+  missiles:                       '#FF0000',
+  earthQuake:                     '#FF8C00',
+  tsunami:                        '#0080FF',
+  hazardousMaterials:             '#FFCC00',
+  terroristInfiltration:          '#FF4500',
+  radiologicalEvent:              '#9900CC',
+  hostileAircraftIntrusion:       '#FF6600',
+  newsFlash:                      '#808080',
+  general:                        '#808080',
+  missilesDrill:                  '#3399FF',
+  earthQuakeDrill:                '#3399FF',
+  tsunamiDrill:                   '#3399FF',
+  hostileAircraftIntrusionDrill:  '#3399FF',
+  hazardousMaterialsDrill:        '#3399FF',
+  terroristInfiltrationDrill:     '#3399FF',
+  radiologicalEventDrill:         '#3399FF',
+  generalDrill:                   '#3399FF',
+  unknown:                        '#FF0000',
+};
+
+export function getAlertColor(alertType: string): string {
+  return ALERT_TYPE_COLOR[alertType] ?? '#FF0000';
+}
 
 interface CacheEntry {
   buffer: Buffer;
@@ -76,7 +101,8 @@ export function _buildMarkersUrl(cityIds: number[]): string | null {
 }
 
 function buildBboxFeatureCollection(
-  fc: FeatureCollection<Polygon>
+  fc: FeatureCollection<Polygon>,
+  color: string = '#FF0000'
 ): FeatureCollection<Polygon> {
   const [minLng, minLat, maxLng, maxLat] = bbox(fc);
   const bboxPoly = turfPolygon(
@@ -90,9 +116,9 @@ function buildBboxFeatureCollection(
       ],
     ],
     {
-      fill: '#FF0000',
+      fill: color,
       'fill-opacity': 0.2,
-      stroke: '#FF0000',
+      stroke: color,
       'stroke-width': 2,
       'stroke-opacity': 0.8,
     }
@@ -130,7 +156,8 @@ export async function generateMapImage(alert: Alert): Promise<Buffer | null> {
       return null;
     }
 
-    const geojson = buildGeoJSON(cityIds);
+    const color = getAlertColor(alert.type);
+    const geojson = buildGeoJSON(cityIds, color);
 
     if (geojson.features.length === 0) {
       console.warn('[MapService] No polygons in data files — sending without map');
@@ -148,6 +175,8 @@ export async function generateMapImage(alert: Alert): Promise<Buffer | null> {
     }
 
     // ניסיון 3: סמני מרכז עיר (pin markers) — קומפקטי בהרבה מפוליגונים
+    // Note: pin markers use a fixed red color (#FF0000) regardless of alert type;
+    // the Mapbox Static Images pin-s format does not support per-type color at this URL length.
     if (url.length > MAPBOX_URL_MAX_LENGTH) {
       console.warn('[MapService] URL still too long — falling back to city markers');
       const markersUrl = _buildMarkersUrl(cityIds);
@@ -157,7 +186,7 @@ export async function generateMapImage(alert: Alert): Promise<Buffer | null> {
     // ניסיון 4: bounding box
     if (url.length > MAPBOX_URL_MAX_LENGTH) {
       console.warn('[MapService] URL still too long — falling back to bounding box');
-      url = buildMapboxUrl(buildBboxFeatureCollection(geojson));
+      url = buildMapboxUrl(buildBboxFeatureCollection(geojson, color));
     }
 
     // ניסיון 5: אין תמונה

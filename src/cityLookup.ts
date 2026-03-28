@@ -38,7 +38,8 @@ export function getPolygonCoords(cityId: number): PolygonCoords | null {
 }
 
 export function buildGeoJSON(
-  cityIds: number[]
+  cityIds: number[],
+  color: string = '#FF0000'
 ): FeatureCollection<Polygon> {
   const features: Feature<Polygon>[] = [];
 
@@ -59,9 +60,9 @@ export function buildGeoJSON(
     features.push({
       type: 'Feature',
       properties: {
-        fill: '#FF0000',
+        fill: color,
         'fill-opacity': 0.3,
-        stroke: '#FF0000',
+        stroke: color,
         'stroke-width': 2,
         'stroke-opacity': 0.8,
       },
