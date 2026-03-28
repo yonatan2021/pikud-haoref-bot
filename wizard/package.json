@@ -1,0 +1,32 @@
+{
+  "name": "@haoref-boti/pikud-haoref-bot",
+  "version": "0.2.0",
+  "description": "אשף הגדרה אינטרקטיבי לבוט התראות פיקוד העורף",
+  "type": "module",
+  "bin": {
+    "pikud-haoref-bot": "dist/src/index.js"
+  },
+  "files": [
+    "dist/src/"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.9.1",
+    "chalk": "^5.4.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.8.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "test": "npm run build && node --test 'dist/__tests__/*.test.js'",
+    "test:watch": "node --watch --test 'dist/__tests__/*.test.js'"
+  }
+}
