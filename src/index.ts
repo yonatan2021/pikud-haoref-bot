@@ -70,7 +70,7 @@ for (const envVar of REQUIRED_ENV_VARS) {
   });
 
   poller.start(2000);
-  console.log('🤖 Pikud HaOref bot v0.1.4 active — polling every 2 seconds');
+  console.log('🤖 Pikud HaOref bot v0.1.5 active — polling every 2 seconds');
 
   bot.start().catch((err) => {
     console.error('[Bot] Bot startup error:', err);

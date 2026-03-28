@@ -10,7 +10,7 @@
 
 <div align="center">
 
-[![גרסה](https://img.shields.io/badge/גרסה-0.1.4-brightgreen?style=for-the-badge)](CHANGELOG.md)
+[![גרסה](https://img.shields.io/badge/גרסה-0.1.5-brightgreen?style=for-the-badge)](CHANGELOG.md)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue?style=for-the-badge)](https://opensource.org/licenses/Apache-2.0)
 [![Node.js](https://img.shields.io/badge/Node.js-24-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
@@ -71,21 +71,23 @@
 | תכונה | פרטים |
 |--------|-------|
 | ⚡ **התראות בזמן אמת** | סקירה רציפה של ה-API כל 2 שניות |
-| 🗺️ **מפות Mapbox** | פוליגוני ערים מדויקים — fallback לbounding box ולטקסט |
+| 🗺️ **מפות Mapbox** | פוליגוני ערים מדויקים בצבע לפי סוג ההתראה — fallback לbounding box ולטקסט |
 | ✏️ **עריכת הודעות** | התראות מאותו סוג עורכות את ההודעה הקיימת בחלון זמן מוגדר |
 | 📊 **מגבלת Mapbox חודשית** | מונה SQLite + מטמון תמונות — חוסך קוטה ומונע חריגה |
 | 📢 **ניתוב נושאים** | 5 קטגוריות: ביטחוני, טבע, סביבתי, תרגילים, כללי |
-| 🔔 **DM אישי** | מנוי לערים ספציפיות — פורמט קצר או מפורט |
-| 📍 **מנוי לפי אזור** | 6 אזורי-על ← 28 אזורים ← ערים, כולל "בחר/הסר כל האזור" |
+| 🔔 **DM אישי** | מנוי לערים ספציפיות — פורמט קצר (עם זמן מקלט) או מפורט |
+| 📍 **מנוי לפי אזור** | 6 אזורי-על ← 28 אזורים (עם תוויות) ← ערים, כולל "בחר/הסר כל האזור" |
 | 🔍 **חיפוש עיר** | חיפוש חופשי בשם, תוצאות מיידיות |
+| 😴 **Snooze DMs** | השתקת DMs לפרק זמן מוגדר — התראות ביטחוניות תמיד עוברות |
 | 🛡️ **מניעת כפילויות** | fingerprint חכם — פוקע כשהתרעה נעלמת, לא רק ב-all-clear |
 | 📡 **newsFlash ארצי** | תפיסת הודעות ללא ערים שהספרייה מדלגת עליהן |
-| 📜 **היסטוריית התראות** | שמירת כל התראה ב-SQLite (7 ימים) — `/stats` ו-`/history` לסיכום ולחיפוש |
+| 📜 **היסטוריית התראות** | שמירת כל התראה ב-SQLite (7 ימים) — `/stats` ו-`/history` עם שעה מוחלטת |
 | 🔕 **שעות שקט** | ניתן לבטל DMs בשעות לילה (23:00–06:00) — התראות קריטיות תמיד עוברות |
 | 👤 **DM מותאם אישית** | כל מנוי מקבל רק את הערים שרשום אליהן, לא את כל ערי ההתראה |
 | 🏥 **Health endpoint** | `GET /health` עם uptime, lastAlertAt ו-alertsToday לניטור חיצוני |
 | ⚡ **DM Queue** | תור שליחה עם מגבלת מקביליות (10) ו-backoff אוטומטי לשגיאות 429 |
 | 🔄 **עמידות לאיתחול** | חלון ההתראות נשמר ב-SQLite — אין הודעות כפולות בערוץ לאחר הפעלה מחדש |
+| 🎛️ **לוח בקרה** | Admin Dashboard (React + Express) — ניטור, ניהול מנויים, שליחת broadcast, הגדרות |
 | 🐳 **Docker** | תמיכה מלאה — multi-stage build, non-root user, volume לנתונים |
 | 🚀 **CI/CD** | GitHub Actions: בדיקות + בנייה אוטומטית + דחיפה ל-Docker Hub |
 | 🌐 **תמיכה ב-Proxy** | לשימוש מחוץ לישראל (ה-API חסום גיאוגרפית) |
@@ -124,7 +126,7 @@
 git clone https://github.com/yonatan2021/pikud-haoref-bot.git
 cd pikud-haoref-bot
 npm install
-cp env.example .env   # ערוך עם הנתונים שלך
+cp .env.example .env   # ערוך עם הנתונים שלך
 npm start
 ```
 
@@ -360,27 +362,39 @@ URL ארוך מ-8000 תווים?
 ## 🧪 בדיקות
 
 ```bash
-# כל הבדיקות
+# כל הבדיקות (bot core)
 npm test
 
-# בדיקות לפי קובץ
+# בדיקות dashboard (DB בזיכרון)
+DB_PATH=:memory: npx tsx --test 'src/__tests__/dashboard/**/*.test.ts'
+
+# בדיקות לפי קובץ — bot core
 npx tsx --test src/__tests__/alertHandler.test.ts           # handler מרכזי
 npx tsx --test src/__tests__/alertHelpers.test.ts           # עזרי התראה (isDrill, shouldSkipMap)
 npx tsx --test src/__tests__/alertHistoryRepository.test.ts # שמירה וקריאה של היסטוריית התראות
 npx tsx --test src/__tests__/alertPoller.test.ts            # סקירת API + deduplication
 npx tsx --test src/__tests__/alertWindowTracker.test.ts     # מעקב חלון עריכה
-npx tsx --test src/__tests__/dmDispatcher.test.ts           # שליחת DM + שעות שקט
+npx tsx --test src/__tests__/dmDispatcher.test.ts           # שליחת DM + שעות שקט + snooze
 npx tsx --test src/__tests__/dmQueue.test.ts                # תור שליחה + backoff 429
 npx tsx --test src/__tests__/healthServer.test.ts           # GET /health endpoint
 npx tsx --test src/__tests__/historyHandler.test.ts         # פקודת /history
 npx tsx --test src/__tests__/index.test.ts                  # נקודת כניסה
 npx tsx --test src/__tests__/mapService.test.ts             # שירות מפות
 npx tsx --test src/__tests__/mapboxUsageRepository.test.ts  # מונה Mapbox
+npx tsx --test src/__tests__/menuHandler.test.ts            # תפריט ראשי + הצגת התראה אחרונה
+npx tsx --test src/__tests__/settingsHandler.test.ts        # /settings + snooze
 npx tsx --test src/__tests__/statsHandler.test.ts           # פקודת /stats
 npx tsx --test src/__tests__/subscriptionService.test.ts    # שירות מנויים
 npx tsx --test src/__tests__/telegramBot.test.ts            # עיצוב הודעות
 npx tsx --test src/__tests__/topicRouter.test.ts            # ניתוב נושאים
 npx tsx --test src/__tests__/zoneConfig.test.ts             # תצורת אזורים
+
+# בדיקות לפי קובץ — dashboard
+DB_PATH=:memory: npx tsx --test src/__tests__/dashboard/auth.test.ts
+DB_PATH=:memory: npx tsx --test src/__tests__/dashboard/settingsRepository.test.ts
+DB_PATH=:memory: npx tsx --test src/__tests__/dashboard/routes/stats.test.ts
+DB_PATH=:memory: npx tsx --test src/__tests__/dashboard/routes/subscribers.test.ts
+DB_PATH=:memory: npx tsx --test src/__tests__/dashboard/routes/operations.test.ts
 
 # שליחת 5 התראות דמה לטלגרם (בדיקה ידנית)
 npx tsx test-alert.ts
@@ -399,7 +413,7 @@ npx tsx test-alert.ts
 
 ```
 src/
-├── index.ts                    # נקודת כניסה — מאחד alertPoller + bot + healthServer
+├── index.ts                    # נקודת כניסה — מאחד alertPoller + bot + healthServer + dashboard
 ├── alertHandler.ts             # coordinator מרכזי — מעבד התראה חדשה (dependency injection)
 ├── alertHelpers.ts             # עזרים: isDrillAlert, shouldSkipMap
 ├── alertPoller.ts              # סקירת API + deduplication + newsFlash ארצי
@@ -407,31 +421,49 @@ src/
 ├── healthServer.ts             # GET /health — uptime, lastAlertAt, lastPollAt, alertsToday
 ├── metrics.ts                  # מצב גלובלי: lastAlertAt, lastPollAt
 ├── telegramBot.ts              # עיצוב הודעות + sendAlert + editAlert
-├── mapService.ts               # Mapbox: יצירת מפה + cache + fallback
+├── mapService.ts               # Mapbox: יצירת מפה (צבע לפי סוג) + cache + fallback
 ├── cityLookup.ts               # נתוני ערים + פוליגונים + חיפוש
 ├── topicRouter.ts              # ניתוב סוג התראה → נושא טלגרם + ALERT_TYPE_CATEGORY
 ├── types.ts                    # TypeScript interfaces
 ├── bot/
 │   ├── botSetup.ts             # רישום handlers + setMyCommands
-│   ├── menuHandler.ts          # /start, תפריט ראשי
+│   ├── menuHandler.ts          # /start, תפריט ראשי + הצגת ההתראה האחרונה
 │   ├── zoneHandler.ts          # /zones, מנוי לפי אזור
 │   ├── searchHandler.ts        # /add, חיפוש חופשי
-│   ├── settingsHandler.ts      # /settings, /mycities, שעות שקט
+│   ├── settingsHandler.ts      # /settings, /mycities (עם תוויות אזור), שעות שקט, snooze
 │   ├── statsHandler.ts         # /stats — סיכום 24 שעות + ספירה אישית
-│   └── historyHandler.ts       # /history [עיר] — 10 התראות אחרונות
+│   └── historyHandler.ts       # /history [עיר] — 10 התראות אחרונות עם שעה מוחלטת
+├── dashboard/                  # Admin Dashboard — Express API (פורט DASHBOARD_PORT)
+│   ├── server.ts               # אתחול Express, cookie auth, הגשת dashboard-ui SPA
+│   ├── auth.ts                 # timingSafeEqual cookie auth, login/logout handlers
+│   ├── router.ts               # מסדר את כל ה-API routes תחת /api
+│   ├── settingsRepository.ts   # key-value store בטבלת settings ב-SQLite
+│   └── routes/
+│       ├── stats.ts            # GET /api/stats/health|overview|alerts|by-category|top-cities
+│       ├── subscribers.ts      # GET/PATCH/DELETE /api/subscribers + /export/csv
+│       ├── operations.ts       # GET /api/operations/queue|alert-window; POST broadcast|test-alert
+│       ├── settings.ts         # GET/PATCH /api/settings; GET /api/settings/backup
+│       └── landing.ts          # GET/PATCH /api/landing/config; POST /api/landing/deploy
 ├── db/                         # SQLite — better-sqlite3 (סינכרוני)
-│   ├── schema.ts               # initDb(), getDb() singleton; auto-migrate
-│   ├── userRepository.ts       # quiet_hours_enabled כ-boolean
+│   ├── schema.ts               # initSchema() + initDb() + addColumnIfMissing; auto-migrate
+│   ├── userRepository.ts       # quiet_hours_enabled + muted_until כ-boolean/string
 │   ├── subscriptionRepository.ts
 │   ├── alertHistoryRepository.ts # שמירת ושאילתת היסטוריית התראות (7 ימים)
 │   ├── alertWindowRepository.ts  # persistence לחלון ההתראה הפעיל
 │   └── mapboxUsageRepository.ts  # מונה בקשות Mapbox חודשי
 ├── services/
-│   ├── dmDispatcher.ts         # שליחת DM למנויים + פילטר שעות שקט
+│   ├── dmDispatcher.ts         # שליחת DM למנויים + פילטר שעות שקט + snooze
 │   ├── dmQueue.ts              # תור שליחה: מקביליות 10 + backoff 429
 │   └── subscriptionService.ts
 └── config/
     └── zones.ts                # 28 אזורים → 6 אזורי-על
+
+dashboard-ui/                   # React SPA (Vite + Tailwind v4 RTL) — נבנה ל-dashboard-ui/dist/
+├── src/
+│   ├── api/client.ts           # fetch wrapper עם 401 → redirect /login
+│   ├── layout/                 # Root, Sidebar (RTL), StatusStrip, CommandPalette (⌘K)
+│   └── pages/                  # Login, Overview, Alerts, Subscribers, Operations, Settings, LandingPage
+└── vite.config.ts              # Proxy /api + /auth → http://localhost:4000
 ```
 
 </details>

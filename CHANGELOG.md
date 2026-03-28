@@ -26,6 +26,58 @@
 
 ---
 
+## [0.1.5] — 2026-03-28
+
+<div dir="rtl">
+
+### ✨ תכונות חדשות
+
+#### לוח בקרה (Dashboard)
+- שרת Express חדש על פורט `DASHBOARD_PORT` (ברירת מחדל: 4000) — מופעל רק כאשר `DASHBOARD_SECRET` מוגדר
+- אימות מאובטח עם עוגיית `httpOnly`, `timingSafeEqual` למניעת timing attacks
+- API routes: `/api/stats`, `/api/subscribers`, `/api/operations`, `/api/settings`, `/api/landing`
+- React SPA (Vite + Tailwind v4 RTL) עם 7 דפים: Overview, Alerts, Subscribers, Operations, Settings, LandingPage, Login
+- Command Palette (⌘K), sidebar RTL, status strip עם polling חי
+- ייצוא מנויים כ-CSV, ניהול תור שליחה DM, ניהול alert window
+- שידור ידני של התראה, endpoint ל-deploy של landing page דרך GitHub Actions
+- ניהול הגדרות key-value בטבלת `settings` ב-SQLite
+
+#### הודעות DM משופרות
+- זמן מקלט (`⏱ X שנ׳`) מוצג בהודעות DM קצרות — כמינימום הזמן בין ערי המנוי
+- דחיית התראות (`snooze`) — המשתמש יכול להשתיק DMs לפרק זמן מוגדר
+- עמוד `/mycities` מציג כעת תוויות אזור לכל עיר
+
+#### שיפורי UX
+- `/start` בצ'אטי קבוצה מחזיר תשובה (במקום להתעלם)
+- `/start` בתפריט הראשי מציג את ההתראה האחרונה
+- `/history` מציג שעה מוחלטת לצד הזמן היחסי (לפני X שעות)
+
+#### מפות
+- פוליגונים חדים יותר לערים
+- צבע פוליגון לפי סוג ההתראה (אדום לביטחוני, כתום לטבעי, צהוב לסביבתי וכו׳)
+
+#### GA4 ב-Landing Page
+- הזרקת סקריפט Google Analytics 4 דרך `GA4_MEASUREMENT_ID` env var
+- `<!-- GA4_PLACEHOLDER -->` ב-template — מוחלף בזמן בניה
+
+### ⚠️ שינויים שוברים
+
+- משתנה סביבה חדש `DASHBOARD_SECRET` נדרש להפעלת הדשבורד (ללא הגדרה — לא נטען)
+- משתנה סביבה חדש `DASHBOARD_PORT` (ברירת מחדל: 4000)
+- עמודת `muted_until TEXT` נוספה לטבלת `users` — migration אוטומטי בהפעלה
+
+### 🔧 תחזוקה
+
+- `initSchema(database)` מופרד מ-`initDb()` לבדיקות עם DB בזיכרון
+- `addColumnIfMissing()` helper מאחד את הלוגיקה של ALTER TABLE migrations
+- `DB_PATH=:memory:` ב-`npm test` לבדיקות בזיכרון ללא קובץ
+- `build:dashboard` ו-`dev:dashboard` נוספו ל-`package.json`
+- Docker ו-CI מבנים את ה-dashboard-ui כחלק מהבנייה הכוללת
+
+</div>
+
+---
+
 ## [0.1.4] — 2026-03-28
 
 <div dir="rtl">
@@ -232,7 +284,8 @@
 
 <div dir="rtl">
 
-[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.1.4...HEAD
+[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.1.5...HEAD
+[0.1.5]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.1.1...v0.1.2
