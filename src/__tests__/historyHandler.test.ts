@@ -46,6 +46,16 @@ describe('formatRelativeHe', () => {
     const firedAt = new Date(Date.now() - 24 * 3_600_000).toISOString().replace('T', ' ').slice(0, 19);
     assert.equal(formatRelativeHe(firedAt), 'אתמול');
   });
+
+  it('dual: exactly 2 hours → "לפני שעתיים"', () => {
+    const firedAt = new Date(Date.now() - 2 * 3_600_000).toISOString().replace('T', ' ').slice(0, 19);
+    assert.equal(formatRelativeHe(firedAt), 'לפני שעתיים');
+  });
+
+  it('dual: exactly 2 days → "לפני יומיים"', () => {
+    const firedAt = new Date(Date.now() - 2 * 24 * 3_600_000).toISOString().replace('T', ' ').slice(0, 19);
+    assert.equal(formatRelativeHe(firedAt), 'לפני יומיים');
+  });
 });
 
 describe('buildHistoryMessage', () => {

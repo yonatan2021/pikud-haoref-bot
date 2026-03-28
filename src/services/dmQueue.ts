@@ -17,6 +17,7 @@ export class DmQueue {
   private readonly queue: DmTask[] = [];
   private running = 0;
   private paused = false;
+  private pauseTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly concurrency: number;
   private readonly send: SendFn;
 
@@ -64,11 +65,15 @@ export class DmQueue {
       console.warn(`[DM] Rate-limited — pausing ${retryAfter}s (attempt ${attempts}/${MAX_RETRIES}). Queue depth: ${this.queue.length + 1}`);
       this.queue.unshift({ ...task, retries: attempts });
       this.paused = true;
-      setTimeout(() => {
-        console.log('[DM] Rate-limit pause ended — resuming drain');
-        this.paused = false;
-        this.drain();
-      }, retryAfter * 1000);
+      // Guard against concurrent 429s scheduling multiple timers — only one timer at a time.
+      if (this.pauseTimer === null) {
+        this.pauseTimer = setTimeout(() => {
+          console.log('[DM] Rate-limit pause ended — resuming drain');
+          this.pauseTimer = null;
+          this.paused = false;
+          this.drain();
+        }, retryAfter * 1000);
+      }
       return;
     }
 
@@ -98,18 +103,19 @@ export class DmQueue {
   }
 }
 
+const MAX_PAUSE_SECONDS = 300;
+
 export function extractRetryAfter(err: unknown): number | null {
   if (err != null && typeof err === 'object') {
     const params = (err as any).parameters;
-    // Cap at 300s — same ceiling as the regex path below; Telegram rarely sends higher
-    if (typeof params?.retry_after === 'number') return Math.min(params.retry_after, 300);
+    if (typeof params?.retry_after === 'number') return Math.min(params.retry_after, MAX_PAUSE_SECONDS);
   }
   if (err instanceof Error) {
     const m = err.message.match(/retry after (\d+)/i);
     if (m) {
       const parsed = parseInt(m[1], 10);
-      if (parsed > 300) console.warn(`[DM] retryAfter=${parsed}s exceeds cap — clamping to 300s`);
-      return Math.min(parsed, 300);
+      if (parsed > MAX_PAUSE_SECONDS) console.warn(`[DM] retryAfter=${parsed}s exceeds cap — clamping to ${MAX_PAUSE_SECONDS}s`);
+      return Math.min(parsed, MAX_PAUSE_SECONDS);
     }
   }
   return null;
@@ -118,7 +124,15 @@ export function extractRetryAfter(err: unknown): number | null {
 export const dmQueue = new DmQueue(async (task) => {
   const chatIdNum = parseInt(task.chatId, 10);
   if (isNaN(chatIdNum)) {
-    console.error(`[DM] Invalid chatId (NaN) — skipping task for chatId="${task.chatId}"`);
+    // Try float-parse fallback (e.g. chatId stored as "123.0") before giving up on DB cleanup
+    const floatId = Math.trunc(parseFloat(task.chatId));
+    if (!isNaN(floatId)) {
+      try { deleteUser(floatId); } catch (e) {
+        console.error(`[DM] Failed to remove NaN-path user ${task.chatId}:`, e);
+      }
+    } else {
+      console.error(`[DM] Invalid chatId (NaN) — subscription "${task.chatId}" must be removed manually`);
+    }
     return;
   }
   await getBot().api.sendMessage(chatIdNum, task.text, { parse_mode: 'HTML' });

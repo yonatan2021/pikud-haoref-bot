@@ -19,10 +19,15 @@ type RawRow = {
 
 function parseRow(raw: RawRow): AlertHistoryRow | null {
   try {
+    const parsed = JSON.parse(raw.cities);
+    if (!Array.isArray(parsed)) {
+      console.error(`[AlertHistory] cities is not an array for row id=${raw.id} — skipping`);
+      return null;
+    }
     return {
       id: raw.id,
       type: raw.type,
-      cities: JSON.parse(raw.cities) as string[],
+      cities: parsed as string[],
       instructions: raw.instructions ?? undefined,
       fired_at: raw.fired_at,
     };

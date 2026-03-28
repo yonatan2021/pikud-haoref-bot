@@ -1,6 +1,6 @@
 export type AlertCategory = 'security' | 'nature' | 'environmental' | 'drills' | 'general';
 
-export const ALERT_TYPE_CATEGORY: Record<string, AlertCategory> = {
+export const ALERT_TYPE_CATEGORY: Readonly<Record<string, AlertCategory>> = {
   missiles: 'security',
   hostileAircraftIntrusion: 'security',
   terroristInfiltration: 'security',
@@ -35,7 +35,9 @@ const CATEGORY_ENV_VAR: Record<AlertCategory, string> = {
 
 /**
  * Returns the Telegram message_thread_id for the given alert type,
- * or undefined if the env var for that category is not set.
+ * or undefined if the env var for that category is not set or is invalid.
+ * Topic ID 1 is rejected — it is reserved in Telegram forum groups and causes
+ * "message thread not found" errors.
  */
 export function getTopicId(alertType: string): number | undefined {
   const category = ALERT_TYPE_CATEGORY[alertType] ?? 'general';
@@ -43,5 +45,6 @@ export function getTopicId(alertType: string): number | undefined {
   const raw = process.env[envVar];
   if (!raw) return undefined;
   const parsed = parseInt(raw, 10);
-  return isNaN(parsed) ? undefined : parsed;
+  if (isNaN(parsed) || parsed === 1) return undefined;
+  return parsed;
 }

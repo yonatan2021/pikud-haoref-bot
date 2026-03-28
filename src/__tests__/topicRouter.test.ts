@@ -12,7 +12,7 @@ describe('getTopicId', () => {
       TELEGRAM_TOPIC_ID_NATURE: '2',
       TELEGRAM_TOPIC_ID_ENVIRONMENTAL: '10',
       TELEGRAM_TOPIC_ID_DRILLS: '11',
-      TELEGRAM_TOPIC_ID_GENERAL: '1',
+      TELEGRAM_TOPIC_ID_GENERAL: '5',
     };
   });
 
@@ -37,15 +37,20 @@ describe('getTopicId', () => {
   });
 
   it('routes newsFlash to general topic', () => {
-    assert.equal(getTopicId('newsFlash'), 1);
+    assert.equal(getTopicId('newsFlash'), 5);
   });
 
   it('routes unknown type to general topic', () => {
-    assert.equal(getTopicId('unknown'), 1);
+    assert.equal(getTopicId('unknown'), 5);
   });
 
   it('returns undefined when env var is not set', () => {
     delete process.env.TELEGRAM_TOPIC_ID_SECURITY;
+    assert.equal(getTopicId('missiles'), undefined);
+  });
+
+  it('returns undefined when topic ID is 1 (reserved Telegram thread)', () => {
+    process.env.TELEGRAM_TOPIC_ID_SECURITY = '1';
     assert.equal(getTopicId('missiles'), undefined);
   });
 });

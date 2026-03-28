@@ -68,15 +68,19 @@ function getIsraelHour(now: Date): number {
   }).formatToParts(now);
   const hourPart = parts.find((p) => p.type === 'hour');
   if (!hourPart) {
-    console.error('[DM] getIsraelHour: no hour part from Intl.DateTimeFormat — defaulting to 0 (quiet hours may be incorrectly applied)');
+    // Fallback to 12 (midday) — outside the quiet window — so a failure delivers rather than suppresses.
+    console.error('[DM] getIsraelHour: no hour part from Intl.DateTimeFormat — defaulting to 12 to avoid suppressing alerts');
   }
-  return parseInt(hourPart?.value ?? '0', 10);
+  return parseInt(hourPart?.value ?? '12', 10);
 }
 
 // Quiet hours: 23:00–06:00 Israel time (Asia/Jerusalem).
 // Suppressed window: [23:00, 06:00) — 23:00 inclusive, 06:00 exclusive (alerts at exactly 06:00 are delivered).
 // Only 'drills' and 'general' categories are suppressed — security, nature,
 // and environmental alerts always get through regardless of user preference.
+// NOTE: 'newsFlash' maps to category 'general' (see ALERT_TYPE_CATEGORY in topicRouter.ts)
+// and IS suppressed during quiet hours. This is intentional — newsFlash is informational
+// (all-clear / announcements), not an immediate security threat.
 export function shouldSkipForQuietHours(
   alertType: string,
   quietEnabled: boolean,

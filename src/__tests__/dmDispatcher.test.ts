@@ -191,4 +191,26 @@ describe('shouldSkipForQuietHours', () => {
   it('never blocks hazardous materials', () => {
     assert.equal(shouldSkipForQuietHours('hazardousMaterials', true, NIGHT), false);
   });
+
+  it('blocks all drill subtypes at night when enabled', () => {
+    const drills = [
+      'missilesDrill', 'earthQuakeDrill', 'tsunamiDrill',
+      'hostileAircraftIntrusionDrill', 'hazardousMaterialsDrill',
+      'terroristInfiltrationDrill', 'radiologicalEventDrill', 'generalDrill',
+    ];
+    for (const type of drills) {
+      assert.equal(shouldSkipForQuietHours(type, true, NIGHT), true, `${type} must be suppressed at night`);
+    }
+  });
+
+  it('never blocks security/nature/environmental types regardless of time or setting', () => {
+    const alwaysThrough = [
+      'missiles', 'hostileAircraftIntrusion', 'terroristInfiltration',
+      'earthQuake', 'tsunami',
+      'hazardousMaterials', 'radiologicalEvent',
+    ];
+    for (const type of alwaysThrough) {
+      assert.equal(shouldSkipForQuietHours(type, true, NIGHT), false, `${type} must never be suppressed`);
+    }
+  });
 });

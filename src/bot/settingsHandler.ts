@@ -240,6 +240,9 @@ export function registerSettingsHandler(bot: Bot): void {
       await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
     } catch (err) {
       console.error('[Settings] rm callback failed:', err);
+      await ctx.answerCallbackQuery().catch((e) =>
+        console.error('[Settings] Failed to answer callback after rm error:', e)
+      );
     }
   });
 }

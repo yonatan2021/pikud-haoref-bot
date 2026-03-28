@@ -19,9 +19,15 @@ export function formatRelativeHe(firedAt: string): string {
   if (diffMin < 1) return 'עכשיו';
   if (diffMin < 60) return diffMin === 1 ? 'לפני דקה' : `לפני ${diffMin} דקות`;
   const diffHours = Math.floor(diffMin / 60);
-  if (diffHours < 24) return diffHours === 1 ? 'לפני שעה' : `לפני ${diffHours} שעות`;
+  if (diffHours < 24) {
+    if (diffHours === 1) return 'לפני שעה';
+    if (diffHours === 2) return 'לפני שעתיים';
+    return `לפני ${diffHours} שעות`;
+  }
   const diffDays = Math.floor(diffHours / 24);
-  return diffDays === 1 ? 'אתמול' : `לפני ${diffDays} ימים`;
+  if (diffDays === 1) return 'אתמול';
+  if (diffDays === 2) return 'לפני יומיים';
+  return `לפני ${diffDays} ימים`;
 }
 
 export function buildHistoryMessage(rows: AlertHistoryRow[]): string {
@@ -30,9 +36,9 @@ export function buildHistoryMessage(rows: AlertHistoryRow[]): string {
   const lines: string[] = [];
   for (const row of rows) {
     const emoji = ALERT_TYPE_EMOJI[row.type] ?? '⚠️';
-    const title = ALERT_TYPE_HE[row.type] ?? row.type;
+    const title = ALERT_TYPE_HE[row.type] ?? escapeHtml(row.type);
     // Cap at 5 cities per row to keep messages short; overflow count shown inline
-    const displayed = row.cities.slice(0, 5).join(', ');
+    const displayed = row.cities.slice(0, 5).map(escapeHtml).join(', ');
     const overflow = row.cities.length > 5 ? ` (+${row.cities.length - 5})` : '';
     lines.push(`${emoji} ${title} — ${displayed}${overflow}`);
     lines.push(`⏱ ${formatRelativeHe(row.fired_at)}`);

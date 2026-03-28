@@ -14,7 +14,7 @@ const activeMessages = new Map<string, TrackedMessage>();
 
 function windowMs(): number {
   // Re-read on each call — caching at module load would capture the env before .env is loaded;
-  // also allows test overrides of the env var without requiring a module reload.
+  // also allows test overrides of the env var without requiring a module reload. Default: 120s.
   const raw = process.env.ALERT_UPDATE_WINDOW_SECONDS;
   const parsed = parseInt(raw ?? '', 10);
   return (isNaN(parsed) || parsed <= 0 ? 120 : parsed) * 1000;
@@ -32,7 +32,9 @@ export function getActiveMessage(alertType: string): TrackedMessage | null {
     activeMessages.delete(alertType);
     return null;
   }
-  return { ...tracked }; // Shallow copy — callers must not mutate the stored reference
+  // Shallow copy — callers must not mutate the stored reference.
+  // Nested objects (e.g. alert.cities array) are NOT copied; mutating them corrupts in-memory state.
+  return { ...tracked };
 }
 
 export function trackMessage(alertType: string, msg: TrackedMessage): void {
@@ -68,9 +70,11 @@ export function loadActiveMessages(): void {
     return;
   }
   const now = Date.now();
+  let restored = 0;
   for (const { alertType, msg } of windows) {
     if (now - msg.sentAt <= windowMs()) {
       activeMessages.set(alertType, msg);
+      restored++;
     } else {
       try {
         deleteWindow(alertType);
@@ -79,4 +83,5 @@ export function loadActiveMessages(): void {
       }
     }
   }
+  console.log(`[AlertWindow] Loaded ${windows.length} window(s) from DB — ${restored} active, ${windows.length - restored} expired`);
 }

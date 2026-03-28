@@ -48,4 +48,17 @@ describe('healthServer', () => {
     assert.equal(status, 404);
     server.close();
   });
+
+  it('alertsTodayError is absent from response when DB is healthy', async () => {
+    const { startHealthServer } = await import('../healthServer.js');
+    const server = startHealthServer(0);
+    const port = (server.address() as { port: number }).port;
+    const body = await getHealth(port);
+    assert.ok(!('alertsTodayError' in body), 'alertsTodayError must not appear on success path');
+    server.close();
+  });
+
+  // Note: the alertsTodayError:true path (DB failure) cannot be reliably triggered
+  // in integration tests without mocking — better-sqlite3 re-opens the file on the
+  // next getDb() call. The try/catch in alertsToday() is verified by code inspection.
 });

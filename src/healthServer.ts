@@ -16,8 +16,18 @@ function alertsToday(): { count: number; error: boolean } {
   }
 }
 
+function resolvePort(override?: number): number {
+  if (override !== undefined) return override;
+  const parsed = parseInt(process.env.HEALTH_PORT ?? '', 10);
+  if (isNaN(parsed)) {
+    console.warn('[Health] HEALTH_PORT is not a valid number — falling back to 3000');
+    return 3000;
+  }
+  return parsed;
+}
+
 export function startHealthServer(port?: number): http.Server {
-  const resolvedPort = port ?? parseInt(process.env.HEALTH_PORT ?? '3000', 10);
+  const resolvedPort = resolvePort(port);
   const server = http.createServer((req, res) => {
     try {
       if (req.url !== '/health') {
@@ -39,7 +49,8 @@ export function startHealthServer(port?: number): http.Server {
       if (!res.headersSent) res.writeHead(500).end('Internal Server Error');
     }
   });
-  // Non-critical endpoint — log and continue rather than crashing the bot on port conflict
+  // Non-critical endpoint — log and continue rather than crashing the bot on any
+  // listen error (EADDRINUSE, EACCES, etc.). The bot runs without health monitoring.
   server.on('error', (err: NodeJS.ErrnoException) => {
     console.error(`[Health] Server failed to start on port ${resolvedPort}:`, err.message);
   });

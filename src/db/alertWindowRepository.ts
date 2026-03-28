@@ -1,6 +1,16 @@
 import { getDb } from './schema.js';
 import type { TrackedMessage } from '../alertWindowTracker.js';
 
+interface RawWindowRow {
+  alert_type: string;
+  message_id: number;
+  chat_id: string;
+  topic_id: number | null;
+  alert_json: string;
+  sent_at: number;
+  has_photo: number;
+}
+
 export function upsertWindow(alertType: string, msg: TrackedMessage): void {
   getDb().prepare(`
     INSERT INTO alert_window (alert_type, message_id, chat_id, topic_id, alert_json, sent_at, has_photo)
@@ -23,23 +33,27 @@ export function deleteWindow(alertType: string): void {
 }
 
 export function loadAllWindows(): Array<{ alertType: string; msg: TrackedMessage }> {
-  const rows = getDb().prepare('SELECT * FROM alert_window').all() as any[];
+  const rows = getDb().prepare('SELECT * FROM alert_window').all() as RawWindowRow[];
   return rows
     .map((r) => {
       try {
+        if (typeof r.sent_at !== 'number') {
+          console.error(`[AlertWindow] Corrupt sent_at for alert_type=${r.alert_type} — skipping`);
+          return null;
+        }
         return {
-          alertType: r.alert_type as string,
+          alertType: r.alert_type,
           msg: {
-            messageId: r.message_id as number,
-            chatId: r.chat_id as string,
-            topicId: r.topic_id != null ? (r.topic_id as number) : undefined,
-            alert: JSON.parse(r.alert_json as string),
-            sentAt: r.sent_at as number,
+            messageId: r.message_id,
+            chatId: r.chat_id,
+            topicId: r.topic_id != null ? r.topic_id : undefined,
+            alert: JSON.parse(r.alert_json),
+            sentAt: r.sent_at,
             hasPhoto: r.has_photo === 1,
           },
         };
       } catch (err) {
-        console.error(`[AlertWindow] Corrupt row for alert_type=${r.alert_type as string} — skipping:`, err);
+        console.error(`[AlertWindow] Corrupt row for alert_type=${r.alert_type} — skipping:`, err);
         return null;
       }
     })

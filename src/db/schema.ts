@@ -70,6 +70,8 @@ export function initDb(): void {
     );
   `);
 
+  // SQLite has no ADD COLUMN IF NOT EXISTS — ALTER TABLE throws 'duplicate column name'
+  // on repeat runs (e.g. after restart). Catch and ignore that specific error; re-throw all others.
   try {
     database.exec(
       'ALTER TABLE users ADD COLUMN quiet_hours_enabled INTEGER NOT NULL DEFAULT 0'

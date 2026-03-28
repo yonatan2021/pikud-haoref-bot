@@ -202,5 +202,19 @@ describe('handleNewAlert', () => {
       const calls = (deps.insertAlertHistory as unknown as ReturnType<typeof mock.fn>).mock.calls;
       assert.equal(calls.length, 0, 'edit path must not insert a new history row');
     });
+
+    it('calls insertAlertHistory once with merged alert when edit falls back to sendAlert', async () => {
+      const active = makeTracked({ alert: { type: 'missiles', cities: ['תל אביב'] } });
+      const deps = makeDeps({
+        getActiveMessage: mock.fn(() => active),
+        editAlert: mock.fn(async () => { throw new Error('Network error'); }),
+      });
+      await handleNewAlert({ type: 'missiles', cities: ['חיפה'] }, deps);
+      const calls = (deps.insertAlertHistory as unknown as ReturnType<typeof mock.fn>).mock.calls;
+      assert.equal(calls.length, 1, 'insertAlertHistory must be called on edit-fallback-to-send path');
+      const arg = calls[0].arguments[0] as Alert;
+      assert.ok(arg.cities.includes('תל אביב'), 'merged alert must include pre-existing city');
+      assert.ok(arg.cities.includes('חיפה'), 'merged alert must include new city');
+    });
   });
 });

@@ -58,6 +58,22 @@ describe('DmQueue', () => {
     assert.deepEqual(calls, ['2'], 'subsequent task should be sent despite blocked-user error');
   });
 
+  it('does not retry blocked-user tasks — dropped immediately unlike 429', async () => {
+    let sendCount = 0;
+    const q = new DmQueue(async (task) => {
+      sendCount++;
+      if (task.chatId === 'blocked') throw new Error('bot was blocked by the user');
+    }, { concurrency: 1 });
+    q.enqueueAll([
+      { chatId: 'blocked', text: 'x' },
+      { chatId: 'ok-1',    text: 'y' },
+      { chatId: 'ok-2',    text: 'z' },
+    ]);
+    await new Promise<void>((r) => setTimeout(r, 300));
+    // blocked task is attempted once, not retried — total sends = 3 (1 blocked + 2 ok)
+    assert.equal(sendCount, 3, 'blocked task must be attempted exactly once (not retried)');
+  });
+
   it('throws if concurrency is 0 or negative', () => {
     assert.throws(() => new DmQueue(async () => {}, { concurrency: 0 }), /concurrency must be positive/);
     assert.throws(() => new DmQueue(async () => {}, { concurrency: -1 }), /concurrency must be positive/);
