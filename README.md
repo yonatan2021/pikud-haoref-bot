@@ -10,7 +10,7 @@
 
 <div align="center">
 
-[![גרסה](https://img.shields.io/badge/גרסה-0.1.3-brightgreen?style=for-the-badge)](CHANGELOG.md)
+[![גרסה](https://img.shields.io/badge/גרסה-0.1.4-brightgreen?style=for-the-badge)](CHANGELOG.md)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue?style=for-the-badge)](https://opensource.org/licenses/Apache-2.0)
 [![Node.js](https://img.shields.io/badge/Node.js-24-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
@@ -80,6 +80,12 @@
 | 🔍 **חיפוש עיר** | חיפוש חופשי בשם, תוצאות מיידיות |
 | 🛡️ **מניעת כפילויות** | fingerprint חכם — פוקע כשהתרעה נעלמת, לא רק ב-all-clear |
 | 📡 **newsFlash ארצי** | תפיסת הודעות ללא ערים שהספרייה מדלגת עליהן |
+| 📜 **היסטוריית התראות** | שמירת כל התראה ב-SQLite (7 ימים) — `/stats` ו-`/history` לסיכום ולחיפוש |
+| 🔕 **שעות שקט** | ניתן לבטל DMs בשעות לילה (23:00–06:00) — התראות קריטיות תמיד עוברות |
+| 👤 **DM מותאם אישית** | כל מנוי מקבל רק את הערים שרשום אליהן, לא את כל ערי ההתראה |
+| 🏥 **Health endpoint** | `GET /health` עם uptime, lastAlertAt ו-alertsToday לניטור חיצוני |
+| ⚡ **DM Queue** | תור שליחה עם מגבלת מקביליות (10) ו-backoff אוטומטי לשגיאות 429 |
+| 🔄 **עמידות לאיתחול** | חלון ההתראות נשמר ב-SQLite — אין הודעות כפולות בערוץ לאחר הפעלה מחדש |
 | 🐳 **Docker** | תמיכה מלאה — multi-stage build, non-root user, volume לנתונים |
 | 🚀 **CI/CD** | GitHub Actions: בדיקות + בנייה אוטומטית + דחיפה ל-Docker Hub |
 | 🌐 **תמיכה ב-Proxy** | לשימוש מחוץ לישראל (ה-API חסום גיאוגרפית) |
@@ -98,7 +104,9 @@
 | `/add` | חיפוש עיר לפי שם והרשמה |
 | `/zones` | עיון ורישום לפי אזור גיאוגרפי |
 | `/mycities` | הצגת הערים הרשומות עם אפשרות הסרה |
-| `/settings` | פורמט DM (קצר / מפורט) + ביטול מנויים |
+| `/settings` | פורמט DM (קצר / מפורט) + שעות שקט + ביטול מנויים |
+| `/stats` | סטטיסטיקת 24 שעות אחרונות לפי קטגוריה + ספירה אישית לאזורך |
+| `/history` | 10 התראות אחרונות — לאזורך, לעיר ספציפית, או כלל-ארצי |
 
 </div>
 
