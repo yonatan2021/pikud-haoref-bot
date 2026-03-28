@@ -58,8 +58,11 @@ export async function runUpdate(flags: Flags): Promise<void> {
       : await p.text({    message: c.primary(field.label), validate: field.validate })
 
     if (p.isCancel(value)) { p.outro(msg.cancelled); return }
-    if (String(value ?? '').trim()) {
-      updates[key] = String(value).trim()
+    const trimmed = String(value ?? '').trim()
+    if (trimmed) {
+      updates[key] = trimmed
+    } else {
+      p.log.warn(`${c.warning('⚠️')} ערך ריק — ${c.primary(field.label)} לא שונה`)
     }
   }
 

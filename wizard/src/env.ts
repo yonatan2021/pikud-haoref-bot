@@ -3,17 +3,22 @@ import fs from 'node:fs'
 /** Read a .env file and return key→value pairs. Returns {} if file does not exist. */
 export function readEnvFile(filePath: string): Record<string, string> {
   if (!fs.existsSync(filePath)) return {}
-  const lines = fs.readFileSync(filePath, 'utf8').split('\n')
+  let raw: string
+  try {
+    raw = fs.readFileSync(filePath, 'utf8')
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code ?? (err as Error).message
+    throw new Error(`לא ניתן לקרוא את ${filePath} (${code}) — בדוק הרשאות קריאה`)
+  }
   const result: Record<string, string> = {}
-  for (const line of lines) {
+  for (const line of raw.split('\n')) {
     const trimmed = line.trim()
     if (!trimmed || trimmed.startsWith('#')) continue
     const eq = trimmed.indexOf('=')
     if (eq === -1) continue
     const key = trimmed.slice(0, eq).trim()
-    const raw = trimmed.slice(eq + 1).trim()
-    // Strip surrounding double-quotes
-    const val = raw.startsWith('"') && raw.endsWith('"') ? raw.slice(1, -1) : raw
+    const rawVal = trimmed.slice(eq + 1).trim()
+    const val = rawVal.startsWith('"') && rawVal.endsWith('"') ? rawVal.slice(1, -1) : rawVal
     if (key) result[key] = val
   }
   return result
@@ -35,7 +40,12 @@ export function writeEnvFile(
     lines.push(`${key}=${safe}`)
   }
   lines.push('')
-  fs.writeFileSync(filePath, lines.join('\n'), 'utf8')
+  try {
+    fs.writeFileSync(filePath, lines.join('\n'), 'utf8')
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code ?? (err as Error).message
+    throw new Error(`לא ניתן לכתוב לקובץ ${filePath} (${code}) — נסה --output /tmp/.env`)
+  }
 }
 
 /**

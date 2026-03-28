@@ -14,31 +14,51 @@ export async function promptRequired(
   p.log.step(c.bold('הגדרות חובה'))
 
   // Token
-  const token = flags.token ?? await p.password({
-    message: `${stepBadge(1, 4)} ${c.primary('טוקן הבוט מ-@BotFather')}\n  ${c.dim('צור בוט ב-https://t.me/BotFather וקבל את הטוקן')}`,
-    validate: validateToken,
-  })
-  if (p.isCancel(token)) return undefined
+  let token: string
+  if (flags.token !== undefined) {
+    const err = validateToken(flags.token)
+    if (err) throw new Error(`--token: ${err}`)
+    token = flags.token
+  } else {
+    const val = await p.password({
+      message: `${stepBadge(1, 4)} ${c.primary('טוקן הבוט מ-@BotFather')}\n  ${c.dim('צור בוט ב-https://t.me/BotFather וקבל את הטוקן')}`,
+      validate: validateToken,
+    })
+    if (p.isCancel(val)) return undefined
+    token = String(val)
+  }
 
   // Chat ID
-  const chatId = flags['chat-id'] ?? await p.text({
-    message: `${stepBadge(2, 4)} ${c.primary('מזהה הערוץ/קבוצה')}\n  ${c.dim('ערוץ: מספר שלילי כמו ‎-1001234567890 | DM: מספר חיובי')}`,
-    placeholder: '-1001234567890',
-    validate: validateChatId,
-  })
-  if (p.isCancel(chatId)) return undefined
+  let chatId: string
+  if (flags['chat-id'] !== undefined) {
+    const err = validateChatId(flags['chat-id'])
+    if (err) throw new Error(`--chat-id: ${err}`)
+    chatId = flags['chat-id']
+  } else {
+    const val = await p.text({
+      message: `${stepBadge(2, 4)} ${c.primary('מזהה הערוץ/קבוצה')}\n  ${c.dim('ערוץ: מספר שלילי כמו ‎-1001234567890 | DM: מספר חיובי')}`,
+      placeholder: '-1001234567890',
+      validate: validateChatId,
+    })
+    if (p.isCancel(val)) return undefined
+    chatId = String(val)
+  }
 
   // Mapbox
-  const mapbox = flags.mapbox ?? await p.text({
-    message: `${stepBadge(3, 4)} ${c.primary('טוקן Mapbox')}\n  ${c.dim('חשבון חינמי: https://account.mapbox.com/access-tokens')}`,
-    placeholder: 'pk.eyJ...',
-    validate: validateMapboxToken,
-  })
-  if (p.isCancel(mapbox)) return undefined
-
-  return {
-    token:  String(token),
-    chatId: String(chatId),
-    mapbox: String(mapbox),
+  let mapbox: string
+  if (flags.mapbox !== undefined) {
+    const err = validateMapboxToken(flags.mapbox)
+    if (err) throw new Error(`--mapbox: ${err}`)
+    mapbox = flags.mapbox
+  } else {
+    const val = await p.text({
+      message: `${stepBadge(3, 4)} ${c.primary('טוקן Mapbox')}\n  ${c.dim('חשבון חינמי: https://account.mapbox.com/access-tokens')}`,
+      placeholder: 'pk.eyJ...',
+      validate: validateMapboxToken,
+    })
+    if (p.isCancel(val)) return undefined
+    mapbox = String(val)
   }
+
+  return { token, chatId, mapbox }
 }

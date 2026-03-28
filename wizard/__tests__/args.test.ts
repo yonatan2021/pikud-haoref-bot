@@ -74,4 +74,14 @@ describe('parseArgs', () => {
   it('ignores unknown flags gracefully', () => {
     assert.doesNotThrow(() => parseArgs(['--unknown-flag=value']))
   })
+
+  it('does not consume next flag as value for space-separated flag', () => {
+    const flags = parseArgs(['--token', '--verify'])
+    assert.equal(flags.verify, true)
+    assert.notEqual(flags.token, '--verify')
+  })
+
+  it('parses space-separated flag value that does not start with dash', () => {
+    assert.equal(parseArgs(['--token', 'mytoken123']).token, 'mytoken123')
+  })
 })

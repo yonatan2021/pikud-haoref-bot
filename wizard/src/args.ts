@@ -25,8 +25,10 @@ export function parseArgs(argv: string[]): Flags {
     const match = arg.match(/^--([a-z][a-z0-9-]*)(?:=(.+))?$/)
     if (match) {
       const key = match[1]
-      const val = match[2] !== undefined ? match[2] : argv[++i]
-      flags[key] = val
+      const val = match[2] !== undefined
+        ? match[2]
+        : (i + 1 < argv.length && !argv[i + 1].startsWith('-') ? argv[++i] : undefined)
+      if (val !== undefined) flags[key] = val
     }
   }
   return flags
