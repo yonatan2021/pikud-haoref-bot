@@ -5,7 +5,7 @@ export type NotificationFormat = 'short' | 'detailed';
 export interface User {
   chat_id: number;
   format: NotificationFormat;
-  quiet_hours_enabled: number;
+  quiet_hours_enabled: boolean;
   created_at: string;
 }
 
@@ -16,9 +16,11 @@ export function upsertUser(chatId: number): void {
 }
 
 export function getUser(chatId: number): User | undefined {
-  return getDb()
+  const raw = getDb()
     .prepare('SELECT * FROM users WHERE chat_id = ?')
-    .get(chatId) as User | undefined;
+    .get(chatId) as { chat_id: number; format: NotificationFormat; quiet_hours_enabled: number; created_at: string } | undefined;
+  if (!raw) return undefined;
+  return { ...raw, quiet_hours_enabled: raw.quiet_hours_enabled === 1 };
 }
 
 export function setFormat(chatId: number, format: NotificationFormat): void {

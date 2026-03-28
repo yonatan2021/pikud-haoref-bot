@@ -148,12 +148,12 @@ describe('subscriptionService', () => {
       assert.equal(subs[0].format, 'detailed');
     });
 
-    it('includes quiet_hours_enabled field defaulting to 0', () => {
+    it('includes quiet_hours_enabled field defaulting to false', () => {
       upsertUser(CHAT_A);
       addSubscription(CHAT_A, 'תל אביב');
       const subs = getUsersForCities(['תל אביב']);
-      assert.equal(typeof subs[0].quiet_hours_enabled, 'number');
-      assert.equal(subs[0].quiet_hours_enabled, 0);
+      assert.equal(typeof subs[0].quiet_hours_enabled, 'boolean');
+      assert.equal(subs[0].quiet_hours_enabled, false);
     });
 
     it('returns empty array when city list is empty', () => {

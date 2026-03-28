@@ -2,13 +2,16 @@ import http from 'node:http';
 import { getMetrics } from './metrics.js';
 import { getDb } from './db/schema.js';
 
+// 'start of day' boundary is UTC midnight — alertsToday may be off by 2–3h
+// vs. Israel local time (UTC+2/+3); acceptable for monitoring purposes.
 function alertsToday(): number {
   try {
     const row = getDb()
       .prepare("SELECT COUNT(*) as cnt FROM alert_history WHERE fired_at >= datetime('now','start of day')")
       .get() as { cnt: number };
     return row.cnt;
-  } catch {
+  } catch (err) {
+    console.error('[Health] Failed to query alertsToday:', err);
     return 0;
   }
 }
@@ -16,19 +19,30 @@ function alertsToday(): number {
 export function startHealthServer(port?: number): http.Server {
   const resolvedPort = port ?? parseInt(process.env.HEALTH_PORT ?? '3000', 10);
   const server = http.createServer((req, res) => {
-    if (req.url !== '/health') {
-      res.writeHead(404).end('Not Found');
-      return;
+    try {
+      if (req.url !== '/health') {
+        res.writeHead(404).end('Not Found');
+        return;
+      }
+      const { lastAlertAt, lastPollAt } = getMetrics();
+      const body = JSON.stringify({
+        uptime: process.uptime(),
+        lastAlertAt: lastAlertAt?.toISOString() ?? null,
+        lastPollAt: lastPollAt?.toISOString() ?? null,
+        alertsToday: alertsToday(),
+      });
+      res.writeHead(200, { 'Content-Type': 'application/json' }).end(body);
+    } catch (err) {
+      console.error('[Health] Request handler error:', err);
+      if (!res.headersSent) res.writeHead(500).end('Internal Server Error');
     }
-    const { lastAlertAt, lastPollAt } = getMetrics();
-    const body = JSON.stringify({
-      uptime: process.uptime(),
-      lastAlertAt: lastAlertAt?.toISOString() ?? null,
-      lastPollAt: lastPollAt?.toISOString() ?? null,
-      alertsToday: alertsToday(),
-    });
-    res.writeHead(200, { 'Content-Type': 'application/json' }).end(body);
   });
-  server.listen(resolvedPort);
+  // Non-critical endpoint — log and continue rather than crashing the bot on port conflict
+  server.on('error', (err: NodeJS.ErrnoException) => {
+    console.error(`[Health] Server failed to start on port ${resolvedPort}:`, err.message);
+  });
+  server.listen(resolvedPort, () => {
+    console.log(`[Health] Listening on port ${resolvedPort}`);
+  });
   return server;
 }

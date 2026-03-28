@@ -70,6 +70,9 @@ function getIsraelHour(now: Date): number {
   return parseInt(hourPart?.value ?? '0', 10);
 }
 
+// Quiet hours: 23:00–06:00 Israel time (Asia/Jerusalem).
+// Only 'drills' and 'general' categories are suppressed — security, nature,
+// and environmental alerts always get through regardless of user preference.
 export function shouldSkipForQuietHours(
   alertType: string,
   quietEnabled: boolean,
@@ -83,18 +86,28 @@ export function shouldSkipForQuietHours(
 }
 
 export function notifySubscribers(alert: Alert): void {
-  const subscribers = getUsersForCities(alert.cities);
-  console.log(
-    `[DM] ${alert.type} — ${alert.cities.length} cities, ${subscribers.length} subscriber(s)` +
-    (subscribers.length === 0 && alert.cities.length > 0 ? ' (no city match)' : '')
-  );
-  if (subscribers.length === 0) return;
+  try {
+    const subscribers = getUsersForCities(alert.cities);
+    console.log(
+      `[DM] ${alert.type} — ${alert.cities.length} cities, ${subscribers.length} subscriber(s)` +
+      (subscribers.length === 0 && alert.cities.length > 0 ? ' (no city match)' : '')
+    );
+    if (subscribers.length === 0) return;
 
-  const tasks = subscribers
-    .filter(({ quiet_hours_enabled }) => !shouldSkipForQuietHours(alert.type, quiet_hours_enabled === 1))
-    .map(({ chat_id, format, matchedCities }) => {
-      const personalAlert: Alert = { ...alert, cities: matchedCities };
-      return { chatId: String(chat_id), text: buildDmText(personalAlert, format) };
-    });
-  dmQueue.enqueueAll(tasks);
+    const tasks = subscribers
+      .filter(({ quiet_hours_enabled }) => !shouldSkipForQuietHours(alert.type, quiet_hours_enabled))
+      .map(({ chat_id, format, matchedCities }) => {
+        const personalAlert: Alert = { ...alert, cities: matchedCities };
+        return { chatId: String(chat_id), text: buildDmText(personalAlert, format) };
+      });
+
+    const skipped = subscribers.length - tasks.length;
+    if (skipped > 0) {
+      console.log(`[DM] Quiet hours: skipped ${skipped} subscriber(s) for type ${alert.type}`);
+    }
+
+    dmQueue.enqueueAll(tasks);
+  } catch (err) {
+    console.error(`[DM] Failed to dispatch notifications for alert type=${alert.type}:`, err);
+  }
 }

@@ -21,7 +21,9 @@ export class DmQueue {
 
   constructor(send: SendFn, options: DmQueueOptions = {}) {
     this.send = send;
-    this.concurrency = options.concurrency ?? 10;
+    const requested = options.concurrency ?? 10;
+    if (requested <= 0) throw new Error(`DmQueue: concurrency must be positive, got ${requested}`);
+    this.concurrency = requested;
   }
 
   enqueueAll(tasks: DmTask[]): void {
@@ -47,9 +49,11 @@ export class DmQueue {
     const retryAfter = extractRetryAfter(err);
 
     if (retryAfter !== null) {
+      console.warn(`[DM] Rate-limited by Telegram — pausing ${retryAfter}s. Queue depth: ${this.queue.length + 1}`);
       this.queue.unshift(task);
       this.paused = true;
       setTimeout(() => {
+        console.log('[DM] Rate-limit pause ended — resuming drain');
         this.paused = false;
         this.drain();
       }, retryAfter * 1000);
@@ -63,7 +67,11 @@ export class DmQueue {
 
     if (isBlocked) {
       console.log(`[DM] User ${task.chatId} blocked bot — removing`);
-      deleteUser(parseInt(task.chatId, 10));
+      try {
+        deleteUser(parseInt(task.chatId, 10));
+      } catch (dbErr) {
+        console.error(`[DM] Failed to remove blocked user ${task.chatId}:`, dbErr);
+      }
     } else {
       console.error(`[DM] Error sending to ${task.chatId}:`, err);
     }
@@ -73,11 +81,15 @@ export class DmQueue {
 function extractRetryAfter(err: unknown): number | null {
   if (err != null && typeof err === 'object') {
     const params = (err as any).parameters;
-    if (typeof params?.retry_after === 'number') return params.retry_after;
+    if (typeof params?.retry_after === 'number') return Math.min(params.retry_after, 300);
   }
   if (err instanceof Error) {
     const m = err.message.match(/retry after (\d+)/i);
-    if (m) return parseInt(m[1], 10);
+    if (m) {
+      const parsed = parseInt(m[1], 10);
+      if (parsed > 300) console.warn(`[DM] retryAfter=${parsed}s exceeds cap — clamping to 300s`);
+      return Math.min(parsed, 300);
+    }
   }
   return null;
 }

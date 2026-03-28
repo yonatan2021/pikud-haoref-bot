@@ -108,4 +108,15 @@ describe('alertHistoryRepository', () => {
     const rows = getAlertsForCities(['אבו גוש', 'אביעזר'], 10);
     assert.equal(rows.length, 1, 'one alert with two matching cities must appear once');
   });
+
+  it('skips rows with malformed cities JSON and returns remaining valid rows', () => {
+    // Insert a row with corrupt cities data directly — simulates DB corruption
+    getDb()
+      .prepare(`INSERT INTO alert_history (type, cities, fired_at) VALUES (?, ?, datetime('now', '-1 minutes'))`)
+      .run('missiles', 'NOT_VALID_JSON');
+    insertAlert(A_MISSILES); // valid row
+    const rows = getRecentAlerts(24);
+    assert.equal(rows.length, 1, 'corrupt row should be skipped, valid row returned');
+    assert.deepEqual(rows[0].cities, ['אבו גוש', 'אביעזר']);
+  });
 });

@@ -94,6 +94,11 @@ export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Prom
             sentAt: Date.now(),
             hasPhoto: sent.hasPhoto,
           });
+          try {
+            insertAlertHistory(mergedAlert);
+          } catch (histErr) {
+            console.error(`[AlertHandler] Failed to insert alert history (type=${alert.type}, cities=${mergedAlert.cities.length}):`, histErr);
+          }
         } catch (sendErr) {
           throw new Error('[AlertHandler] Sending new message failed after edit failure', { cause: sendErr });
         }
@@ -119,7 +124,7 @@ export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Prom
       try {
         insertAlertHistory(alert);
       } catch (histErr) {
-        console.error('[AlertHandler] Failed to insert alert history:', histErr);
+        console.error(`[AlertHandler] Failed to insert alert history (type=${alert.type}, cities=${alert.cities.length}):`, histErr);
       }
     }
   } catch (err) {

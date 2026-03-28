@@ -7,18 +7,18 @@ import {
   getAlertsForCities,
   getRecentAlerts,
 } from '../db/alertHistoryRepository.js';
-import { ALERT_TYPE_EMOJI, ALERT_TYPE_HE } from '../telegramBot.js';
+import { ALERT_TYPE_EMOJI, ALERT_TYPE_HE, escapeHtml } from '../telegramBot.js';
 import type { AlertHistoryRow } from '../db/alertHistoryRepository.js';
 
 export function formatRelativeHe(firedAt: string): string {
   const diffMs = Date.now() - new Date(firedAt.replace(' ', 'T') + 'Z').getTime();
   const diffMin = Math.floor(diffMs / 60_000);
   if (diffMin < 1) return 'עכשיו';
-  if (diffMin < 60) return `לפני ${diffMin} דקות`;
+  if (diffMin < 60) return diffMin === 1 ? 'לפני דקה' : `לפני ${diffMin} דקות`;
   const diffHours = Math.floor(diffMin / 60);
-  if (diffHours < 48) return `לפני ${diffHours} שעות`;
+  if (diffHours < 24) return diffHours === 1 ? 'לפני שעה' : `לפני ${diffHours} שעות`;
   const diffDays = Math.floor(diffHours / 24);
-  return `לפני ${diffDays} ימים`;
+  return diffDays === 1 ? 'אתמול' : `לפני ${diffDays} ימים`;
 }
 
 export function buildHistoryMessage(rows: AlertHistoryRow[]): string {
@@ -28,6 +28,7 @@ export function buildHistoryMessage(rows: AlertHistoryRow[]): string {
   for (const row of rows) {
     const emoji = ALERT_TYPE_EMOJI[row.type] ?? '⚠️';
     const title = ALERT_TYPE_HE[row.type] ?? row.type;
+    // Cap at 5 cities per row to keep messages short; overflow count shown inline
     const displayed = row.cities.slice(0, 5).join(', ');
     const overflow = row.cities.length > 5 ? ` (+${row.cities.length - 5})` : '';
     lines.push(`${emoji} ${title} — ${displayed}${overflow}`);
@@ -41,35 +42,41 @@ export function registerHistoryHandler(bot: Bot): void {
   bot.command('history', async (ctx: Context) => {
     if (ctx.chat?.type !== 'private') return;
     const chatId = ctx.chat.id;
-    upsertUser(chatId);
-    const cityArg = String(ctx.match ?? '').trim();
+    try {
+      upsertUser(chatId);
+      const cityArg = String(ctx.match ?? '').trim();
+      const safeCityArg = escapeHtml(cityArg);
 
-    if (cityArg.length > 0) {
-      const rows = getAlertsForCity(cityArg, 10);
+      if (cityArg.length > 0) {
+        const rows = getAlertsForCity(cityArg, 10);
+        await ctx.reply(
+          `📋 <b>10 התראות אחרונות — ${safeCityArg}</b>\n\n${buildHistoryMessage(rows)}`,
+          { parse_mode: 'HTML' }
+        );
+        return;
+      }
+
+      if (getSubscriptionCount(chatId) > 0) {
+        const rows = getAlertsForCities(getUserCities(chatId), 10);
+        await ctx.reply(
+          `📋 <b>10 התראות אחרונות לאזורך</b>\n\n${buildHistoryMessage(rows)}`,
+          { parse_mode: 'HTML' }
+        );
+        return;
+      }
+
+      const rows = getRecentAlerts(168).slice(0, 10);
+      const tip =
+        '\n\nℹ️ אלו ההתראות האחרונות בכל הארץ.\n' +
+        'כדי לקבל התראות לאזורך בלבד, הוסף ערים עם /zones\n' +
+        'לחיפוש עיר ספציפית: /history [שם עיר]';
       await ctx.reply(
-        `📋 <b>10 התראות אחרונות — ${cityArg}</b>\n\n${buildHistoryMessage(rows)}`,
+        `📋 <b>10 התראות אחרונות</b>\n\n${buildHistoryMessage(rows)}${tip}`,
         { parse_mode: 'HTML' }
       );
-      return;
+    } catch (err) {
+      console.error('[History] Command failed:', err);
+      await ctx.reply('אירעה שגיאה בטעינת היסטוריית ההתראות. נסה שוב מאוחר יותר.').catch(() => {});
     }
-
-    if (getSubscriptionCount(chatId) > 0) {
-      const rows = getAlertsForCities(getUserCities(chatId), 10);
-      await ctx.reply(
-        `📋 <b>10 התראות אחרונות לאזורך</b>\n\n${buildHistoryMessage(rows)}`,
-        { parse_mode: 'HTML' }
-      );
-      return;
-    }
-
-    const rows = getRecentAlerts(168).slice(0, 10);
-    const tip =
-      '\n\nℹ️ אלו ההתראות האחרונות בכל הארץ.\n' +
-      'כדי לקבל התראות לאזורך בלבד, הוסף ערים עם /zones\n' +
-      'לחיפוש עיר ספציפית: /history [שם עיר]';
-    await ctx.reply(
-      `📋 <b>10 התראות אחרונות</b>\n\n${buildHistoryMessage(rows)}${tip}`,
-      { parse_mode: 'HTML' }
-    );
   });
 }

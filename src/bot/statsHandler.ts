@@ -44,9 +44,14 @@ export function registerStatsHandler(bot: Bot): void {
   bot.command('stats', async (ctx: Context) => {
     if (ctx.chat?.type !== 'private') return;
     const chatId = ctx.chat.id;
-    upsertUser(chatId);
-    const rows = getRecentAlerts(24);
-    const userCities = getUserCities(chatId);
-    await ctx.reply(buildStatsMessage(rows, userCities), { parse_mode: 'HTML' });
+    try {
+      upsertUser(chatId);
+      const rows = getRecentAlerts(24);
+      const userCities = getUserCities(chatId);
+      await ctx.reply(buildStatsMessage(rows, userCities), { parse_mode: 'HTML' });
+    } catch (err) {
+      console.error('[Stats] Command failed:', err);
+      await ctx.reply('אירעה שגיאה בטעינת הסטטיסטיקה. נסה שוב מאוחר יותר.').catch(() => {});
+    }
   });
 }

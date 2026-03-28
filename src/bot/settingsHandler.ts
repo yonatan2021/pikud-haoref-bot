@@ -17,7 +17,7 @@ function buildSettingsMenu(chatId: number): { text: string; keyboard: InlineKeyb
   const format = user?.format ?? 'short';
   const shortMark = format === 'short' ? '●' : '○';
   const detailMark = format === 'detailed' ? '●' : '○';
-  const quietEnabled = (user?.quiet_hours_enabled ?? 0) === 1;
+  const quietEnabled = user?.quiet_hours_enabled ?? false;
   const quietLabel = quietEnabled ? 'פעיל ✓' : 'כבוי';
 
   const keyboard = new InlineKeyboard()
@@ -114,7 +114,7 @@ export function registerSettingsHandler(bot: Bot): void {
     const chatId = ctx.chat?.id;
     if (!chatId) return;
     const user = getUser(chatId);
-    const current = (user?.quiet_hours_enabled ?? 0) === 1;
+    const current = user?.quiet_hours_enabled ?? false;
     setQuietHours(chatId, !current);
     const { text, keyboard } = buildSettingsMenu(chatId);
     await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });

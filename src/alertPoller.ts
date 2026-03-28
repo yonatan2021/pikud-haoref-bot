@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events';
 import axios from 'axios';
 import { Alert } from './types';
+import { updateLastPollAt } from './metrics.js';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const pikudHaoref = require('pikud-haoref-api');
@@ -57,6 +58,7 @@ export class AlertPoller extends EventEmitter {
 
   private async poll(): Promise<void> {
     await Promise.all([this.pollViaLibrary(), this.pollCitylessNewsFlash()]);
+    updateLastPollAt();
   }
 
   private pollViaLibrary(): Promise<void> {

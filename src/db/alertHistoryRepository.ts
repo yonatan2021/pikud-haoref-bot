@@ -17,14 +17,19 @@ type RawRow = {
   fired_at: string;
 };
 
-function parseRow(raw: RawRow): AlertHistoryRow {
-  return {
-    id: raw.id,
-    type: raw.type,
-    cities: JSON.parse(raw.cities) as string[],
-    instructions: raw.instructions ?? undefined,
-    fired_at: raw.fired_at,
-  };
+function parseRow(raw: RawRow): AlertHistoryRow | null {
+  try {
+    return {
+      id: raw.id,
+      type: raw.type,
+      cities: JSON.parse(raw.cities) as string[],
+      instructions: raw.instructions ?? undefined,
+      fired_at: raw.fired_at,
+    };
+  } catch (err) {
+    console.error(`[AlertHistory] Corrupt cities data for row id=${raw.id} — skipping:`, err);
+    return null;
+  }
 }
 
 export function insertAlert(alert: Alert): void {
@@ -46,7 +51,7 @@ export function getRecentAlerts(hours: number): AlertHistoryRow[] {
        ORDER BY fired_at DESC`
     )
     .all(cutoff) as RawRow[];
-  return rows.map(parseRow);
+  return rows.map(parseRow).filter((r): r is AlertHistoryRow => r !== null);
 }
 
 export function getAlertsForCity(city: string, limit: number): AlertHistoryRow[] {
@@ -59,7 +64,7 @@ export function getAlertsForCity(city: string, limit: number): AlertHistoryRow[]
        LIMIT ?`
     )
     .all(city, limit) as RawRow[];
-  return rows.map(parseRow);
+  return rows.map(parseRow).filter((r): r is AlertHistoryRow => r !== null);
 }
 
 export function getAlertsForCities(cities: string[], limit: number): AlertHistoryRow[] {
@@ -74,5 +79,5 @@ export function getAlertsForCities(cities: string[], limit: number): AlertHistor
        LIMIT ?`
     )
     .all(...cities, limit) as RawRow[];
-  return rows.map(parseRow);
+  return rows.map(parseRow).filter((r): r is AlertHistoryRow => r !== null);
 }

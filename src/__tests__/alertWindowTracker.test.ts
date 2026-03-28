@@ -126,4 +126,21 @@ describe('alertWindowTracker — DB persistence', () => {
     assert.equal(restored!.chatId, '-1001234567890');
     assert.deepEqual(restored!.alert.cities, ['אבו גוש']);
   });
+
+  it('evicts expired windows from DB during loadActiveMessages()', () => {
+    const expiredMsg: TrackedMessage = {
+      messageId: 99,
+      chatId: '-100987654321',
+      topicId: undefined,
+      alert: { type: 'earthQuake', cities: ['נהריה'] },
+      sentAt: Date.now() - 400_000, // far beyond the 120s default window
+      hasPhoto: false,
+    };
+    trackMessage('earthQuake', expiredMsg);
+    // Simulate restart
+    clearMemoryOnly();
+    // loadActiveMessages should evict the expired entry rather than restore it
+    loadActiveMessages();
+    assert.equal(getActiveMessage('earthQuake'), null, 'expired window must not be restored from DB');
+  });
 });

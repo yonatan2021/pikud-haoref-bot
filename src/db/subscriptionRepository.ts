@@ -5,7 +5,7 @@ import type { NotificationFormat } from './userRepository.js';
 export interface SubscriberInfo {
   chat_id: number;
   format: NotificationFormat;
-  quiet_hours_enabled: number;
+  quiet_hours_enabled: boolean;
   matchedCities: string[];
 }
 
@@ -64,7 +64,7 @@ export function getUsersForCities(cityNames: string[]): SubscriberInfo[] {
       map.set(row.chat_id, {
         chat_id: row.chat_id,
         format: row.format,
-        quiet_hours_enabled: row.quiet_hours_enabled,
+        quiet_hours_enabled: row.quiet_hours_enabled === 1,
         matchedCities: [row.matched_city],
       });
     }

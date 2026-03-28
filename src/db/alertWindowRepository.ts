@@ -24,17 +24,26 @@ export function deleteWindow(alertType: string): void {
 
 export function loadAllWindows(): Array<{ alertType: string; msg: TrackedMessage }> {
   const rows = getDb().prepare('SELECT * FROM alert_window').all() as any[];
-  return rows.map((r) => ({
-    alertType: r.alert_type as string,
-    msg: {
-      messageId: r.message_id as number,
-      chatId: r.chat_id as string,
-      topicId: r.topic_id != null ? (r.topic_id as number) : undefined,
-      alert: JSON.parse(r.alert_json as string),
-      sentAt: r.sent_at as number,
-      hasPhoto: r.has_photo === 1,
-    },
-  }));
+  return rows
+    .map((r) => {
+      try {
+        return {
+          alertType: r.alert_type as string,
+          msg: {
+            messageId: r.message_id as number,
+            chatId: r.chat_id as string,
+            topicId: r.topic_id != null ? (r.topic_id as number) : undefined,
+            alert: JSON.parse(r.alert_json as string),
+            sentAt: r.sent_at as number,
+            hasPhoto: r.has_photo === 1,
+          },
+        };
+      } catch (err) {
+        console.error(`[AlertWindow] Corrupt row for alert_type=${r.alert_type as string} — skipping:`, err);
+        return null;
+      }
+    })
+    .filter((x): x is NonNullable<typeof x> => x !== null);
 }
 
 export function clearAllWindows(): void {
