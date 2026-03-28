@@ -26,6 +26,7 @@ export function AnimatedCounter({
       motionValue.set(value)
       return
     }
+    motionValue.set(0)
     const controls = animate(motionValue, value, { duration, ease: 'easeOut' })
     return () => controls.stop()
   }, [value, duration, reducedMotion, motionValue])

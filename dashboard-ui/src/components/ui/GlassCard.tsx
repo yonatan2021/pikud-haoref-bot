@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
-import { type ReactNode } from 'react'
+import { type ReactNode, type KeyboardEvent } from 'react'
+import { useReducedMotion } from 'framer-motion'
 
 interface GlassCardProps {
   children: ReactNode
@@ -11,7 +12,7 @@ interface GlassCardProps {
 
 const glowBorderColor: Record<NonNullable<GlassCardProps['glow']>, string> = {
   amber: 'var(--color-border-glow)',
-  blue:  'rgba(59,130,246,0.35)',
+  blue:  'var(--color-border-glow-blue)',
   green: 'rgba(34,197,94,0.35)',
   none:  'var(--color-border)',
 }
@@ -19,7 +20,7 @@ const glowBorderColor: Record<NonNullable<GlassCardProps['glow']>, string> = {
 const glowBgColor: Record<NonNullable<GlassCardProps['glow']>, string> = {
   amber: 'var(--color-glow-amber)',
   blue:  'var(--color-glow-blue)',
-  green: 'rgba(34,197,94,0.08)',
+  green: 'var(--color-glow-green)',
   none:  'var(--color-glass)',
 }
 
@@ -30,23 +31,38 @@ export function GlassCard({
   hoverable = false,
   onClick,
 }: GlassCardProps) {
+  const reducedMotion = useReducedMotion()
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (onClick && (e.key === 'Enter' || e.key === ' ')) {
+      e.preventDefault()
+      onClick()
+    }
+  }
+
+  const accessibilityProps = onClick
+    ? { role: 'button' as const, tabIndex: 0, onKeyDown: handleKeyDown }
+    : {}
+
+  const whileHoverProp =
+    hoverable && !reducedMotion
+      ? {
+          scale: 1.01,
+          borderColor: glowBorderColor[glow],
+          backgroundColor: glowBgColor[glow],
+        }
+      : undefined
+
   return (
     <motion.div
       onClick={onClick}
+      {...accessibilityProps}
       className={`backdrop-blur-md rounded-xl overflow-hidden ${className}`}
       style={{
         background: 'var(--color-glass)',
         border: '1px solid var(--color-border)',
       }}
-      whileHover={
-        hoverable
-          ? {
-              scale: 1.01,
-              borderColor: glowBorderColor[glow],
-              backgroundColor: glowBgColor[glow],
-            }
-          : { scale: 1 }
-      }
+      whileHover={whileHoverProp}
       transition={{ duration: 0.2 }}
     >
       {children}
