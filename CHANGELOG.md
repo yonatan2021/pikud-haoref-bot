@@ -26,6 +26,39 @@
 
 ---
 
+## [0.2.0] — 2026-03-29
+
+<div dir="rtl">
+
+### ✨ תכונות חדשות
+
+#### wizard NPX — שדרוג מלא (Issue #10)
+- **חבילה קלה**: `wizard/` נפרד עם 2 תלויות בלבד (`@clack/prompts` + `chalk`) — במקום ~180 חבילות עם native addons
+- **חוויה עשירה**: ממשק @clack עם צבעים, select menus, progress badges, spinners
+- **ולידציה חיה**: בדיקת פורמט token / chat-id / mapbox / URL בכל שדה בזמן ההקלדה
+- **Update mode** (`--update`): זיהוי .env קיים, multiselect של שדות לעדכון, merge אימות
+- **Verify mode** (`--verify`): בדיקת תקינות TELEGRAM_BOT_TOKEN + MAPBOX_ACCESS_TOKEN מול API
+- **RTL בטרמינל**: עברית ו-LTR על שורות נפרדות, `visibleWidth` Unicode-aware לחישוב padding
+
+#### תוספות CLI
+- `--update` — עדכן .env קיים
+- `--verify` — בדוק תקינות הטוקנים
+
+### ⚠️ שינויים שוברים
+
+- `root/package.json` קיבל `"private": true` — הבוט עצמו לא מפורסם יותר ל-npm
+- `bin/setup.js` הוסר — הוחלף ב-`wizard/src/`
+- שם חבילת wizard נשמר: `@haoref-boti/pikud-haoref-bot`
+
+### 🔧 תחזוקה
+
+- `publish-npm` job הוחלף ב-`publish-wizard` — trigger: `wizard-v*` tags (עצמאי מ-`v*`)
+- `wizard/` נוסף: TypeScript + `@clack/prompts` + `chalk` + 76 בדיקות
+
+</div>
+
+---
+
 ## [0.1.6] — 2026-03-29
 
 <div dir="rtl">

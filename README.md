@@ -136,6 +136,12 @@ npx @haoref-boti/pikud-haoref-bot --token=xxx --chat-id=-123456 --mapbox=yyy
 # כולל הגדרות אופציונליות (dashboard, proxy, topic IDs)
 npx @haoref-boti/pikud-haoref-bot --full
 
+# עדכון .env קיים
+npx @haoref-boti/pikud-haoref-bot --update
+
+# בדיקת תקינות הטוקנים
+npx @haoref-boti/pikud-haoref-bot --verify
+
 # עזרה
 npx @haoref-boti/pikud-haoref-bot --help
 ```
