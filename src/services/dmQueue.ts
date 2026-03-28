@@ -33,6 +33,14 @@ export class DmQueue {
     this.drain();
   }
 
+  getStats(): { pending: number; rateLimited: boolean; paused: boolean } {
+    return {
+      pending: this.queue.length,
+      rateLimited: this.paused,
+      paused: this.paused,
+    };
+  }
+
   // In-flight sends (already past running++) complete even when paused; their
   // finally() re-calls drain() which is a no-op while paused is true.
   private drain(): void {
@@ -137,3 +145,7 @@ export const dmQueue = new DmQueue(async (task) => {
   }
   await getBot().api.sendMessage(chatIdNum, task.text, { parse_mode: 'HTML' });
 });
+
+export function getQueueStats(): { pending: number; rateLimited: boolean; paused: boolean } {
+  return dmQueue.getStats();
+}
