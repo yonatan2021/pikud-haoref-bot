@@ -38,7 +38,8 @@ for (const envVar of REQUIRED_ENV_VARS) {
   startHealthServer();
 
   const dashboardSecret = process.env.DASHBOARD_SECRET;
-  const dashboardPort = parseInt(process.env.DASHBOARD_PORT ?? '4000', 10);
+  const rawDashboardPort = parseInt(process.env.DASHBOARD_PORT ?? '4000', 10);
+  const dashboardPort = Number.isFinite(rawDashboardPort) && rawDashboardPort > 0 ? rawDashboardPort : 4000;
 
   const bot = getBot();
   await setupBotHandlers(bot);
