@@ -55,10 +55,18 @@ const buildDate = new Date().toLocaleDateString('he-IL', {
 
 // Step 4: Read template and replace placeholders
 const template = fs.readFileSync('landing/template/index.html', 'utf8');
-const output = template
+let output = template
   .replaceAll('{{VERSION}}', version)
   .replaceAll('{{FEATURES_HTML}}', featureCards)
   .replaceAll('{{BUILD_DATE}}', buildDate);
+
+// Inject GA4 tracking script if measurement ID is configured
+const ga4Id = process.env.GA4_MEASUREMENT_ID || '';
+const ga4Script = ga4Id
+  ? `<script async src="https://www.googletagmanager.com/gtag/js?id=${ga4Id}"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${ga4Id}');</script>`
+  : '';
+output = output.replace('<!-- GA4_PLACEHOLDER -->', ga4Script);
 
 // Create output directories
 fs.mkdirSync('landing/dist/screenshots', { recursive: true });
