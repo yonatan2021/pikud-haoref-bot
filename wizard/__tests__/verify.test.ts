@@ -87,4 +87,14 @@ describe('checkMapboxToken', () => {
     assert.equal(result.valid, false)
     assert.ok(result.detail?.includes('ENOTFOUND'))
   })
+
+  it('does not expose token in error message on network failure', async () => {
+    const token = 'pk.eyJsometoken'
+    const fakeGet = (_url: string): Promise<unknown> =>
+      Promise.reject(new Error(`ENOTFOUND api.mapbox.com/tokens/v2?access_token=${token}`))
+
+    const result = await checkMapboxToken(token, fakeGet)
+    assert.equal(result.valid, false)
+    assert.ok(!result.detail?.includes(token), 'Token must not appear in error detail')
+  })
 })

@@ -22,7 +22,7 @@ const defaultGet: HttpGetter = (url) =>
       })
     }).on('error', reject)
     req.setTimeout(TIMEOUT_MS, () => {
-      req.destroy(new Error('הבקשה לקחה יותר מ-10 שניות — בדוק את חיבור הרשת'))
+      req.destroy(new Error(`הבקשה לקחה יותר מ-${TIMEOUT_MS / 1000} שניות — בדוק את חיבור הרשת`))
     })
   })
 
@@ -40,7 +40,8 @@ export async function checkTelegramToken(
     return { valid: false, detail: String(data.description ?? 'שגיאה לא ידועה') }
   } catch (err) {
     const raw = (err as Error).message
-    return { valid: false, detail: raw.replaceAll(token, '***') }
+    const detail = token ? raw.replaceAll(token, '***') : raw
+    return { valid: false, detail }
   }
 }
 
@@ -56,7 +57,9 @@ export async function checkMapboxToken(
     }
     return { valid: false, detail: String(data.code ?? 'Mapbox דחה את הטוקן') }
   } catch (err) {
-    return { valid: false, detail: (err as Error).message }
+    const raw = (err as Error).message
+    const detail = token ? raw.replaceAll(token, '***') : raw
+    return { valid: false, detail }
   }
 }
 
