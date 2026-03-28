@@ -40,10 +40,20 @@ describe('checkTelegramToken', () => {
     const result = await checkTelegramToken('any-token', fakeGet)
     assert.equal(result.valid, false)
   })
+
+  it('does not expose token in error message on network failure', async () => {
+    const token = '123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi'
+    const fakeGet = (_url: string): Promise<unknown> =>
+      Promise.reject(new Error(`connect ECONNREFUSED api.telegram.org/bot${token}/getMe`))
+
+    const result = await checkTelegramToken(token, fakeGet)
+    assert.equal(result.valid, false)
+    assert.ok(!result.detail?.includes(token), 'Token must not appear in error detail')
+  })
 })
 
 describe('checkMapboxToken', () => {
-  it('returns valid on HTTP 200', async () => {
+  it('returns valid when response body has code: TokenValid', async () => {
     const fakeGet = (_url: string) =>
       Promise.resolve({ code: 'TokenValid' })
 
@@ -51,7 +61,17 @@ describe('checkMapboxToken', () => {
     assert.equal(result.valid, true)
   })
 
-  it('returns invalid when response has error code', async () => {
+  it('returns invalid when response body has error code', async () => {
+    // Mapbox returns HTTP 200 with { code: 'TokenExpired' } for bad tokens
+    const fakeGet = (_url: string) =>
+      Promise.resolve({ code: 'TokenExpired' })
+
+    const result = await checkMapboxToken('pk.expired', fakeGet)
+    assert.equal(result.valid, false)
+    assert.ok(result.detail?.includes('TokenExpired'))
+  })
+
+  it('returns invalid when response has network error code', async () => {
     const fakeGet = (_url: string): Promise<unknown> =>
       Promise.reject(new Error('401'))
 

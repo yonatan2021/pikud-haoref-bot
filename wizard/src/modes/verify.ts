@@ -9,16 +9,21 @@ export interface CheckResult { valid: boolean; detail?: string }
 /** Injectable HTTP getter — defaults to Node.js https, overridable in tests. */
 type HttpGetter = (url: string) => Promise<unknown>
 
+const TIMEOUT_MS = 10_000
+
 const defaultGet: HttpGetter = (url) =>
   new Promise((resolve, reject) => {
-    https.get(url, (res) => {
+    const req = https.get(url, (res) => {
       let body = ''
       res.on('data', (chunk: string) => { body += chunk })
       res.on('end', () => {
         try { resolve(JSON.parse(body)) }
-        catch (e) { reject(new Error('Invalid JSON')) }
+        catch { reject(new Error('תגובה לא תקינה מהשרת')) }
       })
     }).on('error', reject)
+    req.setTimeout(TIMEOUT_MS, () => {
+      req.destroy(new Error('הבקשה לקחה יותר מ-10 שניות — בדוק את חיבור הרשת'))
+    })
   })
 
 /** Calls Telegram getMe — returns bot username on success. */
@@ -34,7 +39,8 @@ export async function checkTelegramToken(
     }
     return { valid: false, detail: String(data.description ?? 'שגיאה לא ידועה') }
   } catch (err) {
-    return { valid: false, detail: (err as Error).message }
+    const raw = (err as Error).message
+    return { valid: false, detail: raw.replaceAll(token, '***') }
   }
 }
 
@@ -44,8 +50,11 @@ export async function checkMapboxToken(
   get: HttpGetter = defaultGet,
 ): Promise<CheckResult> {
   try {
-    await get(`https://api.mapbox.com/tokens/v2?access_token=${token}`)
-    return { valid: true }
+    const data = await get(`https://api.mapbox.com/tokens/v2?access_token=${token}`) as Record<string, unknown>
+    if (String(data.code ?? '') === 'TokenValid') {
+      return { valid: true }
+    }
+    return { valid: false, detail: String(data.code ?? 'Mapbox דחה את הטוקן') }
   } catch (err) {
     return { valid: false, detail: (err as Error).message }
   }
@@ -97,4 +106,5 @@ export async function runVerify(flags: Flags): Promise<void> {
       ? `${c.success('✅')} ${passed}/${total} הגדרות תקינות`
       : `${c.warning('⚠️')}  ${passed}/${total} תקינות — הפעל ${c.primary('npx pikud-haoref-bot --update')} לתיקון`,
   )
+  if (!allOk) process.exit(1)
 }
