@@ -17,10 +17,13 @@ export function Login() {
         body: JSON.stringify({ password }),
         credentials: 'include',
       });
-      if (!res.ok) throw new Error('auth failed');
+      if (!res.ok) {
+        const msg = res.status === 401 ? 'סיסמה שגויה' : 'שגיאת שרת, נסה שוב';
+        throw new Error(msg);
+      }
       navigate('/overview');
-    } catch {
-      toast.error('סיסמה שגויה');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'שגיאה לא ידועה');
     } finally {
       setLoading(false);
     }

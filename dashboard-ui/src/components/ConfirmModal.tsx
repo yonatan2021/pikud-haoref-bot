@@ -13,7 +13,7 @@ export function ConfirmModal({
   description,
   onConfirm,
   onCancel,
-  danger = true,
+  danger = false,
 }: ConfirmModalProps) {
   if (!open) return null;
   return (
