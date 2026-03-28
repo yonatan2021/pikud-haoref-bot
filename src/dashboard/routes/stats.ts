@@ -82,6 +82,7 @@ export function createStatsRouter(db: Database.Database): Router {
         SELECT value as city, COUNT(*) as count
         FROM alert_history, json_each(alert_history.cities)
         WHERE fired_at >= datetime('now', '-7 days')
+          AND json_valid(alert_history.cities)
         GROUP BY city
         ORDER BY count DESC
         LIMIT ${TOP_CITIES_LIMIT}
