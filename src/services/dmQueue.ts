@@ -1,5 +1,6 @@
 import { getBot } from '../telegramBot.js';
 import { deleteUser } from '../db/userRepository.js';
+import { log } from '../logger.js';
 
 export interface DmTask {
   chatId: string;
@@ -55,7 +56,7 @@ export class DmQueue {
         });
     }
     if (this.queue.length > 100) {
-      console.warn(`[DM] Queue depth warning: ${this.queue.length} tasks pending`);
+      log('warn', 'DM', `⚠️  תור עמוק: ${this.queue.length} משימות ממתינות`);
     }
   }
 
@@ -67,16 +68,16 @@ export class DmQueue {
       const MAX_RETRIES = 5;
       const attempts = (task.retries ?? 0) + 1;
       if (attempts > MAX_RETRIES) {
-        console.error(`[DM] Giving up on ${task.chatId} after ${MAX_RETRIES} rate-limit retries — dropping task`);
+        log('error', 'DM', `מוותר על ${task.chatId} אחרי ${MAX_RETRIES} ניסיונות — מוחק משימה`);
         return;
       }
-      console.warn(`[DM] Rate-limited — pausing ${retryAfter}s (attempt ${attempts}/${MAX_RETRIES}). Queue depth: ${this.queue.length + 1}`);
+      log('warn', 'DM', `⏳ Rate limit — מפסיק ${retryAfter}ש (ניסיון ${attempts}/${MAX_RETRIES}). תור: ${this.queue.length + 1}`);
       this.queue.unshift({ ...task, retries: attempts });
       this.paused = true;
       // Guard against concurrent 429s scheduling multiple timers — only one timer at a time.
       if (this.pauseTimer === null) {
         this.pauseTimer = setTimeout(() => {
-          console.log('[DM] Rate-limit pause ended — resuming drain');
+          log('info', 'DM', '▶️  Rate limit הסתיים — ממשיך');
           this.pauseTimer = null;
           this.paused = false;
           this.drain();
@@ -96,17 +97,17 @@ export class DmQueue {
         : msg.includes('user is deactivated')
           ? 'deactivated'
           : 'chat not found';
-      console.log(`[DM] User ${task.chatId} unreachable (${reason}) — removing`);
+      log('info', 'DM', `משתמש ${task.chatId} לא נגיש (${reason}) — מסיר`);
       const chatIdNum = parseInt(task.chatId, 10);
       if (!isNaN(chatIdNum)) {
         try {
           deleteUser(chatIdNum);
         } catch (dbErr) {
-          console.error(`[DM] Failed to remove blocked user ${task.chatId}:`, dbErr);
+          log('error', 'DM', `כישלון בהסרת משתמש חסום ${task.chatId}: ${dbErr}`);
         }
       }
     } else {
-      console.error(`[DM] Error sending to ${task.chatId}:`, err);
+      log('error', 'DM', `שגיאה בשליחה ל-${task.chatId}: ${err}`);
     }
   }
 }
@@ -122,7 +123,7 @@ export function extractRetryAfter(err: unknown): number | null {
     const m = err.message.match(/retry after (\d+)/i);
     if (m) {
       const parsed = parseInt(m[1], 10);
-      if (parsed > MAX_PAUSE_SECONDS) console.warn(`[DM] retryAfter=${parsed}s exceeds cap — clamping to ${MAX_PAUSE_SECONDS}s`);
+      if (parsed > MAX_PAUSE_SECONDS) log('warn', 'DM', `retryAfter=${parsed}ש חורג מהמקסימום — מגביל ל-${MAX_PAUSE_SECONDS}ש`);
       return Math.min(parsed, MAX_PAUSE_SECONDS);
     }
   }
@@ -136,10 +137,10 @@ export const dmQueue = new DmQueue(async (task) => {
     const floatId = Math.trunc(parseFloat(task.chatId));
     if (!isNaN(floatId)) {
       try { deleteUser(floatId); } catch (e) {
-        console.error(`[DM] Failed to remove NaN-path user ${task.chatId}:`, e);
+        log('error', 'DM', `כישלון בהסרת משתמש NaN-path ${task.chatId}: ${e}`);
       }
     } else {
-      console.error(`[DM] Invalid chatId (NaN) — subscription "${task.chatId}" must be removed manually`);
+      log('error', 'DM', `chatId לא תקין (NaN) — המנוי "${task.chatId}" חייב הסרה ידנית`);
     }
     return;
   }

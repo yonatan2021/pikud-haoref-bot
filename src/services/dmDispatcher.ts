@@ -6,6 +6,7 @@ import type { NotificationFormat } from '../db/userRepository.js';
 import { isMuted } from '../db/userRepository.js';
 import { ALERT_TYPE_CATEGORY } from '../topicRouter.js';
 import { dmQueue } from './dmQueue.js';
+import { log } from '../logger.js';
 
 function getMinCountdown(cityNames: string[]): number {
   let min = Infinity;
@@ -81,7 +82,7 @@ function getIsraelHour(now: Date): number {
   const hourPart = parts.find((p) => p.type === 'hour');
   if (!hourPart) {
     // Fallback to 12 (midday) — outside the quiet window — so a failure delivers rather than suppresses.
-    console.error('[DM] getIsraelHour: no hour part from Intl.DateTimeFormat — defaulting to 12 to avoid suppressing alerts');
+    log('error', 'DM', 'getIsraelHour: לא נמצא חלק שעה מ-Intl.DateTimeFormat — ברירת מחדל 12');
   }
   return parseInt(hourPart?.value ?? '12', 10);
 }
@@ -108,10 +109,8 @@ export function shouldSkipForQuietHours(
 export function notifySubscribers(alert: Alert): void {
   try {
     const subscribers = getUsersForCities(alert.cities);
-    console.log(
-      `[DM] ${alert.type} — ${alert.cities.length} cities, ${subscribers.length} subscriber(s)` +
-      (subscribers.length === 0 && alert.cities.length > 0 ? ' (no city match)' : '')
-    );
+    const noMatch = subscribers.length === 0 && alert.cities.length > 0 ? ' (אין התאמת עיר)' : '';
+    log('info', 'DM', `📨 ${subscribers.length} מנויים · ${alert.cities.length} ערים · ${alert.type}${noMatch}`);
     if (subscribers.length === 0) return;
 
     const afterQuietHours = subscribers.filter(
@@ -134,14 +133,14 @@ export function notifySubscribers(alert: Alert): void {
     const skippedQH = subscribers.length - afterQuietHours.length;
     const skippedMuted = afterQuietHours.length - afterMute.length;
     if (skippedQH > 0) {
-      console.log(`[DM] Quiet hours: skipped ${skippedQH} subscriber(s) for type ${alert.type}`);
+      log('info', 'DM', `🔕 שעות שקט: ${skippedQH} מנויים דולגו (${alert.type})`);
     }
     if (skippedMuted > 0) {
-      console.log(`[DM] Muted: skipped ${skippedMuted} subscriber(s) for type ${alert.type}`);
+      log('info', 'DM', `🔇 מושתק: ${skippedMuted} מנויים דולגו (${alert.type})`);
     }
 
     dmQueue.enqueueAll(tasks);
   } catch (err) {
-    console.error(`[DM] Failed to dispatch notifications for alert type=${alert.type}:`, err);
+    log('error', 'DM', `כישלון בשליחת התראות type=${alert.type}: ${err}`);
   }
 }

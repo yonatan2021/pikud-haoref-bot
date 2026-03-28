@@ -1,6 +1,7 @@
 import http from 'node:http';
 import { getMetrics } from './metrics.js';
 import { getDb } from './db/schema.js';
+import { log } from './logger.js';
 
 // 'start of day' boundary is UTC midnight — alertsToday may be off by 2–3h
 // vs. Israel local time (UTC+2/+3); acceptable for monitoring purposes.
@@ -11,7 +12,7 @@ function alertsToday(): { count: number; error: boolean } {
       .get() as { cnt: number };
     return { count: row.cnt, error: false };
   } catch (err) {
-    console.error('[Health] Failed to query alertsToday:', err);
+    log('error', 'Health', `כישלון בשאילתת alertsToday: ${err}`);
     return { count: 0, error: true };
   }
 }
@@ -20,7 +21,7 @@ function resolvePort(override?: number): number {
   if (override !== undefined) return override;
   const parsed = parseInt(process.env.HEALTH_PORT ?? '', 10);
   if (isNaN(parsed)) {
-    console.warn('[Health] HEALTH_PORT is not a valid number — falling back to 3000');
+    log('warn', 'Health', 'HEALTH_PORT אינו מספר תקין — חוזר לפורט 3000');
     return 3000;
   }
   return parsed;
@@ -45,17 +46,15 @@ export function startHealthServer(port?: number): http.Server {
       });
       res.writeHead(200, { 'Content-Type': 'application/json' }).end(body);
     } catch (err) {
-      console.error('[Health] Request handler error:', err);
+      log('error', 'Health', `שגיאה בטיפול בבקשה: ${err}`);
       if (!res.headersSent) res.writeHead(500).end('Internal Server Error');
     }
   });
   // Non-critical endpoint — log and continue rather than crashing the bot on any
   // listen error (EADDRINUSE, EACCES, etc.). The bot runs without health monitoring.
   server.on('error', (err: NodeJS.ErrnoException) => {
-    console.error(`[Health] Server failed to start on port ${resolvedPort}:`, err.message);
+    log('error', 'Health', `כישלון בהפעלת שרת על פורט ${resolvedPort}: ${err.message}`);
   });
-  server.listen(resolvedPort, () => {
-    console.log(`[Health] Listening on port ${resolvedPort}`);
-  });
+  server.listen(resolvedPort);
   return server;
 }
