@@ -51,7 +51,12 @@ export function createLandingRouter(db: Database.Database): Router {
           body: JSON.stringify({ ref: 'main' }),
         }
       );
-      if (!response.ok) { res.status(502).json({ error: 'GitHub API נכשל' }); return; }
+      if (!response.ok) {
+        const detail = await response.text();
+        console.error('[landing] GitHub API error:', response.status, detail);
+        res.status(502).json({ error: 'GitHub API נכשל', status: response.status, detail });
+        return;
+      }
       setSetting(db, 'last_landing_deploy', new Date().toISOString());
       res.json({ ok: true });
     } catch {
