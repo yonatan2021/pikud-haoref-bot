@@ -13,21 +13,38 @@ import {
 import { ALERT_TYPE_EMOJI, ALERT_TYPE_HE, escapeHtml } from '../telegramBot.js';
 import type { AlertHistoryRow } from '../db/alertHistoryRepository.js';
 
+function formatClockTimeIL(firedAt: string): string {
+  return new Date(firedAt.replace(' ', 'T') + 'Z').toLocaleTimeString('he-IL', {
+    timeZone: 'Asia/Jerusalem',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+}
+
 export function formatRelativeHe(firedAt: string): string {
+  const clock = formatClockTimeIL(firedAt);
   const diffMs = Date.now() - new Date(firedAt.replace(' ', 'T') + 'Z').getTime();
   const diffMin = Math.floor(diffMs / 60_000);
-  if (diffMin < 1) return 'עכשיו';
-  if (diffMin < 60) return diffMin === 1 ? 'לפני דקה' : `לפני ${diffMin} דקות`;
+  if (diffMin < 1) return `עכשיו (${clock})`;
+  if (diffMin < 60) {
+    const phrase = diffMin === 1 ? 'לפני דקה' : `לפני ${diffMin} דקות`;
+    return `${phrase} (${clock})`;
+  }
   const diffHours = Math.floor(diffMin / 60);
   if (diffHours < 24) {
-    if (diffHours === 1) return 'לפני שעה';
-    if (diffHours === 2) return 'לפני שעתיים';
-    return `לפני ${diffHours} שעות`;
+    let phrase: string;
+    if (diffHours === 1) phrase = 'לפני שעה';
+    else if (diffHours === 2) phrase = 'לפני שעתיים';
+    else phrase = `לפני ${diffHours} שעות`;
+    return `${phrase} (${clock})`;
   }
   const diffDays = Math.floor(diffHours / 24);
-  if (diffDays === 1) return 'אתמול';
-  if (diffDays === 2) return 'לפני יומיים';
-  return `לפני ${diffDays} ימים`;
+  let phrase: string;
+  if (diffDays === 1) phrase = 'אתמול';
+  else if (diffDays === 2) phrase = 'לפני יומיים';
+  else phrase = `לפני ${diffDays} ימים`;
+  return `${phrase} (${clock})`;
 }
 
 export function buildHistoryMessage(rows: AlertHistoryRow[]): string {
