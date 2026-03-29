@@ -217,7 +217,7 @@ function GroupRow({ group, onUpdate }: { group: WhatsAppGroup; onUpdate: (groupI
 
 export function WhatsApp() {
   const queryClient = useQueryClient();
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debounceMapRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const [showReconnectConfirm, setShowReconnectConfirm] = useState(false);
 
   const { data: statusData, isError: statusError } = useQuery<WhatsAppStatus>({
@@ -257,20 +257,25 @@ export function WhatsApp() {
       (prev ?? []).map(g => g.groupId === groupId ? updated : g)
     );
 
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(async () => {
-      try {
-        await api.patch(`/api/whatsapp/groups/${encodeURIComponent(groupId)}`, {
-          enabled: updated.enabled,
-          alertTypes: updated.alertTypes,
-        });
-      } catch {
-        queryClient.setQueryData<WhatsAppGroup[]>(['whatsapp-groups'], prev =>
-          (prev ?? []).map(g => g.groupId === groupId ? current : g)
-        );
-        toast.error('שגיאה בעדכון הקבוצה');
-      }
-    }, 500);
+    const existing = debounceMapRef.current.get(groupId);
+    if (existing) clearTimeout(existing);
+    debounceMapRef.current.set(
+      groupId,
+      setTimeout(async () => {
+        debounceMapRef.current.delete(groupId);
+        try {
+          await api.patch(`/api/whatsapp/groups/${encodeURIComponent(groupId)}`, {
+            enabled: updated.enabled,
+            alertTypes: updated.alertTypes,
+          });
+        } catch {
+          queryClient.setQueryData<WhatsAppGroup[]>(['whatsapp-groups'], prev =>
+            (prev ?? []).map(g => g.groupId === groupId ? current : g)
+          );
+          toast.error('שגיאה בעדכון הקבוצה');
+        }
+      }, 500)
+    );
   }, [queryClient]);
 
   const status = statusData?.status ?? 'disconnected';
