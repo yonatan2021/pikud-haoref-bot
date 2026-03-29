@@ -18,7 +18,7 @@ afterEach(() => {
 import { createBroadcaster } from '../whatsapp/whatsappBroadcaster';
 import Database from 'better-sqlite3';
 import { initSchema } from '../db/schema';
-import { upsertGroup } from '../db/whatsappGroupRepository';
+import { upsertGroup, getEnabledGroupsForAlertType } from '../db/whatsappGroupRepository';
 
 function makeDb(): Database.Database {
   const db = new Database(':memory:');
@@ -183,7 +183,6 @@ describe('whatsappBroadcaster — no enabled groups', () => {
       getClientFn: getClientFn as unknown as BroadcasterDeps['getClientFn'],
       getEnabledGroupsFn: (d, type) => {
         // Use the real repository function
-        const { getEnabledGroupsForAlertType } = require('../db/whatsappGroupRepository');
         return getEnabledGroupsForAlertType(d, type) as string[];
       },
       formatFn: () => 'text',

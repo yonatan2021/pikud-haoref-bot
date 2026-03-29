@@ -82,6 +82,12 @@ export function initialize(): void {
     );
   });
 
+  client.on('authenticated', () => {
+    status = 'connecting';
+    currentQr = null;
+    log('info', 'WhatsApp', 'מאומת — ממתין לאתחול');
+  });
+
   client.on('ready', async () => {
     status = 'ready';
     currentQr = null;
