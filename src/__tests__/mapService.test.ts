@@ -183,10 +183,9 @@ describe('initializeCache', () => {
 
     initializeCache();
 
-    // Cache should now contain the entry — generateMapImage returns it without HTTP
+    // Do NOT call _seedCache — the cache must contain this entry from initializeCache alone.
+    // generateMapImage must return the buffer from DB-loaded cache without any HTTP call.
     const alert = { type: 'missiles', cities: ['אבו גוש'] };
-    // Seed the in-memory cache using the key that matches the alert's buildCacheKey output
-    _seedCache(alert, fakeBuffer);
     const result = await generateMapImage(alert);
     assert.deepEqual(result, fakeBuffer);
   });

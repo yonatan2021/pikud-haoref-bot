@@ -37,7 +37,7 @@ export function KpiCard({ icon: Icon, label, value, sub, glow = 'none', trend }:
   let trendColor = 'text-text-muted';
   if (trend && trend.delta !== 0) {
     const isPositive = trend.delta > 0;
-    const isGood = trend.positiveIsGood ?? true ? isPositive : !isPositive;
+    const isGood = (trend.positiveIsGood ?? true) ? isPositive : !isPositive;
     trendColor = isGood ? 'text-green-400' : 'text-red-400';
   }
 
