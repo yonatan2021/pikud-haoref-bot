@@ -283,7 +283,7 @@ export function Alerts() {
                     onClick={() => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('page', String(page - 1)); return n; })}
                     className="text-text-muted text-xs hover:text-text-primary disabled:opacity-40"
                   >
-                    ← הקודם
+                    הקודם →
                   </button>
                   <span className="text-text-muted text-xs">עמוד {page + 1}</span>
                   <button
@@ -291,7 +291,7 @@ export function Alerts() {
                     onClick={() => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('page', String(page + 1)); return n; })}
                     className="text-text-muted text-xs hover:text-text-primary disabled:opacity-40"
                   >
-                    הבא →
+                    ← הבא
                   </button>
                 </div>
               </>
