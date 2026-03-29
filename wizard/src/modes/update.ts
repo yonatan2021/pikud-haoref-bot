@@ -20,7 +20,7 @@ export function buildUpdateFields(): FieldDef[] {
     { key: 'DASHBOARD_SECRET',     label: 'סיסמת לוח הבקרה',    secret: true },
     { key: 'PROXY_URL',            label: 'כתובת Proxy',          validate: validateUrl },
     { key: 'TELEGRAM_INVITE_LINK', label: 'קישור הזמנה לערוץ' },
-    { key: 'WHATSAPP_ENABLED',     label: 'WhatsApp מופעל (true / false)', validate: (s) => /^(true|false)$/i.test(s.trim()) ? undefined : 'יש להזין "true" או "false" בלבד' },
+    { key: 'WHATSAPP_ENABLED',     label: 'WhatsApp מופעל (true / false)', validate: (s) => /^(true|false)$/.test(s.trim()) ? undefined : 'יש להזין "true" או "false" בלבד (אותיות קטנות)' },
   ]
 }
 

@@ -18,7 +18,7 @@ export async function runSetup(flags: Flags): Promise<void> {
   const required = await promptRequired(platform, flags)
   if (!required) { p.outro(msg.cancelled); return }
 
-  const optional = await promptOptional(flags, !!flags.full)
+  const optional = await promptOptional(flags, !!flags.full, platform)
   if (!optional) { p.outro(msg.cancelled); return }
 
   const mode = await promptDeploymentMode()

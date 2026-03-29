@@ -20,5 +20,7 @@ describe('buildUpdateFields', () => {
     assert.equal(wa.validate!('false'), undefined)
     assert.ok(wa.validate!('yes'),  'should reject "yes"')
     assert.ok(wa.validate!('1'),    'should reject "1"')
+    assert.ok(wa.validate!('True'), 'should reject mixed-case "True"')
+    assert.ok(wa.validate!('TRUE'), 'should reject uppercase "TRUE"')
   })
 })
