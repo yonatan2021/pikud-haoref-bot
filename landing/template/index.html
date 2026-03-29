@@ -138,7 +138,7 @@
     </div>
   </section>
 
-  <!-- ③ How It Works (new section) ----------------------------------------- -->
+  <!-- ③ How It Works --------------------------------------------------------- -->
   <section class="how-it-works section" id="how">
     <div class="container">
       <h2 class="section-title reveal">איך זה עובד</h2>
@@ -526,16 +526,22 @@
           setTimeout(function() { btn.classList.remove('copied'); }, 2000);
         };
         if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(text).then(apply).catch(apply);
+          navigator.clipboard.writeText(text).then(apply).catch(function(err) {
+            console.warn('[copy-btn] Clipboard API write failed:', err);
+          });
         } else {
           var ta = document.createElement('textarea');
           ta.value = text;
           ta.style.cssText = 'position:fixed;opacity:0;';
           document.body.appendChild(ta);
           ta.select();
-          try { document.execCommand('copy'); } catch(err) {}
+          try {
+            document.execCommand('copy');
+            apply();
+          } catch(err) {
+            console.warn('[copy-btn] execCommand copy failed:', err);
+          }
           document.body.removeChild(ta);
-          apply();
         }
       });
     });

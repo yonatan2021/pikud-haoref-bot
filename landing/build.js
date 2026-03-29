@@ -34,6 +34,10 @@ function parseFeatureTable(text) {
       const cells = inner.split('|').map((cell) => cell.trim());
       const fullName = cells[0].replace(/\*\*/g, '');
       const detail = cells[1];
+      if (detail === undefined) {
+        console.warn(`[landing/build.js] parseFeatureTable: row has fewer than 2 cells, skipping: ${line}`);
+        return null;
+      }
       const spaceIdx = fullName.indexOf(' ');
       const icon = spaceIdx !== -1 ? fullName.slice(0, spaceIdx) : '';
       const title = spaceIdx !== -1 ? fullName.slice(spaceIdx + 1) : fullName;
@@ -47,6 +51,7 @@ function parseFeatureTable(text) {
         `</div>`,
       ].join('\n');
     })
+    .filter(Boolean)
     .join('\n');
 }
 
@@ -65,7 +70,14 @@ const userSection = featuresSection.slice(userStart, devStart);
 const devSection  = featuresSection.slice(devStart);
 
 const userFeaturesHtml = parseFeatureTable(userSection);
-const devFeaturesHtml  = parseFeatureTable(devSection);
+if (!userFeaturesHtml.trim()) {
+  throw new Error('parseFeatureTable returned empty HTML for user section — check README.md "### 🔔 למשתמש הקצה" table');
+}
+
+const devFeaturesHtml = parseFeatureTable(devSection);
+if (!devFeaturesHtml.trim()) {
+  throw new Error('parseFeatureTable returned empty HTML for dev section — check README.md "### ⚙️ למתכנתים ו-DevOps" table');
+}
 
 // Step 3: Get current date in Hebrew
 const buildDate = new Date().toLocaleDateString('he-IL', {
@@ -93,6 +105,9 @@ const ga4Script = ga4Id
   ? `<script async src="https://www.googletagmanager.com/gtag/js?id=${ga4Id}"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${ga4Id}');</script>`
   : '';
+if (!output.includes('<!-- GA4_PLACEHOLDER -->')) {
+  throw new Error('landing/template/index.html is missing <!-- GA4_PLACEHOLDER --> — cannot inject GA4 script');
+}
 output = output.replace('<!-- GA4_PLACEHOLDER -->', ga4Script);
 
 // Create output directories
@@ -116,6 +131,9 @@ const originalScreenshots = 'docs/screenshots';
 const screenshotsDir = fs.existsSync(optimizedScreenshots)
   ? optimizedScreenshots
   : originalScreenshots;
+if (!fs.existsSync(screenshotsDir)) {
+  throw new Error(`Screenshots source directory not found. Checked: ${optimizedScreenshots}, ${originalScreenshots}`);
+}
 if (fs.existsSync(screenshotsDir)) {
   const screenshotFiles = fs.readdirSync(screenshotsDir);
   for (const file of screenshotFiles) {

@@ -656,17 +656,17 @@ img {
 .features-panel-title { font-size: 1.05rem; font-weight: 800; color: var(--text-primary); line-height: 1.3; }
 .features-panel-sub   { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.15rem; }
 
-/* Single-column grid inside panels */
-.features-panel .features-grid {
-  grid-template-columns: 1fr;
-  gap: 0.6rem;
-}
-
 /* Standalone grid (outside panels) */
 .features-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 0.875rem;
+}
+
+/* Single-column grid inside panels */
+.features-panel .features-grid {
+  grid-template-columns: 1fr;
+  gap: 0.6rem;
 }
 
 /* Feature cards — injected by build.js (horizontal layout) */
@@ -722,7 +722,6 @@ img {
   font-size: 0.78rem;
   color: var(--text-muted);
   line-height: 1.55;
-  display: block;
   /* Limit to 2 lines */
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -1144,4 +1143,21 @@ img {
   }
 
   .screenshot-item { width: 170px; }
+}
+
+/* ----------------------------------------------------------
+   16. Reduced motion — disable animations for users who prefer it
+   ---------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .reveal,
+  .feature-card { opacity: 1; transform: none; }
+  .typing-text { clip-path: inset(0 0 0 0) !important; }
+  .typing-cursor { display: none; }
+  .screenshots-track { animation: none; }
+  .step-connector-line { transform: scaleX(1); }
 }
