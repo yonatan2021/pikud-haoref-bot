@@ -39,11 +39,17 @@ export function createBroadcaster(
     }
 
     const text = formatFn(alert);
+    const whatsappClient = getClientFn();
+
+    if (!whatsappClient) {
+      log('warn', 'WhatsApp', 'client null לאחר בדיקת ready — מדלג על שידור');
+      return;
+    }
 
     await Promise.all(
       groupIds.map(async (groupId) => {
         try {
-          const chat = await getClientFn()!.getChatById(groupId);
+          const chat = await whatsappClient.getChatById(groupId);
           await chat.sendMessage(text);
         } catch (err: unknown) {
           log(

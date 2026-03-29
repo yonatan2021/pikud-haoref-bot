@@ -37,13 +37,16 @@ function groupCitiesByZone(cities: string[]): { zones: ZoneGroup[]; unzoned: str
         minCountdown: countdown,
       });
     } else {
-      existing.cities.push(cityName);
-      if (countdown !== null) {
-        existing.minCountdown =
-          existing.minCountdown === null
-            ? countdown
-            : Math.min(existing.minCountdown, countdown);
-      }
+      zoneMap.set(data.zone, {
+        ...existing,
+        cities: [...existing.cities, cityName],
+        minCountdown:
+          countdown !== null
+            ? existing.minCountdown === null
+              ? countdown
+              : Math.min(existing.minCountdown, countdown)
+            : existing.minCountdown,
+      });
     }
   }
 

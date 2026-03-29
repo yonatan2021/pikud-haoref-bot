@@ -66,9 +66,14 @@ export function initialize(): void {
   });
 
   client.on('qr', (qr: string) => {
+    const isRefresh = currentQr !== null;
     status = 'qr';
     currentQr = qr;
-    log('info', 'WhatsApp', 'קוד QR התקבל — יש לסרוק עם הטלפון');
+    log(
+      'info',
+      'WhatsApp',
+      isRefresh ? 'קוד QR התחדש — יש לסרוק שוב' : 'קוד QR התקבל — יש לסרוק עם הטלפון'
+    );
   });
 
   client.on('ready', async () => {
