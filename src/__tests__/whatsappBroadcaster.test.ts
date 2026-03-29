@@ -36,7 +36,7 @@ function makeDeps(overrides: Partial<BroadcasterDeps> = {}): BroadcasterDeps & {
 
   return {
     getStatusFn: mock.fn(() => 'ready') as unknown as () => string,
-    getClientFn: mock.fn(() => ({ getChatById })) as unknown as () => { getChatById: (id: string) => Promise<{ sendMessage: SendMessageFn }> } | null,
+    getClientFn: mock.fn(() => ({ getChatById })) as unknown as BroadcasterDeps['getClientFn'],
     getEnabledGroupsFn: mock.fn((_db: Database.Database, _type: string) => ['group1', 'group2']) as unknown as BroadcasterDeps['getEnabledGroupsFn'],
     formatFn: mock.fn(() => 'formatted message') as unknown as BroadcasterDeps['formatFn'],
     sendMessage,
@@ -92,7 +92,6 @@ describe('whatsappBroadcaster — ready status with groups', () => {
     const getClientFn = mock.fn(() => ({ getChatById }));
     const deps = makeDeps({
       getClientFn: getClientFn as unknown as BroadcasterDeps['getClientFn'],
-      sendMessage,
     });
 
     const broadcast = createBroadcaster(db, deps);
@@ -136,7 +135,6 @@ describe('whatsappBroadcaster — partial failure', () => {
     const getClientFn = mock.fn(() => ({ getChatById }));
     const deps = makeDeps({
       getClientFn: getClientFn as unknown as BroadcasterDeps['getClientFn'],
-      sendMessage,
     });
 
     const broadcast = createBroadcaster(db, deps);

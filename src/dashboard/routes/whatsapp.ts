@@ -85,7 +85,7 @@ export function createWhatsAppRouter(
 
   // PATCH /groups/:id — update group config
   router.patch('/groups/:id', (req: Request, res: Response) => {
-    const groupId = decodeURIComponent(req.params.id);
+    const groupId = decodeURIComponent(req.params['id'] as string);
 
     if (!groupId.trim()) {
       res.status(400).json({ error: 'מזהה קבוצה לא תקין' });
