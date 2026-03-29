@@ -26,6 +26,56 @@
 
 ---
 
+## [0.2.2] — 2026-03-29
+
+### ✨ תכונות חדשות
+
+#### דשבורד — Overview
+- **KPI trend indicators** — "התראות היום" ו-"התראות 7 ימים" מציגים ▲/▼ עם delta מול אתמול / שבוע קודם
+- **Skeleton loading** — גרפים מציגים `<Skeleton>` בזמן טעינה ראשונית במקום לקפוץ ל-`EmptyState`
+- **אגדת גרף** — `<Legend>` עם תוויות עבריות לפי קטגוריה בגרף הפילוח השבועי
+
+#### דשבורד — התראות
+- **Empty state** — הבחנה בין "אין תוצאות עבור הסינון הנוכחי" (כשסינון פעיל) לבין "אין התראות לתקופה זו" (כשהתקופה ריקה)
+
+#### דשבורד — תבניות הודעות (חדש)
+- **עמוד תבניות** — `תבניות` בתפריט הצד מאפשר לערוך לכל סוג התראה: אמוג׳י, כותרת עברית, וקידומת הוראות
+- **שינויים מיידיים** — אין צורך ב-restart; הבוט טוען את הקאש מחדש אחרי כל שמירה
+- **איפוס לברירת מחדל** — כפתור Reset מחזיר כל שורה לברירת המחדל שבקוד
+
+#### מפה
+- **סגנון יום/לילה** — `light-v11` בשעות 06:00–18:00 ו-`dark-v11` ב-18:00–06:00 (שעון ישראל, כולל DST)
+- **הקשר גיאוגרפי לעיר בודדת** — `expandGeoJSONBounds()` מוסיף padding שקוף כשהאזור הפגוע < ~50 ק"מ
+- **Padding על כל URL** — `?padding=40` מונע גזירת polygons בקצות התמונה
+- **מרקרים צבעוניים לפי סוג** — צבע הסיכה נגזר מסוג ההתראה (`getAlertColor()`) במקום אדום קבוע
+- **Polygon מודגש** — `fill-opacity` 0.3 → 0.4, `stroke-width` 2 → 3
+
+### 🐛 תיקוני באגים
+
+#### דשבורד — Overview
+- **Recharts Hebrew RTL** — `HebrewYAxisTick` עם `direction="rtl"` על SVG `<text>`; ללא זאת שמות ערים עבריים הוצגו הפוך
+- **`alertsYesterday` query** — תוקן מחלון rolling של 24 שעות ל-גבולות חצות קלנדריות (`date('now','-1 day')` עד `date('now')`); הבחנה עקבית עם `alertsToday`
+
+#### דשבורד — התראות
+- **פילטר קטגוריה שבור** — `?type=drills` לא התאים לעולם (DB שומר `missilesDrill`, `earthQuakeDrill` וכו׳); הוחלף ב-`?category=drills` שנגזר מ-`ALERT_TYPE_CATEGORY`
+
+#### Mapbox Cache
+- **קאש תמונות עמיד לאתחול** — הוספת טבלת `mapbox_image_cache` ב-SQLite; `initializeCache()` טוען תמונות שמורות ב-startup; מונה הדשבורד עקבי עם חיוב Mapbox
+
+#### טרמינל — RTL עברי
+- **`toVisualRtl()` במקום `wrapRtl()`** — `\u202B` (RLE embedding) לא נתמך ב-VS Code terminal; `toVisualRtl()` ממיר לסדר ויזואלי דרך `bidi-js` (Unicode TR#9) ומציג נכון בכל הטרמינלים
+
+### 🧪 בדיקות
+- 142 בדיקות חדשות: `mapboxCacheRepository` (13), `templateCache` (16), dashboard routes `/messages` (17), `mapService` — `getCurrentMapStyle` (5) + `expandGeoJSONBounds` (3) + colored markers (2), ועדכון assertions ל-`toVisualRtl()` ב-`logger.test.ts`
+
+### 🔧 תחזוקה
+- `src/config/alertTypeDefaults.ts` — חילוץ `ALERT_TYPE_HE` / `ALERT_TYPE_EMOJI` / `DEFAULT_INSTRUCTIONS_PREFIX` מ-`telegramBot.ts` לקובץ ייעודי
+- `src/config/templateCache.ts` — קאש in-memory עם `Object.freeze()` + reload אטומי
+- `src/db/mapboxCacheRepository.ts` — repository pattern לטבלת `mapbox_image_cache`
+- `src/db/messageTemplateRepository.ts` — repository pattern לטבלת `message_templates`
+
+---
+
 ## [0.2.1] — 2026-03-29
 
 ### ✨ תכונות חדשות
@@ -405,7 +455,8 @@
 
 <div dir="rtl">
 
-[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.1.6...v0.2.0
 [0.1.6]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.1.5...v0.1.6
