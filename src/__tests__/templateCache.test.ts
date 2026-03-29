@@ -1,19 +1,19 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
-import { initSchema } from '../db/schema';
+import { initSchema } from '../db/schema.js';
 import {
   getAllTemplates,
   upsertTemplate,
   deleteTemplate,
-} from '../db/messageTemplateRepository';
+} from '../db/messageTemplateRepository.js';
 import {
   getEmoji,
   getTitleHe,
   getInstructionsPrefix,
   getAllCached,
-} from '../config/templateCache';
-import { ALL_ALERT_TYPES } from '../config/alertTypeDefaults';
+} from '../config/templateCache.js';
+import { ALL_ALERT_TYPES } from '../config/alertTypeDefaults.js';
 
 // ── default cache (module-load state) ──────────────────────────────────────
 
