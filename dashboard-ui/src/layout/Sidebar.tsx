@@ -1,13 +1,13 @@
 import { NavLink } from 'react-router-dom';
 import { useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { LayoutDashboard, Bell, Users, Radio, Settings, Globe, MessageSquare, ChevronRight, ChevronLeft } from 'lucide-react';
+import { LayoutDashboard, Bell, Users, Radio, Settings, Globe, MessageSquare, Phone, ChevronRight, ChevronLeft } from 'lucide-react';
 import { LiveDot } from '../components/ui';
 
 const GROUPS = [
   { label: 'מידע', items: [{ to: '/overview', icon: LayoutDashboard, label: 'לוח בקרה' }, { to: '/alerts', icon: Bell, label: 'התראות' }] },
   { label: 'פעולות', items: [{ to: '/subscribers', icon: Users, label: 'מנויים' }, { to: '/operations', icon: Radio, label: 'מרכז פיקוד' }] },
-  { label: 'ניהול', items: [{ to: '/settings', icon: Settings, label: 'הגדרות' }, { to: '/landing', icon: Globe, label: 'אתר נחיתה' }, { to: '/messages', icon: MessageSquare, label: 'תבניות' }] },
+  { label: 'ניהול', items: [{ to: '/settings', icon: Settings, label: 'הגדרות' }, { to: '/landing', icon: Globe, label: 'אתר נחיתה' }, { to: '/messages', icon: MessageSquare, label: 'תבניות' }, { to: '/whatsapp', icon: Phone, label: 'WhatsApp' }] },
 ];
 
 function formatUptime(s: number): string {
