@@ -1,18 +1,9 @@
 {
-  "name": "@haoref-boti/pikud-haoref-bot",
-  "version": "0.1.6",
+  "name": "@haoref-boti/pikud-haoref-bot-server",
+  "version": "0.2.0",
+  "private": true,
   "license": "Apache-2.0",
   "description": "בוט טלגרם להתראות פיקוד העורף בזמן אמת עם מפות Mapbox",
-  "main": "bin/setup.js",
-  "bin": {
-    "pikud-haoref-bot": "bin/setup.js"
-  },
-  "files": [
-    "bin/setup.js"
-  ],
-  "publishConfig": {
-    "access": "public"
-  },
   "scripts": {
     "start": "tsx src/index.ts",
     "build": "tsc -p tsconfig.json && npm run build:dashboard",
