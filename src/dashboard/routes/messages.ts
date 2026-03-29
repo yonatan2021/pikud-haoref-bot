@@ -8,9 +8,6 @@ import {
 import {
   loadTemplateCache,
   getAllCached,
-  getEmoji,
-  getTitleHe,
-  getInstructionsPrefix,
 } from '../../config/templateCache.js';
 import {
   ALL_ALERT_TYPES,
@@ -29,9 +26,9 @@ export function createMessagesRouter(db: Database.Database): Router {
     const cached = getAllCached();
     const result = ALL_ALERT_TYPES.map((alertType) => ({
       alertType,
-      emoji: cached[alertType]?.emoji ?? getEmoji(alertType),
-      titleHe: cached[alertType]?.titleHe ?? getTitleHe(alertType),
-      instructionsPrefix: cached[alertType]?.instructionsPrefix ?? getInstructionsPrefix(alertType),
+      emoji: cached[alertType].emoji,
+      titleHe: cached[alertType].titleHe,
+      instructionsPrefix: cached[alertType].instructionsPrefix,
       isCustomized: customized.has(alertType),
       defaults: {
         emoji: DEFAULT_ALERT_TYPE_EMOJI[alertType] ?? '⚠️',
@@ -65,15 +62,19 @@ export function createMessagesRouter(db: Database.Database): Router {
       res.status(400).json({ error: 'titleHe ריק' });
       return;
     }
+    if (instructionsPrefix !== undefined && instructionsPrefix.trim() === '') {
+      res.status(400).json({ error: 'instructionsPrefix ריק' });
+      return;
+    }
 
-    // Merge with current cached values to avoid zeroing out unprovided fields
+    // Merge with current cached values to avoid zeroing out unprovided fields.
+    // current is always defined — ALL_ALERT_TYPES guard above guarantees it.
     const current = getAllCached()[alertType];
     upsertTemplate(db, {
       alert_type: alertType,
-      emoji: emoji ?? current?.emoji ?? getEmoji(alertType),
-      title_he: titleHe ?? current?.titleHe ?? getTitleHe(alertType),
-      instructions_prefix:
-        instructionsPrefix ?? current?.instructionsPrefix ?? getInstructionsPrefix(alertType),
+      emoji: emoji ?? current.emoji,
+      title_he: titleHe ?? current.titleHe,
+      instructions_prefix: instructionsPrefix ?? current.instructionsPrefix,
     });
 
     loadTemplateCache();

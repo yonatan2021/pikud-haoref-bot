@@ -155,6 +155,14 @@ describe('PATCH /api/messages/:alertType', () => {
     assert.equal(res.status, 400);
     assert.ok(res.body.error);
   });
+
+  it('returns 400 when instructionsPrefix is empty string', async () => {
+    const res = await request(app)
+      .patch('/api/messages/missiles')
+      .send({ instructionsPrefix: '' });
+    assert.equal(res.status, 400);
+    assert.ok(res.body.error);
+  });
 });
 
 describe('DELETE /api/messages/:alertType', () => {
