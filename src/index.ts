@@ -85,7 +85,7 @@ for (const envVar of REQUIRED_ENV_VARS) {
 
   poller.start(2000);
 
-  logStartupHeader('0.1.6', [
+  logStartupHeader('0.2.0', [
     { name: 'Health Server', detail: healthOk ? `פורט ${resolvedHealthPort}` : 'נכשל בהפעלה', ok: healthOk },
     { name: 'Alert Poller',  detail: 'כל 2 שניות',                                              ok: true },
     { name: 'Dashboard',     detail: dashboardSecret ? `פורט ${dashboardPort}` : 'כבוי (אין DASHBOARD_SECRET)', ok: !!dashboardSecret },

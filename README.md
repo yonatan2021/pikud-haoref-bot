@@ -10,7 +10,7 @@
 
 <div align="center">
 
-[![גרסה](https://img.shields.io/badge/גרסה-0.1.6-brightgreen?style=for-the-badge)](CHANGELOG.md)
+[![גרסה](https://img.shields.io/badge/גרסה-0.2.0-brightgreen?style=for-the-badge)](CHANGELOG.md)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue?style=for-the-badge)](https://opensource.org/licenses/Apache-2.0)
 [![Node.js](https://img.shields.io/badge/Node.js-24-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
@@ -94,9 +94,11 @@
 | 🔄 **עמידות לאיתחול** | חלון ההתראות נשמר ב-SQLite — אין הודעות כפולות לאחר הפעלה מחדש |
 | ⚡ **DM Queue** | תור שליחה עם מגבלת מקביליות (10) ו-backoff אוטומטי לשגיאות 429 |
 | 🏥 **Health endpoint** | `GET /health` עם uptime, lastAlertAt ו-alertsToday לניטור חיצוני |
-| 🎛️ **לוח בקרה** | Admin Dashboard (React + Express) — ניטור, ניהול מנויים, broadcast, הגדרות |
+| 🎛️ **לוח בקרה** | Admin Dashboard — React + glassmorphism UI, framer-motion, ניהול מנויים, broadcast, הגדרות |
+| 🖥️ **Terminal UI** | `logger.ts` מובנה — chalk v4, logStartupHeader, logAlert, תמיכה בעברית RTL |
+| 🧙 **NPX Wizard** | `--update` לעדכון .env קיים, `--verify` לבדיקת טוקנים, ולידציה חיה בכל שדה |
 | 🐳 **Docker** | multi-stage build, non-root user, volume לנתונים |
-| 🚀 **CI/CD** | GitHub Actions: בדיקות + בנייה אוטומטית + דחיפה ל-Docker Hub |
+| 🚀 **CI/CD** | GitHub Actions: 4 jobs מקבילים — test, dashboard-build, docker-build, wizard-check |
 | 🌐 **Proxy** | תמיכה בהרצה מחוץ לישראל |
 
 </div>

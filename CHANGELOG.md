@@ -40,9 +40,25 @@
 - **Verify mode** (`--verify`): בדיקת תקינות TELEGRAM_BOT_TOKEN + MAPBOX_ACCESS_TOKEN מול API
 - **RTL בטרמינל**: עברית ו-LTR על שורות נפרדות, `visibleWidth` Unicode-aware לחישוב padding
 
-#### תוספות CLI
-- `--update` — עדכן .env קיים
-- `--verify` — בדוק תקינות הטוקנים
+#### Dashboard UI — עיצוב מחדש מלא
+- **Glassmorphism design system**: CSS tokens ב-`:root {}` — `--color-glass`, `--color-border-glass`, `--color-glow-*`
+- **כל 7 הדפים עוצבו מחדש** עם `framer-motion` animations + RTL תקין (Overview, Alerts, Subscribers, Operations, Settings, LandingPage, Login)
+- **Component library** (`dashboard-ui/src/components/ui/`): `GlassCard`, `AnimatedCounter`, `LiveDot`, `PageTransition`
+- **RTL fixes**: chevron sidebar (right/left מתהפכים נכון), slide direction (`x` הוא כיוון פיזי, לא לוגי), text alignment
+- **`StatusStrip`**: isLoading state — מונע false-positive ״מחובר״ לפני שהבדיקה הראשונה חזרה
+- **`GlowVariant` type**: exported ומשותף — exhaustiveness נאכף ב-compile time ב-`KpiCard`
+- **Mutation patterns**: `onMutate` + `onSettled` תוקנו בכל פעולה destructive (delete, patch, deploy)
+
+#### Terminal UI — ממשק לוגים מעוצב
+- **`src/logger.ts`** חדש: `log(level, tag, msg)` עם chalk v4 — levels: `info/success/warn/error`
+- **`logStartupHeader(version, services[])`**: טבלת סטטוס בעת הפעלה — Health Server, Alert Poller, Dashboard, DB
+- **`logAlert(type, cities, action)`**: תיבת ⚡ מעוצבת לכל שליחה/עריכה עם סוג + רשימת ערים
+- כל `console.log/warn/error` בקוד הפרודקשן הוחלפו ב-`log()` מובנה
+
+#### Landing Page — עיצוב מחדש
+- עיצוב SaaS מודרני עם hero section, feature grid, CTA
+- RTL מלא, Heebo font, Telegram blue theme, dark mode
+- Error handling, accessibility, ו-CSS structure תוקנו
 
 ### ⚠️ שינויים שוברים
 
@@ -50,10 +66,19 @@
 - `bin/setup.js` הוסר — הוחלף ב-`wizard/src/`
 - שם חבילת wizard נשמר: `@haoref-boti/pikud-haoref-bot`
 
+### 🧪 בדיקות
+
+- 76 בדיקות ל-`wizard/` (TDD)
+- `test(logger)`: suite מלאה ל-`log`, `logStartupHeader`, `logAlert`
+- `test(alertHandler)`: stdout מדוכא בבדיקות — פלט CI נקי יותר
+
 ### 🔧 תחזוקה
 
 - `publish-npm` job הוחלף ב-`publish-wizard` — trigger: `wizard-v*` tags (עצמאי מ-`v*`)
-- `wizard/` נוסף: TypeScript + `@clack/prompts` + `chalk` + 76 בדיקות
+- CI עודכן ל-4 jobs מקבילים: `test`, `dashboard-build`, `docker-build`, `wizard-check`
+- `wizard-check` מותנה: `hashFiles('wizard/package-lock.json') != ''` — מדלג כשאין `wizard/`
+- תיקון: `DB_PATH=:memory:` הועבר לבלוק `env:` — YAML compact mapping תקין
+- תיקון: `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24` נוסף לכל ה-jobs
 
 </div>
 
@@ -342,7 +367,8 @@
 
 <div dir="rtl">
 
-[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.1.6...HEAD
+[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.1.6...v0.2.0
 [0.1.6]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.1.3...v0.1.4
