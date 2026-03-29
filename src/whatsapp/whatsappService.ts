@@ -67,6 +67,7 @@ export function initialize(): void {
     authStrategy: new LocalAuth({ dataPath: sessionPath }),
     puppeteer: {
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH ?? undefined,
     },
   });
 

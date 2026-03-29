@@ -50,6 +50,9 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY package.json ./
 
+# Install Chromium for whatsapp-web.js Puppeteer (only when WHATSAPP_ENABLED=true)
+RUN apt-get update && apt-get install -y chromium --no-install-recommends && rm -rf /var/lib/apt/lists/*
+
 # Create writable data dir for SQLite (DB resolves to /app/data/subscriptions.db)
 # Mount a host volume here for persistence: -v /host/data:/app/data
 RUN mkdir -p /app/data && chown -R node:node /app/data

@@ -125,10 +125,10 @@ describe('GET /api/whatsapp/groups', () => {
   });
 });
 
-describe('PUT /api/whatsapp/groups/:id', () => {
+describe('PATCH /api/whatsapp/groups/:id', () => {
   it('returns 400 with Hebrew error when unknown alertType provided', async () => {
     const res = await request(app)
-      .put('/api/whatsapp/groups/111%40g.us')
+      .patch('/api/whatsapp/groups/111%40g.us')
       .send({ enabled: true, alertTypes: ['missiles', 'unknownType'] });
     assert.equal(res.status, 400);
     assert.ok(res.body.error);
@@ -138,7 +138,7 @@ describe('PUT /api/whatsapp/groups/:id', () => {
   it('upserts group and returns { ok: true }', async () => {
     mockCachedGroups = [{ id: '111@g.us', name: 'קבוצה א' }];
     const res = await request(app)
-      .put('/api/whatsapp/groups/111%40g.us')
+      .patch('/api/whatsapp/groups/111%40g.us')
       .send({ enabled: true, alertTypes: ['missiles', 'earthQuake'] });
     assert.equal(res.status, 200);
     assert.deepEqual(res.body, { ok: true });
@@ -153,7 +153,7 @@ describe('PUT /api/whatsapp/groups/:id', () => {
 
   it('returns 400 when enabled is not boolean', async () => {
     const res = await request(app)
-      .put('/api/whatsapp/groups/111%40g.us')
+      .patch('/api/whatsapp/groups/111%40g.us')
       .send({ enabled: 'yes', alertTypes: ['missiles'] });
     assert.equal(res.status, 400);
     assert.ok(res.body.error);
@@ -161,7 +161,7 @@ describe('PUT /api/whatsapp/groups/:id', () => {
 
   it('returns 400 when alertTypes is not an array', async () => {
     const res = await request(app)
-      .put('/api/whatsapp/groups/111%40g.us')
+      .patch('/api/whatsapp/groups/111%40g.us')
       .send({ enabled: true, alertTypes: 'missiles' });
     assert.equal(res.status, 400);
     assert.ok(res.body.error);
@@ -170,7 +170,7 @@ describe('PUT /api/whatsapp/groups/:id', () => {
   it('uses DB name as fallback when group not in live cache', async () => {
     upsertGroup(db, '333@g.us', 'קבוצה ג', false, []);
     const res = await request(app)
-      .put('/api/whatsapp/groups/333%40g.us')
+      .patch('/api/whatsapp/groups/333%40g.us')
       .send({ enabled: true, alertTypes: ['missiles'] });
     assert.equal(res.status, 200);
     const groups = getAllGroups(db);

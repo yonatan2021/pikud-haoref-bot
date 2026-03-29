@@ -80,7 +80,9 @@ for (const envVar of REQUIRED_ENV_VARS) {
   }
 
   const poller = new AlertPoller();
-  const broadcastToWhatsApp = createBroadcaster(getDb());
+  const broadcastToWhatsApp = process.env.WHATSAPP_ENABLED === 'true'
+    ? createBroadcaster(getDb())
+    : undefined;
 
   poller.on('newAlert', async (alert: Alert) => {
     updateLastAlertAt();

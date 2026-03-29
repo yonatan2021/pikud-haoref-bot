@@ -218,7 +218,7 @@ function GroupRow({ group, onUpdate }: { group: WhatsAppGroup; onUpdate: (groupI
 export function WhatsApp() {
   const queryClient = useQueryClient();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
+  const [showReconnectConfirm, setShowReconnectConfirm] = useState(false);
 
   const { data: statusData, isError: statusError } = useQuery<WhatsAppStatus>({
     queryKey: ['whatsapp-status'],
@@ -240,7 +240,7 @@ export function WhatsApp() {
     onSuccess: () => {
       toast.success('בקשת חיבור נשלחה');
       queryClient.invalidateQueries({ queryKey: ['whatsapp-status'] });
-      setShowDisconnectConfirm(false);
+      setShowReconnectConfirm(false);
     },
     onError: () => {
       toast.error('שגיאה בחיבור מחדש');
@@ -332,27 +332,18 @@ export function WhatsApp() {
                 </p>
               )}
 
-              {status === 'ready' ? (
-                <button
-                  onClick={() => setShowDisconnectConfirm(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-surface border border-red-400/30 hover:bg-base text-red-400 text-sm rounded-lg transition-colors w-fit"
-                >
-                  התנתק
-                </button>
-              ) : (
-                <button
-                  onClick={() => reconnectMutation.mutate()}
-                  disabled={reconnectMutation.isPending}
-                  className="flex items-center gap-2 px-4 py-2 bg-surface border border-border hover:bg-base text-text-secondary text-sm rounded-lg transition-colors disabled:opacity-40 w-fit"
-                >
-                  {reconnectMutation.isPending ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <RefreshCw size={14} />
-                  )}
-                  התחבר מחדש
-                </button>
-              )}
+              <button
+                onClick={() => status === 'ready' ? setShowReconnectConfirm(true) : reconnectMutation.mutate()}
+                disabled={reconnectMutation.isPending}
+                className="flex items-center gap-2 px-4 py-2 bg-surface border border-border hover:bg-base text-text-secondary text-sm rounded-lg transition-colors disabled:opacity-40 w-fit"
+              >
+                {reconnectMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <RefreshCw size={14} />
+                )}
+                {status === 'ready' ? 'חבר מחדש' : 'התחבר'}
+              </button>
             </div>
           </div>
         </GlassCard>
@@ -391,12 +382,11 @@ export function WhatsApp() {
       </div>
 
       <ConfirmModal
-        open={showDisconnectConfirm}
-        title="ניתוק WhatsApp"
-        description="האם לנתק את הבוט מ-WhatsApp?"
+        open={showReconnectConfirm}
+        title="חיבור מחדש ל-WhatsApp"
+        description="האם לחבר מחדש את הבוט ל-WhatsApp? החיבור הנוכחי יאופס."
         onConfirm={() => reconnectMutation.mutate()}
-        onCancel={() => setShowDisconnectConfirm(false)}
-        danger
+        onCancel={() => setShowReconnectConfirm(false)}
       />
     </PageTransition>
   );

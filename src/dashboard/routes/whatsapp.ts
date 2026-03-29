@@ -83,8 +83,8 @@ export function createWhatsAppRouter(
     res.json(merged);
   });
 
-  // PUT /groups/:id — update group config
-  router.put('/groups/:id', (req: Request, res: Response) => {
+  // PATCH /groups/:id — update group config
+  router.patch('/groups/:id', (req: Request, res: Response) => {
     const groupId = decodeURIComponent(req.params.id);
 
     if (!groupId.trim()) {
