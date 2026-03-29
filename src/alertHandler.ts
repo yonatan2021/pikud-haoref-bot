@@ -163,7 +163,7 @@ export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Prom
     try {
       await broadcastToWhatsApp(finalAlert);
     } catch (err) {
-      log('error', 'AlertHandler', `כישלון בשידור לוואטסאפ type=${alert.type}: ${err}`);
+      log('error', 'AlertHandler', `כישלון בשידור לוואטסאפ type=${alert.type} cities=${finalAlert.cities.length}: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
     }
   }
 }
