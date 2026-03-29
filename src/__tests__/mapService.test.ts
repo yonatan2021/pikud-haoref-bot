@@ -177,7 +177,10 @@ describe('initializeCache', () => {
   });
 
   it('populates in-memory cache from DB entries', async () => {
-    const key = 'missiles:אבו גוש';
+    const alert = { type: 'missiles', cities: ['אבו גוש'] };
+    // Build the cache key the same way buildCacheKey() does: period prefix + type + sorted cities
+    const period = getCurrentMapStyle().includes('light') ? 'day' : 'night';
+    const key = `${period}:${alert.type}:${[...alert.cities].sort().join('|')}`;
     const fakeBuffer = Buffer.from('persistent-image');
     saveCacheEntry(key, fakeBuffer);
 
@@ -185,7 +188,6 @@ describe('initializeCache', () => {
 
     // Do NOT call _seedCache — the cache must contain this entry from initializeCache alone.
     // generateMapImage must return the buffer from DB-loaded cache without any HTTP call.
-    const alert = { type: 'missiles', cities: ['אבו גוש'] };
     const result = await generateMapImage(alert);
     assert.deepEqual(result, fakeBuffer);
   });
