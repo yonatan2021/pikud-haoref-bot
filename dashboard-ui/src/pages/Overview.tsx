@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { Users, Bell, MapPin, Map, BarChart2 } from 'lucide-react';
 import { api } from '../api/client';
 import { KpiCard } from '../components/KpiCard';
@@ -13,7 +13,9 @@ interface OverviewStats {
   totalSubscribers: number;
   totalSubscriptions: number;
   alertsToday: number;
+  alertsYesterday: number;
   alertsLast7Days: number;
+  alertsPrev7Days: number;
   mapboxMonth: number;
 }
 
@@ -36,20 +38,48 @@ interface TopCity {
   count: number;
 }
 
+// Maps alert type → display color. Covers all types stored in alert_history.
 const CATEGORY_COLORS: Record<string, string> = {
-  missiles: '#ef4444',
-  earthQuake: '#f97316',
-  newsFlash: '#3b82f6',
-  drills: '#8b5cf6',
-  hazardousMaterials: '#22c55e',
+  missiles:                      '#ef4444',
+  earthQuake:                    '#f97316',
+  tsunami:                       '#0ea5e9',
+  hazardousMaterials:            '#22c55e',
+  terroristInfiltration:         '#f43f5e',
+  radiologicalEvent:             '#a855f7',
+  hostileAircraftIntrusion:      '#fb923c',
+  newsFlash:                     '#3b82f6',
+  general:                       '#64748b',
+  missilesDrill:                 '#818cf8',
+  earthQuakeDrill:               '#818cf8',
+  tsunamiDrill:                  '#818cf8',
+  hostileAircraftIntrusionDrill: '#818cf8',
+  hazardousMaterialsDrill:       '#818cf8',
+  terroristInfiltrationDrill:    '#818cf8',
+  radiologicalEventDrill:        '#818cf8',
+  generalDrill:                  '#818cf8',
+  unknown:                       '#64748b',
 };
 
+// Human-readable Hebrew labels for each alert type.
 const CATEGORY_LABELS: Record<string, string> = {
-  missiles: 'טילים',
-  earthQuake: 'רעידת אדמה',
-  newsFlash: 'חדשות',
-  drills: 'תרגיל',
-  hazardousMaterials: 'חומרים מסוכנים',
+  missiles:                      'טילים',
+  earthQuake:                    'רעידת אדמה',
+  tsunami:                       'צונאמי',
+  hazardousMaterials:            'חומרים מסוכנים',
+  terroristInfiltration:         'חדירת מחבלים',
+  radiologicalEvent:             'אירוע רדיולוגי',
+  hostileAircraftIntrusion:      'כלי טיס עוין',
+  newsFlash:                     'חדשות',
+  general:                       'כללי',
+  missilesDrill:                 'תרגיל — טילים',
+  earthQuakeDrill:               'תרגיל — רעידת אדמה',
+  tsunamiDrill:                  'תרגיל — צונאמי',
+  hostileAircraftIntrusionDrill: 'תרגיל — כלי טיס עוין',
+  hazardousMaterialsDrill:       'תרגיל — חומרים מסוכנים',
+  terroristInfiltrationDrill:    'תרגיל — חדירת מחבלים',
+  radiologicalEventDrill:        'תרגיל — אירוע רדיולוגי',
+  generalDrill:                  'תרגיל — כללי',
+  unknown:                       'לא ידוע',
 };
 
 function relTime(iso: string): string {
@@ -81,6 +111,26 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
   );
 }
 
+// Custom Y-axis tick for Hebrew city names. SVG <text> needs the `direction` attribute
+// explicitly — CSS `direction: rtl` is not inherited by SVG presentation attributes.
+function HebrewYAxisTick({ x, y, payload }: { x?: number; y?: number; payload?: { value: string } }) {
+  return (
+    <g transform={`translate(${x ?? 0},${y ?? 0})`}>
+      <text
+        x={0}
+        y={0}
+        dy={4}
+        textAnchor="start"
+        fill="#8b949e"
+        fontSize={11}
+        direction="rtl"
+      >
+        {payload?.value ?? ''}
+      </text>
+    </g>
+  );
+}
+
 export function Overview() {
   const reducedMotion = useReducedMotion();
 
@@ -96,13 +146,13 @@ export function Overview() {
     refetchInterval: 5_000,
   });
 
-  const { data: byCategory = [] } = useQuery<CategoryDay[]>({
+  const { data: byCategory = [], isLoading: byCategoryLoading } = useQuery<CategoryDay[]>({
     queryKey: ['alerts-by-category'],
     queryFn: () => api.get('/api/stats/alerts/by-category'),
     refetchInterval: 60_000,
   });
 
-  const { data: topCities = [] } = useQuery<TopCity[]>({
+  const { data: topCities = [], isLoading: topCitiesLoading } = useQuery<TopCity[]>({
     queryKey: ['top-cities'],
     queryFn: () => api.get('/api/stats/alerts/top-cities'),
     refetchInterval: 60_000,
@@ -118,6 +168,11 @@ export function Overview() {
   );
 
   const categoryTypes = [...new Set(byCategory.map(r => r.type))];
+
+  const alertsToday = stats?.alertsToday ?? 0;
+  const alertsYesterday = stats?.alertsYesterday ?? 0;
+  const alertsLast7Days = stats?.alertsLast7Days ?? 0;
+  const alertsPrev7Days = stats?.alertsPrev7Days ?? 0;
 
   return (
     <PageTransition>
@@ -140,10 +195,21 @@ export function Overview() {
               <KpiCard icon={Users} label="מנויים פעילים" value={stats?.totalSubscribers ?? 0} />
             </motion.div>
             <motion.div variants={reducedMotion ? undefined : kpiItemVariants}>
-              <KpiCard icon={Bell} label="התראות היום" value={stats?.alertsToday ?? 0} glow="amber" />
+              <KpiCard
+                icon={Bell}
+                label="התראות היום"
+                value={alertsToday}
+                glow="amber"
+                trend={{ delta: alertsToday - alertsYesterday, label: 'מאתמול', positiveIsGood: false }}
+              />
             </motion.div>
             <motion.div variants={reducedMotion ? undefined : kpiItemVariants}>
-              <KpiCard icon={MapPin} label="מנויים לערים" value={stats?.totalSubscriptions ?? 0} />
+              <KpiCard
+                icon={Bell}
+                label="התראות 7 ימים"
+                value={alertsLast7Days}
+                trend={{ delta: alertsLast7Days - alertsPrev7Days, label: 'משבוע קודם', positiveIsGood: false }}
+              />
             </motion.div>
             <motion.div variants={reducedMotion ? undefined : kpiItemVariants}>
               <KpiCard icon={Map} label="Mapbox החודש" value={stats?.mapboxMonth ?? 0} sub="בקשות" />
@@ -205,14 +271,22 @@ export function Overview() {
               <MapPin size={14} className="text-amber-400 flex-shrink-0" />
               <span>ערים מובילות (7 ימים)</span>
             </h2>
-            {topCities.length === 0 ? (
+            {topCitiesLoading ? (
+              <Skeleton className="h-[220px]" />
+            ) : topCities.length === 0 ? (
               <EmptyState icon="📍" message="אין נתונים" />
             ) : (
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={topCities} layout="vertical" margin={{ right: 8, left: 16 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#21262d" horizontal={false} />
                   <XAxis type="number" tick={{ fill: '#8b949e', fontSize: 11 }} />
-                  <YAxis orientation="right" type="category" dataKey="city" tick={{ fill: '#8b949e', fontSize: 11 }} width={130} />
+                  <YAxis
+                    orientation="right"
+                    type="category"
+                    dataKey="city"
+                    tick={<HebrewYAxisTick />}
+                    width={160}
+                  />
                   <Tooltip content={<ChartTooltip />} />
                   <Bar dataKey="count" fill="#f59e0b" radius={[0, 4, 4, 0]} name="התראות" />
                 </BarChart>
@@ -227,15 +301,18 @@ export function Overview() {
             <BarChart2 size={14} className="text-blue-400 flex-shrink-0" />
             <span>פילוח לפי סוג — 7 ימים אחרונים</span>
           </h2>
-          {byCategory.length === 0 ? (
+          {byCategoryLoading ? (
+            <Skeleton className="h-[260px]" />
+          ) : byCategory.length === 0 ? (
             <EmptyState icon="📊" message="אין נתונים לתקופה זו" />
           ) : (
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={chartData} margin={{ right: 16 }}>
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={chartData} margin={{ right: 16, bottom: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#21262d" vertical={false} />
                 <XAxis dataKey="day" tick={{ fill: '#8b949e', fontSize: 11 }} />
                 <YAxis tick={{ fill: '#8b949e', fontSize: 11 }} />
                 <Tooltip content={<ChartTooltip />} />
+                <Legend wrapperStyle={{ fontSize: 11, color: '#8b949e', direction: 'rtl', paddingTop: 8 }} />
                 {categoryTypes.map(type => (
                   <Bar
                     key={type}
