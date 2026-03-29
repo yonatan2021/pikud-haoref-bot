@@ -19,6 +19,8 @@ import { getDb } from './db/schema.js';
 import { log, logStartupHeader, logSectionDivider } from './logger.js';
 import { toVisualRtl } from './loggerUtils.js';
 import { loadTemplateCache } from './config/templateCache.js';
+import { initialize as initWhatsApp } from './whatsapp/whatsappService.js';
+import { createBroadcaster } from './whatsapp/whatsappBroadcaster.js';
 
 // Prevent broken-pipe errors from crashing the bot when a stdout consumer exits.
 process.stdout.on('error', (err: NodeJS.ErrnoException) => {
@@ -48,6 +50,12 @@ for (const envVar of REQUIRED_ENV_VARS) {
     process.exit(1);
   }
 
+  try {
+    initWhatsApp();
+  } catch (err) {
+    log('warn', 'Init', `WhatsApp אתחול נכשל — ממשיך ללא WhatsApp: ${err}`);
+  }
+
   const rawHealthPort = parseInt(process.env.HEALTH_PORT ?? '3000', 10);
   const resolvedHealthPort = isNaN(rawHealthPort) ? 3000 : rawHealthPort;
   if (process.env.HEALTH_PORT && isNaN(rawHealthPort)) {
@@ -72,6 +80,7 @@ for (const envVar of REQUIRED_ENV_VARS) {
   }
 
   const poller = new AlertPoller();
+  const broadcastToWhatsApp = createBroadcaster(getDb());
 
   poller.on('newAlert', async (alert: Alert) => {
     updateLastAlertAt();
@@ -87,6 +96,7 @@ for (const envVar of REQUIRED_ENV_VARS) {
       shouldSkipMap,
       getTopicId,
       insertAlertHistory,
+      broadcastToWhatsApp,
     });
   });
 
@@ -97,6 +107,7 @@ for (const envVar of REQUIRED_ENV_VARS) {
     { name: 'Alert Poller',  detail: toVisualRtl('כל 2 שניות'),                                                ok: true },
     { name: 'Dashboard',     detail: dashboardSecret ? toVisualRtl(`פורט ${dashboardPort}`) : toVisualRtl('כבוי (אין DASHBOARD_SECRET)'), ok: !!dashboardSecret, url: dashboardSecret ? `http://localhost:${dashboardPort}` : undefined },
     { name: 'Database',      detail: toVisualRtl('מאותחל'),                                                ok: true },
+    { name: 'WhatsApp',      detail: toVisualRtl(process.env.WHATSAPP_ENABLED === 'true' ? 'מופעל' : 'כבוי'), ok: process.env.WHATSAPP_ENABLED === 'true' },
   ], alertsToday);
 
   logSectionDivider();

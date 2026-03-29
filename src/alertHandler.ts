@@ -23,6 +23,7 @@ export interface AlertHandlerDeps {
   shouldSkipMap: (alertType: string) => boolean;
   getTopicId: (alertType: string) => number | undefined;
   insertAlertHistory: (alert: Alert) => void;
+  broadcastToWhatsApp?: (alert: Alert) => Promise<void>;
 }
 
 function isUnmodifiedError(err: unknown): boolean {
@@ -156,4 +157,12 @@ export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Prom
   // DM dispatch is outside the channel try/catch — a channel failure must not prevent
   // subscriber notification; alert data is valid regardless of whether the channel post succeeded
   notifySubscribers(finalAlert);
+
+  if (deps.broadcastToWhatsApp) {
+    try {
+      await deps.broadcastToWhatsApp(finalAlert);
+    } catch (err) {
+      log('error', 'AlertHandler', `כישלון בשידור לוואטסאפ type=${alert.type}: ${err}`);
+    }
+  }
 }

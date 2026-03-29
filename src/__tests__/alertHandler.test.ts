@@ -226,4 +226,30 @@ describe('handleNewAlert', () => {
       assert.ok(arg.cities.includes('חיפה'), 'merged alert must include new city');
     });
   });
+
+  describe('broadcastToWhatsApp', () => {
+    it('calls broadcastToWhatsApp with finalAlert when provided', async () => {
+      const waFn = mock.fn(async () => {});
+      // Use a merging scenario so finalAlert differs from the incoming alert
+      const active = makeTracked({ alert: { type: 'missiles', cities: ['תל אביב'] } });
+      const deps = makeDeps({
+        getActiveMessage: mock.fn(() => active),
+        broadcastToWhatsApp: waFn,
+      });
+      await handleNewAlert({ type: 'missiles', cities: ['חיפה'] }, deps);
+
+      const calls = (waFn as unknown as ReturnType<typeof mock.fn>).mock.calls;
+      assert.equal(calls.length, 1, 'broadcastToWhatsApp must be called once');
+      const calledWith = calls[0].arguments[0] as Alert;
+      // finalAlert should be the merged alert — includes both cities
+      assert.ok(calledWith.cities.includes('תל אביב'), 'finalAlert must include pre-existing city');
+      assert.ok(calledWith.cities.includes('חיפה'), 'finalAlert must include new city');
+    });
+
+    it('broadcastToWhatsApp error does not propagate', async () => {
+      const waFn = mock.fn(async () => { throw new Error('wa fail'); });
+      const deps = makeDeps({ broadcastToWhatsApp: waFn });
+      await assert.doesNotReject(() => handleNewAlert(BASE_ALERT, deps));
+    });
+  });
 });
