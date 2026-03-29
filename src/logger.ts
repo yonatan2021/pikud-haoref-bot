@@ -4,6 +4,7 @@ import type { AlertCategory } from './topicRouter.js';
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
 const BOX_WIDTH = 56;
+const MAX_DISPLAYED_CITIES = 20;
 
 function hr(width = BOX_WIDTH): string {
   return '─'.repeat(width);
@@ -119,9 +120,9 @@ export function logAlert(params: {
       ? chalk.yellow('✏️  עודכן')
       : chalk.green('📤 נשלח לקבוצה');
 
-  const cityList = cities.slice(0, 20).join(', ');
-  const cityExtra = cities.length > 20
-    ? chalk.dim(` (+${cities.length - 20} נוספות)`)
+  const cityList = cities.slice(0, MAX_DISPLAYED_CITIES).join(', ');
+  const cityExtra = cities.length > MAX_DISPLAYED_CITIES
+    ? chalk.dim(` (+${cities.length - MAX_DISPLAYED_CITIES} נוספות)`)
     : '';
 
   process.stdout.write('\n');
