@@ -40,9 +40,13 @@ export function getAlertColor(alertType: string): string {
  *  Light (06:00–18:00) for daytime; dark for nighttime.
  *  Accepts an optional `now` for testability. Exported for testing. */
 export function getCurrentMapStyle(now: Date = new Date()): string {
-  const hour = new Date(
-    now.toLocaleString('en-US', { timeZone: 'Asia/Jerusalem' })
-  ).getHours();
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Jerusalem',
+    hour: 'numeric',
+    hour12: false,
+  }).formatToParts(now);
+  const hourStr = parts.find(p => p.type === 'hour')?.value ?? '0';
+  const hour = parseInt(hourStr, 10) % 24; // guard: some impls return '24' at midnight
   return hour >= 6 && hour < 18 ? 'mapbox/light-v11' : 'mapbox/dark-v11';
 }
 
