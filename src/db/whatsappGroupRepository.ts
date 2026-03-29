@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3';
 
-export interface WhatsAppGroupRow {
+interface WhatsAppGroupRow {
   group_id: string;
   name: string;
   enabled: number;      // 0 | 1 in SQLite, decoded to boolean at boundary
@@ -38,8 +38,12 @@ export function upsertGroup(
   alertTypes: string[]
 ): void {
   db.prepare(`
-    INSERT OR REPLACE INTO whatsapp_groups (group_id, name, enabled, alert_types)
+    INSERT INTO whatsapp_groups (group_id, name, enabled, alert_types)
     VALUES (?, ?, ?, ?)
+    ON CONFLICT(group_id) DO UPDATE SET
+      name        = excluded.name,
+      enabled     = excluded.enabled,
+      alert_types = excluded.alert_types
   `).run(groupId, name, enabled ? 1 : 0, JSON.stringify(alertTypes));
 }
 

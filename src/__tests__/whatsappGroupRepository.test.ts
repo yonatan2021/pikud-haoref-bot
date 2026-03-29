@@ -67,4 +67,12 @@ describe('whatsappGroupRepository', () => {
     const groups = getAllGroups(db);
     assert.deepEqual(groups, []);
   });
+
+  test('upsertGroup decodes enabled=false correctly', () => {
+    const db = makeDb();
+    upsertGroup(db, 'group-1', 'Test', false, []);
+    const groups = getAllGroups(db);
+    assert.equal(groups[0].enabled, false);
+    assert.equal(typeof groups[0].enabled, 'boolean');
+  });
 });
