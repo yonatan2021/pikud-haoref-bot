@@ -23,7 +23,13 @@ export function createLandingRouter(db: Database.Database): Router {
       }
       setSetting(db, 'ga4_measurement_id', ga4MeasurementId);
     }
-    if (siteUrl !== undefined) setSetting(db, 'landing_url', siteUrl);
+    if (siteUrl !== undefined) {
+      if (siteUrl !== '' && !/^https?:\/\//.test(siteUrl)) {
+        res.status(400).json({ error: 'כתובת האתר חייבת להתחיל ב-http:// או https://' });
+        return;
+      }
+      setSetting(db, 'landing_url', siteUrl);
+    }
     res.json({ ok: true });
   });
 
