@@ -4,6 +4,13 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'src/**'
+      - 'dashboard-ui/**'
+      - 'Dockerfile'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
     tags:
       - 'v*.*.*'
       - 'wizard-v*.*.*'
@@ -86,4 +93,3 @@ jobs:
         run: cd wizard && npm publish --access=public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
