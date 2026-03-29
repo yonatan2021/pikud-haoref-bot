@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomUUID, timingSafeEqual } from 'node:crypto';
 import type { Request, Response, NextFunction } from 'express';
 
 const COOKIE_NAME = 'dashboard_token';
@@ -21,7 +21,9 @@ export function createSessionStore(secret: string) {
       res.status(400).json({ error: 'סיסמה נדרשת' });
       return;
     }
-    if (password !== secret) {
+    const safeEq = (a: string, b: string): boolean =>
+      a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
+    if (!safeEq(password, secret)) {
       res.status(401).json({ error: 'סיסמה שגויה' });
       return;
     }
