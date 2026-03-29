@@ -7,7 +7,7 @@ const path = require('path');
 const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 const version = pkg.version;
 
-// Step 2: Parse README.md features table
+// Step 2: Parse README.md features — two sub-sections
 const readme = fs.readFileSync('README.md', 'utf8');
 
 const sectionMarker = '## ✨ תכונות';
@@ -23,28 +23,61 @@ if (sectionEnd === -1) {
 
 const featuresSection = readme.slice(sectionStart, sectionEnd);
 
-const featureCards = featuresSection
-  .split('\n')
-  .filter((line) => line.startsWith('|'))
-  .filter((line) => !line.includes('תכונה') && !line.includes('----'))
-  .map((line) => {
-    const inner = line.slice(1, -1);
-    const cells = inner.split('|').map((cell) => cell.trim());
-    const fullName = cells[0].replace(/\*\*/g, '');
-    const detail = cells[1];
-    // Split emoji icon from title text (emoji is always first "word")
-    const spaceIdx = fullName.indexOf(' ');
-    const icon = spaceIdx !== -1 ? fullName.slice(0, spaceIdx) : '';
-    const title = spaceIdx !== -1 ? fullName.slice(spaceIdx + 1) : fullName;
-    return [
-      `<div class="feature-card">`,
-      `  <span class="feature-icon">${icon}</span>`,
-      `  <span class="feature-title">${title}</span>`,
-      `  <span class="feature-desc">${detail}</span>`,
-      `</div>`,
-    ].join('\n');
-  })
-  .join('\n');
+// Parse a markdown table block into feature-card HTML
+function parseFeatureTable(text) {
+  return text
+    .split('\n')
+    .filter((line) => line.startsWith('|'))
+    .filter((line) => !line.includes('תכונה') && !line.includes('----'))
+    .map((line) => {
+      const inner = line.slice(1, -1);
+      const cells = inner.split('|').map((cell) => cell.trim());
+      const fullName = cells[0].replace(/\*\*/g, '');
+      const detail = cells[1];
+      if (detail === undefined) {
+        console.warn(`[landing/build.js] parseFeatureTable: row has fewer than 2 cells, skipping: ${line}`);
+        return null;
+      }
+      const spaceIdx = fullName.indexOf(' ');
+      const icon = spaceIdx !== -1 ? fullName.slice(0, spaceIdx) : '';
+      const title = spaceIdx !== -1 ? fullName.slice(spaceIdx + 1) : fullName;
+      return [
+        `<div class="feature-card">`,
+        `  <span class="feature-icon">${icon}</span>`,
+        `  <span class="feature-text">`,
+        `    <span class="feature-title">${title}</span>`,
+        `    <span class="feature-desc">${detail}</span>`,
+        `  </span>`,
+        `</div>`,
+      ].join('\n');
+    })
+    .filter(Boolean)
+    .join('\n');
+}
+
+// Split on the two sub-section markers
+const userMarker = '### 🔔 למשתמש הקצה';
+const devMarker  = '### ⚙️ למתכנתים ו-DevOps';
+
+const userStart = featuresSection.indexOf(userMarker);
+const devStart  = featuresSection.indexOf(devMarker);
+
+if (userStart === -1 || devStart === -1) {
+  throw new Error('Could not find user/dev sub-sections in features table');
+}
+
+const userSection = featuresSection.slice(userStart, devStart);
+const devSection  = featuresSection.slice(devStart);
+
+const userFeaturesHtml = parseFeatureTable(userSection);
+if (!userFeaturesHtml.trim()) {
+  throw new Error('parseFeatureTable returned empty HTML for user section — check README.md "### 🔔 למשתמש הקצה" table');
+}
+
+const devFeaturesHtml = parseFeatureTable(devSection);
+if (!devFeaturesHtml.trim()) {
+  throw new Error('parseFeatureTable returned empty HTML for dev section — check README.md "### ⚙️ למתכנתים ו-DevOps" table');
+}
 
 // Step 3: Get current date in Hebrew
 const buildDate = new Date().toLocaleDateString('he-IL', {
@@ -57,7 +90,8 @@ const buildDate = new Date().toLocaleDateString('he-IL', {
 const template = fs.readFileSync('landing/template/index.html', 'utf8');
 let output = template
   .replaceAll('{{VERSION}}', version)
-  .replaceAll('{{FEATURES_HTML}}', featureCards)
+  .replaceAll('{{USER_FEATURES_HTML}}', userFeaturesHtml)
+  .replaceAll('{{DEV_FEATURES_HTML}}', devFeaturesHtml)
   .replaceAll('{{BUILD_DATE}}', buildDate);
 
 // Inject GA4 tracking script if measurement ID is configured
@@ -71,6 +105,9 @@ const ga4Script = ga4Id
   ? `<script async src="https://www.googletagmanager.com/gtag/js?id=${ga4Id}"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${ga4Id}');</script>`
   : '';
+if (!output.includes('<!-- GA4_PLACEHOLDER -->')) {
+  throw new Error('landing/template/index.html is missing <!-- GA4_PLACEHOLDER --> — cannot inject GA4 script');
+}
 output = output.replace('<!-- GA4_PLACEHOLDER -->', ga4Script);
 
 // Create output directories
@@ -94,6 +131,9 @@ const originalScreenshots = 'docs/screenshots';
 const screenshotsDir = fs.existsSync(optimizedScreenshots)
   ? optimizedScreenshots
   : originalScreenshots;
+if (!fs.existsSync(screenshotsDir)) {
+  throw new Error(`Screenshots source directory not found. Checked: ${optimizedScreenshots}, ${originalScreenshots}`);
+}
 if (fs.existsSync(screenshotsDir)) {
   const screenshotFiles = fs.readdirSync(screenshotsDir);
   for (const file of screenshotFiles) {
