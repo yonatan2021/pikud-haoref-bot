@@ -87,6 +87,7 @@ export function Subscribers() {
     mutationFn: ({ id, body }: { id: number; body: Record<string, unknown> }) =>
       api.patch(`/api/subscribers/${id}`, body),
     onSuccess: () => {
+      toast.success('מנוי עודכן');
       qc.invalidateQueries({ queryKey: ['subscribers'] });
     },
     onError: () => toast.error('שגיאה בעדכון'),
@@ -114,15 +115,21 @@ export function Subscribers() {
 
   const bulkDeleteMutation = useMutation({
     mutationFn: async (ids: number[]) => {
-      await Promise.all(ids.map(id => api.delete(`/api/subscribers/${id}`)));
+      const results = await Promise.allSettled(ids.map(id => api.delete(`/api/subscribers/${id}`)));
+      const failed = results.filter(r => r.status === 'rejected').length;
+      return { succeeded: ids.length - failed, failed };
     },
-    onSuccess: (_, ids) => {
-      toast.success(`${ids.length} מנויים נמחקו`);
+    onSuccess: ({ succeeded, failed }) => {
+      if (failed > 0) {
+        toast.error(`${succeeded} נמחקו, ${failed} כשלונות`);
+      } else {
+        toast.success(`${succeeded} מנויים נמחקו`);
+      }
       setSelected(new Set());
       setBulkDeleteOpen(false);
-      qc.invalidateQueries({ queryKey: ['subscribers'] });
     },
     onError: () => toast.error('שגיאה במחיקה מרובה'),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['subscribers'] }),
   });
 
   const users = data?.data ?? [];
@@ -164,12 +171,7 @@ export function Subscribers() {
     };
     patchMutation.mutate(
       { id: editUser.chat_id, body },
-      {
-        onSuccess: () => {
-          toast.success('עודכן בהצלחה');
-          setEditUser(null);
-        },
-      },
+      { onSuccess: () => setEditUser(null) },
     );
   };
 
@@ -432,7 +434,7 @@ export function Subscribers() {
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 80, opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="fixed bottom-6 start-1/2 -translate-x-1/2 bg-[var(--color-glass)] backdrop-blur-md border border-[var(--color-border)] rounded-full px-6 py-3 flex items-center gap-4 shadow-lg z-50"
+              className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-[var(--color-glass)] backdrop-blur-md border border-[var(--color-border)] rounded-full px-6 py-3 flex items-center gap-4 shadow-lg z-50"
             >
               <span className="text-sm text-text-secondary">{selected.size} נבחרו</span>
               <button
