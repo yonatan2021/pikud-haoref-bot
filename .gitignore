@@ -14,4 +14,4 @@ docs/superpowers/
 .worktrees/
 CLAUDE.md
 .claude.local.md
-.claude/
+.claude/.worktrees/
