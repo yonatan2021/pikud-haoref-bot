@@ -4,7 +4,7 @@ import bbox from '@turf/bbox';
 import { polygon as turfPolygon, featureCollection } from '@turf/helpers';
 import type { FeatureCollection, Polygon } from 'geojson';
 import { Alert, CityEntry } from './types';
-import { getCityData, getCityById, buildGeoJSON } from './cityLookup';
+import { getCityData, getCityById, buildGeoJSON, expandGeoJSONBounds } from './cityLookup';
 import { isMonthlyLimitReached, incrementMonthlyCount } from './db/mapboxUsageRepository.js';
 
 const MAPBOX_URL_MAX_LENGTH = 8000;
@@ -36,6 +36,16 @@ export function getAlertColor(alertType: string): string {
   return ALERT_TYPE_COLOR[alertType] ?? '#FF0000';
 }
 
+/** Returns the Mapbox style ID based on Israel local time.
+ *  Light (06:00–18:00) for daytime; dark for nighttime.
+ *  Accepts an optional `now` for testability. Exported for testing. */
+export function getCurrentMapStyle(now: Date = new Date()): string {
+  const hour = new Date(
+    now.toLocaleString('en-US', { timeZone: 'Asia/Jerusalem' })
+  ).getHours();
+  return hour >= 6 && hour < 18 ? 'mapbox/light-v11' : 'mapbox/dark-v11';
+}
+
 interface CacheEntry {
   buffer: Buffer;
 }
@@ -43,7 +53,8 @@ interface CacheEntry {
 const imageCache = new Map<string, CacheEntry>();
 
 function buildCacheKey(alert: Alert): string {
-  return `${alert.type}:${[...alert.cities].sort().join('|')}`;
+  const period = getCurrentMapStyle().includes('light') ? 'day' : 'night';
+  return `${period}:${alert.type}:${[...alert.cities].sort().join('|')}`;
 }
 
 export function maxCacheSize(): number {
@@ -66,8 +77,8 @@ function buildMapboxUrl(geojson: FeatureCollection<Polygon>): string {
   const encoded = encodeURIComponent(JSON.stringify(geojson));
   const token = process.env.MAPBOX_ACCESS_TOKEN ?? '';
   return (
-    `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/` +
-    `geojson(${encoded})/auto/800x500@2x?access_token=${token}`
+    `https://api.mapbox.com/styles/v1/${getCurrentMapStyle()}/static/` +
+    `geojson(${encoded})/auto/800x500@2x?padding=40&access_token=${token}`
   );
 }
 
@@ -83,20 +94,22 @@ function simplifyFeatureCollection(
 }
 
 /** Builds a Mapbox Static Images URL using compact pin markers — one per city center.
+ *  Uses alert-type color and large pins (pin-l) for better visibility.
  *  Returns null when no valid city entries are found. Exported for testing. */
-export function _buildMarkersUrl(cityIds: number[]): string | null {
+export function _buildMarkersUrl(cityIds: number[], alertType: string = 'unknown'): string | null {
   const token = process.env.MAPBOX_ACCESS_TOKEN ?? '';
+  const hex = getAlertColor(alertType).replace('#', '');
   const markers = cityIds
     .map((id) => getCityById(id))
     .filter((city): city is CityEntry => city !== null)
-    .map((city) => `pin-s+FF0000(${city.lng.toFixed(4)},${city.lat.toFixed(4)})`)
+    .map((city) => `pin-l+${hex}(${city.lng.toFixed(4)},${city.lat.toFixed(4)})`)
     .join(',');
 
   if (!markers) return null;
 
   return (
-    `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/` +
-    `${markers}/auto/800x500@2x?access_token=${token}`
+    `https://api.mapbox.com/styles/v1/${getCurrentMapStyle()}/static/` +
+    `${markers}/auto/800x500@2x?padding=40&access_token=${token}`
   );
 }
 
@@ -157,12 +170,15 @@ export async function generateMapImage(alert: Alert): Promise<Buffer | null> {
     }
 
     const color = getAlertColor(alert.type);
-    const geojson = buildGeoJSON(cityIds, color);
+    const rawGeojson = buildGeoJSON(cityIds, color);
 
-    if (geojson.features.length === 0) {
+    if (rawGeojson.features.length === 0) {
       console.warn('[MapService] No polygons in data files — sending without map');
       return null;
     }
+
+    // Expand bounding box to guarantee ~50 km of geographic context
+    const geojson = expandGeoJSONBounds(rawGeojson);
 
     // ניסיון 1: פוליגונים מפושטים
     const simplified = simplifyFeatureCollection(geojson);
@@ -175,11 +191,9 @@ export async function generateMapImage(alert: Alert): Promise<Buffer | null> {
     }
 
     // ניסיון 3: סמני מרכז עיר (pin markers) — קומפקטי בהרבה מפוליגונים
-    // Note: pin markers use a fixed red color (#FF0000) regardless of alert type;
-    // the Mapbox Static Images pin-s format does not support per-type color at this URL length.
     if (url.length > MAPBOX_URL_MAX_LENGTH) {
       console.warn('[MapService] URL still too long — falling back to city markers');
-      const markersUrl = _buildMarkersUrl(cityIds);
+      const markersUrl = _buildMarkersUrl(cityIds, alert.type);
       if (markersUrl) url = markersUrl;
     }
 
