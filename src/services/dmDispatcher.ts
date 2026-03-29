@@ -5,7 +5,7 @@ import { getCityData } from '../cityLookup.js';
 import type { NotificationFormat } from '../db/userRepository.js';
 import { isMuted } from '../db/userRepository.js';
 import { ALERT_TYPE_CATEGORY } from '../topicRouter.js';
-import { dmQueue } from './dmQueue.js';
+import { dmQueue, type DmTask } from './dmQueue.js';
 import { log } from '../logger.js';
 
 function getMinCountdown(cityNames: string[]): number {
@@ -106,7 +106,10 @@ export function shouldSkipForQuietHours(
   return category === 'drills' || category === 'general';
 }
 
-export function notifySubscribers(alert: Alert): void {
+export function notifySubscribers(
+  alert: Alert,
+  enqueueAll: (tasks: DmTask[]) => void = (tasks) => dmQueue.enqueueAll(tasks)
+): void {
   try {
     const subscribers = getUsersForCities(alert.cities);
     const noMatch = subscribers.length === 0 && alert.cities.length > 0 ? ' (אין התאמת עיר)' : '';
@@ -139,7 +142,7 @@ export function notifySubscribers(alert: Alert): void {
       log('info', 'DM', `🔇 מושתק: ${skippedMuted} מנויים דולגו (${alert.type})`);
     }
 
-    dmQueue.enqueueAll(tasks);
+    enqueueAll(tasks);
   } catch (err) {
     log('error', 'DM', `כישלון בשליחת התראות type=${alert.type}: ${err}`);
   }

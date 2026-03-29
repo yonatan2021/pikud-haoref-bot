@@ -1,7 +1,11 @@
-import { describe, it } from 'node:test';
+import { describe, it, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Alert } from '../types';
-import { buildShortMessage, buildNewsFlashDmMessage, buildDmText, shouldSkipForQuietHours } from '../services/dmDispatcher';
+import { buildShortMessage, buildNewsFlashDmMessage, buildDmText, shouldSkipForQuietHours, notifySubscribers } from '../services/dmDispatcher';
+import type { DmTask } from '../services/dmQueue';
+
+// Use in-memory DB for all notifySubscribers integration tests
+process.env['DB_PATH'] = ':memory:';
 
 describe('dmDispatcher short format', () => {
   it('formats missiles alert correctly', () => {
@@ -224,5 +228,107 @@ describe('shouldSkipForQuietHours', () => {
     for (const type of alwaysThrough) {
       assert.equal(shouldSkipForQuietHours(type, true, NIGHT), false, `${type} must never be suppressed`);
     }
+  });
+});
+
+// notifySubscribers() integration tests — uses real DB with injected enqueueAll
+describe('notifySubscribers', () => {
+  // Lazy imports so DB modules load after the data dir is guaranteed to exist
+  let initDb: () => void;
+  let getDb: () => import('better-sqlite3').Database;
+  let closeDb: () => void;
+  let addSubscription: (chatId: number, cityName: string) => void;
+  let upsertUser: (chatId: number) => void;
+  let setQuietHours: (chatId: number, enabled: boolean) => void;
+  let setMutedUntil: (chatId: number, until: Date | null) => void;
+
+  const CHAT_A = 777001;
+  // 'אבו גוש' (id=511) — reliable test fixture with zone data
+  const TEST_CITY = 'אבו גוש';
+
+  before(async () => {
+    const schema = await import('../db/schema.js');
+    const subRepo = await import('../db/subscriptionRepository.js');
+    const userRepo = await import('../db/userRepository.js');
+    initDb = schema.initDb;
+    getDb = schema.getDb;
+    closeDb = schema.closeDb;
+    addSubscription = subRepo.addSubscription;
+    upsertUser = userRepo.upsertUser;
+    setQuietHours = userRepo.setQuietHours;
+    setMutedUntil = userRepo.setMutedUntil;
+    initDb();
+  });
+
+  beforeEach(() => {
+    getDb().prepare('DELETE FROM subscriptions').run();
+    getDb().prepare('DELETE FROM users').run();
+  });
+
+  after(() => {
+    closeDb();
+  });
+
+  it('enqueues tasks for subscribers with matching cities', () => {
+    upsertUser(CHAT_A);
+    addSubscription(CHAT_A, TEST_CITY);
+    const captured: DmTask[] = [];
+    const alert: Alert = { type: 'missiles', cities: [TEST_CITY] };
+    notifySubscribers(alert, (tasks) => captured.push(...tasks));
+    assert.equal(captured.length, 1);
+    assert.equal(captured[0].chatId, String(CHAT_A));
+    assert.ok(captured[0].text.length > 0);
+  });
+
+  it('sends nothing when no subscribers match', () => {
+    const captured: DmTask[] = [];
+    const alert: Alert = { type: 'missiles', cities: [TEST_CITY] };
+    notifySubscribers(alert, (tasks) => captured.push(...tasks));
+    assert.equal(captured.length, 0);
+  });
+
+  it('does NOT skip security alert subscriber even when muted', () => {
+    upsertUser(CHAT_A);
+    addSubscription(CHAT_A, TEST_CITY);
+    // Mute until far future
+    setMutedUntil(CHAT_A, new Date(Date.now() + 3_600_000));
+    const captured: DmTask[] = [];
+    const alert: Alert = { type: 'missiles', cities: [TEST_CITY] };
+    notifySubscribers(alert, (tasks) => captured.push(...tasks));
+    assert.equal(captured.length, 1, 'security alert must bypass mute');
+  });
+
+  it('skips muted subscriber for drill alert', () => {
+    upsertUser(CHAT_A);
+    addSubscription(CHAT_A, TEST_CITY);
+    setMutedUntil(CHAT_A, new Date(Date.now() + 3_600_000));
+    const captured: DmTask[] = [];
+    const alert: Alert = { type: 'missilesDrill', cities: [TEST_CITY] };
+    notifySubscribers(alert, (tasks) => captured.push(...tasks));
+    assert.equal(captured.length, 0, 'drill alert must be skipped for muted subscriber');
+  });
+
+  it('sends only matched cities to each subscriber', () => {
+    upsertUser(CHAT_A);
+    addSubscription(CHAT_A, TEST_CITY); // subscribed to only one city
+    const captured: DmTask[] = [];
+    const alert: Alert = { type: 'missiles', cities: [TEST_CITY, 'עיר אחרת'] };
+    notifySubscribers(alert, (tasks) => captured.push(...tasks));
+    assert.equal(captured.length, 1);
+    assert.ok(captured[0].text.includes(TEST_CITY));
+  });
+
+  it('handles errors from getUsersForCities without throwing', () => {
+    // Temporarily close DB to force an error
+    closeDb();
+    let threw = false;
+    try {
+      notifySubscribers({ type: 'missiles', cities: [TEST_CITY] }, () => {});
+    } catch {
+      threw = true;
+    }
+    assert.equal(threw, false, 'notifySubscribers must not propagate errors');
+    // Re-init for remaining tests
+    initDb();
   });
 });
