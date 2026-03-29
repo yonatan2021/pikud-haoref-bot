@@ -31,15 +31,17 @@ let _cache: Readonly<Record<string, CacheEntry>> = Object.freeze(buildDefaultCac
 
 export function loadTemplateCache(): void {
   const rows = getAllTemplates(getDb());
-  const merged = buildDefaultCache();
-  for (const row of rows) {
-    merged[row.alert_type] = {
-      emoji: row.emoji,
-      titleHe: row.title_he,
-      instructionsPrefix: row.instructions_prefix,
-    };
-  }
-  _cache = Object.freeze(merged);
+  const overrides = Object.fromEntries(
+    rows.map((row) => [
+      row.alert_type,
+      {
+        emoji: row.emoji,
+        titleHe: row.title_he,
+        instructionsPrefix: row.instructions_prefix,
+      },
+    ])
+  );
+  _cache = Object.freeze({ ...buildDefaultCache(), ...overrides });
   log('info', 'Templates', `מטמון תבניות נטען — ${rows.length} עקיפות`);
 }
 
