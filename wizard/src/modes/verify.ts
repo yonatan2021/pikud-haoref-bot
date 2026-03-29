@@ -78,7 +78,7 @@ export async function runVerify(flags: Flags): Promise<void> {
   const mapbox = String(flags.mapbox ?? env.MAPBOX_ACCESS_TOKEN ?? '')
   const whatsappEnabled = env.WHATSAPP_ENABLED === 'true'
 
-  if (!token && !mapbox && !whatsappEnabled) {
+  if (!token && !mapbox && !env.WHATSAPP_ENABLED) {
     p.log.error(`לא נמצאו הגדרות ב-${outputPath} — הפעל ${c.primary('npx pikud-haoref-bot')} תחילה`)
     return
   }

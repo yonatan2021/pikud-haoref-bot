@@ -12,9 +12,13 @@ describe('buildUpdateFields', () => {
       assert.ok(keys.includes(k), `missing ${k}`)
     }
   })
-  it('WHATSAPP_ENABLED has no validator and is not secret', () => {
+  it('WHATSAPP_ENABLED is not secret and validates true/false only', () => {
     const wa = buildUpdateFields().find((f) => f.key === 'WHATSAPP_ENABLED')!
-    assert.equal(wa.validate, undefined)
     assert.equal(wa.secret, undefined)
+    assert.ok(wa.validate, 'should have a validator')
+    assert.equal(wa.validate!('true'),  undefined)
+    assert.equal(wa.validate!('false'), undefined)
+    assert.ok(wa.validate!('yes'),  'should reject "yes"')
+    assert.ok(wa.validate!('1'),    'should reject "1"')
   })
 })

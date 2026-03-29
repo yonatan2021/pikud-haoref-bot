@@ -55,7 +55,7 @@ function printHelp(): void {
   ${c.bold('npx pikud-haoref-bot')} ${c.dim('[options]')}
 
   ${c.primary('פלטפורמה:')}
-    --whatsapp           ${c.muted('הפעל WhatsApp (ניתן לשלב עם Telegram)')}
+    --whatsapp           ${c.muted('הפעל WhatsApp (ניתן לשלב עם Telegram) — חל על setup/update בלבד')}
 
   ${c.primary('הגדרות Telegram:')}
     --token <val>        TELEGRAM_BOT_TOKEN  ${c.muted('(חובה ל-Telegram)')}
