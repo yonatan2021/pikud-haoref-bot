@@ -75,7 +75,7 @@ export function Sidebar({ uptime }: { uptime: number }) {
                     : 'text-text-secondary hover:bg-white/5 hover:text-text-primary'}`
                 }
               >
-                <motion.div whileHover={{ x: 2 }} className="flex items-center gap-3 w-full">
+                <motion.div whileHover={{ x: -2 }} className="flex items-center gap-3 w-full">
                   <item.icon size={16} className="flex-shrink-0" />
                   <AnimatePresence mode="wait">
                     {!collapsed && (
