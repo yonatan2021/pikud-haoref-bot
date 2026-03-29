@@ -149,6 +149,56 @@ describe('whatsappBroadcaster — partial failure', () => {
   });
 });
 
+describe('whatsappBroadcaster — null client despite ready', () => {
+  it('skips broadcast when getClientFn returns null even with ready status and groups', async () => {
+    const db = makeDb();
+    const sendMessage = mock.fn(async () => {});
+    const getChatById = mock.fn(async () => ({ sendMessage }));
+    const deps = makeDeps({
+      getStatusFn: mock.fn(() => 'ready') as unknown as () => string,
+      getEnabledGroupsFn: mock.fn(() => ['group1@g.us']) as unknown as BroadcasterDeps['getEnabledGroupsFn'],
+      getClientFn: mock.fn(() => null) as unknown as BroadcasterDeps['getClientFn'],
+    });
+    const broadcaster = createBroadcaster(db, deps);
+    await assert.doesNotReject(() => broadcaster(BASE_ALERT));
+    // getChatById and sendMessage should never be called since client is null
+    assert.equal(
+      (getChatById as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
+      0,
+      'getChatById must not be called when getClientFn returns null'
+    );
+    assert.equal(
+      (sendMessage as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
+      0,
+      'sendMessage must not be called when getClientFn returns null'
+    );
+  });
+
+  it('returns early without sending when formatFn throws', async () => {
+    const db = makeDb();
+    const sendMessage = mock.fn(async () => {});
+    const getChatById = mock.fn(async () => ({ sendMessage }));
+    const deps = makeDeps({
+      getStatusFn: mock.fn(() => 'ready') as unknown as () => string,
+      getEnabledGroupsFn: mock.fn(() => ['group1@g.us']) as unknown as BroadcasterDeps['getEnabledGroupsFn'],
+      getClientFn: mock.fn(() => ({ getChatById })) as unknown as BroadcasterDeps['getClientFn'],
+      formatFn: mock.fn(() => { throw new Error('formatter exploded'); }) as unknown as BroadcasterDeps['formatFn'],
+    });
+    const broadcaster = createBroadcaster(db, deps);
+    await assert.doesNotReject(() => broadcaster(BASE_ALERT));
+    assert.equal(
+      (getChatById as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
+      0,
+      'getChatById must not be called when formatter throws'
+    );
+    assert.equal(
+      (sendMessage as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
+      0,
+      'sendMessage must not be called when formatter throws'
+    );
+  });
+});
+
 describe('whatsappBroadcaster — no enabled groups', () => {
   it('does not call getClient when no groups are enabled for alert type', async () => {
     const db = makeDb();

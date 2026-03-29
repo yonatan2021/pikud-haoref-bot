@@ -81,6 +81,19 @@ describe('GET /api/whatsapp/status', () => {
     assert.equal(res.body.phone, '972501234567');
     assert.equal(res.body.groupCount, 1);
   });
+
+  it('returns { status: "connecting", groupCount: 0 } without qr or phone when connecting', async () => {
+    mockStatus = 'connecting';
+    mockQr = null;
+    mockPhone = null;
+    mockCachedGroups = [];
+    const res = await request(app).get('/api/whatsapp/status');
+    assert.equal(res.status, 200);
+    assert.equal(res.body.status, 'connecting');
+    assert.equal(res.body.qr, undefined);
+    assert.equal(res.body.phone, undefined);
+    assert.equal(res.body.groupCount, 0);
+  });
 });
 
 describe('GET /api/whatsapp/groups', () => {
@@ -177,6 +190,16 @@ describe('PATCH /api/whatsapp/groups/:id', () => {
     const group = groups.find((g) => g.groupId === '333@g.us');
     assert.ok(group);
     assert.equal(group.name, 'קבוצה ג');
+  });
+
+  it('returns 400 when alertTypes array length exceeds ALL_ALERT_TYPES.length', async () => {
+    // ALL_ALERT_TYPES has 18 entries; send 19 to exceed the limit
+    const tooMany = Array.from({ length: 19 }, () => 'missiles');
+    const res = await request(app)
+      .patch('/api/whatsapp/groups/111%40g.us')
+      .send({ enabled: true, alertTypes: tooMany });
+    assert.equal(res.status, 400);
+    assert.ok(res.body.error);
   });
 });
 

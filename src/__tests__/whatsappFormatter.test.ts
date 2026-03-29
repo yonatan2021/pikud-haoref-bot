@@ -100,6 +100,26 @@ describe('formatAlertForWhatsApp — instructions', () => {
   });
 });
 
+describe('formatAlertForWhatsApp — drill alert type', () => {
+  it('drill alert type uses 🔵 emoji and correct Hebrew title', () => {
+    // missilesDrill has default emoji 🔵 and title תרגיל — התרעת טילים
+    const alert: Alert = { type: 'missilesDrill', cities: [] };
+    const result = formatAlertForWhatsApp(alert);
+    assert.ok(result.startsWith('🔵 *'), `expected result to start with 🔵 *, got: ${result}`);
+    assert.ok(result.includes('תרגיל — התרעת טילים'), `expected drill title, got: ${result}`);
+  });
+});
+
+describe('formatAlertForWhatsApp — earthQuake alert type', () => {
+  it('earthQuake alert type uses 🟠 emoji and correct Hebrew title', () => {
+    // earthQuake has default emoji 🟠 and title רעידת אדמה
+    const alert: Alert = { type: 'earthQuake', cities: [] };
+    const result = formatAlertForWhatsApp(alert);
+    assert.ok(result.startsWith('🟠 *'), `expected result to start with 🟠 *, got: ${result}`);
+    assert.ok(result.includes('רעידת אדמה'), `expected earthQuake title, got: ${result}`);
+  });
+});
+
 describe('formatAlertForWhatsApp — unknown alert type fallback', () => {
   it('falls back to ⚠️ emoji and התרעה title for unknown type', () => {
     const alert: Alert = { type: 'completelyUnknownAlertType_xyz', cities: [] };
