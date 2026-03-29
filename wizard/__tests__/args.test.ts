@@ -84,4 +84,18 @@ describe('parseArgs', () => {
   it('parses space-separated flag value that does not start with dash', () => {
     assert.equal(parseArgs(['--token', 'mytoken123']).token, 'mytoken123')
   })
+
+  it('sets whatsapp flag with --whatsapp', () => {
+    assert.equal(parseArgs(['--whatsapp']).whatsapp, true)
+  })
+
+  it('--whatsapp is independent of --verify', () => {
+    const f = parseArgs(['--whatsapp', '--verify'])
+    assert.equal(f.whatsapp, true)
+    assert.equal(f.verify, true)
+  })
+
+  it('does not set whatsapp without the flag', () => {
+    assert.equal(parseArgs(['--token=abc']).whatsapp, undefined)
+  })
 })

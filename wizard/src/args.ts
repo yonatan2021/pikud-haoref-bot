@@ -3,6 +3,7 @@ export interface Flags {
   full?: boolean
   verify?: boolean
   update?: boolean
+  whatsapp?: boolean
   token?: string
   'chat-id'?: string
   mapbox?: string
@@ -22,6 +23,7 @@ export function parseArgs(argv: string[]): Flags {
     if (arg === '--full')   { flags.full   = true; continue }
     if (arg === '--verify') { flags.verify = true; continue }
     if (arg === '--update') { flags.update = true; continue }
+    if (arg === '--whatsapp') { flags.whatsapp = true; continue }
     const match = arg.match(/^--([a-z][a-z0-9-]*)(?:=(.+))?$/)
     if (match) {
       const key = match[1]
