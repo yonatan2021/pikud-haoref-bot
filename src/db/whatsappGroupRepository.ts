@@ -1,4 +1,5 @@
 import type Database from 'better-sqlite3';
+import { log } from '../logger.js';
 
 interface WhatsAppGroupRow {
   group_id: string;
@@ -14,12 +15,26 @@ export interface WhatsAppGroupConfig {
   alertTypes: string[];
 }
 
+function parseAlertTypes(raw: string, groupId: string): string[] {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.every((t) => typeof t === 'string')) {
+      return parsed as string[];
+    }
+    log('warn', 'WhatsApp', `alert_types לא תקין בקבוצה ${groupId} — מחזיר ריק`);
+    return [];
+  } catch {
+    log('warn', 'WhatsApp', `JSON פגום ב-alert_types של קבוצה ${groupId} — מחזיר ריק`);
+    return [];
+  }
+}
+
 function decodeRow(raw: WhatsAppGroupRow): WhatsAppGroupConfig {
   return {
     groupId: raw.group_id,
     name: raw.name,
     enabled: raw.enabled === 1,
-    alertTypes: JSON.parse(raw.alert_types) as string[],
+    alertTypes: parseAlertTypes(raw.alert_types, raw.group_id),
   };
 }
 
@@ -57,7 +72,7 @@ export function getEnabledGroupsForAlertType(
 
   return rows
     .filter((row) => {
-      const types = JSON.parse(row.alert_types) as string[];
+      const types = parseAlertTypes(row.alert_types, row.group_id);
       return types.includes(alertType);
     })
     .map((row) => row.group_id);
