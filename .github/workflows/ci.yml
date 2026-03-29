@@ -12,8 +12,42 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  filter:
+    name: Detect changed paths
+    runs-on: ubuntu-latest
+    outputs:
+      bot: ${{ steps.changes.outputs.bot }}
+      dashboard: ${{ steps.changes.outputs.dashboard }}
+      docker: ${{ steps.changes.outputs.docker }}
+      wizard: ${{ steps.changes.outputs.wizard }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            bot:
+              - 'src/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'tsconfig.json'
+              - 'tsconfig.*.json'
+            dashboard:
+              - 'dashboard-ui/**'
+            docker:
+              - 'src/**'
+              - 'dashboard-ui/**'
+              - 'Dockerfile'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'tsconfig.json'
+            wizard:
+              - 'wizard/**'
+
   test:
     name: Type-check & Test
+    needs: filter
+    if: needs.filter.outputs.bot == 'true'
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -43,6 +77,9 @@ jobs:
         run: npx tsx --test 'src/__tests__/dashboard/**/*.test.ts'
 
   dashboard-build:
+    name: dashboard-build
+    needs: filter
+    if: needs.filter.outputs.dashboard == 'true'
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -60,6 +97,8 @@ jobs:
 
   docker-build:
     name: Docker Build Validation
+    needs: filter
+    if: needs.filter.outputs.docker == 'true'
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -82,6 +121,8 @@ jobs:
 
   wizard-check:
     name: Wizard Type-check & Test
+    needs: filter
+    if: needs.filter.outputs.wizard == 'true'
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -118,3 +159,23 @@ jobs:
       - name: Run wizard tests
         if: steps.check.outputs.exists == 'true'
         run: cd wizard && npm test
+
+  ci-gate:
+    name: CI Gate
+    runs-on: ubuntu-latest
+    needs: [test, dashboard-build, docker-build, wizard-check]
+    if: always()
+    steps:
+      - name: All checks passed or skipped
+        env:
+          NEEDS_RESULTS: ${{ toJson(needs) }}
+        run: |
+          echo "$NEEDS_RESULTS" | jq -e '
+            to_entries | all(
+              .value.result == "success" or
+              .value.result == "skipped"
+            )
+          ' && echo "All CI jobs passed or were skipped." || {
+            echo "One or more required CI jobs failed or were cancelled."
+            exit 1
+          }
