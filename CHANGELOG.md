@@ -36,9 +36,31 @@
 - **section divider** — קו הפרדה עם תאריך בין ה-startup box לשורות הלוג
 - **מונה התראות היום** — startup box מציג כמה התראות נשלחו היום (מה-DB)
 
+### 🐛 תיקוני באגים
+
+#### DM ו-Bot
+- **יצירת `data/` אוטומטית** — `schema.ts` יוצר את תיקיית `data/` אם אינה קיימת לפני פתיחת ה-DB; מונע `SQLITE_CANTOPEN` בהתקנות רעננות שבהן התיקייה מוסרת ע"י gitignore
+- **ניווט אזורים stateless** — `zoneHandler.ts` מקודד כעת את ה-context המלא (`superRegionIdx:zoneIdx:page`) ישירות ב-callback_data של כל כפתור (`zp:`, `ct:`, `ca:`, `cr:`); הכפתורים עובדים לאחר restart הבוט ללא state בצד שרת; `ZoneState Map` הוסר לחלוטין
+- **`settingsHandler.ts`** — 13 קריאות `console.error` הוחלפו ב-`log()` מ-`logger.ts`
+- **`dmDispatcher.ts`** — פרמטר `enqueueAll` להזרקה בבדיקות (ברירת מחדל: `dmQueue`) — מאפשר בדיקות יחידה ללא module mocking
+
+#### Dashboard UI — RTL Audit
+- **Recharts** — נוסף `orientation="right"` ל-`<YAxis>` ב-Overview ו-Alerts; הציר מופיע כעת בצד הנכון בממשק RTL
+- **Sidebar** — תוקן ל-`border-l-2` (הקצה הפנימי מול אזור התוכן) במקום `border-r-2`
+- **Pagination** — חצי ניווט הוחלפו (RTL-correct)
+- **Framer Motion** — כיוון `x` entry animation תוקן לערכים חיוביים לכניסה מימין (RTL-correct)
+
+### 🧪 בדיקות
+- 13 בדיקות חדשות ל-`notifySubscribers()` — אינטגרציה עם DB אמיתי + enqueueAll מוזרק
+- 5 בדיקות לפילטר `snooze` / `muted_until` ב-`dmDispatcher`
+- 2 בדיקות לפילטר `quiet hours` בשליחה לתור
+
 ### 🔧 תחזוקה
 - `src/loggerUtils.ts` — קובץ helpers חדש (`wrapRtl`, `osc8Link`, `boxWidth`, `hr`, `containsHebrew`)
 - `src/db/alertHistoryRepository.ts` — הוספת `countAlertsToday()`
+- **CI: `--test-concurrency=1`** — בדיקות core רצות סדרתית כדי למנוע race conditions בין `mapboxUsageRepository.test.ts` ו-`mapService.test.ts` שחולקים DB על הדיסק
+- **CI: `wizard-check`** — בדיקת קיום `wizard/package-lock.json` הועברה מ-job-level `if` לשלב ייעודי (hashFiles() זמין רק ב-step context, לא ב-job context)
+- `.worktrees/` נוסף ל-`.gitignore`
 
 ---
 
