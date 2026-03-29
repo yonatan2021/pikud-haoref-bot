@@ -5,7 +5,7 @@ import { writeEnvFile } from '../env.js'
 import { promptRequired } from '../steps/required.js'
 import { promptOptional } from '../steps/optional.js'
 import { promptDeploymentMode, printDockerInstructions, printNodeInstructions } from '../steps/deployment.js'
-import { promptPlatform } from '../steps/platform.js'
+import { promptPlatform, needsWhatsApp } from '../steps/platform.js'
 import type { Flags } from '../args.js'
 
 /** Fresh setup flow: required → optional → deployment → write .env → outro. */
@@ -29,6 +29,7 @@ export async function runSetup(flags: Flags): Promise<void> {
     ...(required.token  ? { TELEGRAM_BOT_TOKEN:  required.token }  : {}),
     ...(required.chatId ? { TELEGRAM_CHAT_ID:    required.chatId } : {}),
     ...(required.mapbox ? { MAPBOX_ACCESS_TOKEN: required.mapbox } : {}),
+    ...(needsWhatsApp(platform) ? { WHATSAPP_ENABLED: 'true' } : {}),
     ...(optional.DASHBOARD_SECRET      ? { DASHBOARD_SECRET:              optional.DASHBOARD_SECRET }      : {}),
     ...(optional.PROXY_URL             ? { PROXY_URL:                     optional.PROXY_URL }             : {}),
     ...(optional.TELEGRAM_INVITE_LINK  ? { TELEGRAM_INVITE_LINK:          optional.TELEGRAM_INVITE_LINK }  : {}),
@@ -43,9 +44,9 @@ export async function runSetup(flags: Flags): Promise<void> {
   p.log.success(msg.envWritten(outputPath))
 
   if (mode === 'docker') {
-    printDockerInstructions(outputPath)
+    printDockerInstructions(outputPath, platform)
   } else {
-    printNodeInstructions()
+    printNodeInstructions(platform)
   }
 
   p.outro(msg.allDone)
