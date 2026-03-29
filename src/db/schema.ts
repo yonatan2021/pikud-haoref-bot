@@ -83,6 +83,13 @@ export function initSchema(database: Database.Database): void {
       title_he            TEXT NOT NULL,
       instructions_prefix TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS whatsapp_groups (
+      group_id    TEXT PRIMARY KEY,
+      name        TEXT NOT NULL,
+      enabled     INTEGER NOT NULL DEFAULT 0,
+      alert_types TEXT NOT NULL DEFAULT '[]'
+    );
   `);
 
   database.exec(
