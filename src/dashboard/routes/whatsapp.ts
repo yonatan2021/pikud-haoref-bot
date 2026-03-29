@@ -17,12 +17,8 @@ export interface WhatsAppServiceDeps {
 
 export function createWhatsAppRouter(
   db: Database.Database,
-  svc?: WhatsAppServiceDeps,
+  service: WhatsAppServiceDeps,
 ): Router {
-  // Default to the real service when not injected
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const service: WhatsAppServiceDeps = svc ?? require('../../whatsapp/whatsappService.js');
-
   const router = Router();
 
   // GET /status
@@ -90,6 +86,12 @@ export function createWhatsAppRouter(
   // PUT /groups/:id — update group config
   router.put('/groups/:id', (req: Request, res: Response) => {
     const groupId = decodeURIComponent(req.params.id);
+
+    if (!groupId.trim()) {
+      res.status(400).json({ error: 'מזהה קבוצה לא תקין' });
+      return;
+    }
+
     const { enabled, alertTypes } = req.body as { enabled: unknown; alertTypes: unknown };
 
     if (typeof enabled !== 'boolean') {
@@ -102,6 +104,11 @@ export function createWhatsAppRouter(
       !alertTypes.every((t) => typeof t === 'string')
     ) {
       res.status(400).json({ error: 'השדה alertTypes חייב להיות מערך מחרוזות' });
+      return;
+    }
+
+    if (alertTypes.length > ALL_ALERT_TYPES.length) {
+      res.status(400).json({ error: 'יותר מדי סוגי התרעה' });
       return;
     }
 

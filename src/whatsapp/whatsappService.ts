@@ -56,6 +56,11 @@ export function initialize(): void {
     return;
   }
 
+  if (client !== null) {
+    log('warn', 'WhatsApp', 'כבר מחובר — מדלג על אתחול נוסף');
+    return;
+  }
+
   const sessionPath = path.join(__dirname, '../../data/whatsapp-session');
 
   client = new Client({
