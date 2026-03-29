@@ -17,18 +17,7 @@ function alertsToday(): { count: number; error: boolean } {
   }
 }
 
-function resolvePort(override?: number): number {
-  if (override !== undefined) return override;
-  const parsed = parseInt(process.env.HEALTH_PORT ?? '', 10);
-  if (isNaN(parsed)) {
-    log('warn', 'Health', 'HEALTH_PORT אינו מספר תקין — חוזר לפורט 3000');
-    return 3000;
-  }
-  return parsed;
-}
-
-export function startHealthServer(port?: number): http.Server {
-  const resolvedPort = resolvePort(port);
+export function startHealthServer(port: number): http.Server {
   const server = http.createServer((req, res) => {
     try {
       if (req.url !== '/health') {
@@ -53,8 +42,8 @@ export function startHealthServer(port?: number): http.Server {
   // Non-critical endpoint — log and continue rather than crashing the bot on any
   // listen error (EADDRINUSE, EACCES, etc.). The bot runs without health monitoring.
   server.on('error', (err: NodeJS.ErrnoException) => {
-    log('error', 'Health', `כישלון בהפעלת שרת על פורט ${resolvedPort}: ${err.message}`);
+    log('error', 'Health', `כישלון בהפעלת שרת על פורט ${port}: ${err.message}`);
   });
-  server.listen(resolvedPort);
+  server.listen(port);
   return server;
 }
