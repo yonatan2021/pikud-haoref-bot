@@ -1,5 +1,5 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -45,7 +45,7 @@ function ToggleSwitch({ value, onChange }: ToggleSwitchProps) {
 }
 
 export function Settings() {
-  const { data: settings, isLoading } = useQuery<Settings>({
+  const { data: settings, isLoading, isError: settingsError } = useQuery<Settings>({
     queryKey: ['settings'],
     queryFn: () => api.get('/api/settings'),
   });
@@ -58,6 +58,9 @@ export function Settings() {
   const [form, setForm] = useState<Settings>({});
   const [dirty, setDirty] = useState(false);
   const [saveState, setSaveState] = useState<'idle' | 'loading' | 'success'>('idle');
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); }, []);
 
   useEffect(() => {
     if (settings) {
@@ -80,16 +83,19 @@ export function Settings() {
       if (form.quiet_hours_global) body.quiet_hours_global = form.quiet_hours_global;
       return api.patch('/api/settings', body);
     },
+    onMutate: () => setSaveState('loading'),
     onSuccess: () => {
       toast.success('הגדרות נשמרו');
       setDirty(false);
       setSaveState('success');
-      setTimeout(() => setSaveState('idle'), 2000);
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(() => setSaveState('idle'), 2000);
     },
     onError: () => {
       toast.error('שגיאה בשמירה');
       setSaveState('idle');
     },
+    onSettled: () => { if (saveState === 'loading') setSaveState('idle'); },
   });
 
   const updateField = (key: keyof Settings, value: string) => {
@@ -110,6 +116,14 @@ export function Settings() {
     );
   }
 
+  if (settingsError) {
+    return (
+      <div className="p-8 text-center text-text-muted text-sm">
+        שגיאה בטעינת הגדרות — רענן את הדף
+      </div>
+    );
+  }
+
   return (
     <PageTransition>
       <div className="space-y-6">
@@ -117,7 +131,7 @@ export function Settings() {
           <h1 className="text-2xl font-bold text-text-primary">הגדרות</h1>
           <button
             disabled={!dirty || saveState === 'loading'}
-            onClick={() => { setSaveState('loading'); saveMutation.mutate(); }}
+            onClick={() => saveMutation.mutate()}
             className={`px-6 py-2 text-sm font-bold rounded-lg disabled:opacity-40 transition-colors flex items-center gap-2 min-w-[140px] justify-center ${
               saveState === 'success'
                 ? 'bg-green text-white'
