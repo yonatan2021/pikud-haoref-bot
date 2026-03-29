@@ -2,6 +2,7 @@ import { EventEmitter } from 'events';
 import axios from 'axios';
 import { Alert } from './types';
 import { updateLastPollAt } from './metrics.js';
+import { log } from './logger.js';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const pikudHaoref = require('pikud-haoref-api');
@@ -49,7 +50,7 @@ export class AlertPoller extends EventEmitter {
   private citylessFingerprints = new Set<string>();
 
   start(intervalMs = 2000): void {
-    console.log(`[AlertPoller] Starting poll every ${intervalMs / 1000}s`);
+    log('info', 'Poller', `מתחיל polling כל ${intervalMs / 1000} שניות`);
     const schedule = (): void => {
       this.poll().finally(() => setTimeout(schedule, intervalMs));
     };
@@ -71,7 +72,7 @@ export class AlertPoller extends EventEmitter {
       pikudHaoref.getActiveAlerts(
         (err: Error | null, alerts: Alert[]) => {
           if (err) {
-            console.error('[AlertPoller] Error fetching alerts:', err);
+            log('error', 'Poller', `שגיאה בשליפת התראות: ${err}`);
             return resolve();
           }
 
@@ -98,9 +99,7 @@ export class AlertPoller extends EventEmitter {
             const fingerprint = buildFingerprint(alert);
             if (!this.seenFingerprints.has(fingerprint)) {
               this.seenFingerprints.add(fingerprint);
-              console.log(
-                `[AlertPoller] New alert: ${alert.type} — ${alert.cities.length} cities`
-              );
+              log('info', 'Poller', `התראה חדשה: ${alert.type} — ${alert.cities.length} ערים`);
               this.emit('newAlert', alert);
             }
           }
@@ -126,7 +125,7 @@ export class AlertPoller extends EventEmitter {
       let buffer = Buffer.from(res.data as ArrayBuffer);
 
       if (buffer.length < 2) {
-        console.warn('[AlertPoller] newsFlash response too short — skipping');
+        log('warn', 'Poller', 'תגובת newsFlash קצרה מדי — מדלג');
         return;
       }
 
@@ -153,14 +152,12 @@ export class AlertPoller extends EventEmitter {
       try {
         json = JSON.parse(body);
       } catch (parseErr) {
-        console.error('[AlertPoller] newsFlash JSON parse failed:', parseErr,
-          `— body preview: ${body.slice(0, 200)}`);
+        log('error', 'Poller', `newsFlash JSON parse נכשל: ${parseErr} — תצוגה מקדימה: ${body.slice(0, 200)}`);
         return;
       }
 
       if (json == null || typeof json !== 'object' || !('cat' in json)) {
-        console.error('[AlertPoller] newsFlash response has unexpected shape — skipping:',
-          JSON.stringify(json).slice(0, 200));
+        log('error', 'Poller', `newsFlash תגובה בעלת מבנה לא צפוי — מדלג: ${JSON.stringify(json).slice(0, 200)}`);
         return;
       }
 
@@ -204,11 +201,11 @@ export class AlertPoller extends EventEmitter {
         const desc = normalizedCities.length > 0
           ? `newsFlash — ${normalizedCities.length} cities (direct fetch)`
           : 'nationwide newsFlash (no cities)';
-        console.log(`[AlertPoller] New alert: ${desc}`);
+        log('info', 'Poller', `התראה חדשה: ${desc}`);
         this.emit('newAlert', alert);
       }
     } catch (err) {
-      console.error('[AlertPoller] Error checking nationwide newsFlash:', err);
+      log('error', 'Poller', `שגיאה בבדיקת newsFlash ארצי: ${err}`);
     }
   }
 

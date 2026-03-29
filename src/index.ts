@@ -15,13 +15,19 @@ import { startHealthServer } from './healthServer.js';
 import { updateLastAlertAt } from './metrics.js';
 import { startDashboardServer } from './dashboard/server.js';
 import { getDb } from './db/schema.js';
+import { log, logStartupHeader } from './logger.js';
+
+// Prevent broken-pipe errors from crashing the bot when a stdout consumer exits.
+process.stdout.on('error', (err: NodeJS.ErrnoException) => {
+  if (err.code !== 'EPIPE') throw err;
+});
 
 const REQUIRED_ENV_VARS = ['TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID', 'MAPBOX_ACCESS_TOKEN'];
 
 for (const envVar of REQUIRED_ENV_VARS) {
   if (!process.env[envVar]) {
-    console.error(`[Error] Missing env var: ${envVar}`);
-    console.error('Copy env.example to .env and fill in the required values');
+    log('error', 'Init', `חסר משתנה סביבה: ${envVar}`);
+    log('error', 'Init', 'העתק env.example ל-.env ומלא את הערכים הנדרשים');
     process.exit(1);
   }
 }
@@ -31,11 +37,21 @@ for (const envVar of REQUIRED_ENV_VARS) {
     initDb();
     loadActiveMessages();
   } catch (err) {
-    console.error('[Init] Database init failed — bot cannot start:', err);
+    log('error', 'Init', `כישלון אתחול מסד נתונים — הבוט לא יכול להתחיל: ${err}`);
     process.exit(1);
   }
 
-  startHealthServer();
+  const rawHealthPort = parseInt(process.env.HEALTH_PORT ?? '3000', 10);
+  const resolvedHealthPort = isNaN(rawHealthPort) ? 3000 : rawHealthPort;
+  if (process.env.HEALTH_PORT && isNaN(rawHealthPort)) {
+    log('warn', 'Init', 'HEALTH_PORT אינו מספר תקין — חוזר לפורט 3000');
+  }
+  const healthServer = startHealthServer(resolvedHealthPort);
+  // Wait for actual bind result before printing the startup header.
+  const healthOk = await new Promise<boolean>((resolve) => {
+    healthServer.once('listening', () => resolve(true));
+    healthServer.once('error', () => resolve(false));
+  });
 
   const dashboardSecret = process.env.DASHBOARD_SECRET;
   const rawDashboardPort = parseInt(process.env.DASHBOARD_PORT ?? '4000', 10);
@@ -46,8 +62,6 @@ for (const envVar of REQUIRED_ENV_VARS) {
 
   if (dashboardSecret) {
     startDashboardServer(getDb(), bot, dashboardPort, dashboardSecret);
-  } else {
-    console.warn('[dashboard] DASHBOARD_SECRET not set — dashboard disabled');
   }
 
   const poller = new AlertPoller();
@@ -70,10 +84,16 @@ for (const envVar of REQUIRED_ENV_VARS) {
   });
 
   poller.start(2000);
-  console.log('🤖 Pikud HaOref bot v0.1.6 active — polling every 2 seconds');
+
+  logStartupHeader('0.1.6', [
+    { name: 'Health Server', detail: healthOk ? `פורט ${resolvedHealthPort}` : 'נכשל בהפעלה', ok: healthOk },
+    { name: 'Alert Poller',  detail: 'כל 2 שניות',                                              ok: true },
+    { name: 'Dashboard',     detail: dashboardSecret ? `פורט ${dashboardPort}` : 'כבוי (אין DASHBOARD_SECRET)', ok: !!dashboardSecret },
+    { name: 'Database',      detail: 'מאותחל',                                                   ok: true },
+  ]);
 
   bot.start().catch((err) => {
-    console.error('[Bot] Bot startup error:', err);
+    log('error', 'Bot', `שגיאה בהפעלת הבוט: ${err}`);
     process.exit(1);
   });
 })();
