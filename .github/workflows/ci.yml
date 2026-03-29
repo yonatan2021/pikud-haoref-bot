@@ -31,7 +31,6 @@ jobs:
               - 'package.json'
               - 'package-lock.json'
               - 'tsconfig.json'
-              - 'tsconfig.*.json'
             dashboard:
               - 'dashboard-ui/**'
             docker:
