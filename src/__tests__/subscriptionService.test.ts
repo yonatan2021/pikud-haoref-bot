@@ -17,7 +17,7 @@ import {
   isSubscribed,
   getSubscriptionCount,
 } from '../db/subscriptionRepository';
-import { upsertUser, setFormat, setQuietHours, deleteUser } from '../db/userRepository';
+import { upsertUser, setFormat, setQuietHours, setMutedUntil, isMuted, deleteUser } from '../db/userRepository';
 
 describe('subscriptionService', () => {
   const CHAT_A = 111111;
@@ -188,6 +188,54 @@ describe('subscriptionService', () => {
         .prepare('SELECT quiet_hours_enabled FROM users WHERE chat_id = ?')
         .get(CHAT_A) as { quiet_hours_enabled: number };
       assert.equal(row.quiet_hours_enabled, 0);
+    });
+  });
+
+  describe('snooze / muted_until', () => {
+    it('isMuted returns false when muted_until is null', () => {
+      upsertUser(CHAT_A);
+      assert.equal(isMuted(CHAT_A), false);
+    });
+
+    it('isMuted returns true within the mute window', () => {
+      upsertUser(CHAT_A);
+      setMutedUntil(CHAT_A, new Date(Date.now() + 3_600_000)); // 1 hour from now
+      assert.equal(isMuted(CHAT_A), true);
+    });
+
+    it('isMuted returns false after the mute window expires', () => {
+      upsertUser(CHAT_A);
+      setMutedUntil(CHAT_A, new Date(Date.now() - 1)); // 1ms in the past
+      assert.equal(isMuted(CHAT_A), false);
+    });
+
+    it('setMutedUntil stores ISO datetime string in DB', () => {
+      upsertUser(CHAT_A);
+      const future = new Date(Date.now() + 3_600_000);
+      setMutedUntil(CHAT_A, future);
+      const row = getDb()
+        .prepare('SELECT muted_until FROM users WHERE chat_id = ?')
+        .get(CHAT_A) as { muted_until: string };
+      assert.equal(row.muted_until, future.toISOString());
+    });
+
+    it('setMutedUntil(null) clears the mute', () => {
+      upsertUser(CHAT_A);
+      setMutedUntil(CHAT_A, new Date(Date.now() + 3_600_000));
+      setMutedUntil(CHAT_A, null);
+      assert.equal(isMuted(CHAT_A), false);
+      const row = getDb()
+        .prepare('SELECT muted_until FROM users WHERE chat_id = ?')
+        .get(CHAT_A) as { muted_until: string | null };
+      assert.equal(row.muted_until, null);
+    });
+
+    it('isMuted is independent per user', () => {
+      upsertUser(CHAT_A);
+      upsertUser(CHAT_B);
+      setMutedUntil(CHAT_A, new Date(Date.now() + 3_600_000));
+      assert.equal(isMuted(CHAT_A), true);
+      assert.equal(isMuted(CHAT_B), false);
     });
   });
 });

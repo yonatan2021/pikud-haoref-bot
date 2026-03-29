@@ -12,14 +12,6 @@ import { upsertUser } from '../db/userRepository.js';
 
 const PAGE_SIZE = 8;
 
-interface ZoneState {
-  superRegionIdx: number;
-  zoneIdx: number;
-  page: number;
-}
-
-const zoneStates = new Map<number, ZoneState>();
-
 function buildSuperRegionMenu(): InlineKeyboard {
   const keyboard = new InlineKeyboard();
   SUPER_REGIONS.forEach((sr, idx) => {
@@ -49,6 +41,8 @@ function buildZoneMenu(superRegionIdx: number): InlineKeyboard {
   return keyboard;
 }
 
+// All navigation context (superRegionIdx, zoneIdx, page) is encoded directly in every
+// callback_data string so that buttons remain functional after a bot restart.
 function buildCitiesMenu(chatId: number, superRegionIdx: number, zoneIdx: number, page: number): {
   text: string;
   keyboard: InlineKeyboard;
@@ -64,10 +58,11 @@ function buildCitiesMenu(chatId: number, superRegionIdx: number, zoneIdx: number
   slice.forEach((city, idx) => {
     const subscribed = isSubscribed(chatId, city.name);
     const label = subscribed ? `✅ ${city.name}` : city.name;
+    // Encode full context so ct: handler can refresh the keyboard without server state
     if (idx % 2 === 0) {
-      keyboard.text(label, `ct:${city.id}`);
+      keyboard.text(label, `ct:${city.id}:${superRegionIdx}:${zoneIdx}:${safePage}`);
     } else {
-      keyboard.text(label, `ct:${city.id}`).row();
+      keyboard.text(label, `ct:${city.id}:${superRegionIdx}:${zoneIdx}:${safePage}`).row();
     }
   });
   if (slice.length % 2 !== 0) keyboard.row();
@@ -75,21 +70,16 @@ function buildCitiesMenu(chatId: number, superRegionIdx: number, zoneIdx: number
   const subscribedInZone = cities.filter((c) => isSubscribed(chatId, c.name));
   if (subscribedInZone.length > 0) {
     keyboard
-      .text('✓ בחר כל האזור', `ca:${superRegionIdx}:${zoneIdx}`)
-      .text('✗ הסר את כל האזור', `cr:${superRegionIdx}:${zoneIdx}`)
+      .text('✓ בחר כל האזור', `ca:${superRegionIdx}:${zoneIdx}:${safePage}`)
+      .text('✗ הסר את כל האזור', `cr:${superRegionIdx}:${zoneIdx}:${safePage}`)
       .row();
   } else {
-    keyboard.text('✓ בחר כל האזור', `ca:${superRegionIdx}:${zoneIdx}`).row();
+    keyboard.text('✓ בחר כל האזור', `ca:${superRegionIdx}:${zoneIdx}:${safePage}`).row();
   }
 
-  const navRow: string[] = [];
-  if (safePage > 0) navRow.push(`zp:${safePage - 1}`);
-  if (totalPages > 1) navRow.push(`zpinfo`);
-  if (safePage < totalPages - 1) navRow.push(`zp:${safePage + 1}`);
-
-  if (safePage > 0) keyboard.text('‹ הקודם', `zp:${safePage - 1}`);
+  if (safePage > 0) keyboard.text('‹ הקודם', `zp:${superRegionIdx}:${zoneIdx}:${safePage - 1}`);
   if (totalPages > 1) keyboard.text(`${safePage + 1}/${totalPages}`, 'noop');
-  if (safePage < totalPages - 1) keyboard.text('הבא ›', `zp:${safePage + 1}`);
+  if (safePage < totalPages - 1) keyboard.text('הבא ›', `zp:${superRegionIdx}:${zoneIdx}:${safePage + 1}`);
   if (totalPages > 1) keyboard.row();
 
   keyboard.text('↩️ חזור לאזורים', `sr:${superRegionIdx}`);
@@ -129,28 +119,31 @@ export function registerZoneHandler(bot: Bot): void {
     if (!chatId) return;
     const superRegionIdx = parseInt(ctx.match![1]);
     const zoneIdx = parseInt(ctx.match![2]);
-    zoneStates.set(chatId, { superRegionIdx, zoneIdx, page: 0 });
     const { text, keyboard } = buildCitiesMenu(chatId, superRegionIdx, zoneIdx, 0);
     await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
   });
 
-  bot.callbackQuery(/^zp:(\d+)$/, async (ctx: Context) => {
+  // zp:superRegionIdx:zoneIdx:page — fully self-contained, no server-side state needed
+  bot.callbackQuery(/^zp:(\d+):(\d+):(\d+)$/, async (ctx: Context) => {
     await ctx.answerCallbackQuery();
     const chatId = ctx.chat?.id;
     if (!chatId) return;
-    const page = parseInt(ctx.match![1]);
-    const state = zoneStates.get(chatId);
-    if (!state) return;
-    state.page = page;
-    const { text, keyboard } = buildCitiesMenu(chatId, state.superRegionIdx, state.zoneIdx, page);
+    const superRegionIdx = parseInt(ctx.match![1]);
+    const zoneIdx = parseInt(ctx.match![2]);
+    const page = parseInt(ctx.match![3]);
+    const { text, keyboard } = buildCitiesMenu(chatId, superRegionIdx, zoneIdx, page);
     await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
   });
 
-  bot.callbackQuery(/^ct:(\d+)$/, async (ctx: Context) => {
+  // ct:cityId:superRegionIdx:zoneIdx:page — context encoded so keyboard refreshes after restart
+  bot.callbackQuery(/^ct:(\d+):(\d+):(\d+):(\d+)$/, async (ctx: Context) => {
     const chatId = ctx.chat?.id;
     if (!chatId) return;
     upsertUser(chatId);
     const cityId = parseInt(ctx.match![1]);
+    const superRegionIdx = parseInt(ctx.match![2]);
+    const zoneIdx = parseInt(ctx.match![3]);
+    const page = parseInt(ctx.match![4]);
     const city = getCityById(cityId);
     if (!city) {
       await ctx.answerCallbackQuery('עיר לא נמצאה');
@@ -164,18 +157,18 @@ export function registerZoneHandler(bot: Bot): void {
       addSubscription(chatId, city.name);
       await ctx.answerCallbackQuery(`✅ נוסף: ${city.name}`);
     }
-    const state = zoneStates.get(chatId);
-    if (!state) return;
-    const { text, keyboard } = buildCitiesMenu(chatId, state.superRegionIdx, state.zoneIdx, state.page);
+    const { text, keyboard } = buildCitiesMenu(chatId, superRegionIdx, zoneIdx, page);
     await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
   });
 
-  bot.callbackQuery(/^ca:(\d+):(\d+)$/, async (ctx: Context) => {
+  // ca:superRegionIdx:zoneIdx:page — select all cities in zone, return to same page
+  bot.callbackQuery(/^ca:(\d+):(\d+):(\d+)$/, async (ctx: Context) => {
     const chatId = ctx.chat?.id;
     if (!chatId) return;
     upsertUser(chatId);
     const superRegionIdx = parseInt(ctx.match![1]);
     const zoneIdx = parseInt(ctx.match![2]);
+    const page = parseInt(ctx.match![3]);
     const sr = SUPER_REGIONS[superRegionIdx];
     if (!sr) return;
     const zoneName = sr.zones[zoneIdx];
@@ -184,16 +177,17 @@ export function registerZoneHandler(bot: Bot): void {
     const toAdd = cities.filter((c) => !alreadySubscribed.includes(c.name));
     toAdd.forEach((c) => addSubscription(chatId, c.name));
     await ctx.answerCallbackQuery(`✅ נוספו ${toAdd.length} ערים מ${zoneName}`);
-    const state = zoneStates.get(chatId) ?? { superRegionIdx, zoneIdx, page: 0 };
-    const { text, keyboard } = buildCitiesMenu(chatId, state.superRegionIdx, state.zoneIdx, state.page);
+    const { text, keyboard } = buildCitiesMenu(chatId, superRegionIdx, zoneIdx, page);
     await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
   });
 
-  bot.callbackQuery(/^cr:(\d+):(\d+)$/, async (ctx: Context) => {
+  // cr:superRegionIdx:zoneIdx:page — remove all cities in zone, return to same page
+  bot.callbackQuery(/^cr:(\d+):(\d+):(\d+)$/, async (ctx: Context) => {
     const chatId = ctx.chat?.id;
     if (!chatId) return;
     const superRegionIdx = parseInt(ctx.match![1]);
     const zoneIdx = parseInt(ctx.match![2]);
+    const page = parseInt(ctx.match![3]);
     const sr = SUPER_REGIONS[superRegionIdx];
     if (!sr) return;
     const zoneName = sr.zones[zoneIdx];
@@ -201,8 +195,7 @@ export function registerZoneHandler(bot: Bot): void {
     const toRemove = cities.filter((c) => isSubscribed(chatId, c.name));
     toRemove.forEach((c) => removeSubscription(chatId, c.name));
     await ctx.answerCallbackQuery(`❌ הוסרו ${toRemove.length} ערים מ${zoneName}`);
-    const state = zoneStates.get(chatId) ?? { superRegionIdx, zoneIdx, page: 0 };
-    const { text, keyboard } = buildCitiesMenu(chatId, state.superRegionIdx, state.zoneIdx, state.page);
+    const { text, keyboard } = buildCitiesMenu(chatId, superRegionIdx, zoneIdx, page);
     await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
   });
 

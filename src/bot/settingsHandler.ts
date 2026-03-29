@@ -9,6 +9,7 @@ import {
 } from '../db/subscriptionRepository.js';
 import { getCityData } from '../cityLookup.js';
 import { escapeHtml } from '../telegramBot.js';
+import { log } from '../logger.js';
 
 const PAGE_SIZE = 15;
 
@@ -96,9 +97,9 @@ export function registerSettingsHandler(bot: Bot): void {
       const { text, keyboard } = buildSettingsMenu(chatId);
       await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard });
     } catch (err) {
-      console.error('[Settings] /settings command failed:', err);
+      log('error', 'Settings', `/settings נכשל: ${err}`);
       await ctx.reply('אירעה שגיאה. נסה שוב מאוחר יותר.').catch((e) =>
-        console.error('[Settings] Failed to send error reply:', e)
+        log('error', 'Settings', `כישלון בשליחת תשובת שגיאה: ${e}`)
       );
     }
   });
@@ -120,9 +121,9 @@ export function registerSettingsHandler(bot: Bot): void {
       const { text, keyboard } = buildMyCitiesPage(chatId, 0);
       await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard });
     } catch (err) {
-      console.error('[Settings] /mycities command failed:', err);
+      log('error', 'Settings', `/mycities נכשל: ${err}`);
       await ctx.reply('אירעה שגיאה. נסה שוב מאוחר יותר.').catch((e) =>
-        console.error('[Settings] Failed to send error reply:', e)
+        log('error', 'Settings', `כישלון בשליחת תשובת שגיאה: ${e}`)
       );
     }
   });
@@ -135,7 +136,7 @@ export function registerSettingsHandler(bot: Bot): void {
       const { text, keyboard } = buildSettingsMenu(chatId);
       await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
     } catch (err) {
-      console.error('[Settings] menu:settings callback failed:', err);
+      log('error', 'Settings', `menu:settings נכשל: ${err}`);
     }
   });
 
@@ -149,7 +150,7 @@ export function registerSettingsHandler(bot: Bot): void {
       const { text, keyboard } = buildSettingsMenu(chatId);
       await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
     } catch (err) {
-      console.error('[Settings] fmt callback failed:', err);
+      log('error', 'Settings', `fmt callback נכשל: ${err}`);
     }
   });
 
@@ -164,7 +165,7 @@ export function registerSettingsHandler(bot: Bot): void {
       const { text, keyboard } = buildSettingsMenu(chatId);
       await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
     } catch (err) {
-      console.error('[Settings] quiet:toggle callback failed:', err);
+      log('error', 'Settings', `quiet:toggle נכשל: ${err}`);
     }
   });
 
@@ -183,7 +184,7 @@ export function registerSettingsHandler(bot: Bot): void {
       const { text, keyboard } = buildSettingsMenu(chatId);
       await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
     } catch (err) {
-      console.error('[Settings] snooze callback failed:', err);
+      log('error', 'Settings', `snooze callback נכשל: ${err}`);
     }
   });
 
@@ -207,7 +208,7 @@ export function registerSettingsHandler(bot: Bot): void {
         reply_markup: keyboard,
       });
     } catch (err) {
-      console.error('[Settings] settings:clearall callback failed:', err);
+      log('error', 'Settings', `settings:clearall נכשל: ${err}`);
     }
   });
 
@@ -221,7 +222,7 @@ export function registerSettingsHandler(bot: Bot): void {
         reply_markup: new InlineKeyboard().text('↩️ חזור', 'menu:main'),
       });
     } catch (err) {
-      console.error('[Settings] settings:clearall:ok callback failed:', err);
+      log('error', 'Settings', `settings:clearall:ok נכשל: ${err}`);
     }
   });
 
@@ -243,7 +244,7 @@ export function registerSettingsHandler(bot: Bot): void {
       const { text, keyboard } = buildMyCitiesPage(chatId, page);
       await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
     } catch (err) {
-      console.error('[Settings] mycities callback failed:', err);
+      log('error', 'Settings', `mycities callback נכשל: ${err}`);
     }
   });
 
@@ -280,9 +281,9 @@ export function registerSettingsHandler(bot: Bot): void {
       const { text, keyboard } = buildMyCitiesPage(chatId, page);
       await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
     } catch (err) {
-      console.error('[Settings] rm callback failed:', err);
+      log('error', 'Settings', `rm callback נכשל: ${err}`);
       await ctx.answerCallbackQuery().catch((e) =>
-        console.error('[Settings] Failed to answer callback after rm error:', e)
+        log('error', 'Settings', `כישלון ב-answerCallbackQuery אחרי שגיאת rm: ${e}`)
       );
     }
   });
