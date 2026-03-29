@@ -38,7 +38,17 @@ export function createBroadcaster(
       return;
     }
 
-    const text = formatFn(alert);
+    let text: string;
+    try {
+      text = formatFn(alert);
+    } catch (err: unknown) {
+      log(
+        'error',
+        'WhatsApp',
+        `שגיאה בעיצוב הודעה · type=${alert.type}: ${err instanceof Error ? err.message : String(err)}`
+      );
+      return;
+    }
     const whatsappClient = getClientFn();
 
     if (!whatsappClient) {
@@ -46,12 +56,14 @@ export function createBroadcaster(
       return;
     }
 
+    let failCount = 0;
     await Promise.all(
       groupIds.map(async (groupId) => {
         try {
           const chat = await whatsappClient.getChatById(groupId);
           await chat.sendMessage(text);
         } catch (err: unknown) {
+          failCount++;
           log(
             'error',
             'WhatsApp',
@@ -61,6 +73,13 @@ export function createBroadcaster(
       })
     );
 
-    log('info', 'WhatsApp', `שודר לוואטסאפ: ${groupIds.length} קבוצות · type=${alert.type}`);
+    const successCount = groupIds.length - failCount;
+    if (failCount === 0) {
+      log('info', 'WhatsApp', `שודר לוואטסאפ: ${successCount} קבוצות · type=${alert.type}`);
+    } else if (successCount > 0) {
+      log('warn', 'WhatsApp', `שודר חלקית: ${successCount}/${groupIds.length} קבוצות · type=${alert.type}`);
+    } else {
+      log('error', 'WhatsApp', `שידור נכשל לכל הקבוצות (${groupIds.length}) · type=${alert.type}`);
+    }
   };
 }
