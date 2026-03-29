@@ -70,6 +70,12 @@ export function initSchema(database: Database.Database): void {
       value      TEXT NOT NULL,
       updated_at TIMESTAMP DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS mapbox_image_cache (
+      cache_key  TEXT PRIMARY KEY,
+      image_data BLOB NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   database.exec(
