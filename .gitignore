@@ -12,6 +12,7 @@ coverage/
 .DS_Store
 docs/superpowers/
 .worktrees/
+.worktree/
 CLAUDE.md
 .claude.local.md
 .claude
