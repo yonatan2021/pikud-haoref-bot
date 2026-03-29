@@ -166,7 +166,7 @@ export function logAlert(params: {
       ? chalk.yellow(`✏️  ${toVisualRtl('עודכן')}`)
       : chalk.green(`📤 ${toVisualRtl('נשלח לקבוצה')}`);
 
-  const cityList = cities.slice(0, MAX_DISPLAYED_CITIES).join(', ');
+  const cityList = cities.slice(0, MAX_DISPLAYED_CITIES).map(toVisualRtl).join(', ');
   const cityExtra = cities.length > MAX_DISPLAYED_CITIES
     ? chalk.dim(toVisualRtl(` (+${cities.length - MAX_DISPLAYED_CITIES} נוספות)`))
     : '';

@@ -101,8 +101,8 @@ describe('logAlert()', () => {
   it('includes city names in output', () => {
     logAlert(base);
     const out = output();
-    assert.ok(out.includes('תל אביב'));
-    assert.ok(out.includes('חיפה'));
+    assert.ok(out.includes(toVisualRtl('תל אביב')));
+    assert.ok(out.includes(toVisualRtl('חיפה')));
   });
 
   it('shows "נשלח לקבוצה" when sent successfully', () => {
