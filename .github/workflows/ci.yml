@@ -83,7 +83,6 @@ jobs:
   wizard-check:
     name: Wizard Type-check & Test
     runs-on: ubuntu-latest
-    if: hashFiles('wizard/package-lock.json') != ''
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -91,7 +90,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Check if wizard exists
+        id: check
+        run: |
+          if [ -f wizard/package-lock.json ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Setup Node.js 22
+        if: steps.check.outputs.exists == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -99,10 +108,13 @@ jobs:
           cache-dependency-path: wizard/package-lock.json
 
       - name: Install wizard dependencies
+        if: steps.check.outputs.exists == 'true'
         run: cd wizard && npm ci
 
       - name: TypeScript type-check
+        if: steps.check.outputs.exists == 'true'
         run: cd wizard && npx tsc --noEmit
 
       - name: Run wizard tests
+        if: steps.check.outputs.exists == 'true'
         run: cd wizard && npm test
