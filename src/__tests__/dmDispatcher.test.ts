@@ -1,14 +1,11 @@
 import { describe, it, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'fs';
-import path from 'path';
 import type { Alert } from '../types';
 import { buildShortMessage, buildNewsFlashDmMessage, buildDmText, shouldSkipForQuietHours, notifySubscribers } from '../services/dmDispatcher';
 import type { DmTask } from '../services/dmQueue';
 
-// Ensure data directory exists before importing db modules
-const dataDir = path.join(process.cwd(), 'data');
-if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir);
+// Use in-memory DB for all notifySubscribers integration tests
+process.env['DB_PATH'] = ':memory:';
 
 describe('dmDispatcher short format', () => {
   it('formats missiles alert correctly', () => {
@@ -246,10 +243,8 @@ describe('notifySubscribers', () => {
   let setMutedUntil: (chatId: number, until: Date | null) => void;
 
   const CHAT_A = 777001;
-  const CHAT_B = 777002;
   // 'אבו גוש' (id=511) — reliable test fixture with zone data
   const TEST_CITY = 'אבו גוש';
-  const NIGHT = new Date('2024-01-01T22:00:00Z'); // 00:00 Israel (inside quiet window)
 
   before(async () => {
     const schema = await import('../db/schema.js');
@@ -292,21 +287,6 @@ describe('notifySubscribers', () => {
     assert.equal(captured.length, 0);
   });
 
-  it('skips subscriber with quiet hours enabled during quiet window (drills)', () => {
-    upsertUser(CHAT_A);
-    addSubscription(CHAT_A, TEST_CITY);
-    setQuietHours(CHAT_A, true);
-    const captured: DmTask[] = [];
-    const alert: Alert = { type: 'missiles_drill', cities: [TEST_CITY] };
-    // Override shouldSkipForQuietHours by passing a night-time date — we test filtering
-    // indirectly by noting that the subscriber has quiet hours on and the alert is a drill
-    notifySubscribers(alert, (tasks) => captured.push(...tasks));
-    // Without injecting 'now', quiet hours only fire at night; test confirms user IS filtered
-    // when quiet hours are enabled and the time is night — we simulate via DB state only
-    // (actual time-based filtering tested in shouldSkipForQuietHours suite above)
-    assert.ok(captured.length === 0 || captured.length === 1); // passes at any time of day
-  });
-
   it('does NOT skip security alert subscriber even when muted', () => {
     upsertUser(CHAT_A);
     addSubscription(CHAT_A, TEST_CITY);
@@ -323,7 +303,7 @@ describe('notifySubscribers', () => {
     addSubscription(CHAT_A, TEST_CITY);
     setMutedUntil(CHAT_A, new Date(Date.now() + 3_600_000));
     const captured: DmTask[] = [];
-    const alert: Alert = { type: 'missiles_drill', cities: [TEST_CITY] };
+    const alert: Alert = { type: 'missilesDrill', cities: [TEST_CITY] };
     notifySubscribers(alert, (tasks) => captured.push(...tasks));
     assert.equal(captured.length, 0, 'drill alert must be skipped for muted subscriber');
   });
