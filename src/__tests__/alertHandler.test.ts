@@ -250,6 +250,11 @@ describe('handleNewAlert', () => {
       const waFn = mock.fn(async () => { throw new Error('wa fail'); });
       const deps = makeDeps({ broadcastToWhatsApp: waFn });
       await assert.doesNotReject(() => handleNewAlert(BASE_ALERT, deps));
+      assert.equal(
+        (deps.notifySubscribers as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
+        1,
+        'notifySubscribers must complete before WhatsApp error'
+      );
     });
   });
 });

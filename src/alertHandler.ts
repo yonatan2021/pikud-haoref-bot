@@ -42,6 +42,7 @@ export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Prom
     shouldSkipMap,
     getTopicId,
     insertAlertHistory,
+    broadcastToWhatsApp,
   } = deps;
 
   const skipMap = shouldSkipMap(alert.type);
@@ -158,9 +159,9 @@ export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Prom
   // subscriber notification; alert data is valid regardless of whether the channel post succeeded
   notifySubscribers(finalAlert);
 
-  if (deps.broadcastToWhatsApp) {
+  if (broadcastToWhatsApp) {
     try {
-      await deps.broadcastToWhatsApp(finalAlert);
+      await broadcastToWhatsApp(finalAlert);
     } catch (err) {
       log('error', 'AlertHandler', `כישלון בשידור לוואטסאפ type=${alert.type}: ${err}`);
     }
