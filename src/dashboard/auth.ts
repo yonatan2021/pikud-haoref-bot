@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import type { Request, Response, NextFunction } from 'express';
+import type Database from 'better-sqlite3';
 
 const COOKIE_NAME = 'dashboard_token';
+const SESSION_TTL_DAYS = 7;
 
 const RATE_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 const RATE_MAX = 10;                    // max attempts per window
@@ -14,13 +16,23 @@ function getClientIp(req: Request): string {
   return ip.trim();
 }
 
-export function createSessionStore(secret: string) {
-  const sessions = new Set<string>();
+export function createSessionStore(db: Database.Database, secret: string) {
+  // Purge any sessions that expired before this startup
+  db.prepare("DELETE FROM sessions WHERE expires_at < datetime('now')").run();
+
   const loginAttempts = new Map<string, { count: number; resetAt: number }>();
+
+  function isValidToken(token: string): boolean {
+    if (!token) return false;
+    const row = db.prepare(
+      "SELECT 1 FROM sessions WHERE token = ? AND expires_at > datetime('now')"
+    ).get(token);
+    return row != null;
+  }
 
   function authMiddleware(req: Request, res: Response, next: NextFunction): void {
     const token = req.cookies?.[COOKIE_NAME] ?? '';
-    if (!sessions.has(token)) {
+    if (!isValidToken(token)) {
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
@@ -54,11 +66,13 @@ export function createSessionStore(secret: string) {
     // Successful login — clear the rate limit counter for this IP
     loginAttempts.delete(ip);
     const token = randomUUID();
-    sessions.add(token);
+    db.prepare(
+      `INSERT INTO sessions (token, expires_at) VALUES (?, datetime('now', '+${SESSION_TTL_DAYS} days'))`
+    ).run(token);
     res.cookie(COOKIE_NAME, token, {
       httpOnly: true,
       sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+      maxAge: SESSION_TTL_DAYS * 24 * 60 * 60 * 1000,
       secure: process.env.NODE_ENV === 'production',
     });
     res.json({ ok: true });
@@ -66,7 +80,7 @@ export function createSessionStore(secret: string) {
 
   function logoutHandler(req: Request, res: Response): void {
     const token = req.cookies?.[COOKIE_NAME] ?? '';
-    sessions.delete(token);
+    db.prepare('DELETE FROM sessions WHERE token = ?').run(token);
     res.clearCookie(COOKIE_NAME);
     res.json({ ok: true });
   }

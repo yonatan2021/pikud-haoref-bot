@@ -1,9 +1,18 @@
-import { describe, it } from 'node:test';
+import { describe, it, before } from 'node:test';
 import assert from 'node:assert/strict';
+import Database from 'better-sqlite3';
 import { createSessionStore } from '../../dashboard/auth.js';
+import { initSchema } from '../../db/schema.js';
 import type { Request, Response, NextFunction } from 'express';
 
 const SECRET = 'test-secret';
+
+// Each test gets a fresh in-memory DB to isolate session state
+function makeDb(): Database.Database {
+  const db = new Database(':memory:');
+  initSchema(db);
+  return db;
+}
 
 function mockRes() {
   const res: any = { _status: 200, _body: null, _cookie: null, _clearedCookie: null };
@@ -21,7 +30,7 @@ function mockLoginReq(password: unknown, ip = '127.0.0.1'): Request {
 describe('createSessionStore', () => {
   describe('authMiddleware', () => {
     it('blocks request without token', () => {
-      const { authMiddleware } = createSessionStore(SECRET);
+      const { authMiddleware } = createSessionStore(makeDb(), SECRET);
       const next = () => { throw new Error('next should not be called'); };
       const res = mockRes();
       authMiddleware({ cookies: {} } as unknown as Request, res as Response, next as NextFunction);
@@ -29,7 +38,7 @@ describe('createSessionStore', () => {
     });
 
     it('blocks request with unknown token', () => {
-      const { authMiddleware } = createSessionStore(SECRET);
+      const { authMiddleware } = createSessionStore(makeDb(), SECRET);
       const next = () => { throw new Error('next should not be called'); };
       const res = mockRes();
       authMiddleware({ cookies: { dashboard_token: 'not-a-valid-uuid' } } as unknown as Request, res as Response, next as NextFunction);
@@ -37,7 +46,7 @@ describe('createSessionStore', () => {
     });
 
     it('passes request after successful login', () => {
-      const { authMiddleware, loginHandler } = createSessionStore(SECRET);
+      const { authMiddleware, loginHandler } = createSessionStore(makeDb(), SECRET);
 
       // Login to obtain a session token
       const loginRes = mockRes();
@@ -58,7 +67,7 @@ describe('createSessionStore', () => {
     });
 
     it('blocks request after logout', () => {
-      const { authMiddleware, loginHandler, logoutHandler } = createSessionStore(SECRET);
+      const { authMiddleware, loginHandler, logoutHandler } = createSessionStore(makeDb(), SECRET);
 
       // Login
       const loginRes = mockRes();
@@ -83,14 +92,14 @@ describe('createSessionStore', () => {
 
   describe('loginHandler', () => {
     it('returns 401 for wrong password', () => {
-      const { loginHandler } = createSessionStore(SECRET);
+      const { loginHandler } = createSessionStore(makeDb(), SECRET);
       const res = mockRes();
       loginHandler(mockLoginReq('wrong'), res as Response);
       assert.equal(res._status, 401);
     });
 
     it('sets cookie and returns ok for correct password', () => {
-      const { loginHandler } = createSessionStore(SECRET);
+      const { loginHandler } = createSessionStore(makeDb(), SECRET);
       const res = mockRes();
       loginHandler(mockLoginReq(SECRET), res as Response);
       assert.deepEqual(res._body, { ok: true });
@@ -101,7 +110,7 @@ describe('createSessionStore', () => {
     });
 
     it('returns 429 after 10 failed attempts from same IP', () => {
-      const { loginHandler } = createSessionStore(SECRET);
+      const { loginHandler } = createSessionStore(makeDb(), SECRET);
       // Exhaust the rate limit with 10 wrong-password attempts
       for (let i = 0; i < 10; i++) {
         const res = mockRes();
@@ -115,7 +124,7 @@ describe('createSessionStore', () => {
     });
 
     it('successful login resets rate limit counter', () => {
-      const { loginHandler } = createSessionStore(SECRET);
+      const { loginHandler } = createSessionStore(makeDb(), SECRET);
       // Make 5 failed attempts
       for (let i = 0; i < 5; i++) {
         loginHandler(mockLoginReq('wrong'), mockRes() as Response);
@@ -131,7 +140,7 @@ describe('createSessionStore', () => {
     });
 
     it('rate limit is per-IP — different IPs are independent', () => {
-      const { loginHandler } = createSessionStore(SECRET);
+      const { loginHandler } = createSessionStore(makeDb(), SECRET);
       // Exhaust IP-A
       for (let i = 0; i < 10; i++) {
         loginHandler(mockLoginReq('wrong', '1.2.3.4'), mockRes() as Response);
@@ -149,7 +158,7 @@ describe('createSessionStore', () => {
 
   describe('logoutHandler', () => {
     it('clears cookie and returns ok', () => {
-      const { logoutHandler } = createSessionStore(SECRET);
+      const { logoutHandler } = createSessionStore(makeDb(), SECRET);
       const res = mockRes();
       logoutHandler({ cookies: {} } as unknown as Request, res as Response);
       assert.equal(res._clearedCookie, 'dashboard_token');
