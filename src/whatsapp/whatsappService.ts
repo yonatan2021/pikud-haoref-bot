@@ -32,7 +32,7 @@ export function getPhone(): string | null {
 }
 
 export function getCachedGroups(): WhatsAppGroup[] {
-  return cachedGroups;
+  return [...cachedGroups];
 }
 
 export function getClient(): Client | null {
@@ -47,7 +47,7 @@ export async function refreshGroups(): Promise<void> {
       .filter((chat) => chat.isGroup)
       .map((chat) => ({ id: chat.id._serialized, name: chat.name }));
   } catch (err: unknown) {
-    log('error', 'WhatsApp', `שגיאה בטעינת קבוצות: ${err instanceof Error ? err.message : String(err)}`);
+    log('error', 'WhatsApp', `שגיאה בטעינת קבוצות: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
   }
 }
 
@@ -97,6 +97,7 @@ export function initialize(): void {
   });
 
   client.on('disconnected', (reason: string) => {
+    client = null;
     status = 'disconnected';
     phone = null;
     log('warn', 'WhatsApp', `מנותק — סיבה: ${reason}`);
@@ -106,7 +107,10 @@ export function initialize(): void {
     status = 'connecting';
   });
 
+  status = 'connecting';
   client.initialize().catch((err: unknown) => {
+    client = null;
+    status = 'disconnected';
     log('error', 'WhatsApp', `שגיאה באתחול: ${err instanceof Error ? err.message : String(err)}`);
   });
 }
