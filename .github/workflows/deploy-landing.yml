@@ -26,6 +26,8 @@ jobs:
 
       - name: Build landing page
         run: node landing/build.js
+        env:
+          GA4_MEASUREMENT_ID: ${{ secrets.GA4_MEASUREMENT_ID }}
 
       - name: Setup SSH deploy key
         run: |
