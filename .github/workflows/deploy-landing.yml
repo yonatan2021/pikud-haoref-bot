@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'landing/**'
+      - 'README.md'
+      - 'package.json'
   workflow_dispatch:
 
 jobs:
