@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -45,8 +45,11 @@ export function Operations() {
   const [testChatId, setTestChatId] = useState('');
   const [testText, setTestText] = useState('');
   const [sendState, setSendState] = useState<'idle' | 'loading' | 'success'>('idle');
+  const sendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { data: queue } = useQuery<QueueStats>({
+  useEffect(() => () => { if (sendTimerRef.current) clearTimeout(sendTimerRef.current); }, []);
+
+  const { data: queue, isError: queueError } = useQuery<QueueStats>({
     queryKey: ['queue'],
     queryFn: () => api.get('/api/operations/queue'),
     refetchInterval: 3000,
@@ -65,6 +68,7 @@ export function Operations() {
 
   const broadcastMutation = useMutation({
     mutationFn: () => api.post('/api/operations/broadcast', { text: broadcastText }),
+    onMutate: () => setSendState('loading'),
     onSuccess: (data: unknown) => {
       const result = data as { queued?: number; sent?: number; failed?: number };
       if (result.queued !== undefined) {
@@ -76,7 +80,8 @@ export function Operations() {
       setBroadcastText('');
       setBroadcastConfirm(false);
       setSendState('success');
-      setTimeout(() => setSendState('idle'), 2000);
+      if (sendTimerRef.current) clearTimeout(sendTimerRef.current);
+      sendTimerRef.current = setTimeout(() => setSendState('idle'), 2000);
     },
     onError: () => {
       toast.error('שגיאה בשליחת broadcast');
@@ -104,7 +109,8 @@ export function Operations() {
   });
 
   const parsedCities = (row: AlertWindowRow): string[] => {
-    try { return JSON.parse(row.cities) as string[]; } catch { return []; }
+    try { return JSON.parse(row.cities) as string[]; }
+    catch (e) { console.error(`Failed to parse cities for alert window row ${row.id}:`, e); return []; }
   };
 
   const pendingCount = queue?.pending ?? 0;
@@ -133,7 +139,7 @@ export function Operations() {
                   ישלח ל-<strong className="text-text-secondary">{overview?.totalSubscribers ?? '...'}</strong> מנויים
                 </span>
                 <button
-                  disabled={!broadcastText.trim() || sendState === 'loading'}
+                  disabled={!broadcastText.trim() || broadcastMutation.isPending}
                   onClick={() => setBroadcastConfirm(true)}
                   className={`px-4 py-2 text-sm font-bold rounded-lg disabled:opacity-40 transition-colors flex items-center gap-2 min-w-[120px] justify-center ${
                     sendState === 'success'
@@ -190,7 +196,9 @@ export function Operations() {
             <h2 className="font-semibold text-text-primary mb-4 flex items-center gap-2">
               📬 תור הודעות DM
             </h2>
-            {queue ? (
+            {queueError ? (
+              <p className="text-red-400 text-sm">שגיאה בטעינת תור — רענן</p>
+            ) : queue ? (
               <div className="space-y-3">
                 <div className="flex items-center justify-between py-2 border-b border-border">
                   <span className="text-text-secondary text-sm">ממתין בתור</span>
@@ -324,7 +332,7 @@ export function Operations() {
           open={broadcastConfirm}
           title="אישור Broadcast"
           description={`תשלח ל-${overview?.totalSubscribers ?? '?'} מנויים. האם להמשיך?`}
-          onConfirm={() => { setSendState('loading'); broadcastMutation.mutate(); }}
+          onConfirm={() => broadcastMutation.mutate()}
           onCancel={() => setBroadcastConfirm(false)}
           danger={false}
         />
