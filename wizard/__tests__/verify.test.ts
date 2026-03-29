@@ -1,6 +1,6 @@
 import { describe, it, mock } from 'node:test'
 import assert from 'node:assert/strict'
-import { checkTelegramToken, checkMapboxToken } from '../src/modes/verify.js'
+import { checkTelegramToken, checkMapboxToken, checkWhatsAppEnabled } from '../src/modes/verify.js'
 
 // We mock the https module to avoid real network calls
 // The functions accept an optional httpGet override for testability
@@ -96,5 +96,20 @@ describe('checkMapboxToken', () => {
     const result = await checkMapboxToken(token, fakeGet)
     assert.equal(result.valid, false)
     assert.ok(!result.detail?.includes(token), 'Token must not appear in error detail')
+  })
+})
+
+describe('checkWhatsAppEnabled', () => {
+  it('returns configured:true when value is "true"', () => {
+    assert.deepEqual(checkWhatsAppEnabled('true'), { configured: true })
+  })
+  it('returns configured:false when value is "false"', () => {
+    assert.deepEqual(checkWhatsAppEnabled('false'), { configured: false })
+  })
+  it('returns configured:false when value is empty string', () => {
+    assert.deepEqual(checkWhatsAppEnabled(''), { configured: false })
+  })
+  it('returns configured:false when value is undefined', () => {
+    assert.deepEqual(checkWhatsAppEnabled(undefined), { configured: false })
   })
 })
