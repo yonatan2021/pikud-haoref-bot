@@ -1,6 +1,7 @@
 import { describe, it, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { log, logStartupHeader, logAlert } from '../logger.js';
+import { toVisualRtl } from '../loggerUtils.js';
 
 let captured: string[];
 let stdoutSpy: ReturnType<typeof mock.method>;
@@ -94,45 +95,45 @@ describe('logAlert()', () => {
 
   it('includes the title in output', () => {
     logAlert(base);
-    assert.ok(output().includes('ירי רקטות'));
+    assert.ok(output().includes(toVisualRtl('ירי רקטות')));
   });
 
   it('includes city names in output', () => {
     logAlert(base);
     const out = output();
-    assert.ok(out.includes('תל אביב'));
-    assert.ok(out.includes('חיפה'));
+    assert.ok(out.includes(toVisualRtl('תל אביב')));
+    assert.ok(out.includes(toVisualRtl('חיפה')));
   });
 
   it('shows "נשלח לקבוצה" when sent successfully', () => {
     logAlert({ ...base, sentToGroup: true, isEdit: false });
-    assert.ok(output().includes('נשלח לקבוצה'));
+    assert.ok(output().includes(toVisualRtl('נשלח לקבוצה')));
   });
 
   it('shows "עודכן" when isEdit is true', () => {
     logAlert({ ...base, sentToGroup: true, isEdit: true });
-    assert.ok(output().includes('עודכן'));
+    assert.ok(output().includes(toVisualRtl('עודכן')));
   });
 
   it('shows "שגיאה בשליחה" when sentToGroup is false', () => {
     logAlert({ ...base, sentToGroup: false });
-    assert.ok(output().includes('שגיאה בשליחה'));
+    assert.ok(output().includes(toVisualRtl('שגיאה בשליחה')));
   });
 
   it('truncates city list and shows overflow count when > 20 cities', () => {
     const manyCities = Array.from({ length: 25 }, (_, i) => `עיר${i}`);
     logAlert({ ...base, cities: manyCities });
-    assert.ok(output().includes('+5 נוספות'));
+    assert.ok(output().includes(toVisualRtl('+5 נוספות')));
   });
 
   it('does not show overflow indicator for exactly 20 cities', () => {
     const exactCities = Array.from({ length: 20 }, (_, i) => `עיר${i}`);
     logAlert({ ...base, cities: exactCities });
-    assert.ok(!output().includes('נוספות'));
+    assert.ok(!output().includes(toVisualRtl('נוספות')));
   });
 
   it('does not show overflow indicator for fewer than 20 cities', () => {
     logAlert({ ...base, cities: ['עיר1', 'עיר2'] });
-    assert.ok(!output().includes('נוספות'));
+    assert.ok(!output().includes(toVisualRtl('נוספות')));
   });
 });

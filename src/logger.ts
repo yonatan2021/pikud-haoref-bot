@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import type { AlertCategory } from './topicRouter.js';
-import { wrapRtl, osc8Link, boxWidth, hr, containsHebrew } from './loggerUtils.js';
+import { toVisualRtl, osc8Link, boxWidth, hr, containsHebrew } from './loggerUtils.js';
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
@@ -51,9 +51,9 @@ function tagBadge(tag: string): string {
 
 export function log(level: LogLevel, tag: string, message: string): void {
   const color = LEVEL_COLOR[level];
-  // Auto-wrap Hebrew-containing messages in RTL embedding so mixed
-  // Hebrew+number strings (e.g. "כל 2 שניות") render correctly in LTR terminals.
-  const safeMsg = containsHebrew(message) ? wrapRtl(message) : message;
+  // Convert Hebrew-containing messages to visual order so they render correctly
+  // in all terminals regardless of BiDi support (including VS Code).
+  const safeMsg = containsHebrew(message) ? toVisualRtl(message) : message;
   process.stdout.write(
     `${chalk.gray(nowIL())}  ${color(LEVEL_ICON[level])}  ${tagBadge(tag)}  ${safeMsg}\n`
   );
@@ -63,7 +63,7 @@ export function log(level: LogLevel, tag: string, message: string): void {
 
 export interface ServiceStatus {
   name: string;
-  /** Display detail — use wrapRtl() when mixing Hebrew + numbers (e.g. "פורט 3000") */
+  /** Display detail — use toVisualRtl() when mixing Hebrew + numbers (e.g. "פורט 3000") */
   detail: string;
   ok: boolean;
   /** When set, an OSC 8 clickable hyperlink is appended after the detail */
@@ -99,9 +99,9 @@ export function logStartupHeader(
     return `${g('│')}  ${icon}  ${chalk.bold.white(svc.name)}${namePad}${detail}${link}`;
   });
 
-  const footerTs = chalk.dim(wrapRtl('הופעל: ' + startedAt));
+  const footerTs = chalk.dim(toVisualRtl('הופעל: ' + startedAt));
   const footerAlerts = alertsToday > 0
-    ? `  ${chalk.dim('│')}  ${chalk.cyan(String(alertsToday))} ${chalk.dim(wrapRtl('התראות היום'))}`
+    ? `  ${chalk.dim('│')}  ${chalk.cyan(String(alertsToday))} ${chalk.dim(toVisualRtl('התראות היום'))}`
     : '';
 
   const lines = [
@@ -161,22 +161,22 @@ export function logAlert(params: {
   const ts = chalk.gray(nowIL());
 
   const action = !sentToGroup
-    ? chalk.red(`✗ ${wrapRtl('שגיאה בשליחה')}`)
+    ? chalk.red(`✗ ${toVisualRtl('שגיאה בשליחה')}`)
     : isEdit
-      ? chalk.yellow(`✏️  ${wrapRtl('עודכן')}`)
-      : chalk.green(`📤 ${wrapRtl('נשלח לקבוצה')}`);
+      ? chalk.yellow(`✏️  ${toVisualRtl('עודכן')}`)
+      : chalk.green(`📤 ${toVisualRtl('נשלח לקבוצה')}`);
 
-  const cityList = cities.slice(0, MAX_DISPLAYED_CITIES).join(', ');
+  const cityList = cities.slice(0, MAX_DISPLAYED_CITIES).map(toVisualRtl).join(', ');
   const cityExtra = cities.length > MAX_DISPLAYED_CITIES
-    ? chalk.dim(wrapRtl(` (+${cities.length - MAX_DISPLAYED_CITIES} נוספות)`))
+    ? chalk.dim(toVisualRtl(` (+${cities.length - MAX_DISPLAYED_CITIES} נוספות)`))
     : '';
 
   const w = boxWidth();
   process.stdout.write('\n');
   process.stdout.write(
-    `${color('┌── ')}${chalk.bold(color(`${emoji} ${wrapRtl(titleHe)}`))}${color(' ─── ')}${ts}\n`
+    `${color('┌── ')}${chalk.bold(color(`${emoji} ${toVisualRtl(titleHe)}`))}${color(' ─── ')}${ts}\n`
   );
-  process.stdout.write(`${color('│')}  ${wrapRtl('ערים')}: ${chalk.white(cityList)}${cityExtra}\n`);
+  process.stdout.write(`${color('│')}  ${toVisualRtl('ערים')}: ${chalk.white(cityList)}${cityExtra}\n`);
   process.stdout.write(`${color('│')}  ${action}\n`);
   process.stdout.write(`${color('└' + hr(w))}\n`);
   process.stdout.write('\n');
