@@ -10,12 +10,13 @@ import { setupBotHandlers } from './bot/botSetup';
 import { notifySubscribers } from './services/dmDispatcher';
 import { shouldSkipMap } from './alertHelpers';
 import { handleNewAlert } from './alertHandler';
-import { insertAlert as insertAlertHistory } from './db/alertHistoryRepository.js';
+import { insertAlert as insertAlertHistory, countAlertsToday } from './db/alertHistoryRepository.js';
 import { startHealthServer } from './healthServer.js';
 import { updateLastAlertAt } from './metrics.js';
 import { startDashboardServer } from './dashboard/server.js';
 import { getDb } from './db/schema.js';
-import { log, logStartupHeader } from './logger.js';
+import { log, logStartupHeader, logSectionDivider } from './logger.js';
+import { wrapRtl } from './loggerUtils.js';
 
 // Prevent broken-pipe errors from crashing the bot when a stdout consumer exits.
 process.stdout.on('error', (err: NodeJS.ErrnoException) => {
@@ -33,9 +34,11 @@ for (const envVar of REQUIRED_ENV_VARS) {
 }
 
 (async () => {
+  let alertsToday = 0;
   try {
     initDb();
     loadActiveMessages();
+    alertsToday = countAlertsToday();
   } catch (err) {
     log('error', 'Init', `כישלון אתחול מסד נתונים — הבוט לא יכול להתחיל: ${err}`);
     process.exit(1);
@@ -85,12 +88,14 @@ for (const envVar of REQUIRED_ENV_VARS) {
 
   poller.start(2000);
 
-  logStartupHeader('0.2.0', [
-    { name: 'Health Server', detail: healthOk ? `פורט ${resolvedHealthPort}` : 'נכשל בהפעלה', ok: healthOk },
-    { name: 'Alert Poller',  detail: 'כל 2 שניות',                                              ok: true },
-    { name: 'Dashboard',     detail: dashboardSecret ? `פורט ${dashboardPort}` : 'כבוי (אין DASHBOARD_SECRET)', ok: !!dashboardSecret },
-    { name: 'Database',      detail: 'מאותחל',                                                   ok: true },
-  ]);
+  logStartupHeader('0.2.1', [
+    { name: 'Health Server', detail: healthOk ? wrapRtl(`פורט ${resolvedHealthPort}`) : 'נכשל בהפעלה', ok: healthOk, url: healthOk ? `http://localhost:${resolvedHealthPort}` : undefined },
+    { name: 'Alert Poller',  detail: wrapRtl('כל 2 שניות'),                                                ok: true },
+    { name: 'Dashboard',     detail: dashboardSecret ? wrapRtl(`פורט ${dashboardPort}`) : wrapRtl('כבוי (אין DASHBOARD_SECRET)'), ok: !!dashboardSecret, url: dashboardSecret ? `http://localhost:${dashboardPort}` : undefined },
+    { name: 'Database',      detail: 'מאותחל',                                                              ok: true },
+  ], alertsToday);
+
+  logSectionDivider();
 
   bot.start().catch((err) => {
     log('error', 'Bot', `שגיאה בהפעלת הבוט: ${err}`);

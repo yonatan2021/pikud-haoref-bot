@@ -72,6 +72,15 @@ export function getAlertsForCity(city: string, limit: number): AlertHistoryRow[]
   return rows.map(parseRow).filter((r): r is AlertHistoryRow => r !== null);
 }
 
+export function countAlertsToday(): number {
+  const row = getDb()
+    .prepare(
+      `SELECT COUNT(*) as cnt FROM alert_history WHERE fired_at >= datetime('now','start of day')`
+    )
+    .get() as { cnt: number } | undefined;
+  return row?.cnt ?? 0;
+}
+
 export function getAlertsForCities(cities: string[], limit: number): AlertHistoryRow[] {
   if (cities.length === 0) return [];
   const placeholders = cities.map(() => '?').join(', ');
