@@ -37,7 +37,9 @@ jobs:
         run: npx tsx --test src/__tests__/*.test.ts
 
       - name: Run dashboard tests
-        run: DB_PATH=:memory: npx tsx --test 'src/__tests__/dashboard/**/*.test.ts'
+        env:
+          DB_PATH: ':memory:'
+        run: npx tsx --test 'src/__tests__/dashboard/**/*.test.ts'
 
   dashboard-build:
     runs-on: ubuntu-latest
