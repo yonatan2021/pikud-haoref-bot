@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { useEffect, useState } from 'react';
-import { Radio, Bell, WifiOff } from 'lucide-react';
+import { Radio, Bell, WifiOff, Loader2 } from 'lucide-react';
 import { useReducedMotion } from 'framer-motion';
 import { AnimatedCounter, LiveDot } from '../components/ui';
 
@@ -20,7 +20,7 @@ function rel(iso: string): string {
 }
 
 export function StatusStrip({ onUptime }: { onUptime: (u: number) => void }) {
-  const { data, isError } = useQuery<Health>({
+  const { data, isError, isLoading } = useQuery<Health>({
     queryKey: ['health'],
     queryFn: () => api.get('/api/stats/health'),
     refetchInterval: 5000,
@@ -42,6 +42,15 @@ export function StatusStrip({ onUptime }: { onUptime: (u: number) => void }) {
   useEffect(() => {
     if (data?.uptime !== undefined) onUptime(data.uptime);
   }, [data?.uptime, onUptime]);
+
+  if (isLoading) {
+    return (
+      <div className="bg-[var(--color-glass)] backdrop-blur-sm border-b border-border px-4 py-1.5 text-xs text-text-muted flex items-center gap-1.5">
+        <Loader2 size={12} className="animate-spin" />
+        מתחבר...
+      </div>
+    );
+  }
 
   if (isError) {
     return (
