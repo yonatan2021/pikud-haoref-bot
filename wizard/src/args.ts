@@ -11,7 +11,6 @@ export interface Flags {
   dashboard?: string
   proxy?: string
   'invite-link'?: string
-  whatsapp?: boolean
   [key: string]: string | boolean | undefined
 }
 
