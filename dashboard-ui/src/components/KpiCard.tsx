@@ -1,22 +1,37 @@
+import { type LucideIcon } from 'lucide-react';
+import { type GlowVariant, GlassCard } from './ui/GlassCard';
+import { AnimatedCounter } from './ui';
+
+const glowCounterColor: Record<GlowVariant, string> = {
+  amber: 'text-amber',
+  blue:  'text-blue',
+  green: 'text-green',
+  none:  'text-text-primary',
+};
+
 interface KpiCardProps {
-  icon: string;
+  icon: LucideIcon;
   label: string;
-  value: string | number;
+  value: number;
   sub?: string;
-  accent?: boolean;
+  glow?: GlowVariant;
 }
 
-export function KpiCard({ icon, label, value, sub, accent }: KpiCardProps) {
+export function KpiCard({ icon: Icon, label, value, sub, glow = 'none' }: KpiCardProps) {
+  const counterColor = glowCounterColor[glow];
+
   return (
-    <div className={`bg-surface border rounded-xl p-5 ${accent ? 'border-amber/40' : 'border-border'}`}>
+    <GlassCard glow={glow} hoverable className="p-5">
       <p className="text-text-secondary text-sm flex items-center gap-2">
-        <span>{icon}</span>
+        <Icon size={18} className="text-text-secondary" />
         {label}
       </p>
-      <p className={`text-3xl font-bold mt-2 ${accent ? 'text-amber' : 'text-text-primary'}`}>
-        {value}
-      </p>
+      <AnimatedCounter
+        value={value}
+        className={`text-3xl font-bold mt-2 ${counterColor}`}
+        aria-label={`${label}: ${value.toLocaleString()}`}
+      />
       {sub && <p className="text-text-muted text-xs mt-1">{sub}</p>}
-    </div>
+    </GlassCard>
   );
 }

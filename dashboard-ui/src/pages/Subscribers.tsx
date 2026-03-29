@@ -1,10 +1,14 @@
+import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { api } from '../api/client';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { EmptyState } from '../components/EmptyState';
 import { Skeleton } from '../components/Skeleton';
+import { GlassCard } from '../components/ui/GlassCard';
+import { PageTransition } from '../components/ui/PageTransition';
 
 interface User {
   chat_id: number;
@@ -83,6 +87,7 @@ export function Subscribers() {
     mutationFn: ({ id, body }: { id: number; body: Record<string, unknown> }) =>
       api.patch(`/api/subscribers/${id}`, body),
     onSuccess: () => {
+      toast.success('מנוי עודכן');
       qc.invalidateQueries({ queryKey: ['subscribers'] });
     },
     onError: () => toast.error('שגיאה בעדכון'),
@@ -110,17 +115,21 @@ export function Subscribers() {
 
   const bulkDeleteMutation = useMutation({
     mutationFn: async (ids: number[]) => {
-      for (const id of ids) {
-        await api.delete(`/api/subscribers/${id}`);
-      }
+      const results = await Promise.allSettled(ids.map(id => api.delete(`/api/subscribers/${id}`)));
+      const failed = results.filter(r => r.status === 'rejected').length;
+      return { succeeded: ids.length - failed, failed };
     },
-    onSuccess: () => {
-      toast.success(`${selected.size} מנויים נמחקו`);
+    onSuccess: ({ succeeded, failed }) => {
+      if (failed > 0) {
+        toast.error(`${succeeded} נמחקו, ${failed} כשלונות`);
+      } else {
+        toast.success(`${succeeded} מנויים נמחקו`);
+      }
       setSelected(new Set());
       setBulkDeleteOpen(false);
-      qc.invalidateQueries({ queryKey: ['subscribers'] });
     },
     onError: () => toast.error('שגיאה במחיקה מרובה'),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['subscribers'] }),
   });
 
   const users = data?.data ?? [];
@@ -162,12 +171,7 @@ export function Subscribers() {
     };
     patchMutation.mutate(
       { id: editUser.chat_id, body },
-      {
-        onSuccess: () => {
-          toast.success('עודכן בהצלחה');
-          setEditUser(null);
-        },
-      },
+      { onSuccess: () => setEditUser(null) },
     );
   };
 
@@ -194,300 +198,331 @@ export function Subscribers() {
     setExpandedId(expandedId === chatId ? null : chatId);
   };
 
+  const handleBulkDelete = () => {
+    setBulkDeleteOpen(true);
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-text-primary">מנויים</h1>
-        <div className="flex gap-3">
-          {selected.size > 0 && (
+    <PageTransition>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-text-primary">מנויים</h1>
+          <div className="flex gap-3">
             <button
-              onClick={() => setBulkDeleteOpen(true)}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg font-medium"
+              onClick={() => {
+                window.location.href = '/api/subscribers/export/csv';
+              }}
+              className="px-4 py-2 bg-[var(--color-glass)] backdrop-blur-md border border-[var(--color-border)] hover:bg-white/10 text-text-secondary text-sm rounded-lg transition-colors"
             >
-              מחק {selected.size} נבחרים
+              ⬇️ ייצוא CSV
             </button>
-          )}
-          <button
-            onClick={() => {
-              window.location.href = '/api/subscribers/export/csv';
-            }}
-            className="px-4 py-2 bg-surface border border-border hover:bg-base text-text-secondary text-sm rounded-lg"
-          >
-            ⬇️ ייצוא CSV
-          </button>
-        </div>
-      </div>
-
-      {/* Search */}
-      <div className="flex gap-3 items-center">
-        <input
-          type="text"
-          value={search}
-          onChange={handleSearchChange}
-          placeholder="חיפוש לפי מזהה או עיר..."
-          className="flex-1 bg-surface border border-border rounded-lg px-4 py-2.5 text-sm text-text-primary outline-none focus:border-amber"
-        />
-        <span className="flex items-center text-text-muted text-sm whitespace-nowrap">
-          {total} מנויים
-        </span>
-      </div>
-
-      {/* Table */}
-      <div className="bg-surface border border-border rounded-xl overflow-hidden">
-        {isLoading ? (
-          <div className="p-4 space-y-2">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="h-12" />
-            ))}
           </div>
-        ) : users.length === 0 ? (
-          <EmptyState icon="👥" message="לא נמצאו מנויים" />
-        ) : (
-          <>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border text-text-muted text-xs">
-                  <th className="px-4 py-2 text-right">
-                    <input
-                      type="checkbox"
-                      checked={selected.size === users.length && users.length > 0}
-                      onChange={toggleSelectAll}
-                    />
-                  </th>
-                  <th className="px-4 py-2 text-right font-medium">מזהה</th>
-                  <th className="px-4 py-2 text-right font-medium">ערים</th>
-                  <th className="px-4 py-2 text-right font-medium">פורמט</th>
-                  <th className="px-4 py-2 text-right font-medium">Quiet Hours</th>
-                  <th className="px-4 py-2 text-right font-medium">הצטרף</th>
-                  <th className="px-4 py-2 text-right font-medium">פעולות</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map(user => (
-                  <>
-                    <tr
-                      key={user.chat_id}
-                      className="border-b border-border/50 hover:bg-base/40 cursor-pointer"
-                      onClick={() => handleRowClick(user.chat_id)}
-                    >
-                      <td
-                        className="px-4 py-3"
-                        onClick={e => e.stopPropagation()}
+        </div>
+
+        {/* Search */}
+        <div className="flex gap-3 items-center">
+          <input
+            type="text"
+            value={search}
+            onChange={handleSearchChange}
+            placeholder="חיפוש לפי מזהה או עיר..."
+            className="flex-1 bg-[var(--color-glass)] backdrop-blur-md border border-[var(--color-border)] rounded-lg px-4 py-2.5 text-sm text-text-primary outline-none focus:border-amber-500/60 focus:ring-2 focus:ring-amber-500/40 transition-all"
+          />
+          <span className="flex items-center text-text-muted text-sm whitespace-nowrap">
+            {total} מנויים
+          </span>
+        </div>
+
+        {/* Table */}
+        <GlassCard className="overflow-hidden">
+          {isLoading ? (
+            <div className="p-4 space-y-2">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-12" />
+              ))}
+            </div>
+          ) : users.length === 0 ? (
+            <EmptyState icon="👥" message="לא נמצאו מנויים" />
+          ) : (
+            <>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[var(--color-border)] text-text-muted text-xs">
+                    <th className="px-4 py-2 text-right">
+                      <input
+                        type="checkbox"
+                        checked={selected.size === users.length && users.length > 0}
+                        onChange={toggleSelectAll}
+                      />
+                    </th>
+                    <th className="px-4 py-2 text-right font-medium">מזהה</th>
+                    <th className="px-4 py-2 text-right font-medium">ערים</th>
+                    <th className="px-4 py-2 text-right font-medium">פורמט</th>
+                    <th className="px-4 py-2 text-right font-medium">Quiet Hours</th>
+                    <th className="px-4 py-2 text-right font-medium">הצטרף</th>
+                    <th className="px-4 py-2 text-right font-medium">פעולות</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map(user => (
+                    <React.Fragment key={user.chat_id}>
+                      <tr
+                        className="border-b border-[var(--color-border)]/50 hover:bg-white/5 cursor-pointer transition-colors"
+                        onClick={() => handleRowClick(user.chat_id)}
                       >
-                        <input
-                          type="checkbox"
-                          checked={selected.has(user.chat_id)}
-                          onChange={() => toggleSelect(user.chat_id)}
-                        />
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <span className="text-text-secondary font-mono text-xs">
-                            {user.chat_id}
+                        <td
+                          className="px-4 py-3"
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selected.has(user.chat_id)}
+                            onChange={() => toggleSelect(user.chat_id)}
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-text-secondary font-mono text-xs">
+                              {user.chat_id}
+                            </span>
+                            <button
+                              onClick={e => handleCopy(e, user.chat_id)}
+                              className="text-text-muted hover:text-text-secondary text-xs"
+                              title="העתק מזהה"
+                            >
+                              📋
+                            </button>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded-full">
+                            {user.city_count}
                           </span>
-                          <button
-                            onClick={e => handleCopy(e, user.chat_id)}
-                            className="text-text-muted hover:text-text-secondary text-xs"
-                            title="העתק מזהה"
+                        </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded-full ${
+                              user.format === 'short'
+                                ? 'bg-green-500/20 text-green-400'
+                                : 'bg-amber-500/20 text-amber-400'
+                            }`}
                           >
-                            📋
-                          </button>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded-full">
-                          {user.city_count}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`text-xs px-2 py-0.5 rounded-full ${
-                            user.format === 'short'
-                              ? 'bg-green-500/20 text-green-400'
-                              : 'bg-amber-500/20 text-amber-400'
-                          }`}
+                            {user.format === 'short' ? 'קצר' : 'מפורט'}
+                          </span>
+                        </td>
+                        <td
+                          className="px-4 py-3"
+                          onClick={e => e.stopPropagation()}
                         >
-                          {user.format === 'short' ? 'קצר' : 'מפורט'}
-                        </span>
-                      </td>
-                      <td
-                        className="px-4 py-3"
-                        onClick={e => e.stopPropagation()}
-                      >
-                        <button
-                          onClick={e => handleToggleQuietHours(e, user)}
-                          className={`text-xs px-2 py-0.5 rounded-full transition-colors ${
-                            user.quiet_hours_enabled
-                              ? 'bg-amber-500/20 text-amber-400'
-                              : 'bg-surface border border-border text-text-muted'
-                          }`}
+                          <button
+                            onClick={e => handleToggleQuietHours(e, user)}
+                            className={`text-xs px-2 py-0.5 rounded-full transition-colors ${
+                              user.quiet_hours_enabled
+                                ? 'bg-amber-500/20 text-amber-400'
+                                : 'bg-[var(--color-glass)] border border-[var(--color-border)] text-text-muted'
+                            }`}
+                          >
+                            {user.quiet_hours_enabled ? 'פעיל' : 'כבוי'}
+                          </button>
+                        </td>
+                        <td className="px-4 py-3 text-text-muted text-xs">
+                          {relDate(user.created_at)}
+                        </td>
+                        <td
+                          className="px-4 py-3"
+                          onClick={e => e.stopPropagation()}
                         >
-                          {user.quiet_hours_enabled ? 'פעיל' : 'כבוי'}
-                        </button>
-                      </td>
-                      <td className="px-4 py-3 text-text-muted text-xs">
-                        {relDate(user.created_at)}
-                      </td>
-                      <td
-                        className="px-4 py-3"
-                        onClick={e => e.stopPropagation()}
-                      >
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => openEdit(user)}
-                            className="text-text-muted hover:text-text-primary text-xs"
-                            title="ערוך מנוי"
-                          >
-                            ✏️
-                          </button>
-                          <button
-                            onClick={() => setDeleteId(user.chat_id)}
-                            className="text-text-muted hover:text-red-400 text-xs"
-                            title="מחק מנוי"
-                          >
-                            🗑️
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                    {expandedId === user.chat_id && (
-                      <tr key={`${user.chat_id}-exp`} className="bg-base/30">
-                        <td colSpan={7} className="px-6 py-4">
-                          <p className="text-text-muted text-xs mb-2">ערים מנויות:</p>
-                          {expandedDetail ? (
-                            <div className="flex flex-wrap gap-2">
-                              {expandedDetail.cities.length === 0 ? (
-                                <span className="text-text-muted text-xs">אין ערים מנויות</span>
-                              ) : (
-                                expandedDetail.cities.map(city => (
-                                  <span
-                                    key={city}
-                                    className="flex items-center gap-1 bg-surface border border-border rounded-full px-3 py-1 text-xs text-text-secondary"
-                                  >
-                                    {city}
-                                    <button
-                                      onClick={() =>
-                                        removeCityMutation.mutate({ id: user.chat_id, city })
-                                      }
-                                      className="text-text-muted hover:text-red-400 mr-1"
-                                      title={`הסר ${city}`}
-                                    >
-                                      ×
-                                    </button>
-                                  </span>
-                                ))
-                              )}
-                            </div>
-                          ) : (
-                            <Skeleton className="h-8 w-48" />
-                          )}
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => openEdit(user)}
+                              className="text-text-muted hover:text-text-primary text-xs"
+                              title="ערוך מנוי"
+                            >
+                              ✏️
+                            </button>
+                            <button
+                              onClick={() => setDeleteId(user.chat_id)}
+                              className="text-text-muted hover:text-red-400 text-xs"
+                              title="מחק מנוי"
+                            >
+                              🗑️
+                            </button>
+                          </div>
                         </td>
                       </tr>
-                    )}
-                  </>
-                ))}
-              </tbody>
-            </table>
+                      {/* Expanded row rendered as a separate tr with animated inner div */}
+                      <AnimatePresence key={`${user.chat_id}-presence`}>
+                        {expandedId === user.chat_id && (
+                          <tr key={`${user.chat_id}-exp`} className="bg-white/5">
+                            <td colSpan={7} className="p-0 overflow-hidden">
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.2 }}
+                                className="overflow-hidden"
+                              >
+                                <div className="px-6 py-4">
+                                  <p className="text-text-muted text-xs mb-2">ערים מנויות:</p>
+                                  {expandedDetail ? (
+                                    <div className="flex flex-wrap gap-2">
+                                      {expandedDetail.cities.length === 0 ? (
+                                        <span className="text-text-muted text-xs">אין ערים מנויות</span>
+                                      ) : (
+                                        expandedDetail.cities.map(city => (
+                                          <span
+                                            key={city}
+                                            className="flex items-center gap-1 bg-[var(--color-glass)] border border-[var(--color-border)] rounded-full px-3 py-1 text-xs text-text-secondary"
+                                          >
+                                            {city}
+                                            <button
+                                              onClick={() =>
+                                                removeCityMutation.mutate({ id: user.chat_id, city })
+                                              }
+                                              className="text-text-muted hover:text-red-400 mr-1"
+                                              title={`הסר ${city}`}
+                                            >
+                                              ×
+                                            </button>
+                                          </span>
+                                        ))
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <Skeleton className="h-8 w-48" />
+                                  )}
+                                </div>
+                              </motion.div>
+                            </td>
+                          </tr>
+                        )}
+                      </AnimatePresence>
+                    </React.Fragment>
+                  ))}
+                </tbody>
+              </table>
 
-            {/* Pagination */}
-            <div className="flex items-center justify-between px-4 py-3 border-t border-border">
-              <button
-                disabled={page === 0}
-                onClick={() => setPage(p => p - 1)}
-                className="text-text-muted text-xs hover:text-text-primary disabled:opacity-40"
-              >
-                ← הקודם
-              </button>
-              <span className="text-text-muted text-xs">
-                עמוד {page + 1} · {total} סה״כ
-              </span>
-              <button
-                disabled={users.length < PAGE_SIZE}
-                onClick={() => setPage(p => p + 1)}
-                className="text-text-muted text-xs hover:text-text-primary disabled:opacity-40"
-              >
-                הבא →
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Edit Modal */}
-      {editUser && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-surface border border-border rounded-xl p-6 max-w-sm w-full">
-            <h3 className="font-bold text-lg text-text-primary mb-4">
-              עריכת מנוי {editUser.chat_id}
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="text-text-muted text-xs block mb-1">פורמט הודעות</label>
-                <select
-                  value={editForm.format}
-                  onChange={e => setEditForm(f => ({ ...f, format: e.target.value }))}
-                  className="w-full bg-base border border-border rounded-lg px-3 py-2 text-sm text-text-primary outline-none"
-                >
-                  <option value="short">קצר</option>
-                  <option value="detailed">מפורט</option>
-                </select>
-              </div>
-              <div className="flex items-center justify-between">
-                <label className="text-text-secondary text-sm">שעות שקט</label>
+              {/* Pagination */}
+              <div className="flex items-center justify-between px-4 py-3 border-t border-[var(--color-border)]">
                 <button
-                  onClick={() =>
-                    setEditForm(f => ({ ...f, quiet_hours_enabled: !f.quiet_hours_enabled }))
-                  }
-                  className={`px-3 py-1 rounded-full text-xs transition-colors ${
-                    editForm.quiet_hours_enabled
-                      ? 'bg-amber-500 text-black'
-                      : 'bg-surface border border-border text-text-muted'
-                  }`}
+                  disabled={page === 0}
+                  onClick={() => setPage(p => p - 1)}
+                  className="text-text-muted text-xs hover:text-text-primary disabled:opacity-40"
                 >
-                  {editForm.quiet_hours_enabled ? 'פעיל' : 'כבוי'}
+                  ← הקודם
+                </button>
+                <span className="text-text-muted text-xs">
+                  עמוד {page + 1} · {total} סה״כ
+                </span>
+                <button
+                  disabled={users.length < PAGE_SIZE}
+                  onClick={() => setPage(p => p + 1)}
+                  className="text-text-muted text-xs hover:text-text-primary disabled:opacity-40"
+                >
+                  הבא →
+                </button>
+              </div>
+            </>
+          )}
+        </GlassCard>
+
+        {/* Floating bulk action bar */}
+        <AnimatePresence>
+          {selected.size > 0 && (
+            <motion.div
+              initial={{ y: 80, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 80, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-[var(--color-glass)] backdrop-blur-md border border-[var(--color-border)] rounded-full px-6 py-3 flex items-center gap-4 shadow-lg z-50"
+            >
+              <span className="text-sm text-text-secondary">{selected.size} נבחרו</span>
+              <button
+                onClick={handleBulkDelete}
+                className="text-red-400 hover:text-red-300 text-sm font-medium"
+              >
+                מחק
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Edit Modal */}
+        {editUser && (
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+            <div className="bg-[var(--color-glass)] backdrop-blur-md border border-[var(--color-border)] rounded-xl p-6 max-w-sm w-full">
+              <h3 className="font-bold text-lg text-text-primary mb-4">
+                עריכת מנוי {editUser.chat_id}
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-text-muted text-xs block mb-1">פורמט הודעות</label>
+                  <select
+                    value={editForm.format}
+                    onChange={e => setEditForm(f => ({ ...f, format: e.target.value }))}
+                    className="w-full bg-[var(--color-glass)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-text-primary outline-none"
+                  >
+                    <option value="short">קצר</option>
+                    <option value="detailed">מפורט</option>
+                  </select>
+                </div>
+                <div className="flex items-center justify-between">
+                  <label className="text-text-secondary text-sm">שעות שקט</label>
+                  <button
+                    onClick={() =>
+                      setEditForm(f => ({ ...f, quiet_hours_enabled: !f.quiet_hours_enabled }))
+                    }
+                    className={`px-3 py-1 rounded-full text-xs transition-colors ${
+                      editForm.quiet_hours_enabled
+                        ? 'bg-amber-500 text-black'
+                        : 'bg-[var(--color-glass)] border border-[var(--color-border)] text-text-muted'
+                    }`}
+                  >
+                    {editForm.quiet_hours_enabled ? 'פעיל' : 'כבוי'}
+                  </button>
+                </div>
+              </div>
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={saveEdit}
+                  disabled={patchMutation.isPending}
+                  className="flex-1 bg-amber-500 hover:bg-amber-400 text-black font-medium py-2 rounded-lg text-sm disabled:opacity-60"
+                >
+                  שמור
+                </button>
+                <button
+                  onClick={() => setEditUser(null)}
+                  className="flex-1 border border-[var(--color-border)] py-2 rounded-lg text-sm text-text-secondary hover:bg-white/5"
+                >
+                  ביטול
                 </button>
               </div>
             </div>
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={saveEdit}
-                disabled={patchMutation.isPending}
-                className="flex-1 bg-amber-500 hover:bg-amber-400 text-black font-medium py-2 rounded-lg text-sm disabled:opacity-60"
-              >
-                שמור
-              </button>
-              <button
-                onClick={() => setEditUser(null)}
-                className="flex-1 border border-border py-2 rounded-lg text-sm text-text-secondary hover:bg-base"
-              >
-                ביטול
-              </button>
-            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Delete confirm */}
-      <ConfirmModal
-        open={deleteId !== null}
-        title="מחיקת מנוי"
-        description={`האם למחוק את המנוי ${deleteId}?`}
-        onConfirm={() => {
-          if (deleteId !== null) deleteMutation.mutate(deleteId);
-        }}
-        onCancel={() => setDeleteId(null)}
-        danger
-      />
+        {/* Delete confirm */}
+        <ConfirmModal
+          open={deleteId !== null}
+          title="מחיקת מנוי"
+          description={`האם למחוק את המנוי ${deleteId}?`}
+          onConfirm={() => {
+            if (deleteId !== null) deleteMutation.mutate(deleteId);
+          }}
+          onCancel={() => setDeleteId(null)}
+          danger
+        />
 
-      {/* Bulk delete confirm */}
-      <ConfirmModal
-        open={bulkDeleteOpen}
-        title="מחיקה מרובה"
-        description={`האם למחוק ${selected.size} מנויים?`}
-        onConfirm={() => bulkDeleteMutation.mutate([...selected])}
-        onCancel={() => setBulkDeleteOpen(false)}
-        danger
-      />
-    </div>
+        {/* Bulk delete confirm */}
+        <ConfirmModal
+          open={bulkDeleteOpen}
+          title="מחיקה מרובה"
+          description={`האם למחוק ${selected.size} מנויים?`}
+          onConfirm={() => bulkDeleteMutation.mutate([...selected])}
+          onCancel={() => setBulkDeleteOpen(false)}
+          danger
+        />
+      </div>
+    </PageTransition>
   );
 }

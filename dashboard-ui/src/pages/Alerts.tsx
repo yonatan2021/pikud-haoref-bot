@@ -2,9 +2,12 @@ import { useQuery } from '@tanstack/react-query';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useSearchParams } from 'react-router-dom';
 import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../api/client';
 import { EmptyState } from '../components/EmptyState';
 import { Skeleton } from '../components/Skeleton';
+import { GlassCard } from '../components/ui/GlassCard';
+import { PageTransition } from '../components/ui/PageTransition';
 
 interface Alert {
   id: number;
@@ -36,12 +39,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   hazardousMaterials: 'חומרים מסוכנים',
 };
 
-const DAYS_OPTIONS = [
-  { value: '1', label: 'היום' },
-  { value: '7', label: '7 ימים' },
-  { value: '30', label: '30 ימים' },
-  { value: '90', label: '90 ימים' },
-];
+const DAYS_OPTIONS = [1, 7, 30, 90] as const;
 
 function relTime(iso: string): string {
   const s = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
@@ -109,166 +107,221 @@ export function Alerts() {
   );
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-text-primary">היסטוריית התראות</h1>
+    <PageTransition>
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-text-primary">היסטוריית התראות</h1>
 
-      {/* Filters */}
-      <div className="bg-surface border border-border rounded-xl p-4 flex flex-wrap gap-3 items-end">
-        <div className="flex flex-col gap-1">
-          <label className="text-text-muted text-xs">תקופה</label>
-          <select
-            value={days}
-            onChange={e => updateParam('days', e.target.value)}
-            className="bg-base border border-border rounded-lg px-3 py-2 text-sm text-text-primary outline-none"
-          >
-            {DAYS_OPTIONS.map(o => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-        </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-text-muted text-xs">סוג</label>
-          <select
-            value={type}
-            onChange={e => updateParam('type', e.target.value)}
-            className="bg-base border border-border rounded-lg px-3 py-2 text-sm text-text-primary outline-none"
-          >
-            <option value="">הכל</option>
-            {Object.entries(CATEGORY_LABELS).map(([val, label]) => (
-              <option key={val} value={val}>{label}</option>
-            ))}
-          </select>
-        </div>
-        <div className="flex flex-col gap-1 flex-1 min-w-40">
-          <label className="text-text-muted text-xs">חיפוש עיר</label>
-          <input
-            type="text"
-            value={city}
-            onChange={e => updateParam('city', e.target.value)}
-            placeholder="שם עיר..."
-            className="bg-base border border-border rounded-lg px-3 py-2 text-sm text-text-primary outline-none focus:border-amber"
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Alerts table - takes 2/3 width */}
-        <div className="lg:col-span-2 bg-surface border border-border rounded-xl overflow-hidden">
-          <div className="p-4 border-b border-border flex items-center justify-between">
-            <h2 className="font-semibold text-text-primary">התראות</h2>
-            <span className="text-text-muted text-xs">{alerts.length} תוצאות</span>
-          </div>
-          {isLoading ? (
-            <div className="p-4 space-y-2">
-              {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12" />)}
+        {/* Filters */}
+        <GlassCard className="p-4">
+          <div className="flex flex-wrap gap-4 items-start">
+            {/* Days filter pills */}
+            <div className="flex flex-col gap-2">
+              <span className="text-text-muted text-xs">תקופה</span>
+              <div className="flex gap-2 flex-wrap">
+                {DAYS_OPTIONS.map(d => (
+                  <motion.button
+                    key={d}
+                    onClick={() => updateParam('days', String(d))}
+                    whileTap={{ scale: 0.95 }}
+                    aria-pressed={days === String(d)}
+                    className={`px-3 py-1 rounded-full text-xs border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60 ${
+                      days === String(d)
+                        ? 'bg-amber-500 text-black border-amber-500 font-medium'
+                        : 'bg-[var(--color-glass)] border-[var(--color-border)] text-text-secondary hover:text-text-primary hover:border-amber-500/50'
+                    }`}
+                  >
+                    {d === 1 ? 'היום' : `${d} ימים`}
+                  </motion.button>
+                ))}
+              </div>
             </div>
-          ) : alerts.length === 0 ? (
-            <EmptyState icon="🔔" message="אין התראות לתקופה זו" />
-          ) : (
-            <>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-text-muted text-xs">
-                      <th className="px-4 py-2 text-right font-medium">תאריך</th>
-                      <th className="px-4 py-2 text-right font-medium">סוג</th>
-                      <th className="px-4 py-2 text-right font-medium">ערים</th>
-                      <th className="px-4 py-2 text-right font-medium">הוראות</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {alerts.map(alert => (
-                      <>
-                        <tr
-                          key={alert.id}
-                          onClick={() => setExpandedId(expandedId === alert.id ? null : alert.id)}
-                          className="border-b border-border/50 hover:bg-base/50 cursor-pointer transition-colors"
-                        >
-                          <td className="px-4 py-3 text-text-muted text-xs whitespace-nowrap" title={exactTime(alert.fired_at)}>
-                            {relTime(alert.fired_at)}
-                          </td>
-                          <td className="px-4 py-3">
-                            <span
-                              className="text-xs px-2 py-0.5 rounded-full font-medium"
-                              style={{ background: `${CATEGORY_COLORS[alert.type] ?? '#64748b'}22`, color: CATEGORY_COLORS[alert.type] ?? '#94a3b8' }}
-                            >
-                              {CATEGORY_LABELS[alert.type] ?? alert.type}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className="text-text-secondary text-xs">
-                              {alert.cities.slice(0, 2).join(', ')}
-                              {alert.cities.length > 2 && (
-                                <span className="text-text-muted"> +{alert.cities.length - 2}</span>
-                              )}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-text-muted text-xs max-w-xs truncate">
-                            {alert.instructions?.slice(0, 60) ?? '—'}
-                          </td>
-                        </tr>
-                        {expandedId === alert.id && (
-                          <tr key={`${alert.id}-exp`} className="bg-base/30">
-                            <td colSpan={4} className="px-4 py-3">
-                              <p className="text-text-secondary text-xs mb-2">
-                                <strong>כל הערים:</strong> {alert.cities.join(', ')}
-                              </p>
-                              {alert.instructions && (
-                                <p className="text-text-muted text-xs">{alert.instructions}</p>
-                              )}
-                            </td>
-                          </tr>
-                        )}
-                      </>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {/* Pagination */}
-              <div className="flex items-center justify-between px-4 py-3 border-t border-border">
-                <button
-                  disabled={page === 0}
-                  onClick={() => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('page', String(page - 1)); return n; })}
-                  className="text-text-muted text-xs hover:text-text-primary disabled:opacity-40"
-                >
-                  ← הקודם
-                </button>
-                <span className="text-text-muted text-xs">עמוד {page + 1}</span>
-                <button
-                  disabled={alerts.length < PAGE_SIZE}
-                  onClick={() => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('page', String(page + 1)); return n; })}
-                  className="text-text-muted text-xs hover:text-text-primary disabled:opacity-40"
-                >
-                  הבא →
-                </button>
-              </div>
-            </>
-          )}
-        </div>
 
-        {/* Pie chart */}
-        <div className="bg-surface border border-border rounded-xl p-5">
-          <h2 className="font-semibold text-text-primary mb-4">התפלגות לפי סוג</h2>
-          {pieData.length === 0 ? (
-            <EmptyState icon="📊" message="אין נתונים" />
-          ) : (
-            <ResponsiveContainer width="100%" height={280}>
-              <PieChart>
-                <Pie data={pieData} cx="50%" cy="45%" outerRadius={90} dataKey="value" label={({ name, percent }: { name?: string; percent?: number }) => `${name ?? ''} ${((percent ?? 0) * 100).toFixed(0)}%`} labelLine={false}>
-                  {pieData.map((entry, i) => (
-                    <Cell key={i} fill={entry.fill} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{ background: '#161b22', border: '1px solid #21262d', borderRadius: 8 }}
-                  formatter={(value) => [`${value} התראות`]}
-                />
-                <Legend wrapperStyle={{ fontSize: 11, color: '#8b949e' }} />
-              </PieChart>
-            </ResponsiveContainer>
-          )}
+            {/* Type filter pills */}
+            <div className="flex flex-col gap-2">
+              <span className="text-text-muted text-xs">סוג</span>
+              <div className="flex gap-2 flex-wrap">
+                <motion.button
+                  onClick={() => updateParam('type', '')}
+                  whileTap={{ scale: 0.95 }}
+                  aria-pressed={type === ''}
+                  className={`px-3 py-1 rounded-full text-xs border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60 ${
+                    type === ''
+                      ? 'bg-amber-500 text-black border-amber-500 font-medium'
+                      : 'bg-[var(--color-glass)] border-[var(--color-border)] text-text-secondary hover:text-text-primary hover:border-amber-500/50'
+                  }`}
+                >
+                  הכל
+                </motion.button>
+                {Object.entries(CATEGORY_LABELS).map(([val, label]) => (
+                  <motion.button
+                    key={val}
+                    onClick={() => updateParam('type', val)}
+                    whileTap={{ scale: 0.95 }}
+                    aria-pressed={type === val}
+                    className={`px-3 py-1 rounded-full text-xs border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60 ${
+                      type === val
+                        ? 'bg-amber-500 text-black border-amber-500 font-medium'
+                        : 'bg-[var(--color-glass)] border-[var(--color-border)] text-text-secondary hover:text-text-primary hover:border-amber-500/50'
+                    }`}
+                  >
+                    {label}
+                  </motion.button>
+                ))}
+              </div>
+            </div>
+
+            {/* City search */}
+            <div className="flex flex-col gap-2 flex-1 min-w-40">
+              <span className="text-text-muted text-xs">חיפוש עיר</span>
+              <input
+                type="text"
+                value={city}
+                onChange={e => updateParam('city', e.target.value)}
+                placeholder="שם עיר..."
+                className="bg-[var(--color-glass)] border border-[var(--color-border)] rounded-lg px-3 py-1.5 text-sm text-text-primary outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/40 transition-all"
+              />
+            </div>
+          </div>
+        </GlassCard>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Alerts table - takes 2/3 width */}
+          <GlassCard className="lg:col-span-2 overflow-hidden">
+            <div className="p-4 border-b border-[var(--color-border)] flex items-center justify-between">
+              <h2 className="font-semibold text-text-primary">התראות</h2>
+              <span className="text-text-muted text-xs">{alerts.length} תוצאות</span>
+            </div>
+            {isLoading ? (
+              <div className="p-4 space-y-2">
+                {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12" />)}
+              </div>
+            ) : alerts.length === 0 ? (
+              <EmptyState icon="🔔" message="אין התראות לתקופה זו" />
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-[var(--color-border)] text-text-muted text-xs">
+                        <th className="px-4 py-2 text-right font-medium">תאריך</th>
+                        <th className="px-4 py-2 text-right font-medium">סוג</th>
+                        <th className="px-4 py-2 text-right font-medium">ערים</th>
+                        <th className="px-4 py-2 text-right font-medium">הוראות</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <AnimatePresence initial={false}>
+                        {alerts.map(alert => (
+                          <motion.tr
+                            key={alert.id}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setExpandedId(expandedId === alert.id ? null : alert.id)}
+                            className="border-b border-[var(--color-border)]/50 hover:bg-white/5 cursor-pointer transition-colors"
+                          >
+                            <td className="px-4 py-3 text-text-muted text-xs whitespace-nowrap" title={exactTime(alert.fired_at)}>
+                              {relTime(alert.fired_at)}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span
+                                className="text-xs px-2 py-0.5 rounded-full font-medium"
+                                style={{ background: `${CATEGORY_COLORS[alert.type] ?? '#64748b'}22`, color: CATEGORY_COLORS[alert.type] ?? '#94a3b8' }}
+                              >
+                                {CATEGORY_LABELS[alert.type] ?? alert.type}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className="text-text-secondary text-xs">
+                                {alert.cities.slice(0, 2).join(', ')}
+                                {alert.cities.length > 2 && (
+                                  <span className="text-text-muted"> +{alert.cities.length - 2}</span>
+                                )}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-text-muted text-xs max-w-xs truncate">
+                              {alert.instructions?.slice(0, 60) ?? '—'}
+                            </td>
+                          </motion.tr>
+                        ))}
+                      </AnimatePresence>
+                    </tbody>
+                  </table>
+
+                  {/* Expanded row rendered outside table to allow height animation */}
+                  <AnimatePresence>
+                    {expandedId !== null && (() => {
+                      const alert = alerts.find(a => a.id === expandedId);
+                      if (!alert) return null;
+                      return (
+                        <motion.div
+                          key={`${expandedId}-exp`}
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="overflow-hidden bg-white/5 border-b border-[var(--color-border)]/50"
+                        >
+                          <div className="px-4 py-3">
+                            <p className="text-text-secondary text-xs mb-2">
+                              <strong>כל הערים:</strong> {alert.cities.join(', ')}
+                            </p>
+                            {alert.instructions && (
+                              <p className="text-text-muted text-xs">{alert.instructions}</p>
+                            )}
+                          </div>
+                        </motion.div>
+                      );
+                    })()}
+                  </AnimatePresence>
+                </div>
+
+                {/* Pagination */}
+                <div className="flex items-center justify-between px-4 py-3 border-t border-[var(--color-border)]">
+                  <button
+                    disabled={page === 0}
+                    onClick={() => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('page', String(page - 1)); return n; })}
+                    className="text-text-muted text-xs hover:text-text-primary disabled:opacity-40"
+                  >
+                    ← הקודם
+                  </button>
+                  <span className="text-text-muted text-xs">עמוד {page + 1}</span>
+                  <button
+                    disabled={alerts.length < PAGE_SIZE}
+                    onClick={() => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('page', String(page + 1)); return n; })}
+                    className="text-text-muted text-xs hover:text-text-primary disabled:opacity-40"
+                  >
+                    הבא →
+                  </button>
+                </div>
+              </>
+            )}
+          </GlassCard>
+
+          {/* Pie chart */}
+          <GlassCard className="p-5">
+            <h2 className="font-semibold text-text-primary mb-4">התפלגות לפי סוג</h2>
+            {pieData.length === 0 ? (
+              <EmptyState icon="📊" message="אין נתונים" />
+            ) : (
+              <ResponsiveContainer width="100%" height={280}>
+                <PieChart>
+                  <Pie data={pieData} cx="50%" cy="45%" outerRadius={90} dataKey="value" label={({ name, percent }: { name?: string; percent?: number }) => `${name ?? ''} ${((percent ?? 0) * 100).toFixed(0)}%`} labelLine={false}>
+                    {pieData.map((entry, i) => (
+                      <Cell key={i} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ background: '#161b22', border: '1px solid #21262d', borderRadius: 8 }}
+                    formatter={(value) => [`${value} התראות`]}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 11, color: '#8b949e' }} />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </GlassCard>
         </div>
       </div>
-    </div>
+    </PageTransition>
   );
 }

@@ -1,6 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { useEffect, useState } from 'react';
+import { Radio, Bell, WifiOff, Loader2 } from 'lucide-react';
+import { useReducedMotion } from 'framer-motion';
+import { AnimatedCounter, LiveDot } from '../components/ui';
 
 interface Health {
   uptime: number;
@@ -17,15 +20,22 @@ function rel(iso: string): string {
 }
 
 export function StatusStrip({ onUptime }: { onUptime: (u: number) => void }) {
-  const { data, isError } = useQuery<Health>({
+  const { data, isError, isLoading } = useQuery<Health>({
     queryKey: ['health'],
     queryFn: () => api.get('/api/stats/health'),
     refetchInterval: 5000,
   });
   const [countdown, setCountdown] = useState(5);
+  const prefersReduced = useReducedMotion();
 
+  // Reset countdown when fresh data arrives
   useEffect(() => {
-    const t = setInterval(() => setCountdown(c => (c <= 1 ? 5 : c - 1)), 1000);
+    setCountdown(5);
+  }, [data]);
+
+  // Tick down every second
+  useEffect(() => {
+    const t = setInterval(() => setCountdown(c => (c <= 1 ? 1 : c - 1)), 1000);
     return () => clearInterval(t);
   }, []);
 
@@ -33,27 +43,51 @@ export function StatusStrip({ onUptime }: { onUptime: (u: number) => void }) {
     if (data?.uptime !== undefined) onUptime(data.uptime);
   }, [data?.uptime, onUptime]);
 
+  if (isLoading) {
+    return (
+      <div className="bg-[var(--color-glass)] backdrop-blur-sm border-b border-border px-4 py-1.5 text-xs text-text-muted flex items-center gap-1.5">
+        <Loader2 size={12} className="animate-spin" />
+        מתחבר...
+      </div>
+    );
+  }
+
   if (isError) {
     return (
-      <div className="bg-red-900/40 border-b border-red-700/50 px-4 py-1 text-xs text-red-300">
-        ⚠️ אין חיבור לשרת
+      <div className="bg-[var(--color-glass)] backdrop-blur-sm border-b border-red-700/50 px-4 py-1 text-xs text-red-300 flex items-center gap-1.5">
+        <WifiOff size={12} />
+        אין חיבור לשרת
       </div>
     );
   }
 
   return (
-    <div className="bg-surface border-b border-border px-4 py-1.5 flex items-center gap-6 text-xs text-text-secondary">
+    <div
+      className="relative overflow-hidden bg-[var(--color-glass)] backdrop-blur-sm border-b border-border border-t-2 px-4 py-1.5 flex items-center gap-6 text-xs text-text-secondary"
+      style={{ borderTopColor: 'color-mix(in srgb, var(--color-amber) 30%, transparent)' }}
+    >
       <span className="flex items-center gap-1.5">
-        <span className="w-1.5 h-1.5 rounded-full bg-green animate-pulse" />
+        <LiveDot color="green" size="sm" />
         מחובר
       </span>
-      <span>📡 {data?.lastPollAt ? rel(data.lastPollAt) : '—'}</span>
-      <span>🔴 {data?.lastAlertAt ? rel(data.lastAlertAt) : 'אין היום'}</span>
-      <span>
+      <span className="flex items-center gap-1.5">
+        <Radio size={12} />
+        {data?.lastPollAt ? rel(data.lastPollAt) : '—'}
+      </span>
+      <span className="flex items-center gap-1.5">
+        <Bell size={12} />
+        {data?.lastAlertAt ? rel(data.lastAlertAt) : 'אין היום'}
+      </span>
+      <span className="flex items-center gap-1">
         התראות היום:{' '}
-        <strong className="text-amber">{data?.alertsToday ?? 0}</strong>
+        <AnimatedCounter value={data?.alertsToday ?? 0} className="text-amber font-bold mr-1" />
       </span>
       <span className="mr-auto text-text-muted">מתרענן בעוד {countdown}שנ׳</span>
+
+      <div
+        className={`absolute bottom-0 right-0 h-[2px] bg-amber/40 ${!prefersReduced ? 'transition-all duration-1000' : ''}`}
+        style={{ width: `${(countdown / 5) * 100}%` }}
+      />
     </div>
   );
 }
