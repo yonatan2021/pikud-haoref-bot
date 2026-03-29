@@ -1,6 +1,14 @@
 import { Router } from 'express';
 import type Database from 'better-sqlite3';
 import { getMetrics } from '../../metrics.js';
+import { ALERT_TYPE_CATEGORY } from '../../topicRouter.js';
+
+// Reverse map: category → list of alert types (derived once at module load)
+const groups: Record<string, string[]> = {};
+for (const [type, cat] of Object.entries(ALERT_TYPE_CATEGORY)) {
+  groups[cat] = [...(groups[cat] ?? []), type];
+}
+const CATEGORY_TYPES = Object.freeze(groups);
 
 const MAX_DAYS = 365;
 const MIN_DAYS = 1;
@@ -51,7 +59,9 @@ export function createStatsRouter(db: Database.Database): Router {
         totalSubscribers: q('SELECT COUNT(*) as c FROM users'),
         totalSubscriptions: q('SELECT COUNT(*) as c FROM subscriptions'),
         alertsToday: q(`SELECT COUNT(*) as c FROM alert_history WHERE fired_at >= date('now')`),
+        alertsYesterday: q(`SELECT COUNT(*) as c FROM alert_history WHERE fired_at >= date('now', '-1 day') AND fired_at < date('now')`),
         alertsLast7Days: q(`SELECT COUNT(*) as c FROM alert_history WHERE fired_at >= datetime('now', '-7 days')`),
+        alertsPrev7Days: q(`SELECT COUNT(*) as c FROM alert_history WHERE fired_at >= datetime('now', '-14 days') AND fired_at < datetime('now', '-7 days')`),
         mapboxMonth: mapboxRow?.request_count ?? 0,
       });
     } catch (err) {
@@ -97,7 +107,7 @@ export function createStatsRouter(db: Database.Database): Router {
   router.get('/alerts', (req, res) => {
     try {
       const query = req.query as Record<string, string>;
-      const { type, city } = query;
+      const { type, city, category } = query;
 
       const rawDays = parseIntParam(query.days, DEFAULT_DAYS);
       const safeDays = Math.min(Math.max(rawDays, MIN_DAYS), MAX_DAYS);
@@ -111,7 +121,15 @@ export function createStatsRouter(db: Database.Database): Router {
       `;
       const params: (string | number)[] = [];
 
-      if (type) {
+      if (category) {
+        const types = CATEGORY_TYPES[category];
+        if (types?.length) {
+          const placeholders = types.map(() => '?').join(', ');
+          sql += ` AND type IN (${placeholders})`;
+          params.push(...types);
+        }
+      } else if (type) {
+        // Backward-compatible exact-match filter
         sql += ` AND type = ?`;
         params.push(type);
       }

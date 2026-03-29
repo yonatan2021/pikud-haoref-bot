@@ -6,6 +6,7 @@ import { getActiveMessage, trackMessage, loadActiveMessages } from './alertWindo
 import { getTopicId } from './topicRouter';
 import { Alert } from './types';
 import { initDb } from './db/schema';
+import { initializeCache } from './mapService';
 import { setupBotHandlers } from './bot/botSetup';
 import { notifySubscribers } from './services/dmDispatcher';
 import { shouldSkipMap } from './alertHelpers';
@@ -37,6 +38,7 @@ for (const envVar of REQUIRED_ENV_VARS) {
   let alertsToday = 0;
   try {
     initDb();
+    initializeCache();
     loadActiveMessages();
     alertsToday = countAlertsToday();
   } catch (err) {

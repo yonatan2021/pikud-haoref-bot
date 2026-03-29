@@ -9,16 +9,39 @@ const glowCounterColor: Record<GlowVariant, string> = {
   none:  'text-text-primary',
 };
 
+interface TrendProps {
+  /** Absolute change (positive = increase, negative = decrease). */
+  delta: number;
+  /** Short label shown after the arrow, e.g. "מאתמול". */
+  label: string;
+  /**
+   * Whether an increase is visually good (green) or bad (red).
+   * Defaults to true. Pass false for metrics where growth is undesirable
+   * (e.g. alert counts — more alerts = worse situation).
+   */
+  positiveIsGood?: boolean;
+}
+
 interface KpiCardProps {
   icon: LucideIcon;
   label: string;
   value: number;
   sub?: string;
   glow?: GlowVariant;
+  trend?: TrendProps;
 }
 
-export function KpiCard({ icon: Icon, label, value, sub, glow = 'none' }: KpiCardProps) {
+export function KpiCard({ icon: Icon, label, value, sub, glow = 'none', trend }: KpiCardProps) {
   const counterColor = glowCounterColor[glow];
+
+  let trendColor = 'text-text-muted';
+  if (trend && trend.delta !== 0) {
+    const isPositive = trend.delta > 0;
+    const isGood = (trend.positiveIsGood ?? true) ? isPositive : !isPositive;
+    trendColor = isGood ? 'text-green-400' : 'text-red-400';
+  }
+
+  const trendArrow = !trend || trend.delta === 0 ? '—' : trend.delta > 0 ? '▲' : '▼';
 
   return (
     <GlassCard glow={glow} hoverable className="p-5">
@@ -32,6 +55,11 @@ export function KpiCard({ icon: Icon, label, value, sub, glow = 'none' }: KpiCar
         aria-label={`${label}: ${value.toLocaleString()}`}
       />
       {sub && <p className="text-text-muted text-xs mt-1">{sub}</p>}
+      {trend && (
+        <p className={`text-xs mt-1 ${trendColor}`}>
+          {trendArrow} {Math.abs(trend.delta)} {trend.label}
+        </p>
+      )}
     </GlassCard>
   );
 }

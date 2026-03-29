@@ -23,20 +23,57 @@ interface CategoryDay {
   day: string;
 }
 
+// Maps alert type → display color for pie chart and badges.
 const CATEGORY_COLORS: Record<string, string> = {
-  missiles: '#ef4444',
-  earthQuake: '#f97316',
-  newsFlash: '#3b82f6',
-  drills: '#8b5cf6',
-  hazardousMaterials: '#22c55e',
+  missiles:                      '#ef4444',
+  earthQuake:                    '#f97316',
+  tsunami:                       '#0ea5e9',
+  hazardousMaterials:            '#22c55e',
+  terroristInfiltration:         '#f43f5e',
+  radiologicalEvent:             '#a855f7',
+  hostileAircraftIntrusion:      '#fb923c',
+  newsFlash:                     '#3b82f6',
+  general:                       '#64748b',
+  missilesDrill:                 '#818cf8',
+  earthQuakeDrill:               '#818cf8',
+  tsunamiDrill:                  '#818cf8',
+  hostileAircraftIntrusionDrill: '#818cf8',
+  hazardousMaterialsDrill:       '#818cf8',
+  terroristInfiltrationDrill:    '#818cf8',
+  radiologicalEventDrill:        '#818cf8',
+  generalDrill:                  '#818cf8',
+  unknown:                       '#64748b',
 };
 
+// Hebrew labels for badge display in the table.
 const CATEGORY_LABELS: Record<string, string> = {
-  missiles: 'טילים',
-  earthQuake: 'רעידת אדמה',
-  newsFlash: 'חדשות',
-  drills: 'תרגיל',
-  hazardousMaterials: 'חומרים מסוכנים',
+  missiles:                      'טילים',
+  earthQuake:                    'רעידת אדמה',
+  tsunami:                       'צונאמי',
+  hazardousMaterials:            'חומרים מסוכנים',
+  terroristInfiltration:         'חדירת מחבלים',
+  radiologicalEvent:             'אירוע רדיולוגי',
+  hostileAircraftIntrusion:      'כלי טיס עוין',
+  newsFlash:                     'חדשות',
+  general:                       'כללי',
+  missilesDrill:                 'תרגיל — טילים',
+  earthQuakeDrill:               'תרגיל — רעידת אדמה',
+  tsunamiDrill:                  'תרגיל — צונאמי',
+  hostileAircraftIntrusionDrill: 'תרגיל — כלי טיס עוין',
+  hazardousMaterialsDrill:       'תרגיל — חומרים מסוכנים',
+  terroristInfiltrationDrill:    'תרגיל — חדירת מחבלים',
+  radiologicalEventDrill:        'תרגיל — אירוע רדיולוגי',
+  generalDrill:                  'תרגיל — כללי',
+  unknown:                       'לא ידוע',
+};
+
+// Broad categories for the filter bar — each maps to multiple DB alert types on the backend.
+const FILTER_CATEGORIES: Record<string, string> = {
+  security:     '🔴 ביטחוני',
+  nature:       '🌍 טבע',
+  environmental: '☢️ סביבתי',
+  drills:       '🔵 תרגיל',
+  general:      '📢 כללי',
 };
 
 const DAYS_OPTIONS = [1, 7, 30, 90] as const;
@@ -59,7 +96,7 @@ export function Alerts() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
   const days = searchParams.get('days') ?? '7';
-  const type = searchParams.get('type') ?? '';
+  const category = searchParams.get('category') ?? '';
   const city = searchParams.get('city') ?? '';
   const page = parseInt(searchParams.get('page') ?? '0', 10);
 
@@ -75,14 +112,14 @@ export function Alerts() {
 
   const queryString = new URLSearchParams({
     days,
-    ...(type && { type }),
+    ...(category && { category }),
     ...(city && { city }),
     limit: String(PAGE_SIZE),
     offset: String(page * PAGE_SIZE),
   }).toString();
 
   const { data: alerts = [], isLoading } = useQuery<Alert[]>({
-    queryKey: ['alerts', days, type, city, page],
+    queryKey: ['alerts', days, category, city, page],
     queryFn: () => api.get(`/api/stats/alerts?${queryString}`),
   });
 
@@ -105,6 +142,8 @@ export function Alerts() {
       return acc;
     }, {})
   );
+
+  const isFiltered = category !== '' || city !== '';
 
   return (
     <PageTransition>
@@ -136,30 +175,30 @@ export function Alerts() {
               </div>
             </div>
 
-            {/* Type filter pills */}
+            {/* Category filter pills */}
             <div className="flex flex-col gap-2">
-              <span className="text-text-muted text-xs">סוג</span>
+              <span className="text-text-muted text-xs">קטגוריה</span>
               <div className="flex gap-2 flex-wrap">
                 <motion.button
-                  onClick={() => updateParam('type', '')}
+                  onClick={() => updateParam('category', '')}
                   whileTap={{ scale: 0.95 }}
-                  aria-pressed={type === ''}
+                  aria-pressed={category === ''}
                   className={`px-3 py-1 rounded-full text-xs border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60 ${
-                    type === ''
+                    category === ''
                       ? 'bg-amber-500 text-black border-amber-500 font-medium'
                       : 'bg-[var(--color-glass)] border-[var(--color-border)] text-text-secondary hover:text-text-primary hover:border-amber-500/50'
                   }`}
                 >
                   הכל
                 </motion.button>
-                {Object.entries(CATEGORY_LABELS).map(([val, label]) => (
+                {Object.entries(FILTER_CATEGORIES).map(([val, label]) => (
                   <motion.button
                     key={val}
-                    onClick={() => updateParam('type', val)}
+                    onClick={() => updateParam('category', val)}
                     whileTap={{ scale: 0.95 }}
-                    aria-pressed={type === val}
+                    aria-pressed={category === val}
                     className={`px-3 py-1 rounded-full text-xs border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60 ${
-                      type === val
+                      category === val
                         ? 'bg-amber-500 text-black border-amber-500 font-medium'
                         : 'bg-[var(--color-glass)] border-[var(--color-border)] text-text-secondary hover:text-text-primary hover:border-amber-500/50'
                     }`}
@@ -196,7 +235,10 @@ export function Alerts() {
                 {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12" />)}
               </div>
             ) : alerts.length === 0 ? (
-              <EmptyState icon="🔔" message="אין התראות לתקופה זו" />
+              <EmptyState
+                icon="🔔"
+                message={isFiltered ? 'אין תוצאות עבור הסינון הנוכחי' : 'אין התראות לתקופה זו'}
+              />
             ) : (
               <>
                 <div className="overflow-x-auto">
@@ -306,7 +348,17 @@ export function Alerts() {
             ) : (
               <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
-                  <Pie data={pieData} cx="50%" cy="45%" outerRadius={90} dataKey="value" label={({ name, percent }: { name?: string; percent?: number }) => `${name ?? ''} ${((percent ?? 0) * 100).toFixed(0)}%`} labelLine={false}>
+                  <Pie
+                    data={pieData}
+                    cx="50%"
+                    cy="45%"
+                    outerRadius={90}
+                    dataKey="value"
+                    label={({ name, percent }: { name?: string; percent?: number }) =>
+                      `${name ?? ''} ${((percent ?? 0) * 100).toFixed(0)}%`
+                    }
+                    labelLine={false}
+                  >
                     {pieData.map((entry, i) => (
                       <Cell key={i} fill={entry.fill} />
                     ))}
@@ -315,7 +367,7 @@ export function Alerts() {
                     contentStyle={{ background: '#161b22', border: '1px solid #21262d', borderRadius: 8 }}
                     formatter={(value) => [`${value} התראות`]}
                   />
-                  <Legend wrapperStyle={{ fontSize: 11, color: '#8b949e' }} />
+                  <Legend wrapperStyle={{ fontSize: 11, color: '#8b949e', direction: 'rtl' }} />
                 </PieChart>
               </ResponsiveContainer>
             )}

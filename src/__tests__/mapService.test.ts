@@ -7,10 +7,11 @@ import path from 'path';
 const dataDir = path.join(process.cwd(), 'data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
-import { maxCacheSize, clearImageCache, _seedCache, generateMapImage, _buildMarkersUrl, SIMPLIFY_TOLERANCE, SIMPLIFY_TOLERANCE_AGGRESSIVE, getAlertColor, ALERT_TYPE_COLOR, getCurrentMapStyle } from '../mapService';
+import { maxCacheSize, clearImageCache, _seedCache, generateMapImage, _buildMarkersUrl, initializeCache, SIMPLIFY_TOLERANCE, SIMPLIFY_TOLERANCE_AGGRESSIVE, getAlertColor, ALERT_TYPE_COLOR, getCurrentMapStyle } from '../mapService';
 import { buildGeoJSON, expandGeoJSONBounds } from '../cityLookup';
 import { initDb, getDb } from '../db/schema';
 import { getMonthlyCount, incrementMonthlyCount, isMonthlyLimitReached } from '../db/mapboxUsageRepository';
+import { saveCacheEntry } from '../db/mapboxCacheRepository';
 import { getCityData } from '../cityLookup';
 
 function currentMonth(): string {
@@ -19,6 +20,7 @@ function currentMonth(): string {
 
 function cleanupDb(): void {
   getDb().prepare('DELETE FROM mapbox_usage').run();
+  getDb().prepare('DELETE FROM mapbox_image_cache').run();
 }
 
 describe('maxCacheSize', () => {
@@ -163,6 +165,35 @@ describe('alert type color map', () => {
       assert.equal(feature.properties?.fill, '#0080FF');
       assert.equal(feature.properties?.stroke, '#0080FF');
     }
+  });
+});
+
+describe('initializeCache', () => {
+  before(() => initDb());
+
+  beforeEach(() => {
+    clearImageCache();
+    cleanupDb();
+  });
+
+  it('populates in-memory cache from DB entries', async () => {
+    const alert = { type: 'missiles', cities: ['אבו גוש'] };
+    // Build the cache key the same way buildCacheKey() does: period prefix + type + sorted cities
+    const period = getCurrentMapStyle().includes('light') ? 'day' : 'night';
+    const key = `${period}:${alert.type}:${[...alert.cities].sort().join('|')}`;
+    const fakeBuffer = Buffer.from('persistent-image');
+    saveCacheEntry(key, fakeBuffer);
+
+    initializeCache();
+
+    // Do NOT call _seedCache — the cache must contain this entry from initializeCache alone.
+    // generateMapImage must return the buffer from DB-loaded cache without any HTTP call.
+    const result = await generateMapImage(alert);
+    assert.deepEqual(result, fakeBuffer);
+  });
+
+  it('is a no-op when DB image cache is empty', () => {
+    assert.doesNotThrow(() => initializeCache());
   });
 });
 
