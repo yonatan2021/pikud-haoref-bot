@@ -11,6 +11,7 @@ coverage/
 *.tsbuildinfo
 .DS_Store
 docs/superpowers/
+.worktrees/
 CLAUDE.md
 .claude.local.md
 .claude/
