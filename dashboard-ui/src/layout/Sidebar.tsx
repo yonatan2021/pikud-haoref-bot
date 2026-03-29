@@ -46,7 +46,7 @@ export function Sidebar({ uptime }: { uptime: number }) {
           aria-expanded={!collapsed}
           className="mr-auto text-text-muted hover:text-text-secondary flex-shrink-0"
         >
-          {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          {collapsed ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
         </button>
       </div>
 
