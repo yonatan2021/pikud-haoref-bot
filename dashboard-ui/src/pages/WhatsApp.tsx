@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -8,6 +8,7 @@ import { api } from '../api/client';
 import { GlassCard } from '../components/ui/GlassCard';
 import { PageTransition } from '../components/ui/PageTransition';
 import { LiveDot } from '../components/ui/LiveDot';
+import { ConfirmModal } from '../components/ConfirmModal';
 
 interface WhatsAppStatus {
   status: 'disconnected' | 'qr' | 'connecting' | 'ready';
@@ -79,7 +80,7 @@ function ToggleSwitch({ value, onChange, disabled = false }: ToggleSwitchProps) 
     <button
       onClick={() => !disabled && onChange(!value)}
       disabled={disabled}
-      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-40 ${value ? 'bg-amber' : 'bg-white/10'}`}
+      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-40 ${value ? 'bg-[var(--color-amber)]' : 'bg-white/10'}`}
       role="switch"
       aria-checked={value}
     >
@@ -95,13 +96,22 @@ function ToggleSwitch({ value, onChange, disabled = false }: ToggleSwitchProps) 
 
 function QrDisplay({ qrString }: { qrString: string }) {
   const [dataUrl, setDataUrl] = useState<string | null>(null);
+  const [qrError, setQrError] = useState(false);
 
   useEffect(() => {
     if (!qrString) return;
+    setQrError(false);
     QRCode.toDataURL(qrString, { width: 220, margin: 2 })
       .then(url => setDataUrl(url))
-      .catch(() => setDataUrl(null));
+      .catch(() => {
+        setDataUrl(null);
+        setQrError(true);
+      });
   }, [qrString]);
+
+  if (qrError) {
+    return <p className="text-red-400 text-sm">לא ניתן ליצור קוד QR</p>;
+  }
 
   if (!dataUrl) {
     return (
@@ -207,14 +217,20 @@ function GroupRow({ group, onUpdate }: { group: WhatsAppGroup; onUpdate: (groupI
 
 export function WhatsApp() {
   const queryClient = useQueryClient();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
 
-  const { data: statusData } = useQuery<WhatsAppStatus>({
+  const { data: statusData, isError: statusError } = useQuery<WhatsAppStatus>({
     queryKey: ['whatsapp-status'],
     queryFn: () => api.get('/api/whatsapp/status'),
-    refetchInterval: (query) => query.state.data?.status !== 'ready' ? 3000 : false,
+    refetchInterval: (query) => {
+      if (query.state.data?.status === 'ready') return false;
+      if (query.state.errorUpdateCount >= 5) return false;
+      return 3000;
+    },
   });
 
-  const { data: groups, isLoading: groupsLoading } = useQuery<WhatsAppGroup[]>({
+  const { data: groups, isLoading: groupsLoading, isError: groupsError } = useQuery<WhatsAppGroup[]>({
     queryKey: ['whatsapp-groups'],
     queryFn: () => api.get('/api/whatsapp/groups'),
   });
@@ -224,14 +240,15 @@ export function WhatsApp() {
     onSuccess: () => {
       toast.success('בקשת חיבור נשלחה');
       queryClient.invalidateQueries({ queryKey: ['whatsapp-status'] });
+      setShowDisconnectConfirm(false);
     },
     onError: () => {
       toast.error('שגיאה בחיבור מחדש');
     },
   });
 
-  const handleGroupUpdate = async (groupId: string, patch: Partial<WhatsAppGroup>) => {
-    const current = (groups ?? []).find(g => g.groupId === groupId);
+  const handleGroupUpdate = useCallback((groupId: string, patch: Partial<WhatsAppGroup>) => {
+    const current = queryClient.getQueryData<WhatsAppGroup[]>(['whatsapp-groups'])?.find(g => g.groupId === groupId);
     if (!current) return;
 
     const updated = { ...current, ...patch };
@@ -240,19 +257,21 @@ export function WhatsApp() {
       (prev ?? []).map(g => g.groupId === groupId ? updated : g)
     );
 
-    try {
-      const encodedId = encodeURIComponent(groupId);
-      await api.patch(`/api/whatsapp/groups/${encodedId}`, {
-        enabled: updated.enabled,
-        alertTypes: updated.alertTypes,
-      });
-    } catch {
-      toast.error('שגיאה בעדכון הקבוצה');
-      queryClient.setQueryData<WhatsAppGroup[]>(['whatsapp-groups'], prev =>
-        (prev ?? []).map(g => g.groupId === groupId ? current : g)
-      );
-    }
-  };
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      try {
+        await api.patch(`/api/whatsapp/groups/${encodeURIComponent(groupId)}`, {
+          enabled: updated.enabled,
+          alertTypes: updated.alertTypes,
+        });
+      } catch {
+        queryClient.setQueryData<WhatsAppGroup[]>(['whatsapp-groups'], prev =>
+          (prev ?? []).map(g => g.groupId === groupId ? current : g)
+        );
+        toast.error('שגיאה בעדכון הקבוצה');
+      }
+    }, 500);
+  }, [queryClient]);
 
   const status = statusData?.status ?? 'disconnected';
 
@@ -265,7 +284,11 @@ export function WhatsApp() {
         <GlassCard className="p-6">
           <div className="flex items-center justify-between mb-4 pb-3 border-b border-border">
             <h2 className="font-semibold text-text-primary">חיבור WhatsApp</h2>
-            <StatusBadge status={status} phone={statusData?.phone} />
+            {statusError ? (
+              <p className="text-red-400 text-sm">שגיאה בחיבור לשרת</p>
+            ) : (
+              <StatusBadge status={status} phone={statusData?.phone} />
+            )}
           </div>
 
           <div className="flex flex-col sm:flex-row gap-6 items-start">
@@ -309,18 +332,27 @@ export function WhatsApp() {
                 </p>
               )}
 
-              <button
-                onClick={() => reconnectMutation.mutate()}
-                disabled={reconnectMutation.isPending}
-                className="flex items-center gap-2 px-4 py-2 bg-surface border border-border hover:bg-base text-text-secondary text-sm rounded-lg transition-colors disabled:opacity-40 w-fit"
-              >
-                {reconnectMutation.isPending ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <RefreshCw size={14} />
-                )}
-                התחבר מחדש
-              </button>
+              {status === 'ready' ? (
+                <button
+                  onClick={() => setShowDisconnectConfirm(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-surface border border-red-400/30 hover:bg-base text-red-400 text-sm rounded-lg transition-colors w-fit"
+                >
+                  התנתק
+                </button>
+              ) : (
+                <button
+                  onClick={() => reconnectMutation.mutate()}
+                  disabled={reconnectMutation.isPending}
+                  className="flex items-center gap-2 px-4 py-2 bg-surface border border-border hover:bg-base text-text-secondary text-sm rounded-lg transition-colors disabled:opacity-40 w-fit"
+                >
+                  {reconnectMutation.isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <RefreshCw size={14} />
+                  )}
+                  התחבר מחדש
+                </button>
+              )}
             </div>
           </div>
         </GlassCard>
@@ -332,7 +364,9 @@ export function WhatsApp() {
             <p className="text-text-muted text-xs mt-1">בחר אילו קבוצות יקבלו התראות ואילו קטגוריות</p>
           </div>
 
-          {groupsLoading ? (
+          {groupsError ? (
+            <p className="text-red-400 text-sm">שגיאה בטעינת הקבוצות</p>
+          ) : groupsLoading ? (
             <div className="space-y-4">
               {Array.from({ length: 3 }).map((_, i) => (
                 <div key={i} className="h-16 bg-white/5 rounded-lg animate-pulse" />
@@ -355,6 +389,15 @@ export function WhatsApp() {
           )}
         </GlassCard>
       </div>
+
+      <ConfirmModal
+        open={showDisconnectConfirm}
+        title="ניתוק WhatsApp"
+        description="האם לנתק את הבוט מ-WhatsApp?"
+        onConfirm={() => reconnectMutation.mutate()}
+        onCancel={() => setShowDisconnectConfirm(false)}
+        danger
+      />
     </PageTransition>
   );
 }
