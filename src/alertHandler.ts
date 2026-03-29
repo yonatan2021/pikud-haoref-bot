@@ -69,7 +69,7 @@ export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Prom
         try {
           imageBuffer = await generateMapImage(mergedAlert);
         } catch (mapErr) {
-          console.error('[AlertHandler] Map generation failed — sending text-only:', mapErr);
+          log('error', 'AlertHandler', `כישלון ביצירת מפה (עריכה) — שולח טקסט בלבד: ${mapErr}`);
         }
       }
 
@@ -83,6 +83,7 @@ export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Prom
       } catch (editErr) {
         if (isUnmodifiedError(editErr)) {
           // Telegram 400 "message is not modified" — content unchanged, treat as success
+          log('warn', 'AlertHandler', `הודעה לא שונתה (Telegram 400) — type=${alert.type}, cities=${mergedAlert.cities.length}`);
           trackMessage(alert.type, { ...active, alert: mergedAlert });
           editHandled = true;
           sentToGroup = true;
