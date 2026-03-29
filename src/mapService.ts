@@ -6,7 +6,7 @@ import type { FeatureCollection, Polygon } from 'geojson';
 import { Alert, CityEntry } from './types';
 import { getCityData, getCityById, buildGeoJSON, expandGeoJSONBounds } from './cityLookup';
 import { isMonthlyLimitReached, incrementMonthlyCount } from './db/mapboxUsageRepository.js';
-import { loadCacheEntries, saveCacheEntry, deleteCacheEntry } from './db/mapboxCacheRepository.js';
+import { loadCacheEntries, saveCacheEntry, deleteCacheEntry, pruneCacheEntries } from './db/mapboxCacheRepository.js';
 
 const MAPBOX_URL_MAX_LENGTH = 8000;
 export const SIMPLIFY_TOLERANCE = 0.0003;
@@ -73,7 +73,9 @@ export function maxCacheSize(): number {
  * Call once at startup (after initDb()) so that cached images survive bot restarts.
  */
 export function initializeCache(): void {
-  const entries = loadCacheEntries(maxCacheSize());
+  const size = maxCacheSize();
+  pruneCacheEntries(size);
+  const entries = loadCacheEntries(size);
   for (const { key, buffer } of entries) {
     imageCache.set(key, { buffer });
   }

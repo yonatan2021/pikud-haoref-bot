@@ -33,3 +33,17 @@ export function deleteCacheEntry(key: string): void {
     .prepare(`DELETE FROM mapbox_image_cache WHERE cache_key = ?`)
     .run(key);
 }
+
+/** Removes rows beyond the newest `maxSize` entries. Called at startup to cap DB size. */
+export function pruneCacheEntries(maxSize: number): void {
+  getDb()
+    .prepare(
+      `DELETE FROM mapbox_image_cache
+       WHERE cache_key NOT IN (
+         SELECT cache_key FROM mapbox_image_cache
+         ORDER BY created_at DESC
+         LIMIT ?
+       )`
+    )
+    .run(maxSize);
+}

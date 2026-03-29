@@ -11,6 +11,7 @@ import {
   loadCacheEntries,
   saveCacheEntry,
   deleteCacheEntry,
+  pruneCacheEntries,
 } from '../db/mapboxCacheRepository';
 
 const KEY_A = 'missiles:אבו גוש|אביעזר';
@@ -87,6 +88,33 @@ describe('mapboxCacheRepository', () => {
       const entries = loadCacheEntries(20);
       assert.equal(entries.length, 1);
       assert.deepEqual(entries[0].buffer, updated);
+    });
+  });
+
+  describe('pruneCacheEntries', () => {
+    it('removes rows beyond maxSize, keeping the newest', () => {
+      saveCacheEntry(KEY_A, IMAGE_A);
+      getDb()
+        .prepare(`UPDATE mapbox_image_cache SET created_at = '2020-01-01 00:00:00' WHERE cache_key = ?`)
+        .run(KEY_A);
+      saveCacheEntry(KEY_B, IMAGE_B);
+      pruneCacheEntries(1);
+      const entries = loadCacheEntries(20);
+      assert.equal(entries.length, 1);
+      assert.equal(entries[0].key, KEY_B);
+    });
+
+    it('is a no-op when row count is within maxSize', () => {
+      saveCacheEntry(KEY_A, IMAGE_A);
+      saveCacheEntry(KEY_B, IMAGE_B);
+      pruneCacheEntries(5);
+      assert.equal(loadCacheEntries(20).length, 2);
+    });
+
+    it('deletes all rows when maxSize is 0', () => {
+      saveCacheEntry(KEY_A, IMAGE_A);
+      pruneCacheEntries(0);
+      assert.equal(loadCacheEntries(20).length, 0);
     });
   });
 
