@@ -35,7 +35,7 @@ jobs:
         run: npx tsc --noEmit
 
       - name: Run tests
-        run: npx tsx --test src/__tests__/*.test.ts
+        run: npx tsx --test --test-concurrency=1 src/__tests__/*.test.ts
 
       - name: Run dashboard tests
         env:

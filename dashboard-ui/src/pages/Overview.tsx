@@ -168,9 +168,9 @@ export function Overview() {
                     return (
                       <motion.div
                         key={alert.id}
-                        initial={reducedMotion ? undefined : { opacity: 0, x: -20 }}
+                        initial={reducedMotion ? undefined : { opacity: 0, x: 20 }}
                         animate={reducedMotion ? undefined : { opacity: 1, x: 0 }}
-                        exit={reducedMotion ? undefined : { opacity: 0, x: 20 }}
+                        exit={reducedMotion ? undefined : { opacity: 0, x: -20 }}
                         transition={reducedMotion ? undefined : { duration: 0.2 }}
                         className="flex items-start gap-3 p-3 bg-[var(--color-glass)] rounded-lg"
                       >
@@ -209,10 +209,10 @@ export function Overview() {
               <EmptyState icon="📍" message="אין נתונים" />
             ) : (
               <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={topCities} layout="vertical" margin={{ right: 16, left: 8 }}>
+                <BarChart data={topCities} layout="vertical" margin={{ right: 8, left: 16 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#21262d" horizontal={false} />
                   <XAxis type="number" tick={{ fill: '#8b949e', fontSize: 11 }} />
-                  <YAxis type="category" dataKey="city" tick={{ fill: '#8b949e', fontSize: 11 }} width={80} />
+                  <YAxis orientation="right" type="category" dataKey="city" tick={{ fill: '#8b949e', fontSize: 11 }} width={130} />
                   <Tooltip content={<ChartTooltip />} />
                   <Bar dataKey="count" fill="#f59e0b" radius={[0, 4, 4, 0]} name="התראות" />
                 </BarChart>

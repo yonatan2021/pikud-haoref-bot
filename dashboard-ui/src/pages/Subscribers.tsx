@@ -409,7 +409,7 @@ export function Subscribers() {
                   onClick={() => setPage(p => p - 1)}
                   className="text-text-muted text-xs hover:text-text-primary disabled:opacity-40"
                 >
-                  ← הקודם
+                  הקודם →
                 </button>
                 <span className="text-text-muted text-xs">
                   עמוד {page + 1} · {total} סה״כ
@@ -419,7 +419,7 @@ export function Subscribers() {
                   onClick={() => setPage(p => p + 1)}
                   className="text-text-muted text-xs hover:text-text-primary disabled:opacity-40"
                 >
-                  הבא →
+                  ← הבא
                 </button>
               </div>
             </>
