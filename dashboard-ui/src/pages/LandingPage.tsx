@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Rocket, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -28,8 +28,11 @@ export function LandingPage() {
   const [deployConfirm, setDeployConfirm] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [deployState, setDeployState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const deployTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { data: config } = useQuery<LandingConfig>({
+  useEffect(() => () => { if (deployTimerRef.current) clearTimeout(deployTimerRef.current); }, []);
+
+  const { data: config, isError: configError } = useQuery<LandingConfig>({
     queryKey: ['landing-config'],
     queryFn: () => api.get('/api/landing/config'),
   });
@@ -49,18 +52,32 @@ export function LandingPage() {
 
   const deployMutation = useMutation({
     mutationFn: () => api.post('/api/landing/deploy', {}),
+    onMutate: () => setDeployState('loading'),
     onSuccess: () => {
       toast.success('Deploy הופעל בהצלחה');
       qc.invalidateQueries({ queryKey: ['landing-config'] });
       setDeployState('success');
-      setTimeout(() => setDeployState('idle'), 3000);
+      if (deployTimerRef.current) clearTimeout(deployTimerRef.current);
+      deployTimerRef.current = setTimeout(() => setDeployState('idle'), 3000);
     },
     onError: () => {
       toast.error('שגיאה בהפעלת deploy');
       setDeployState('error');
-      setTimeout(() => setDeployState('idle'), 3000);
+      if (deployTimerRef.current) clearTimeout(deployTimerRef.current);
+      deployTimerRef.current = setTimeout(() => setDeployState('idle'), 3000);
     },
+    onSettled: () => setDeployConfirm(false),
   });
+
+  if (configError) {
+    return (
+      <PageTransition>
+        <div className="p-8 text-center text-text-muted text-sm">
+          שגיאה בטעינת הגדרות — רענן את הדף
+        </div>
+      </PageTransition>
+    );
+  }
 
   return (
     <PageTransition>
@@ -128,8 +145,9 @@ export function LandingPage() {
 
           {!deployConfirm ? (
             <button
+              disabled={deployState === 'loading' || deployMutation.isPending}
               onClick={() => setDeployConfirm(true)}
-              className={`px-6 py-2 text-sm font-bold rounded-lg transition-colors flex items-center gap-2 min-w-[150px] justify-center ${
+              className={`px-6 py-2 text-sm font-bold rounded-lg transition-colors flex items-center gap-2 min-w-[150px] justify-center disabled:opacity-60 ${
                 deployState === 'success'
                   ? 'bg-green text-white'
                   : deployState === 'error'
@@ -197,7 +215,7 @@ export function LandingPage() {
               <p className="text-text-secondary text-sm flex-1">האם להפעיל GitHub Actions deploy?</p>
               <button
                 disabled={deployMutation.isPending}
-                onClick={() => { setDeployConfirm(false); setDeployState('loading'); deployMutation.mutate(); }}
+                onClick={() => deployMutation.mutate()}
                 className="px-4 py-2 bg-amber hover:bg-amber-dark text-black text-sm font-bold rounded-lg disabled:opacity-40"
               >
                 {deployMutation.isPending ? 'מפעיל...' : 'אישור'}
