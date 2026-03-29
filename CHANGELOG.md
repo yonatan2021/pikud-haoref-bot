@@ -26,6 +26,22 @@
 
 ---
 
+## [0.2.1] — 2026-03-29
+
+### ✨ תכונות חדשות
+- **תיקון BiDi בטרמינל** — מחרוזות עבריות המשולבות עם מספרים (כגון "פורט 3000", "כל 2 שניות") נעטפות ב-Unicode RLE embedding (`\u202B...\u202C`) ומוצגות כעת בסדר הנכון בכל הטרמינלים
+- **startup box מעוגל** — פינות `╭╮╰╯`, רוחב דינמי לפי רוחב הטרמינל
+- **לינקים לחיצים** — Health Server ו-Dashboard מציגים OSC 8 hyperlinks (VS Code terminal, iTerm2)
+- **tag badges** — תגי לוג צבעוניים עם רקע לכל מקור (`Poller`, `AlertHandler`, `DM` וכו')
+- **section divider** — קו הפרדה עם תאריך בין ה-startup box לשורות הלוג
+- **מונה התראות היום** — startup box מציג כמה התראות נשלחו היום (מה-DB)
+
+### 🔧 תחזוקה
+- `src/loggerUtils.ts` — קובץ helpers חדש (`wrapRtl`, `osc8Link`, `boxWidth`, `hr`, `containsHebrew`)
+- `src/db/alertHistoryRepository.ts` — הוספת `countAlertsToday()`
+
+---
+
 ## [0.2.0] — 2026-03-29
 
 <div dir="rtl">
@@ -367,7 +383,8 @@
 
 <div dir="rtl">
 
-[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.1.6...v0.2.0
 [0.1.6]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.1.4...v0.1.5
