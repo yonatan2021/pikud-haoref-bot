@@ -78,7 +78,7 @@ describe('parseArgs', () => {
   it('does not consume next flag as value for space-separated flag', () => {
     const flags = parseArgs(['--token', '--verify'])
     assert.equal(flags.verify, true)
-    assert.notEqual(flags.token, '--verify')
+    assert.equal(flags.token, undefined)
   })
 
   it('parses space-separated flag value that does not start with dash', () => {
