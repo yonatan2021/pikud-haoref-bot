@@ -1,4 +1,4 @@
-import { describe, it, beforeEach, mock } from 'node:test';
+import { describe, it, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Alert } from '../types';
 import type { AlertHandlerDeps } from '../alertHandler';
@@ -36,6 +36,15 @@ function makeDeps(overrides: Partial<AlertHandlerDeps> = {}): AlertHandlerDeps {
 }
 
 describe('handleNewAlert', () => {
+  // Suppress logger stdout so alert boxes don't pollute test output.
+  let stdoutSpy: ReturnType<typeof mock.method>;
+  beforeEach(() => {
+    stdoutSpy = mock.method(process.stdout, 'write', () => true);
+  });
+  afterEach(() => {
+    stdoutSpy.mock.restore();
+  });
+
   describe('no active message (fresh send)', () => {
     it('calls sendAlert with the original alert', async () => {
       const deps = makeDeps();
