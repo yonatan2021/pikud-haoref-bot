@@ -1,4 +1,5 @@
 import { getDb } from './schema.js';
+import { log } from '../logger.js';
 
 function currentMonth(): string {
   return new Date().toISOString().slice(0, 7);
@@ -26,9 +27,7 @@ export function isMonthlyLimitReached(): boolean {
   if (!raw) return false;
   const limit = parseInt(raw, 10);
   if (isNaN(limit)) {
-    console.warn(
-      `[MapboxUsage] MAPBOX_MONTHLY_LIMIT="${raw}" is not a valid number — quota limit disabled`
-    );
+    log('warn', 'MapService', `MAPBOX_MONTHLY_LIMIT="${raw}" is not a valid number — quota limit disabled`);
     return false;
   }
   return getMonthlyCount(currentMonth()) >= limit;

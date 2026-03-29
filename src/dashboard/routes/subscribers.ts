@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import type Database from 'better-sqlite3';
+import { log } from '../../logger.js';
 
 const ALLOWED_FORMATS = ['short', 'detailed'] as const;
 const MAX_LIMIT = 200;
@@ -32,7 +33,7 @@ export function createSubscribersRouter(db: Database.Database): Router {
       res.setHeader('Content-Disposition', 'attachment; filename="subscribers.csv"');
       res.send(header + body);
     } catch (err) {
-      console.error('[dashboard] query error:', err);
+      log('error', 'Dashboard', `Query error: ${String(err)}`);
       res.status(500).json({ error: 'שגיאת שרת פנימית' });
     }
   });
@@ -69,7 +70,7 @@ export function createSubscribersRouter(db: Database.Database): Router {
 
       res.json({ data, total });
     } catch (err) {
-      console.error('[dashboard] query error:', err);
+      log('error', 'Dashboard', `Query error: ${String(err)}`);
       res.status(500).json({ error: 'שגיאת שרת פנימית' });
     }
   });
@@ -92,7 +93,7 @@ export function createSubscribersRouter(db: Database.Database): Router {
 
       res.json({ ...user, cities });
     } catch (err) {
-      console.error('[dashboard] query error:', err);
+      log('error', 'Dashboard', `Query error: ${String(err)}`);
       res.status(500).json({ error: 'שגיאת שרת פנימית' });
     }
   });
@@ -124,7 +125,7 @@ export function createSubscribersRouter(db: Database.Database): Router {
 
       res.json({ ok: true });
     } catch (err) {
-      console.error('[dashboard] query error:', err);
+      log('error', 'Dashboard', `Query error: ${String(err)}`);
       res.status(500).json({ error: 'שגיאת שרת פנימית' });
     }
   });
@@ -137,7 +138,7 @@ export function createSubscribersRouter(db: Database.Database): Router {
       db.prepare('DELETE FROM users WHERE chat_id = ?').run(chatId);
       res.json({ ok: true });
     } catch (err) {
-      console.error('[dashboard] query error:', err);
+      log('error', 'Dashboard', `Query error: ${String(err)}`);
       res.status(500).json({ error: 'שגיאת שרת פנימית' });
     }
   });
@@ -153,7 +154,7 @@ export function createSubscribersRouter(db: Database.Database): Router {
       );
       res.json({ ok: true });
     } catch (err) {
-      console.error('[dashboard] query error:', err);
+      log('error', 'Dashboard', `Query error: ${String(err)}`);
       res.status(500).json({ error: 'שגיאת שרת פנימית' });
     }
   });

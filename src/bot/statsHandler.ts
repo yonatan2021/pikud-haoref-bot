@@ -1,6 +1,7 @@
 import { Bot } from 'grammy';
 import type { Context } from 'grammy';
 import { upsertUser } from '../db/userRepository.js';
+import { log } from '../logger.js';
 import { getUserCities } from '../db/subscriptionRepository.js';
 import { getRecentAlerts } from '../db/alertHistoryRepository.js';
 import { ALERT_TYPE_CATEGORY } from '../topicRouter.js';
@@ -50,9 +51,9 @@ export function registerStatsHandler(bot: Bot): void {
       const userCities = getUserCities(chatId);
       await ctx.reply(buildStatsMessage(rows, userCities), { parse_mode: 'HTML' });
     } catch (err) {
-      console.error('[Stats] Command failed:', err);
+      log('error', 'Bot', `Stats command failed: ${String(err)}`);
       await ctx.reply('אירעה שגיאה בטעינת הסטטיסטיקה. נסה שוב מאוחר יותר.').catch((e) =>
-        console.error('[Stats] Failed to send error reply:', e)
+        log('error', 'Bot', `Stats failed to send error reply: ${String(e)}`)
       );
     }
   });

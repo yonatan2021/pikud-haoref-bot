@@ -5,6 +5,7 @@ import type Database from 'better-sqlite3';
 import type { Bot } from 'grammy';
 import { createSessionStore } from './auth.js';
 import { createApiRouter } from './router.js';
+import { log } from '../logger.js';
 
 const UI_DIST = path.join(__dirname, '../../dashboard-ui/dist');
 
@@ -21,5 +22,5 @@ export function startDashboardServer(db: Database.Database, bot: Bot, port: numb
   app.use(express.static(UI_DIST));
   app.get('*path', (_req, res) => res.sendFile(path.join(UI_DIST, 'index.html')));
 
-  app.listen(port, () => console.warn(`[dashboard] listening on :${port}`));
+  app.listen(port, () => log('info', 'Init', `Dashboard listening on port ${port}`));
 }
