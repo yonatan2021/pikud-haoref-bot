@@ -16,7 +16,7 @@ import { updateLastAlertAt } from './metrics.js';
 import { startDashboardServer } from './dashboard/server.js';
 import { getDb } from './db/schema.js';
 import { log, logStartupHeader, logSectionDivider } from './logger.js';
-import { wrapRtl } from './loggerUtils.js';
+import { toVisualRtl } from './loggerUtils.js';
 
 // Prevent broken-pipe errors from crashing the bot when a stdout consumer exits.
 process.stdout.on('error', (err: NodeJS.ErrnoException) => {
@@ -89,9 +89,9 @@ for (const envVar of REQUIRED_ENV_VARS) {
   poller.start(2000);
 
   logStartupHeader('0.2.1', [
-    { name: 'Health Server', detail: healthOk ? wrapRtl(`פורט ${resolvedHealthPort}`) : 'נכשל בהפעלה', ok: healthOk, url: healthOk ? `http://localhost:${resolvedHealthPort}` : undefined },
-    { name: 'Alert Poller',  detail: wrapRtl('כל 2 שניות'),                                                ok: true },
-    { name: 'Dashboard',     detail: dashboardSecret ? wrapRtl(`פורט ${dashboardPort}`) : wrapRtl('כבוי (אין DASHBOARD_SECRET)'), ok: !!dashboardSecret, url: dashboardSecret ? `http://localhost:${dashboardPort}` : undefined },
+    { name: 'Health Server', detail: healthOk ? toVisualRtl(`פורט ${resolvedHealthPort}`) : 'נכשל בהפעלה', ok: healthOk, url: healthOk ? `http://localhost:${resolvedHealthPort}` : undefined },
+    { name: 'Alert Poller',  detail: toVisualRtl('כל 2 שניות'),                                                ok: true },
+    { name: 'Dashboard',     detail: dashboardSecret ? toVisualRtl(`פורט ${dashboardPort}`) : toVisualRtl('כבוי (אין DASHBOARD_SECRET)'), ok: !!dashboardSecret, url: dashboardSecret ? `http://localhost:${dashboardPort}` : undefined },
     { name: 'Database',      detail: 'מאותחל',                                                              ok: true },
   ], alertsToday);
 

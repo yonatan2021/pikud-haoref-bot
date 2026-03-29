@@ -2,18 +2,36 @@
 // Helpers shared by logger.ts. Kept separate to keep logger.ts focused on
 // output formatting.
 
-/** Unicode Right-to-Left Embedding — forces BiDi algorithm to treat the
- *  embedded span as RTL. Needed for mixed Hebrew+number strings (e.g. "כל 2 שניות")
- *  because most terminals default to LTR base direction. */
-export const RLE = '\u202B';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const bidiFactory = require('bidi-js') as () => {
+  getEmbeddingLevels: (str: string, dir: 'ltr' | 'rtl') => { levels: Record<number, number>; paragraphs: unknown[] };
+  getReorderedString: (str: string, levels: { levels: Record<number, number>; paragraphs: unknown[] }) => string;
+};
 
-/** Unicode Pop Directional Formatting — closes the nearest directional embedding. */
-export const PDF = '\u202C';
+const _bidi = bidiFactory();
 
-/** Wrap a string in an RTL directional embedding so Hebrew+number mixes
- *  render correctly in LTR-defaulting terminals. */
-export function wrapRtl(str: string): string {
-  return `${RLE}${str}${PDF}`;
+/**
+ * Convert a logical-order Hebrew string to visual order for sequential LTR rendering.
+ *
+ * The previous approach (\u202B RLE embedding) only works in terminals that implement
+ * the Unicode BiDi Algorithm — notably NOT VS Code's integrated terminal, which ignores
+ * \u202B and renders characters left-to-right, causing Hebrew to appear reversed.
+ *
+ * This function uses the Unicode BiDi Algorithm (via bidi-js) to reorder the string
+ * to visual order BEFORE sending it to the terminal. The result renders correctly in
+ * ALL terminals regardless of their BiDi support:
+ *   - Non-BiDi terminal (VS Code): visual-order string rendered LTR → correct when read RTL
+ *   - BiDi terminal (macOS Terminal.app): terminal reverses visual-order string back →
+ *     correct Hebrew rendered in RTL position
+ *
+ * Examples (base direction: RTL paragraph):
+ *   "שלום"         → "םולש"         (pure Hebrew word)
+ *   "פורט 3000"    → "3000 טרופ"    (Hebrew + digits: runs reversed, digit run stays LTR)
+ *   "שגיאה בשליחה" → "החילשב האיגש" (multi-word: chars and word-order both reversed)
+ */
+export function toVisualRtl(str: string): string {
+  const levels = _bidi.getEmbeddingLevels(str, 'rtl');
+  return _bidi.getReorderedString(str, levels);
 }
 
 /** OSC 8 hyperlink escape — renders as a clickable link in VS Code terminal,
