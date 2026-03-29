@@ -1,4 +1,4 @@
-import type { Feature, FeatureCollection, Polygon } from 'geojson';
+import type { Feature, FeatureCollection, Polygon, Position } from 'geojson';
 import { CityEntry, PolygonCoords, PolygonsMap } from './types';
 import { normalizeCityName } from './alertPoller';
 
@@ -61,9 +61,9 @@ export function buildGeoJSON(
       type: 'Feature',
       properties: {
         fill: color,
-        'fill-opacity': 0.3,
+        'fill-opacity': 0.4,
         stroke: color,
-        'stroke-width': 2,
+        'stroke-width': 3,
         'stroke-opacity': 0.8,
       },
       geometry: {
@@ -74,4 +74,67 @@ export function buildGeoJSON(
   }
 
   return { type: 'FeatureCollection', features };
+}
+
+/** Minimum span (degrees) that guarantees ~50 km of geographic context around alerted areas. */
+const MIN_SPAN_DEG = 0.45;
+
+/**
+ * Expands a GeoJSON FeatureCollection to ensure the Mapbox auto-zoom shows at least
+ * ~50 km of context. When the bounding box of all features is smaller than MIN_SPAN_DEG
+ * in either dimension, an invisible padding rectangle is added so the auto viewport
+ * pulls back far enough to include surrounding geography.
+ */
+export function expandGeoJSONBounds(
+  geojson: FeatureCollection<Polygon>,
+): FeatureCollection<Polygon> {
+  const lngs: number[] = [];
+  const lats: number[] = [];
+
+  for (const feature of geojson.features) {
+    for (const ring of feature.geometry.coordinates) {
+      for (const [lng, lat] of ring as Position[]) {
+        lngs.push(lng);
+        lats.push(lat);
+      }
+    }
+  }
+
+  const minLng = Math.min(...lngs);
+  const maxLng = Math.max(...lngs);
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+
+  const spanLng = maxLng - minLng;
+  const spanLat = maxLat - minLat;
+
+  if (spanLng >= MIN_SPAN_DEG && spanLat >= MIN_SPAN_DEG) return geojson;
+
+  const centerLng = (minLng + maxLng) / 2;
+  const centerLat = (minLat + maxLat) / 2;
+  const halfLng = Math.max(spanLng, MIN_SPAN_DEG) / 2;
+  const halfLat = Math.max(spanLat, MIN_SPAN_DEG) / 2;
+
+  const paddingBox: Feature<Polygon> = {
+    type: 'Feature',
+    properties: {
+      fill: '#000000',
+      'fill-opacity': 0,
+      stroke: '#000000',
+      'stroke-opacity': 0,
+      'stroke-width': 0,
+    },
+    geometry: {
+      type: 'Polygon',
+      coordinates: [[
+        [centerLng - halfLng, centerLat - halfLat],
+        [centerLng + halfLng, centerLat - halfLat],
+        [centerLng + halfLng, centerLat + halfLat],
+        [centerLng - halfLng, centerLat + halfLat],
+        [centerLng - halfLng, centerLat - halfLat],
+      ]],
+    },
+  };
+
+  return { ...geojson, features: [...geojson.features, paddingBox] };
 }

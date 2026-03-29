@@ -7,8 +7,8 @@ import path from 'path';
 const dataDir = path.join(process.cwd(), 'data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
-import { maxCacheSize, clearImageCache, _seedCache, generateMapImage, _buildMarkersUrl, SIMPLIFY_TOLERANCE, SIMPLIFY_TOLERANCE_AGGRESSIVE, getAlertColor, ALERT_TYPE_COLOR } from '../mapService';
-import { buildGeoJSON } from '../cityLookup';
+import { maxCacheSize, clearImageCache, _seedCache, generateMapImage, _buildMarkersUrl, SIMPLIFY_TOLERANCE, SIMPLIFY_TOLERANCE_AGGRESSIVE, getAlertColor, ALERT_TYPE_COLOR, getCurrentMapStyle } from '../mapService';
+import { buildGeoJSON, expandGeoJSONBounds } from '../cityLookup';
 import { initDb, getDb } from '../db/schema';
 import { getMonthlyCount, incrementMonthlyCount, isMonthlyLimitReached } from '../db/mapboxUsageRepository';
 import { getCityData } from '../cityLookup';
@@ -195,7 +195,7 @@ describe('_buildMarkersUrl', () => {
     const result = _buildMarkersUrl([city.id]);
 
     assert.ok(result !== null, 'expected a URL, got null');
-    assert.ok(result!.includes('pin-s+FF0000'), 'URL must use red pin markers');
+    assert.ok(result!.includes('pin-l+FF0000'), 'URL must use large red pin markers for unknown alert type');
     assert.ok(
       result!.includes(`${city.lng.toFixed(4)},${city.lat.toFixed(4)}`),
       'URL must contain city coordinates in (lng,lat) order'
@@ -213,7 +213,7 @@ describe('_buildMarkersUrl', () => {
     const result = _buildMarkersUrl([city1.id, city2.id]);
 
     assert.ok(result !== null);
-    const pinCount = (result!.match(/pin-s\+FF0000/g) ?? []).length;
+    const pinCount = (result!.match(/pin-l\+FF0000/g) ?? []).length;
     assert.equal(pinCount, 2, 'expected one pin marker per city');
   });
 
@@ -225,7 +225,106 @@ describe('_buildMarkersUrl', () => {
     const result = _buildMarkersUrl([-999, city.id]);
 
     assert.ok(result !== null, 'should return URL for the one valid city');
-    const pinCount = (result!.match(/pin-s\+FF0000/g) ?? []).length;
+    const pinCount = (result!.match(/pin-l\+FF0000/g) ?? []).length;
     assert.equal(pinCount, 1, 'only the valid city should produce a pin');
+  });
+
+  it('uses alert-type color instead of hardcoded red', () => {
+    const city = getCityData('אבו גוש');
+    assert.ok(city, 'test requires אבו גוש to exist in city data');
+
+    const result = _buildMarkersUrl([city.id], 'missiles');
+    assert.ok(result !== null);
+    // missiles → #FF0000 (still red, but via getAlertColor — not hardcoded)
+    assert.ok(result!.includes('pin-l+FF0000'), 'missiles should produce red pin-l markers');
+
+    const tsunamiResult = _buildMarkersUrl([city.id], 'tsunami');
+    assert.ok(tsunamiResult !== null);
+    // tsunami → #0080FF
+    assert.ok(tsunamiResult!.includes('pin-l+0080FF'), 'tsunami should produce blue pin-l markers');
+  });
+});
+
+describe('getCurrentMapStyle', () => {
+  it('returns light style during daytime hours (06:00 Israel time)', () => {
+    // 04:00 UTC = 06:00 Israel time (UTC+2 in winter)
+    const result = getCurrentMapStyle(new Date('2026-01-15T04:00:00Z'));
+    assert.equal(result, 'mapbox/light-v11');
+  });
+
+  it('returns light style at noon (12:00 Israel time)', () => {
+    // 10:00 UTC = 12:00 Israel time
+    const result = getCurrentMapStyle(new Date('2026-01-15T10:00:00Z'));
+    assert.equal(result, 'mapbox/light-v11');
+  });
+
+  it('returns light style at 17:59 Israel time (last minute of day window)', () => {
+    // 15:59 UTC = 17:59 Israel time (UTC+2)
+    const result = getCurrentMapStyle(new Date('2026-01-15T15:59:00Z'));
+    assert.equal(result, 'mapbox/light-v11');
+  });
+
+  it('returns dark style at 18:00 Israel time (first minute of night window)', () => {
+    // 16:00 UTC = 18:00 Israel time (UTC+2)
+    const result = getCurrentMapStyle(new Date('2026-01-15T16:00:00Z'));
+    assert.equal(result, 'mapbox/dark-v11');
+  });
+
+  it('returns dark style at midnight Israel time', () => {
+    // 22:00 UTC = 00:00 Israel time (UTC+2)
+    const result = getCurrentMapStyle(new Date('2026-01-14T22:00:00Z'));
+    assert.equal(result, 'mapbox/dark-v11');
+  });
+});
+
+describe('expandGeoJSONBounds', () => {
+  function makePointGeojson(lng: number, lat: number) {
+    // A tiny 1-point-wide polygon (degenerate) that simulates a very small city
+    return {
+      type: 'FeatureCollection' as const,
+      features: [{
+        type: 'Feature' as const,
+        properties: { fill: '#FF0000', 'fill-opacity': 0.4, stroke: '#FF0000', 'stroke-width': 3, 'stroke-opacity': 0.8 },
+        geometry: {
+          type: 'Polygon' as const,
+          coordinates: [[[lng, lat], [lng + 0.01, lat], [lng + 0.01, lat + 0.01], [lng, lat + 0.01], [lng, lat]]],
+        },
+      }],
+    };
+  }
+
+  it('adds a padding bbox feature when span is below 0.45°', () => {
+    // A tiny polygon (~1 km span) centered around Tel Aviv
+    const tiny = makePointGeojson(34.78, 32.08);
+    const expanded = expandGeoJSONBounds(tiny);
+
+    assert.equal(expanded.features.length, 2, 'should have original feature + padding bbox');
+    const padding = expanded.features[1];
+    assert.equal(padding.properties?.['fill-opacity'], 0, 'padding bbox should be invisible');
+    assert.equal(padding.properties?.['stroke-opacity'], 0, 'padding bbox stroke should be invisible');
+  });
+
+  it('does not add a padding feature when span already exceeds 0.45°', () => {
+    // A polygon that spans >0.45° in both dimensions (e.g., a large alert area)
+    const large = {
+      type: 'FeatureCollection' as const,
+      features: [{
+        type: 'Feature' as const,
+        properties: {},
+        geometry: {
+          type: 'Polygon' as const,
+          coordinates: [[[34.0, 31.5], [34.6, 31.5], [34.6, 32.1], [34.0, 32.1], [34.0, 31.5]]],
+        },
+      }],
+    };
+    const result = expandGeoJSONBounds(large);
+    assert.equal(result.features.length, 1, 'large area should not gain extra features');
+  });
+
+  it('returns an immutable copy — does not mutate the original', () => {
+    const tiny = makePointGeojson(34.78, 32.08);
+    const original = { ...tiny, features: [...tiny.features] };
+    expandGeoJSONBounds(tiny);
+    assert.equal(tiny.features.length, original.features.length, 'original should not be mutated');
   });
 });
