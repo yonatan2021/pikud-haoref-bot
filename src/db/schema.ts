@@ -76,6 +76,13 @@ export function initSchema(database: Database.Database): void {
       image_data BLOB NOT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS message_templates (
+      alert_type          TEXT PRIMARY KEY,
+      emoji               TEXT NOT NULL,
+      title_he            TEXT NOT NULL,
+      instructions_prefix TEXT NOT NULL
+    );
   `);
 
   database.exec(

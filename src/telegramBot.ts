@@ -2,48 +2,8 @@ import { Bot, InputFile } from 'grammy';
 import { autoRetry } from '@grammyjs/auto-retry';
 import { Alert } from './types';
 import { getCityData } from './cityLookup';
-
-export const ALERT_TYPE_HE: Record<string, string> = {
-  missiles: 'התרעת טילים',
-  earthQuake: 'רעידת אדמה',
-  tsunami: 'צונאמי',
-  hostileAircraftIntrusion: 'חדירת כלי טיס עוין',
-  hazardousMaterials: 'חומרים מסוכנים',
-  terroristInfiltration: 'חדירת מחבלים',
-  radiologicalEvent: 'אירוע רדיולוגי',
-  newsFlash: 'הודעה מיוחדת',
-  general: 'התרעה כללית',
-  missilesDrill: 'תרגיל — התרעת טילים',
-  earthQuakeDrill: 'תרגיל — רעידת אדמה',
-  tsunamiDrill: 'תרגיל — צונאמי',
-  hostileAircraftIntrusionDrill: 'תרגיל — חדירת כלי טיס',
-  hazardousMaterialsDrill: 'תרגיל — חומרים מסוכנים',
-  terroristInfiltrationDrill: 'תרגיל — חדירת מחבלים',
-  radiologicalEventDrill: 'תרגיל — אירוע רדיולוגי',
-  generalDrill: 'תרגיל כללי',
-  unknown: 'התרעה',
-};
-
-export const ALERT_TYPE_EMOJI: Record<string, string> = {
-  missiles: '🔴',
-  earthQuake: '🟠',
-  tsunami: '🌊',
-  hostileAircraftIntrusion: '✈️',
-  hazardousMaterials: '☢️',
-  terroristInfiltration: '⚠️',
-  radiologicalEvent: '☢️',
-  newsFlash: '📢',
-  general: '⚠️',
-  missilesDrill: '🔵',
-  earthQuakeDrill: '🔵',
-  tsunamiDrill: '🔵',
-  hostileAircraftIntrusionDrill: '🔵',
-  hazardousMaterialsDrill: '🔵',
-  terroristInfiltrationDrill: '🔵',
-  radiologicalEventDrill: '🔵',
-  generalDrill: '🔵',
-  unknown: '⚠️',
-};
+import { getEmoji, getTitleHe, getInstructionsPrefix } from './config/templateCache.js';
+export { DEFAULT_ALERT_TYPE_HE as ALERT_TYPE_HE, DEFAULT_ALERT_TYPE_EMOJI as ALERT_TYPE_EMOJI } from './config/alertTypeDefaults.js';
 
 const MAX_CITIES_DISPLAYED = 25;
 
@@ -111,8 +71,8 @@ export function buildZonedCityList(cities: string[]): string {
 }
 
 export function formatAlertMessage(alert: Alert): string {
-  const emoji = ALERT_TYPE_EMOJI[alert.type] ?? '⚠️';
-  const title = ALERT_TYPE_HE[alert.type] ?? ALERT_TYPE_HE.unknown;
+  const emoji = getEmoji(alert.type);
+  const title = getTitleHe(alert.type);
 
   const now = new Date();
   const timeStr = now.toLocaleTimeString('he-IL', {
@@ -128,7 +88,7 @@ export function formatAlertMessage(alert: Alert): string {
   if (zonedList) parts.push(zonedList);
 
   if (alert.instructions) {
-    const instructionsPrefix = alert.type === 'newsFlash' ? '📌 <b>תוכן ההודעה:</b>' : '🛡';
+    const instructionsPrefix = getInstructionsPrefix(alert.type);
     parts.push(`${instructionsPrefix} <i>${escapeHtml(alert.instructions)}</i>`);
   }
 

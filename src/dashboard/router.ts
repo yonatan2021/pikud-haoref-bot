@@ -6,6 +6,7 @@ import { createSubscribersRouter } from './routes/subscribers.js';
 import { createOperationsRouter } from './routes/operations.js';
 import { createSettingsRouter } from './routes/settings.js';
 import { createLandingRouter } from './routes/landing.js';
+import { createMessagesRouter } from './routes/messages.js';
 
 export function createApiRouter(db: Database.Database, bot: Bot): Router {
   const router = Router();
@@ -14,5 +15,6 @@ export function createApiRouter(db: Database.Database, bot: Bot): Router {
   router.use('/operations', createOperationsRouter(db, bot));
   router.use('/settings', createSettingsRouter(db));
   router.use('/landing', createLandingRouter(db));
+  router.use('/messages', createMessagesRouter(db));
   return router;
 }

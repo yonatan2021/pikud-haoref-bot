@@ -1,6 +1,7 @@
 import { Alert } from '../types.js';
 import { getUsersForCities } from '../db/subscriptionRepository.js';
-import { formatAlertMessage, ALERT_TYPE_EMOJI, ALERT_TYPE_HE } from '../telegramBot.js';
+import { formatAlertMessage } from '../telegramBot.js';
+import { getEmoji, getTitleHe } from '../config/templateCache.js';
 import { getCityData } from '../cityLookup.js';
 import type { NotificationFormat } from '../db/userRepository.js';
 import { isMuted } from '../db/userRepository.js';
@@ -18,8 +19,8 @@ function getMinCountdown(cityNames: string[]): number {
 }
 
 export function buildShortMessage(alert: Alert): string {
-  const emoji = ALERT_TYPE_EMOJI[alert.type] ?? '⚠️';
-  const title = ALERT_TYPE_HE[alert.type] ?? ALERT_TYPE_HE.unknown ?? 'התרעה';
+  const emoji = getEmoji(alert.type);
+  const title = getTitleHe(alert.type);
   const cities = alert.cities.slice(0, 10).join(', ');
   const more = alert.cities.length > 10 ? ` ועוד ${alert.cities.length - 10}` : '';
   const cd = getMinCountdown(alert.cities);
@@ -28,8 +29,8 @@ export function buildShortMessage(alert: Alert): string {
 }
 
 export function buildNewsFlashDmMessage(alert: Alert): string {
-  const emoji = ALERT_TYPE_EMOJI['newsFlash'] ?? '📢';
-  const title = ALERT_TYPE_HE['newsFlash'] ?? 'הודעה מיוחדת';
+  const emoji = getEmoji('newsFlash');
+  const title = getTitleHe('newsFlash');
 
   const seenZones = new Set<string>();
   const seenCities = new Set<string>();

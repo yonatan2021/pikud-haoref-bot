@@ -18,6 +18,7 @@ import { startDashboardServer } from './dashboard/server.js';
 import { getDb } from './db/schema.js';
 import { log, logStartupHeader, logSectionDivider } from './logger.js';
 import { toVisualRtl } from './loggerUtils.js';
+import { loadTemplateCache } from './config/templateCache.js';
 
 // Prevent broken-pipe errors from crashing the bot when a stdout consumer exits.
 process.stdout.on('error', (err: NodeJS.ErrnoException) => {
@@ -40,6 +41,7 @@ for (const envVar of REQUIRED_ENV_VARS) {
     initDb();
     initializeCache();
     loadActiveMessages();
+    loadTemplateCache();
     alertsToday = countAlertsToday();
   } catch (err) {
     log('error', 'Init', `כישלון אתחול מסד נתונים — הבוט לא יכול להתחיל: ${err}`);

@@ -9,6 +9,7 @@ import { Subscribers } from './pages/Subscribers';
 import { Operations } from './pages/Operations';
 import { Settings } from './pages/Settings';
 import { LandingPage } from './pages/LandingPage';
+import { Messages } from './pages/Messages';
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000 } } });
 
@@ -26,6 +27,7 @@ export function App() {
             <Route path="operations" element={<Operations />} />
             <Route path="settings" element={<Settings />} />
             <Route path="landing" element={<LandingPage />} />
+            <Route path="messages" element={<Messages />} />
           </Route>
         </Routes>
       </BrowserRouter>
