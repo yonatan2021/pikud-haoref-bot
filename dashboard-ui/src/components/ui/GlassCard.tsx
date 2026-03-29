@@ -2,10 +2,12 @@ import { motion } from 'framer-motion'
 import { type ReactNode, type KeyboardEvent } from 'react'
 import { useReducedMotion } from 'framer-motion'
 
+export type GlowVariant = 'amber' | 'blue' | 'green' | 'none'
+
 interface GlassCardProps {
   children: ReactNode
   className?: string
-  glow?: 'amber' | 'blue' | 'green' | 'none'
+  glow?: GlowVariant
   hoverable?: boolean
   onClick?: () => void
 }

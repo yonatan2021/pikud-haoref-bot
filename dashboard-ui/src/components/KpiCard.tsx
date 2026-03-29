@@ -1,19 +1,24 @@
 import { type LucideIcon } from 'lucide-react';
-import { GlassCard, AnimatedCounter } from './ui';
+import { type GlowVariant, GlassCard } from './ui/GlassCard';
+import { AnimatedCounter } from './ui';
+
+const glowCounterColor: Record<GlowVariant, string> = {
+  amber: 'text-amber',
+  blue:  'text-blue',
+  green: 'text-green',
+  none:  'text-text-primary',
+};
 
 interface KpiCardProps {
   icon: LucideIcon;
   label: string;
   value: number;
   sub?: string;
-  glow?: 'amber' | 'blue' | 'green' | 'none';
+  glow?: GlowVariant;
 }
 
 export function KpiCard({ icon: Icon, label, value, sub, glow = 'none' }: KpiCardProps) {
-  const counterColor = glow === 'amber' ? 'text-amber'
-    : glow === 'blue' ? 'text-blue'
-    : glow === 'green' ? 'text-green'
-    : 'text-text-primary'
+  const counterColor = glowCounterColor[glow];
 
   return (
     <GlassCard glow={glow} hoverable className="p-5">
