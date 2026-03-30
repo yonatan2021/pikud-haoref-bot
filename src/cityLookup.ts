@@ -7,30 +7,55 @@ const citiesData: CityEntry[] = require('pikud-haoref-api/cities.json');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const polygonsData: PolygonsMap = require('pikud-haoref-api/polygons.json');
 
+// O(1) lookup maps built once at module load — city data never changes at runtime
+const byNormalizedName = new Map<string, CityEntry>(
+  citiesData.map((c) => [normalizeCityName(c.name), c])
+);
+const byId = new Map<number, CityEntry>(
+  citiesData.map((c) => [c.id, c])
+);
+const byZone = new Map<string, CityEntry[]>();
+for (const c of citiesData) {
+  if (c.id === 0) continue;
+  const list = byZone.get(c.zone) ?? [];
+  list.push(c);
+  byZone.set(c.zone, list);
+}
+// Pre-sort each zone list once at load — getCitiesByZone returns a copy so no mutations
+for (const [zone, list] of byZone) {
+  byZone.set(zone, list.sort((a, b) => a.name.localeCompare(b.name, 'he')));
+}
+
 export function getCityData(name: string): CityEntry | null {
-  const normalized = normalizeCityName(name);
-  return (
-    citiesData.find((c) => normalizeCityName(c.name) === normalized) ?? null
-  );
+  return byNormalizedName.get(normalizeCityName(name)) ?? null;
 }
 
 export function getCityById(id: number): CityEntry | null {
-  return citiesData.find((c) => c.id === id) ?? null;
+  return byId.get(id) ?? null;
 }
 
 export function getCitiesByZone(zone: string): CityEntry[] {
-  return citiesData
-    .filter((c) => c.zone === zone && c.id !== 0)
-    .sort((a, b) => a.name.localeCompare(b.name, 'he'));
+  return [...(byZone.get(zone) ?? [])];
 }
+
+// Bounded FIFO cache for search results — city names are static, no invalidation needed
+const SEARCH_CACHE_MAX = 200;
+const searchCache = new Map<string, CityEntry[]>();
 
 export function searchCities(query: string): CityEntry[] {
   const q = query.trim().toLowerCase();
   if (q.length < 2) return [];
-  return citiesData
+  const cached = searchCache.get(q);
+  if (cached) return cached;
+  const results = citiesData
     .filter((c) => c.id !== 0 && c.name.toLowerCase().includes(q))
     .sort((a, b) => a.name.localeCompare(b.name, 'he'))
     .slice(0, 20);
+  if (searchCache.size >= SEARCH_CACHE_MAX) {
+    searchCache.delete(searchCache.keys().next().value!);
+  }
+  searchCache.set(q, results);
+  return results;
 }
 
 export function getPolygonCoords(cityId: number): PolygonCoords | null {
