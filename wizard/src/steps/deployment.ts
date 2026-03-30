@@ -109,27 +109,46 @@ export async function runNodeSetup(envPath: string, platform: Platform): Promise
     p.log.warn(c.warning(toVisualRtl(`תיקיית ${TARGET_DIR} כבר קיימת — מדלג על git clone`)))
   } else {
     p.log.step(c.primary(toVisualRtl('מוריד את קוד המקור...')))
-    await spawnStep('git', ['clone', REPO_URL, TARGET_DIR])
+    await spawnStep(spawn as SpawnFn, 'git', ['clone', REPO_URL, TARGET_DIR])
   }
 
   await copyFile(envPath, path.join(targetPath, '.env'))
   p.log.success(toVisualRtl('.env הועתק לתיקיית הפרויקט'))
 
   p.log.step(c.primary(toVisualRtl('מתקין תלויות npm...')))
-  await spawnStep('npm', ['install'], { cwd: targetPath })
+  await spawnStep(spawn as SpawnFn, 'npm', ['install'], { cwd: targetPath })
 
   p.log.success(toVisualRtl('ההתקנה הושלמה!'))
   console.log(`\n  ${c.primary('npm start')}  ${c.dim('# ' + toVisualRtl(`הרץ מתוך תיקיית ${TARGET_DIR}/`))}`)
   buildWhatsAppNote(platform).forEach(line => console.log(line))
 }
 
-/** Spawns a command with live output (stdio: inherit). Rejects on non-zero exit code. */
-function spawnStep(cmd: string, args: string[], opts?: { cwd?: string }): Promise<void> {
+/** Spawns a command with live output (stdio: inherit). Rejects on non-zero exit or signal. */
+function spawnStep(
+  spawnFn: NodeSetupDeps['spawn'],
+  cmd: string,
+  args: string[],
+  opts?: { cwd?: string },
+): Promise<void> {
   return new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, { stdio: 'inherit', cwd: opts?.cwd })
-    child.on('close', code =>
-      code === 0 ? resolve() : reject(new Error(`${cmd} יצא עם קוד שגיאה ${code}`))
-    )
-    child.on('error', err => reject(new Error(`לא ניתן להפעיל ${cmd}: ${err.message}`)))
+    let settled = false
+    const done = (fn: () => void) => { if (!settled) { settled = true; fn() } }
+
+    const child = spawnFn(cmd, args, { stdio: 'inherit', cwd: opts?.cwd })
+
+    child.on('close', (code, signal) => {
+      if (code === 0) { done(resolve); return }
+      if (code === null && signal)
+        done(() => reject(new Error(`${cmd} הופסק על ידי אות ${signal}`)))
+      else
+        done(() => reject(new Error(`${cmd} יצא עם קוד שגיאה ${code}`)))
+    })
+
+    child.on('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'ENOENT')
+        done(() => reject(new Error(`'${cmd}' לא נמצא — ודא שהוא מותקן ונמצא ב-PATH`)))
+      else
+        done(() => reject(new Error(`לא ניתן להפעיל ${cmd}: ${err.message}`)))
+    })
   })
 }
