@@ -63,12 +63,12 @@ export function buildZonedCityList(cities: string[]): string {
     const countdownSuffix =
       minCountdown > 0 && isFinite(minCountdown) ? `  ⏱ <b>${minCountdown} שנ׳</b>` : '';
     const zoneCount = ` (${sorted.length})`;
-    sections.push(`📍 <b>${escapeHtml(zone)}</b>${zoneCount}${countdownSuffix}\n${buildCityList(sorted)}`);
+    sections.push(`▸ <b>${escapeHtml(zone)}</b>${zoneCount}${countdownSuffix}\n${buildCityList(sorted)}`);
   }
 
   if (noZone.length > 0) {
     const sortedNoZone = [...noZone].sort((a, b) => a.localeCompare(b, 'he'));
-    sections.push(`📍 <i>ערים נוספות</i>\n${buildCityList(sortedNoZone)}`);
+    sections.push(`▸ <i>ערים נוספות</i>\n${buildCityList(sortedNoZone)}`);
   }
 
   return sections.join('\n\n');
@@ -86,17 +86,24 @@ export function formatAlertMessage(alert: Alert): string {
     hour12: false,
   });
 
-  const parts: string[] = [];
-  const cityCountSuffix = alert.cities.length > 0 ? ` · ${alert.cities.length} ערים` : '';
-  parts.push(`${emoji}  <b>${escapeHtml(title)}</b>${cityCountSuffix}\n🕐 ${escapeHtml(timeStr)}`);
+  const cityCountSuffix = alert.cities.length > 0 ? `  ·  ${alert.cities.length} ערים` : '';
+  const parts: string[] = [
+    `${emoji} <b>${escapeHtml(title)}</b>\n⏰ ${escapeHtml(timeStr)}${cityCountSuffix}`,
+  ];
+
+  let instructionsPart: string | null = null;
+  if (alert.instructions) {
+    const prefix = getInstructionsPrefix(alert.type);
+    instructionsPart = prefix
+      ? `${prefix} <i>${escapeHtml(alert.instructions)}</i>`
+      : `<i>${escapeHtml(alert.instructions)}</i>`;
+  }
 
   const zonedList = buildZonedCityList(alert.cities);
-  if (zonedList) parts.push(zonedList);
 
-  if (alert.instructions) {
-    const instructionsPrefix = getInstructionsPrefix(alert.type);
-    parts.push(`${instructionsPrefix} <i>${escapeHtml(alert.instructions)}</i>`);
-  }
+  // Instructions appear before cities so they are visible in push notification previews
+  if (instructionsPart) parts.push(instructionsPart);
+  if (zonedList) parts.push(zonedList);
 
   return parts.join('\n\n');
 }

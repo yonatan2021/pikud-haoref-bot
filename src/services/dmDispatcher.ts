@@ -40,14 +40,18 @@ export function buildAlertDmMessage(alert: Alert): string {
     ? '📍 ברחבי הארץ'
     : `📍 ${alert.cities.slice(0, 10).join(', ')}${alert.cities.length > 10 ? ` ועוד ${alert.cities.length - 10}` : ''}`;
 
-  const parts: string[] = [titleLine, locationLine];
+  const parts: string[] = [titleLine];
 
   const cd = getMinCountdown(alert.cities);
+  if (!cd && alert.instructions) {
+    parts.push(alert.instructions);
+  }
+
+  parts.push(locationLine);
+
   if (cd > 0) {
     const drillSuffix = isDrill ? ' (תרגיל)' : '';
     parts.push(`⏱ יש לך ${cd} שניות להיכנס למרחב מוגן${drillSuffix}`);
-  } else if (alert.instructions) {
-    parts.push(alert.instructions);
   }
 
   return parts.join('\n');
@@ -93,12 +97,12 @@ export function buildNewsFlashDmMessage(alert: Alert): string {
 
   const parts: string[] = [headline];
 
-  if (allLabels.length > 0) {
-    parts.push(`📍 ${allLabels.join(', ')}`);
-  }
-
   if (alert.instructions) {
     parts.push(alert.instructions);
+  }
+
+  if (allLabels.length > 0) {
+    parts.push(`📍 ${allLabels.join(', ')}`);
   }
 
   return parts.join('\n');

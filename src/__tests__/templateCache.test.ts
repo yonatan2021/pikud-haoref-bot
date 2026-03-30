@@ -34,8 +34,8 @@ describe('templateCache defaults (before DB load)', () => {
     assert.equal(getTitleHe('missiles'), 'התרעת טילים');
   });
 
-  it('getInstructionsPrefix("newsFlash") returns the newsFlash prefix', () => {
-    assert.equal(getInstructionsPrefix('newsFlash'), '📌 <b>תוכן ההודעה:</b>');
+  it('getInstructionsPrefix("newsFlash") returns empty string (no label prefix)', () => {
+    assert.equal(getInstructionsPrefix('newsFlash'), '');
   });
 
   it('getInstructionsPrefix("missiles") falls back to 🛡', () => {
