@@ -3,6 +3,7 @@ import type Database from 'better-sqlite3';
 import { getMetrics } from '../../metrics.js';
 import { ALERT_TYPE_CATEGORY } from '../../topicRouter.js';
 import { log } from '../../logger.js';
+import { getCached, setCached } from '../statsCache.js';
 
 // Reverse map: category → list of alert types (derived once at module load)
 const groups: Record<string, string[]> = {};
@@ -34,6 +35,9 @@ export function createStatsRouter(db: Database.Database): Router {
   // to prevent Express treating 'by-category' and 'top-cities' as path param values.
 
   router.get('/health', (_req, res) => {
+    const cached = getCached<object>('stats:health');
+    if (cached) return res.json(cached);
+
     const { lastAlertAt, lastPollAt } = getMetrics();
     let alertsToday = 0;
     try {
@@ -41,22 +45,27 @@ export function createStatsRouter(db: Database.Database): Router {
     } catch {
       // non-critical — table may not be seeded yet
     }
-    res.json({
+    const result = {
       uptime: process.uptime(),
       lastAlertAt: lastAlertAt?.toISOString() ?? null,
       lastPollAt: lastPollAt?.toISOString() ?? null,
       alertsToday,
-    });
+    };
+    setCached('stats:health', result, 15_000);
+    return res.json(result);
   });
 
   router.get('/overview', (_req, res) => {
+    const cached = getCached<object>('stats:overview');
+    if (cached) return res.json(cached);
+
     try {
       const q = (sql: string): number => countQuery(db, sql);
       const mapboxRow = db
         .prepare(`SELECT request_count FROM mapbox_usage WHERE month = strftime('%Y-%m', 'now')`)
         .get() as { request_count: number } | undefined;
 
-      res.json({
+      const result = {
         totalSubscribers: q('SELECT COUNT(*) as c FROM users'),
         totalSubscriptions: q('SELECT COUNT(*) as c FROM subscriptions'),
         alertsToday: q(`SELECT COUNT(*) as c FROM alert_history WHERE fired_at >= date('now')`),
@@ -64,14 +73,19 @@ export function createStatsRouter(db: Database.Database): Router {
         alertsLast7Days: q(`SELECT COUNT(*) as c FROM alert_history WHERE fired_at >= datetime('now', '-7 days')`),
         alertsPrev7Days: q(`SELECT COUNT(*) as c FROM alert_history WHERE fired_at >= datetime('now', '-14 days') AND fired_at < datetime('now', '-7 days')`),
         mapboxMonth: mapboxRow?.request_count ?? 0,
-      });
+      };
+      setCached('stats:overview', result, 60_000);
+      return res.json(result);
     } catch (err) {
       log('error', 'Dashboard', `Query error: ${String(err)}`);
-      res.status(500).json({ error: 'שגיאת שרת פנימית' });
+      return res.status(500).json({ error: 'שגיאת שרת פנימית' });
     }
   });
 
   router.get('/alerts/by-category', (_req, res) => {
+    const cached = getCached<unknown[]>('stats:by-category');
+    if (cached) return res.json(cached);
+
     try {
       const rows = db.prepare(`
         SELECT type, COUNT(*) as count, date(fired_at) as day
@@ -80,14 +94,18 @@ export function createStatsRouter(db: Database.Database): Router {
         GROUP BY type, day
         ORDER BY day
       `).all();
-      res.json(rows);
+      setCached('stats:by-category', rows, 300_000);
+      return res.json(rows);
     } catch (err) {
       log('error', 'Dashboard', `Query error: ${String(err)}`);
-      res.status(500).json({ error: 'שגיאת שרת פנימית' });
+      return res.status(500).json({ error: 'שגיאת שרת פנימית' });
     }
   });
 
   router.get('/alerts/top-cities', (_req, res) => {
+    const cached = getCached<unknown[]>('stats:top-cities');
+    if (cached) return res.json(cached);
+
     try {
       const rows = db.prepare(`
         SELECT value as city, COUNT(*) as count
@@ -98,10 +116,11 @@ export function createStatsRouter(db: Database.Database): Router {
         ORDER BY count DESC
         LIMIT ${TOP_CITIES_LIMIT}
       `).all();
-      res.json(rows);
+      setCached('stats:top-cities', rows, 300_000);
+      return res.json(rows);
     } catch (err) {
       log('error', 'Dashboard', `Query error: ${String(err)}`);
-      res.status(500).json({ error: 'שגיאת שרת פנימית' });
+      return res.status(500).json({ error: 'שגיאת שרת פנימית' });
     }
   });
 
