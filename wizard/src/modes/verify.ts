@@ -5,6 +5,7 @@ import { readEnvFile } from '../env.js'
 import type { Flags } from '../args.js'
 
 export interface CheckResult { valid: boolean; detail?: string }
+export interface WhatsAppCheckResult { configured: boolean }
 
 /** Injectable HTTP getter — defaults to Node.js https, overridable in tests. */
 type HttpGetter = (url: string) => Promise<unknown>
@@ -63,6 +64,11 @@ export async function checkMapboxToken(
   }
 }
 
+/** Checks if WhatsApp is enabled. */
+export function checkWhatsAppEnabled(value: string | undefined): WhatsAppCheckResult {
+  return { configured: value === 'true' }
+}
+
 /** Verify mode: reads .env (or flags) and validates each token with a spinner. */
 export async function runVerify(flags: Flags): Promise<void> {
   const outputPath = String(flags.output ?? '.env')
@@ -70,14 +76,15 @@ export async function runVerify(flags: Flags): Promise<void> {
 
   const token  = String(flags.token  ?? env.TELEGRAM_BOT_TOKEN  ?? '')
   const mapbox = String(flags.mapbox ?? env.MAPBOX_ACCESS_TOKEN ?? '')
+  const whatsappEnabled = env.WHATSAPP_ENABLED === 'true'
 
-  if (!token && !mapbox) {
+  if (!token && !mapbox && env.WHATSAPP_ENABLED !== 'true') {
     p.log.error(`לא נמצאו הגדרות ב-${outputPath} — הפעל ${c.primary('npx pikud-haoref-bot')} תחילה`)
     return
   }
 
   let passed = 0
-  const total = (token ? 1 : 0) + (mapbox ? 1 : 0)
+  const total = (token ? 1 : 0) + (mapbox ? 1 : 0) + (whatsappEnabled ? 1 : 0)
 
   if (token) {
     const spin = p.spinner()
@@ -100,6 +107,14 @@ export async function runVerify(flags: Flags): Promise<void> {
       passed++
     } else {
       spin.stop(`${c.error('❌')} Mapbox: ${res.detail}`)
+    }
+  }
+
+  if (whatsappEnabled) {
+    const res = checkWhatsAppEnabled(env.WHATSAPP_ENABLED)
+    if (res.configured) {
+      p.log.success(`${c.success('✅')} WhatsApp: מוגדר — סריקת QR נדרשת בהפעלה ראשונה`)
+      passed++
     }
   }
 

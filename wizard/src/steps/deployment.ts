@@ -1,6 +1,8 @@
 import path from 'node:path'
 import * as p from '@clack/prompts'
 import { c, printResultBox } from '../ui/theme.js'
+import type { Platform } from './platform.js'
+import { needsWhatsApp } from './platform.js'
 
 export type DeploymentMode = 'docker' | 'node'
 
@@ -25,8 +27,20 @@ export async function promptDeploymentMode(): Promise<DeploymentMode | undefined
   return choice
 }
 
+/** Returns lines describing the WhatsApp QR setup, or [] for Telegram-only. */
+export function buildWhatsAppNote(platform: Platform): string[] {
+  if (!needsWhatsApp(platform)) return []
+  return [
+    '',
+    `  ${c.bold('הגדרת WhatsApp:')}`,
+    `  ${c.dim('בהפעלה הראשונה סרוק את קוד ה-QR עם אפליקציית WhatsApp.')}`,
+    `  ${c.dim('הסשן יישמר ב-data/whatsapp-session/ לשימוש חוזר.')}`,
+    `  ${c.dim('ניהול קבוצות — דרך לוח הבקרה בלבד (לא ב-.env).')}`,
+  ]
+}
+
 /** Prints the Docker run command in a styled box. */
-export function printDockerInstructions(envPath: string): void {
+export function printDockerInstructions(envPath: string, platform: Platform = 'telegram'): void {
   const rel = path.relative(process.cwd(), envPath)
   printResultBox('הפקודה להרצה עם Docker:', [
     `  ${c.primary('docker run')} -d \\`,
@@ -37,16 +51,18 @@ export function printDockerInstructions(envPath: string): void {
     `    ${c.dim('ghcr.io/yonatan2021/pikud-haoref-bot:latest')}`,
     '',
     `  ${c.dim('💡 הסר את -d לצפייה בלוגים בזמן אמת.')}`,
+    ...buildWhatsAppNote(platform),
   ])
 }
 
 /** Prints Node.js setup instructions in a styled box. */
-export function printNodeInstructions(): void {
+export function printNodeInstructions(platform: Platform = 'telegram'): void {
   printResultBox('הוראות הרצה עם Node.js:', [
     `  ${c.primary('git clone')} https://github.com/yonatan2021/pikud-haoref-bot.git`,
     `  ${c.primary('cd')} pikud-haoref-bot`,
     `  ${c.primary('npm install')}`,
     `  ${c.dim('# העבר את קובץ ה-.env שנוצר לתיקיית הפרויקט')}`,
     `  ${c.primary('npm start')}`,
+    ...buildWhatsAppNote(platform),
   ])
 }
