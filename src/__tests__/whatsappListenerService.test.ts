@@ -1,4 +1,4 @@
-import { describe, it, before, after, beforeEach, mock } from 'node:test';
+import { describe, it, before, after, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
 import { initSchema } from '../db/schema.js';
@@ -206,5 +206,72 @@ describe('createMessageHandler', () => {
     h(makeMsg('html@g.us', 'body'));
     await new Promise(r => setTimeout(r, 10));
     assert.ok(calls[0]!.text.includes('<b>TestChannel</b>'), 'channel name should be wrapped in HTML bold');
+  });
+});
+
+describe('TELEGRAM_TOPIC_ID_WHATSAPP fallback', () => {
+  let savedEnv: string | undefined;
+
+  beforeEach(() => {
+    savedEnv = process.env['TELEGRAM_TOPIC_ID_WHATSAPP'];
+    delete process.env['TELEGRAM_TOPIC_ID_WHATSAPP'];
+    db.prepare('DELETE FROM whatsapp_listeners').run();
+  });
+
+  afterEach(() => {
+    if (savedEnv === undefined) {
+      delete process.env['TELEGRAM_TOPIC_ID_WHATSAPP'];
+    } else {
+      process.env['TELEGRAM_TOPIC_ID_WHATSAPP'] = savedEnv;
+    }
+  });
+
+  it('uses env var topic when listener has no telegramTopicId', async () => {
+    process.env['TELEGRAM_TOPIC_ID_WHATSAPP'] = '12';
+    createListener(db, { ...BASE, channelId: 'fb@g.us', keywords: [], telegramTopicId: null });
+    const { fn, calls } = makeSend();
+    const h = createMessageHandler(db, fn as any);
+    h(makeMsg('fb@g.us', 'msg'));
+    await new Promise(r => setTimeout(r, 10));
+    assert.equal(calls[0]!.threadId, 12, 'should use TELEGRAM_TOPIC_ID_WHATSAPP as fallback topic');
+  });
+
+  it('sends without topic when listener has no telegramTopicId and env var is unset', async () => {
+    createListener(db, { ...BASE, channelId: 'notopic@g.us', keywords: [], telegramTopicId: null });
+    const { fn, calls } = makeSend();
+    const h = createMessageHandler(db, fn as any);
+    h(makeMsg('notopic@g.us', 'msg'));
+    await new Promise(r => setTimeout(r, 10));
+    assert.equal(calls[0]!.threadId, undefined, 'should send to main chat when no topic is configured');
+  });
+
+  it('listener-specific topicId overrides env var', async () => {
+    process.env['TELEGRAM_TOPIC_ID_WHATSAPP'] = '12';
+    createListener(db, { ...BASE, channelId: 'own@g.us', keywords: [], telegramTopicId: 7 });
+    const { fn, calls } = makeSend();
+    const h = createMessageHandler(db, fn as any);
+    h(makeMsg('own@g.us', 'msg'));
+    await new Promise(r => setTimeout(r, 10));
+    assert.equal(calls[0]!.threadId, 7, 'listener-specific topicId should take precedence over env var');
+  });
+
+  it('rejects env var value of 1 (reserved Telegram thread ID)', async () => {
+    process.env['TELEGRAM_TOPIC_ID_WHATSAPP'] = '1';
+    createListener(db, { ...BASE, channelId: 'reserved@g.us', keywords: [], telegramTopicId: null });
+    const { fn, calls } = makeSend();
+    const h = createMessageHandler(db, fn as any);
+    h(makeMsg('reserved@g.us', 'msg'));
+    await new Promise(r => setTimeout(r, 10));
+    assert.equal(calls[0]!.threadId, undefined, 'topic ID 1 is reserved and should be treated as unset');
+  });
+
+  it('rejects non-numeric env var value', async () => {
+    process.env['TELEGRAM_TOPIC_ID_WHATSAPP'] = 'not-a-number';
+    createListener(db, { ...BASE, channelId: 'nan@g.us', keywords: [], telegramTopicId: null });
+    const { fn, calls } = makeSend();
+    const h = createMessageHandler(db, fn as any);
+    h(makeMsg('nan@g.us', 'msg'));
+    await new Promise(r => setTimeout(r, 10));
+    assert.equal(calls[0]!.threadId, undefined, 'non-numeric env var should be treated as unset');
   });
 });
