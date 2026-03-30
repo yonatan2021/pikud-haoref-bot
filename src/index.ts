@@ -22,6 +22,7 @@ import { loadTemplateCache } from './config/templateCache.js';
 import { initialize as initWhatsApp, setMessageCallback } from './whatsapp/whatsappService.js';
 import { createBroadcaster } from './whatsapp/whatsappBroadcaster.js';
 import { createMessageHandler } from './whatsapp/whatsappListenerService.js';
+import { InputFile } from 'grammy';
 
 // Prevent broken-pipe errors from crashing the bot when a stdout consumer exits.
 process.stdout.on('error', (err: NodeJS.ErrnoException) => {
@@ -78,13 +79,36 @@ for (const envVar of REQUIRED_ENV_VARS) {
 
   // Wire WhatsApp→Telegram listener. setMessageCallback is safe to call even when
   // WHATSAPP_ENABLED=false — the callback is stored but the message event never fires.
+  const sendMediaToTelegram = async (
+    chatId: string,
+    buffer: Buffer,
+    mimetype: string,
+    caption: string,
+    threadId?: number
+  ): Promise<void> => {
+    const threadOpts = threadId != null ? { message_thread_id: threadId } : {};
+    if (mimetype.startsWith('image/')) {
+      await bot.api.sendPhoto(chatId, new InputFile(buffer, 'media.jpg'), {
+        caption,
+        parse_mode: 'HTML',
+        ...threadOpts,
+      });
+    } else {
+      await bot.api.sendDocument(chatId, new InputFile(buffer, 'media'), {
+        caption,
+        parse_mode: 'HTML',
+        ...threadOpts,
+      });
+    }
+  };
+
   setMessageCallback(
     createMessageHandler(getDb(), async (chatId, text, threadId) => {
       await bot.api.sendMessage(chatId, text, {
-        parse_mode: 'Markdown',
+        parse_mode: 'HTML',
         ...(threadId != null ? { message_thread_id: threadId } : {}),
       });
-    })
+    }, sendMediaToTelegram)
   );
 
   if (dashboardSecret) {

@@ -1,6 +1,7 @@
 import { Client, LocalAuth } from 'whatsapp-web.js';
 import path from 'path';
 import { log } from '../logger.js';
+import type { IncomingWhatsAppMsg } from './whatsappListenerService.js';
 
 export type WhatsAppStatus = 'disconnected' | 'qr' | 'connecting' | 'ready';
 
@@ -16,7 +17,7 @@ let status: WhatsAppStatus = 'disconnected';
 let currentQr: string | null = null;
 let phone: string | null = null;
 let cachedGroups: WhatsAppGroup[] = [];
-let onMessageCallback: ((from: string, body: string) => void) | null = null;
+let onMessageCallback: ((msg: IncomingWhatsAppMsg) => void) | null = null;
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
@@ -41,7 +42,7 @@ export function getClient(): Client | null {
 }
 
 export function setMessageCallback(
-  cb: (from: string, body: string) => void
+  cb: (msg: IncomingWhatsAppMsg) => void
 ): void {
   onMessageCallback = cb;
 }
@@ -115,9 +116,18 @@ export function initialize(): void {
   });
 
   client.on('message', (msg) => {
-    if (msg.fromMe) return;                    // prevent forwarding the bot's own messages
-    if (!msg.body?.trim()) return;             // skip media-only messages with no text
-    onMessageCallback?.(msg.from, msg.body);
+    if (msg.fromMe) return;                              // prevent forwarding the bot's own messages
+    if (!msg.body?.trim() && !msg.hasMedia) return;      // allow media-only messages
+    onMessageCallback?.({
+      from: msg.from,
+      body: msg.body ?? '',
+      timestamp: msg.timestamp,
+      hasMedia: msg.hasMedia,
+      downloadMedia: () => msg.downloadMedia().then((m) => {
+        if (!m) return null;
+        return { data: m.data, mimetype: m.mimetype, filename: m.filename ?? undefined };
+      }).catch(() => null),
+    });
   });
 
   status = 'connecting';
