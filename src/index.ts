@@ -19,8 +19,9 @@ import { getDb } from './db/schema.js';
 import { log, logStartupHeader, logSectionDivider } from './logger.js';
 import { toVisualRtl } from './loggerUtils.js';
 import { loadTemplateCache } from './config/templateCache.js';
-import { initialize as initWhatsApp } from './whatsapp/whatsappService.js';
+import { initialize as initWhatsApp, setMessageCallback } from './whatsapp/whatsappService.js';
 import { createBroadcaster } from './whatsapp/whatsappBroadcaster.js';
+import { createMessageHandler } from './whatsapp/whatsappListenerService.js';
 
 // Prevent broken-pipe errors from crashing the bot when a stdout consumer exits.
 process.stdout.on('error', (err: NodeJS.ErrnoException) => {
@@ -74,6 +75,17 @@ for (const envVar of REQUIRED_ENV_VARS) {
 
   const bot = getBot();
   await setupBotHandlers(bot);
+
+  // Wire WhatsApp→Telegram listener. setMessageCallback is safe to call even when
+  // WHATSAPP_ENABLED=false — the callback is stored but the message event never fires.
+  setMessageCallback(
+    createMessageHandler(getDb(), async (chatId, text, threadId) => {
+      await bot.api.sendMessage(chatId, text, {
+        parse_mode: 'Markdown',
+        ...(threadId != null ? { message_thread_id: threadId } : {}),
+      });
+    })
+  );
 
   if (dashboardSecret) {
     startDashboardServer(getDb(), bot, dashboardPort, dashboardSecret);
