@@ -194,7 +194,7 @@ describe('handleNewAlert', () => {
         editAlert: mock.fn(async () => { throw new Error('message to edit not found'); }),
       });
       await handleNewAlert(BASE_ALERT, deps);
-      const sendCall = (deps.sendAlert as unknown as unknown as ReturnType<typeof mock.fn>).mock.calls[0];
+      const sendCall = (deps.sendAlert as unknown as ReturnType<typeof mock.fn>).mock.calls[0];
       assert.equal(sendCall.arguments[2], 3);
     });
 
@@ -206,7 +206,7 @@ describe('handleNewAlert', () => {
       });
       await handleNewAlert({ type: 'missiles', cities: ['תל אביב', 'חיפה'] }, deps);
 
-      const notifyCalls = (deps.notifySubscribers as unknown as unknown as ReturnType<typeof mock.fn>).mock.calls;
+      const notifyCalls = (deps.notifySubscribers as unknown as ReturnType<typeof mock.fn>).mock.calls;
       assert.equal(notifyCalls.length, 1);
       const notifiedAlert = notifyCalls[0].arguments[0] as Alert;
       assert.ok(notifiedAlert.cities.includes('חיפה'), 'new city must be in DM');
