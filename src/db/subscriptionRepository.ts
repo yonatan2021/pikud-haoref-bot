@@ -204,3 +204,17 @@ export function updateSubscriberData(chatId: number, patch: Partial<CachedSubscr
   const current = subscriberData.get(chatId);
   if (current) subscriberData.set(chatId, { ...current, ...patch });
 }
+
+export function evictSubscriberFromCache(chatId: number, cityName?: string): void {
+  if (!cacheInitialized) return;
+  if (cityName !== undefined) {
+    cityToSubscribers.get(cityName)?.delete(chatId);
+    const hasAny = [...cityToSubscribers.values()].some(s => s.has(chatId));
+    if (!hasAny) subscriberData.delete(chatId);
+  } else {
+    for (const set of cityToSubscribers.values()) {
+      set.delete(chatId);
+    }
+    subscriberData.delete(chatId);
+  }
+}

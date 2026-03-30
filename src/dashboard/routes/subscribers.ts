@@ -1,8 +1,7 @@
 import { Router } from 'express';
 import type Database from 'better-sqlite3';
 import { log } from '../../logger.js';
-import { removeAllSubscriptions, removeSubscription } from '../../db/subscriptionRepository.js';
-import { setFormat, setQuietHours } from '../../db/userRepository.js';
+import { updateSubscriberData, evictSubscriberFromCache } from '../../db/subscriptionRepository.js';
 import type { NotificationFormat } from '../../db/userRepository.js';
 
 const ALLOWED_FORMATS = ['short', 'detailed'] as const;
@@ -116,11 +115,16 @@ export function createSubscribersRouter(db: Database.Database): Router {
           res.status(400).json({ error: 'פורמט לא חוקי. ערכים חוקיים: short, detailed' });
           return;
         }
-        setFormat(chatId, format as NotificationFormat);
+        db.prepare('UPDATE users SET format = ? WHERE chat_id = ?').run(format, chatId);
+        updateSubscriberData(chatId, { format: format as NotificationFormat });
       }
 
       if (quiet_hours_enabled !== undefined) {
-        setQuietHours(chatId, quiet_hours_enabled);
+        db.prepare('UPDATE users SET quiet_hours_enabled = ? WHERE chat_id = ?').run(
+          quiet_hours_enabled ? 1 : 0,
+          chatId,
+        );
+        updateSubscriberData(chatId, { quiet_hours_enabled });
       }
 
       res.json({ ok: true });
@@ -135,8 +139,9 @@ export function createSubscribersRouter(db: Database.Database): Router {
       const chatId = parseInt(req.params.id, 10);
       if (isNaN(chatId)) { res.status(400).json({ error: 'מזהה לא חוקי' }); return; }
 
-      removeAllSubscriptions(chatId);  // clears subscriptions + cache
-      db.prepare('DELETE FROM users WHERE chat_id = ?').run(chatId);  // then delete user record
+      db.prepare('DELETE FROM subscriptions WHERE chat_id = ?').run(chatId);
+      db.prepare('DELETE FROM users WHERE chat_id = ?').run(chatId);
+      evictSubscriberFromCache(chatId);
       res.json({ ok: true });
     } catch (err) {
       log('error', 'Dashboard', `Query error: ${String(err)}`);
@@ -149,7 +154,9 @@ export function createSubscribersRouter(db: Database.Database): Router {
       const chatId = parseInt(req.params.id, 10);
       if (isNaN(chatId)) { res.status(400).json({ error: 'מזהה לא חוקי' }); return; }
 
-      removeSubscription(chatId, decodeURIComponent(req.params.city));
+      const cityName = decodeURIComponent(req.params.city);
+      db.prepare('DELETE FROM subscriptions WHERE chat_id = ? AND city_name = ?').run(chatId, cityName);
+      evictSubscriberFromCache(chatId, cityName);
       res.json({ ok: true });
     } catch (err) {
       log('error', 'Dashboard', `Query error: ${String(err)}`);
