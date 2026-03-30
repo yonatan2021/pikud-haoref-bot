@@ -113,6 +113,29 @@ describe('createMessageHandler', () => {
     assert.ok(calls[0]!.text.length <= 4096);
   });
 
+  it('truncates media caption to 1024 chars when forwarding image', async () => {
+    createListener(db, { ...BASE, channelId: 'longimg@g.us', keywords: [] });
+    const mediaCalls: Array<{ caption: string }> = [];
+    const sendMediaFn = mock.fn(async (
+      _chatId: string,
+      _buf: Buffer,
+      _mime: string,
+      caption: string
+    ) => { mediaCalls.push({ caption }); });
+    const fakeData = Buffer.from('img').toString('base64');
+    const h = createMessageHandler(db, mock.fn() as any, sendMediaFn as any);
+    h(makeMsg('longimg@g.us', 'א'.repeat(1100), {
+      hasMedia: true,
+      downloadMedia: async () => ({ data: fakeData, mimetype: 'image/jpeg' }),
+    }));
+    await new Promise(r => setTimeout(r, 50));
+    assert.equal(mediaCalls.length, 1, 'sendMediaFn should be called once');
+    assert.ok(
+      mediaCalls[0]!.caption.length <= 1024,
+      `media caption length ${mediaCalls[0]!.caption.length} exceeds 1024`
+    );
+  });
+
   // ─── New tests for HTML format, timestamp, and media ─────────────────────────
 
   it('caption has blank line between timestamp and body', async () => {

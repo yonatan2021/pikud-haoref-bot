@@ -1,8 +1,9 @@
 import type Database from 'better-sqlite3';
 import { getActiveListenersForChannel } from '../db/whatsappListenerRepository.js';
 import { log } from '../logger.js';
+import { truncateToCaptionLimit } from '../telegramBot.js';
 
-const MESSAGE_BODY_MAX = 3900; // leaves room for header within Telegram 4096 char limit
+const MESSAGE_BODY_MAX = 3900; // leaves room for header within Telegram 4096 text limit
 
 export type SendMessageFn = (
   chatId: string,
@@ -93,7 +94,8 @@ export function createMessageHandler(
             const media = await msg.downloadMedia();
             if (media?.data) {
               const buffer = Buffer.from(media.data, 'base64');
-              await sendMediaFn(targetChatId, buffer, media.mimetype, caption, topicId);
+              const mediaCaption = truncateToCaptionLimit(caption);
+              await sendMediaFn(targetChatId, buffer, media.mimetype, mediaCaption, topicId);
               continue;
             }
           } catch (mediaErr) {
