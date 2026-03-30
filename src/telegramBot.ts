@@ -167,36 +167,143 @@ export function selectEditMethod(
   return 'text';
 }
 
+// ─── Edit error classifiers ────────────────────────────────────────────────
+
+/** Telegram "message is not modified" — content unchanged, treat as success. */
+export function isUnmodifiedError(err: unknown): boolean {
+  return err instanceof Error && err.message.includes('message is not modified');
+}
+
+/** Telegram errors indicating the media cannot be replaced — degrade to caption edit. */
+export function isMediaEditError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  return (
+    err.message.includes('MEDIA_EDIT_FAILED') ||
+    err.message.includes("media can't be edited") ||
+    err.message.includes('wrong type of the web page content')
+  );
+}
+
+/** Telegram errors indicating the message no longer exists — re-throw so caller sends fresh. */
+export function isMessageGoneError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  return (
+    err.message.includes('message to edit not found') ||
+    err.message.includes("message can't be edited")
+  );
+}
+
+// ─── Bot API interface (subset used by the edit chain) ────────────────────
+
+export interface EditBotApi {
+  editMessageMedia(
+    chatId: string,
+    messageId: number,
+    media: { type: 'photo'; media: InputFile; caption?: string; parse_mode?: string }
+  ): Promise<unknown>;
+  editMessageCaption(
+    chatId: string,
+    messageId: number,
+    other?: { caption?: string; parse_mode?: string }
+  ): Promise<unknown>;
+  editMessageText(
+    chatId: string,
+    messageId: number,
+    text: string,
+    other?: { parse_mode?: string }
+  ): Promise<unknown>;
+}
+
+/**
+ * Exported for testing — implements the three-step degraded edit chain.
+ *
+ * Step 1: editMessageMedia (photo + caption)
+ * Step 2: on non-trivial media failure → editMessageCaption (keep photo, update caption only)
+ * Step 3: on any further failure → editMessageText (remove photo, plain text)
+ *
+ * Re-throws only on isMessageGoneError so that alertHandler can send a fresh message.
+ */
+export async function _editAlertChain(
+  api: EditBotApi,
+  tracked: { messageId: number; chatId: string; hasPhoto: boolean },
+  alert: Alert,
+  imageBuffer: Buffer | null
+): Promise<void> {
+  const message = formatAlertMessage(alert);
+  const method = selectEditMethod(tracked.hasPhoto, imageBuffer);
+
+  if (method === 'media') {
+    try {
+      const caption = truncateToCaptionLimit(message);
+      await api.editMessageMedia(tracked.chatId, tracked.messageId, {
+        type: 'photo',
+        media: new InputFile(imageBuffer!, 'map.png'),
+        caption,
+        parse_mode: 'HTML',
+      });
+      log('info', 'Bot',
+        `Updated message ${tracked.messageId}: ${alert.type} — ${alert.cities.length} cities + map (media)`
+      );
+      return;
+    } catch (err) {
+      if (isUnmodifiedError(err)) {
+        log('warn', 'Bot', `Message ${tracked.messageId} not modified (media step) — treating as success`);
+        return;
+      }
+      if (isMessageGoneError(err)) {
+        throw err;
+      }
+      // isMediaEditError or any other error → degrade to caption
+      log('warn', 'Bot', `editMessageMedia failed (${String(err)}) — degrading to caption edit`);
+    }
+  }
+
+  if (method === 'media' || method === 'caption') {
+    try {
+      const caption = truncateToCaptionLimit(message);
+      await api.editMessageCaption(tracked.chatId, tracked.messageId, {
+        caption,
+        parse_mode: 'HTML',
+      });
+      log('info', 'Bot',
+        `Updated message ${tracked.messageId}: ${alert.type} — ${alert.cities.length} cities (caption)`
+      );
+      return;
+    } catch (err) {
+      if (isUnmodifiedError(err)) {
+        log('warn', 'Bot', `Message ${tracked.messageId} not modified (caption step) — treating as success`);
+        return;
+      }
+      if (isMessageGoneError(err)) {
+        throw err;
+      }
+      // Any other error → degrade to text
+      log('warn', 'Bot', `editMessageCaption failed (${String(err)}) — degrading to text edit`);
+    }
+  }
+
+  // Final step: plain text edit
+  try {
+    await api.editMessageText(tracked.chatId, tracked.messageId, message, {
+      parse_mode: 'HTML',
+    });
+    log('info', 'Bot',
+      `Updated message ${tracked.messageId}: ${alert.type} — ${alert.cities.length} cities (text)`
+    );
+  } catch (err) {
+    if (isUnmodifiedError(err)) {
+      log('warn', 'Bot', `Message ${tracked.messageId} not modified (text step) — treating as success`);
+      return;
+    }
+    throw err;
+  }
+}
+
 export async function editAlert(
   tracked: { messageId: number; chatId: string; hasPhoto: boolean },
   alert: Alert,
   imageBuffer: Buffer | null
 ): Promise<void> {
   const bot = getBot();
-  const message = formatAlertMessage(alert);
-  const method = selectEditMethod(tracked.hasPhoto, imageBuffer);
-
-  if (method === 'media') {
-    const caption = truncateToCaptionLimit(message);
-    await bot.api.editMessageMedia(tracked.chatId, tracked.messageId, {
-      type: 'photo',
-      media: new InputFile(imageBuffer!, 'map.png'),
-      caption,
-      parse_mode: 'HTML',
-    });
-  } else if (method === 'caption') {
-    const caption = truncateToCaptionLimit(message);
-    await bot.api.editMessageCaption(tracked.chatId, tracked.messageId, {
-      caption,
-      parse_mode: 'HTML',
-    });
-  } else {
-    await bot.api.editMessageText(tracked.chatId, tracked.messageId, message, {
-      parse_mode: 'HTML',
-    });
-  }
-  log('info', 'Bot',
-    `Updated message ${tracked.messageId}: ${alert.type} — ${alert.cities.length} cities` +
-    `${imageBuffer ? ' + map' : ''} (${method})`
-  );
+  await _editAlertChain(bot.api as unknown as EditBotApi, tracked, alert, imageBuffer);
 }

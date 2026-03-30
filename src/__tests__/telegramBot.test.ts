@@ -11,8 +11,7 @@ import {
   isUnmodifiedError,
   isMediaEditError,
   isMessageGoneError,
-  editAlert,
-  getBot,
+  type EditBotApi,
 } from '../telegramBot.js';
 
 test('escapeHtml escapes ampersand', () => {
@@ -247,5 +246,239 @@ describe('formatAlertMessage city count', () => {
     };
     const result = formatAlertMessage(alert);
     assert.ok(!result.includes('ערים'), `Should not show city count for empty cities: ${result}`);
+  });
+});
+
+// ─── Error classifier pure-function tests ────────────────────────────────────
+
+describe('isUnmodifiedError', () => {
+  it('returns true for "message is not modified" error', () => {
+    assert.equal(isUnmodifiedError(new Error('Bad Request: message is not modified')), true);
+  });
+
+  it('returns false for a different error message', () => {
+    assert.equal(isUnmodifiedError(new Error('Network error')), false);
+  });
+
+  it('returns false for non-Error values', () => {
+    assert.equal(isUnmodifiedError('string'), false);
+    assert.equal(isUnmodifiedError(null), false);
+    assert.equal(isUnmodifiedError(42), false);
+  });
+});
+
+describe('isMediaEditError', () => {
+  it('returns true for MEDIA_EDIT_FAILED', () => {
+    assert.equal(isMediaEditError(new Error('MEDIA_EDIT_FAILED')), true);
+  });
+
+  it("returns true for \"media can't be edited\"", () => {
+    assert.equal(isMediaEditError(new Error("Bad Request: media can't be edited")), true);
+  });
+
+  it('returns true for "wrong type of the web page content"', () => {
+    assert.equal(isMediaEditError(new Error('wrong type of the web page content')), true);
+  });
+
+  it('returns false for unrelated errors', () => {
+    assert.equal(isMediaEditError(new Error('Network error')), false);
+    assert.equal(isMediaEditError(new Error('message is not modified')), false);
+  });
+
+  it('returns false for non-Error values', () => {
+    assert.equal(isMediaEditError(null), false);
+    assert.equal(isMediaEditError('MEDIA_EDIT_FAILED'), false);
+  });
+});
+
+describe('isMessageGoneError', () => {
+  it('returns true for "message to edit not found"', () => {
+    assert.equal(isMessageGoneError(new Error('Bad Request: message to edit not found')), true);
+  });
+
+  it("returns true for \"message can't be edited\"", () => {
+    assert.equal(isMessageGoneError(new Error("Bad Request: message can't be edited")), true);
+  });
+
+  it('returns false for unrelated errors', () => {
+    assert.equal(isMessageGoneError(new Error('Network error')), false);
+    assert.equal(isMessageGoneError(new Error('MEDIA_EDIT_FAILED')), false);
+  });
+
+  it('returns false for non-Error values', () => {
+    assert.equal(isMessageGoneError(null), false);
+    assert.equal(isMessageGoneError(undefined), false);
+  });
+});
+
+// ─── editAlert degraded chain tests ──────────────────────────────────────────
+
+describe('editAlert degraded chain (_editAlertChain)', () => {
+  // Suppress logger stdout so test output stays clean
+  let stdoutSpy: ReturnType<typeof mock.method>;
+  beforeEach(() => {
+    stdoutSpy = mock.method(process.stdout, 'write', () => true);
+  });
+  afterEach(() => {
+    stdoutSpy.mock.restore();
+  });
+
+  const tracked = { messageId: 42, chatId: '-100', hasPhoto: true };
+  const alert = { type: 'missiles', cities: ['תל אביב'] };
+  const imageBuffer = Buffer.from('img');
+
+  it('Step 1 success: calls editMessageMedia and does not degrade', async () => {
+    const api = {
+      editMessageMedia: mock.fn(async () => ({})),
+      editMessageCaption: mock.fn(async () => ({})),
+      editMessageText: mock.fn(async () => ({})),
+    };
+
+    const { _editAlertChain } = await import('../telegramBot.js');
+    await _editAlertChain(
+      api as unknown as EditBotApi,
+      tracked,
+      alert,
+      imageBuffer
+    );
+
+    assert.equal(api.editMessageMedia.mock.calls.length, 1, 'Step 1 must be attempted');
+    assert.equal(api.editMessageCaption.mock.calls.length, 0, 'Step 2 must NOT be called on success');
+    assert.equal(api.editMessageText.mock.calls.length, 0, 'Step 3 must NOT be called on success');
+  });
+
+  it('Step 1 media error → Step 2 caption edit succeeds: does not re-throw', async () => {
+    const api = {
+      editMessageMedia: mock.fn(async () => { throw new Error('MEDIA_EDIT_FAILED'); }),
+      editMessageCaption: mock.fn(async () => ({})),
+      editMessageText: mock.fn(async () => ({})),
+    };
+
+    const { _editAlertChain } = await import('../telegramBot.js');
+    await assert.doesNotReject(() =>
+      _editAlertChain(
+        api as unknown as EditBotApi,
+        tracked,
+        alert,
+        imageBuffer
+      )
+    );
+
+    assert.equal(api.editMessageMedia.mock.calls.length, 1, 'Step 1 must be attempted');
+    assert.equal(api.editMessageCaption.mock.calls.length, 1, 'Step 2 must be called on media failure');
+    assert.equal(api.editMessageText.mock.calls.length, 0, 'Step 3 must NOT be called');
+  });
+
+  it('Step 1 media error → Step 2 caption error → Step 3 text edit succeeds', async () => {
+    const api = {
+      editMessageMedia: mock.fn(async () => { throw new Error('MEDIA_EDIT_FAILED'); }),
+      editMessageCaption: mock.fn(async () => { throw new Error('caption failed unexpectedly'); }),
+      editMessageText: mock.fn(async () => ({})),
+    };
+
+    const { _editAlertChain } = await import('../telegramBot.js');
+    await assert.doesNotReject(() =>
+      _editAlertChain(
+        api as unknown as EditBotApi,
+        tracked,
+        alert,
+        imageBuffer
+      )
+    );
+
+    assert.equal(api.editMessageMedia.mock.calls.length, 1, 'Step 1 attempted');
+    assert.equal(api.editMessageCaption.mock.calls.length, 1, 'Step 2 attempted');
+    assert.equal(api.editMessageText.mock.calls.length, 1, 'Step 3 attempted as final fallback');
+  });
+
+  it('isUnmodifiedError in Step 1 → resolves without degrading', async () => {
+    const api = {
+      editMessageMedia: mock.fn(async () => { throw new Error('message is not modified'); }),
+      editMessageCaption: mock.fn(async () => ({})),
+      editMessageText: mock.fn(async () => ({})),
+    };
+
+    const { _editAlertChain } = await import('../telegramBot.js');
+    await assert.doesNotReject(() =>
+      _editAlertChain(
+        api as unknown as EditBotApi,
+        tracked,
+        alert,
+        imageBuffer
+      )
+    );
+
+    assert.equal(api.editMessageCaption.mock.calls.length, 0, 'must not degrade on unmodified');
+    assert.equal(api.editMessageText.mock.calls.length, 0, 'must not degrade on unmodified');
+  });
+
+  it('isMessageGoneError → re-throws so alertHandler can send fresh message', async () => {
+    const goneError = new Error('message to edit not found');
+    const api = {
+      editMessageMedia: mock.fn(async () => { throw goneError; }),
+      editMessageCaption: mock.fn(async () => ({})),
+      editMessageText: mock.fn(async () => ({})),
+    };
+
+    const { _editAlertChain } = await import('../telegramBot.js');
+    await assert.rejects(
+      () => _editAlertChain(
+        api as unknown as EditBotApi,
+        tracked,
+        alert,
+        imageBuffer
+      ),
+      (err: Error) => {
+        assert.equal(err, goneError);
+        return true;
+      }
+    );
+
+    assert.equal(api.editMessageCaption.mock.calls.length, 0, 'must not degrade when message is gone');
+    assert.equal(api.editMessageText.mock.calls.length, 0, 'must not degrade when message is gone');
+  });
+
+  it('unknown error in Step 1 → degrades to Step 2 (caption)', async () => {
+    const api = {
+      editMessageMedia: mock.fn(async () => { throw new Error('Some unknown Telegram error'); }),
+      editMessageCaption: mock.fn(async () => ({})),
+      editMessageText: mock.fn(async () => ({})),
+    };
+
+    const { _editAlertChain } = await import('../telegramBot.js');
+    await assert.doesNotReject(() =>
+      _editAlertChain(
+        api as unknown as EditBotApi,
+        tracked,
+        alert,
+        imageBuffer
+      )
+    );
+
+    assert.equal(api.editMessageCaption.mock.calls.length, 1, 'Step 2 must be tried for unknown errors');
+  });
+
+  it('caption-only path (hasPhoto=true, no image): Step 1 is caption, Step 2 is text on failure', async () => {
+    const trackedNoImg = { messageId: 42, chatId: '-100', hasPhoto: true };
+    const api = {
+      editMessageMedia: mock.fn(async () => ({})),
+      editMessageCaption: mock.fn(async () => { throw new Error('some caption error'); }),
+      editMessageText: mock.fn(async () => ({})),
+    };
+
+    const { _editAlertChain } = await import('../telegramBot.js');
+    // No imageBuffer — starts at caption
+    await assert.doesNotReject(() =>
+      _editAlertChain(
+        api as unknown as EditBotApi,
+        trackedNoImg,
+        alert,
+        null   // no image buffer
+      )
+    );
+
+    assert.equal(api.editMessageMedia.mock.calls.length, 0, 'Step 1 (media) must not be called when no image');
+    assert.equal(api.editMessageCaption.mock.calls.length, 1, 'caption attempted');
+    assert.equal(api.editMessageText.mock.calls.length, 1, 'text fallback used on caption failure');
   });
 });

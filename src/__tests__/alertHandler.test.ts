@@ -162,11 +162,12 @@ describe('handleNewAlert', () => {
     });
 
     it('handles "message is not modified" as success — does not sendAlert', async () => {
+      // editAlert now handles isUnmodifiedError internally and resolves normally.
+      // This test verifies alertHandler treats a resolved editAlert as success.
       const active = makeTracked();
-      const notModifiedErr = new Error('Bad Request: message is not modified');
       const deps = makeDeps({
         getActiveMessage: mock.fn(() => active),
-        editAlert: mock.fn(async () => { throw notModifiedErr; }),
+        editAlert: mock.fn(async () => {}), // resolves — simulates internal handling of "not modified"
       });
       await handleNewAlert(BASE_ALERT, deps);
       assert.equal((deps.sendAlert as unknown as ReturnType<typeof mock.fn>).mock.calls.length, 0);
@@ -174,33 +175,34 @@ describe('handleNewAlert', () => {
       assert.equal((deps.trackMessage as unknown as ReturnType<typeof mock.fn>).mock.calls.length, 1);
     });
 
-    it('falls back to sendAlert when edit fails with non-unmodified error', async () => {
+    it('falls back to sendAlert when edit fails with "message gone" error', async () => {
+      // Only isMessageGoneError triggers the fresh-send fallback in alertHandler.
       const active = makeTracked();
-      const networkErr = new Error('Network error');
+      const goneErr = new Error('message to edit not found');
       const deps = makeDeps({
         getActiveMessage: mock.fn(() => active),
-        editAlert: mock.fn(async () => { throw networkErr; }),
+        editAlert: mock.fn(async () => { throw goneErr; }),
       });
       await handleNewAlert(BASE_ALERT, deps);
       assert.equal((deps.sendAlert as unknown as ReturnType<typeof mock.fn>).mock.calls.length, 1);
     });
 
-    it('fallback sendAlert receives topicId as third argument when edit fails', async () => {
+    it('fallback sendAlert receives topicId as third argument when message is gone', async () => {
       const active = makeTracked(); // topicId: 3 in makeTracked; getTopicId also returns 3
       const deps = makeDeps({
         getActiveMessage: mock.fn(() => active),
-        editAlert: mock.fn(async () => { throw new Error('Network error'); }),
+        editAlert: mock.fn(async () => { throw new Error('message to edit not found'); }),
       });
       await handleNewAlert(BASE_ALERT, deps);
       const sendCall = (deps.sendAlert as unknown as unknown as ReturnType<typeof mock.fn>).mock.calls[0];
       assert.equal(sendCall.arguments[2], 3);
     });
 
-    it('on edit-fallback-to-send path: notifySubscribers receives only new cities', async () => {
+    it('on message-gone fallback-to-send path: notifySubscribers receives only new cities', async () => {
       const active = makeTracked({ alert: { type: 'missiles', cities: ['תל אביב'] } });
       const deps = makeDeps({
         getActiveMessage: mock.fn(() => active),
-        editAlert: mock.fn(async () => { throw new Error('Network error'); }),
+        editAlert: mock.fn(async () => { throw new Error('message to edit not found'); }),
       });
       await handleNewAlert({ type: 'missiles', cities: ['תל אביב', 'חיפה'] }, deps);
 
@@ -219,18 +221,51 @@ describe('handleNewAlert', () => {
       assert.equal(calls.length, 0, 'edit path must not insert a new history row');
     });
 
-    it('calls insertAlertHistory once with merged alert when edit falls back to sendAlert', async () => {
+    it('calls insertAlertHistory once with merged alert when message-gone edit falls back to sendAlert', async () => {
       const active = makeTracked({ alert: { type: 'missiles', cities: ['תל אביב'] } });
       const deps = makeDeps({
         getActiveMessage: mock.fn(() => active),
-        editAlert: mock.fn(async () => { throw new Error('Network error'); }),
+        editAlert: mock.fn(async () => { throw new Error('message to edit not found'); }),
       });
       await handleNewAlert({ type: 'missiles', cities: ['חיפה'] }, deps);
       const calls = (deps.insertAlertHistory as unknown as ReturnType<typeof mock.fn>).mock.calls;
-      assert.equal(calls.length, 1, 'insertAlertHistory must be called on edit-fallback-to-send path');
+      assert.equal(calls.length, 1, 'insertAlertHistory must be called on message-gone fallback-to-send path');
       const arg = calls[0].arguments[0] as Alert;
       assert.ok(arg.cities.includes('תל אביב'), 'merged alert must include pre-existing city');
       assert.ok(arg.cities.includes('חיפה'), 'merged alert must include new city');
+    });
+
+    it('H-7: editAlert throwing a non-message-gone error does NOT trigger sendAlert fallback', async () => {
+      // After the degraded-chain fix, editAlert handles media/caption failures internally
+      // and only re-throws for "message gone". alertHandler must check the error type
+      // before falling back to sendAlert.
+      const active = makeTracked();
+      const mediaErr = new Error('MEDIA_EDIT_FAILED');
+      const deps = makeDeps({
+        getActiveMessage: mock.fn(() => active),
+        editAlert: mock.fn(async () => { throw mediaErr; }),
+      });
+      await handleNewAlert(BASE_ALERT, deps);
+      assert.equal(
+        (deps.sendAlert as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
+        0,
+        'sendAlert must NOT be called when editAlert throws a non-message-gone error'
+      );
+    });
+
+    it('H-8: editAlert throwing "message to edit not found" DOES trigger sendAlert fallback', async () => {
+      const active = makeTracked();
+      const goneErr = new Error('message to edit not found');
+      const deps = makeDeps({
+        getActiveMessage: mock.fn(() => active),
+        editAlert: mock.fn(async () => { throw goneErr; }),
+      });
+      await handleNewAlert(BASE_ALERT, deps);
+      assert.equal(
+        (deps.sendAlert as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
+        1,
+        'sendAlert must be called when message is gone'
+      );
     });
   });
 });
