@@ -38,7 +38,7 @@ export function buildWhatsAppNote(platform: Platform): string[] {
   return [
     '',
     `  ${c.bold(toVisualRtl('הגדרת WhatsApp:'))}`,
-    `  ${c.dim(toVisualRtl('בהפעלה הראשונה סרוק את קוד ה-QR עם אפליקציית WhatsApp.'))}`,
+    `  ${c.dim(toVisualRtl('בהפעלה הראשונה יוצג קוד QR ישירות בטרמינל — סרוק עם אפליקציית WhatsApp.'))}`,
     `  ${c.dim(toVisualRtl('הסשן יישמר ב-data/whatsapp-session/ לשימוש חוזר.'))}`,
     `  ${c.dim(toVisualRtl('ניהול קבוצות — דרך לוח הבקרה בלבד (לא ב-.env).'))}`,
   ]
