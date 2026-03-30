@@ -1,4 +1,6 @@
 import path from 'node:path'
+import { spawn } from 'node:child_process'
+import { copyFile, access } from 'node:fs/promises'
 import * as p from '@clack/prompts'
 import { c, printResultBox, printSectionCard } from '../ui/theme.js'
 import { toVisualRtl } from '../ui/rtl.js'
@@ -44,7 +46,7 @@ export function buildWhatsAppNote(platform: Platform): string[] {
 /** Prints the Docker run command in a styled box. */
 export function printDockerInstructions(envPath: string, platform: Platform = 'telegram'): void {
   const rel = path.relative(process.cwd(), envPath)
-  printResultBox(toVisualRtl('הפקודה להרצה עם Docker:'), [
+  printResultBox('הפקודה להרצה עם Docker:', [
     `  ${c.primary('docker run')} -d \\`,
     `    --name pikud-haoref-bot \\`,
     `    --restart unless-stopped \\`,
@@ -59,7 +61,7 @@ export function printDockerInstructions(envPath: string, platform: Platform = 't
 
 /** Prints Node.js setup instructions in a styled box. */
 export function printNodeInstructions(platform: Platform = 'telegram'): void {
-  printResultBox(toVisualRtl('הוראות הרצה עם Node.js:'), [
+  printResultBox('הוראות הרצה עם Node.js:', [
     `  ${c.primary('git clone')} https://github.com/yonatan2021/pikud-haoref-bot.git`,
     `  ${c.primary('cd')} pikud-haoref-bot`,
     `  ${c.primary('npm install')}`,
@@ -67,4 +69,45 @@ export function printNodeInstructions(platform: Platform = 'telegram'): void {
     `  ${c.primary('npm start')}`,
     ...buildWhatsAppNote(platform),
   ])
+}
+
+const REPO_URL = 'https://github.com/yonatan2021/pikud-haoref-bot.git'
+const TARGET_DIR = 'pikud-haoref-bot'
+
+/**
+ * Clones the repo, copies the generated .env, and runs npm install.
+ * Used by setup mode (Node.js path) to make the bot immediately runnable.
+ * Streams all subprocess output live via stdio: 'inherit'.
+ */
+export async function runNodeSetup(envPath: string, platform: Platform): Promise<void> {
+  const targetPath = path.join(process.cwd(), TARGET_DIR)
+
+  const exists = await access(targetPath).then(() => true).catch(() => false)
+  if (exists) {
+    p.log.warn(c.warning(toVisualRtl(`תיקיית ${TARGET_DIR} כבר קיימת — מדלג על git clone`)))
+  } else {
+    p.log.step(c.primary(toVisualRtl('מוריד את קוד המקור...')))
+    await spawnStep('git', ['clone', REPO_URL, TARGET_DIR])
+  }
+
+  await copyFile(envPath, path.join(targetPath, '.env'))
+  p.log.success(toVisualRtl('.env הועתק לתיקיית הפרויקט'))
+
+  p.log.step(c.primary(toVisualRtl('מתקין תלויות npm...')))
+  await spawnStep('npm', ['install'], { cwd: targetPath })
+
+  p.log.success(toVisualRtl('ההתקנה הושלמה!'))
+  console.log(`\n  ${c.primary('npm start')}  ${c.dim('# ' + toVisualRtl(`הרץ מתוך תיקיית ${TARGET_DIR}/`))}`)
+  buildWhatsAppNote(platform).forEach(line => console.log(line))
+}
+
+/** Spawns a command with live output (stdio: inherit). Rejects on non-zero exit code. */
+function spawnStep(cmd: string, args: string[], opts?: { cwd?: string }): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(cmd, args, { stdio: 'inherit', cwd: opts?.cwd })
+    child.on('close', code =>
+      code === 0 ? resolve() : reject(new Error(`${cmd} יצא עם קוד שגיאה ${code}`))
+    )
+    child.on('error', err => reject(new Error(`לא ניתן להפעיל ${cmd}: ${err.message}`)))
+  })
 }
