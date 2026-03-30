@@ -3,6 +3,25 @@ import type Database from 'better-sqlite3';
 import type { Bot } from 'grammy';
 import { getQueueStats } from '../../services/dmQueue.js';
 import { log } from '../../logger.js';
+import { createRateLimitMiddleware } from '../rateLimiter.js';
+
+const broadcastLimiter = createRateLimitMiddleware({
+  maxRequests: 2,
+  windowMs: 60_000,
+  message: 'יותר מדי שידורים — נסה שוב בעוד דקה',
+});
+
+const testAlertLimiter = createRateLimitMiddleware({
+  maxRequests: 10,
+  windowMs: 60_000,
+  message: 'יותר מדי הודעות בדיקה — נסה שוב בעוד דקה',
+});
+
+const deleteWindowLimiter = createRateLimitMiddleware({
+  maxRequests: 5,
+  windowMs: 60_000,
+  message: 'יותר מדי מחיקות — נסה שוב בעוד דקה',
+});
 
 export function createOperationsRouter(db: Database.Database, bot: Bot): Router {
   const router = Router();
@@ -13,17 +32,17 @@ export function createOperationsRouter(db: Database.Database, bot: Bot): Router 
     res.json(db.prepare('SELECT * FROM alert_window').all())
   );
 
-  router.delete('/alert-window', (_req, res) => {
+  router.delete('/alert-window', deleteWindowLimiter, (_req, res) => {
     db.prepare('DELETE FROM alert_window').run();
     res.json({ ok: true });
   });
 
-  router.delete('/alert-window/:type', (req, res) => {
+  router.delete('/alert-window/:type', deleteWindowLimiter, (req, res) => {
     db.prepare('DELETE FROM alert_window WHERE alert_type = ?').run(req.params.type);
     res.json({ ok: true });
   });
 
-  router.post('/broadcast', async (req, res) => {
+  router.post('/broadcast', broadcastLimiter, async (req, res) => {
     const { text, chatIds } = req.body as { text?: string; chatIds?: number[] };
     if (!text?.trim()) { res.status(400).json({ error: 'טקסט ריק' }); return; }
 
@@ -47,13 +66,16 @@ export function createOperationsRouter(db: Database.Database, bot: Bot): Router 
       let failed = 0;
       for (const chatId of targets) {
         try { await bot.api.sendMessage(chatId, text, { parse_mode: 'HTML' }); sent++; }
-        catch { failed++; }
+        catch (err) {
+          log('warn', 'Dashboard', `Broadcast failed for chatId ${chatId}: ${String(err)}`);
+          failed++;
+        }
       }
       log('info', 'Dashboard', `Broadcast complete: ${sent} sent, ${failed} failed of ${targets.length}`);
     })();
   });
 
-  router.post('/test-alert', async (req, res) => {
+  router.post('/test-alert', testAlertLimiter, async (req, res) => {
     const { chatId, text } = req.body as { chatId?: number; text?: string };
     if (!chatId || !text) { res.status(400).json({ error: 'חסר chatId או טקסט' }); return; }
     try {
