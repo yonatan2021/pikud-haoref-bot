@@ -90,6 +90,18 @@ export function initSchema(database: Database.Database): void {
       enabled     INTEGER NOT NULL DEFAULT 0,
       alert_types TEXT NOT NULL DEFAULT '[]'
     );
+
+    CREATE TABLE IF NOT EXISTS whatsapp_listeners (
+      id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+      channel_id          TEXT    NOT NULL UNIQUE,
+      channel_name        TEXT    NOT NULL,
+      channel_type        TEXT    NOT NULL DEFAULT 'group',
+      keywords            TEXT    NOT NULL DEFAULT '[]',
+      telegram_topic_id   INTEGER,
+      telegram_topic_name TEXT,
+      is_active           INTEGER NOT NULL DEFAULT 1,
+      created_at          TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   database.exec(
