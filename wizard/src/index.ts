@@ -8,7 +8,7 @@ import { runSetup }  from './modes/setup.js'
 import { runUpdate } from './modes/update.js'
 import { runVerify } from './modes/verify.js'
 
-const VERSION = '0.3.0'
+const VERSION = '0.2.1'
 
 async function main(): Promise<void> {
   const flags = parseArgs(process.argv.slice(2))

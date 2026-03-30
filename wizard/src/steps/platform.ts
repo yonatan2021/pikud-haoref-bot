@@ -48,7 +48,9 @@ export function needsWhatsApp(platform: Platform): boolean {
   return platform === 'whatsapp' || platform === 'both'
 }
 
-/** Returns true when the platform requires Mapbox (map images via Telegram). */
+/** Returns true when the platform requires Mapbox (map images via Telegram).
+ *  Mirrors needsTelegram today — kept separate for future extensibility
+ *  (e.g. WhatsApp map image attachments) without requiring callers to change. */
 export function needsMapbox(platform: Platform): boolean {
   return platform === 'telegram' || platform === 'both'
 }
