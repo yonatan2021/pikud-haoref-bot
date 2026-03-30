@@ -29,18 +29,30 @@
 ### ✨ תכונות חדשות
 
 - **פורמט הודעות חדש** — תוכן/הוראות ההתראה מופיע **לפני** רשימת הערים בכל סוגי ההודעות (ערוץ, DM, WhatsApp), כך שהוא גלוי בהתראת ה-push ולא קבור אחרי מאות ערים; כותרת ערוץ עברה לשתי שורות (`🔴 סוג\n⏰ שעה · N ערים`); כותרות אזור שינו מ-`📍` ל-`▸`; label מיותר `תוכן ההודעה:` הוסר מ-`newsFlash`
-
-### 🐛 תיקוני באגים
-
-- **WhatsApp→Telegram: חיתוך caption מדיה ל-1,024 תווים** — הודעות וואטסאפ עם תמונה/קובץ שגוף ההודעה שלהן ארוך מ-~960 תווים גרמו לשגיאת API (`message caption is too long`). `whatsappListenerService.ts` מיישם כעת `truncateToCaptionLimit()` על ה-caption לפני `sendPhoto`/`sendDocument`
+- **שדרוג סגנון מפה** — יום: `light-v11` → `mapbox/streets-v12` (כבישים, נקודות ציון, תוויות בעברית/ערבית); לילה: `dark-v11` → `mapbox/navigation-night-v1` (ניגודיות גבוהה, קריאות משופרת בלילה)
+- **Padding אדפטיבי** — מחליף את `padding=40` הקשיח: 80px ל-1–3 ערים, 50px ל-4–15, 30px ל-16+ — התראות קטנות מקבלות יותר הקשר גיאוגרפי; גדולות לא מבזבזות viewport
+- **ערובת min-span לסמני pin (Strategy 0)** — ערים ללא נתוני polygon שלחו עד כה pin markers עם zoom-in קרוב מדי; כעת `buildMarkersWithPaddingUrl` מוסיף bbox בלתי-נראה ל-URL שמבטיח ~50 ק"מ הקשר (כמו `expandGeoJSONBounds` בנתיב הפוליגונים)
+- **Strategy 2.5 — איחוד פוליגונים חופפים** — בהתראות עם 50+ ערים (כמו כל מרכז הארץ), גם aggressive simplification לא הספיקה כדי לשמור על URL מתחת ל-8,000 תווים, והמפה נפלה ל-pin markers; שלב חדש `_buildUnionedPolygonsUrl` משתמש ב-`@turf/union` כדי למזג את כל הפוליגונים לכמה "כתמים" מאוחדים (100 פוליגוני גוש דן → 2–4 צורות), מקצר את ה-URL פי 10–20× ומאפשר הצגת אזורים ממולאים גם בהתראות גדולות; ערים לא-סמוכות (צפון + דרום ביחד) הופכות ל-MultiPolygon ומוצגות כבלובים נפרדים
 - **GitHub Sponsors** — `.github/FUNDING.yml` חדש; מאפשר כפתור "Sponsor" בעמוד הריפו; badge ❤️ Sponsor נוסף לשורת הbadges ב-README וסקשן תמיכה ייעודי
 - **דף נחיתה — סקשן "מה חדש?"** — `landing/build.js` מחלץ אוטומטית את 5 השינויים האחרונים מ-`CHANGELOG.md` ומזריק אותם לדף הנחיתה; מתעדכן בכל build ללא עדכון ידני
 - **דף נחיתה — כפתור Sponsor** — כפתור "❤️ תמוך בפרויקט" בפוטר דף הנחיתה מקשר ל-GitHub Sponsors
 - **דף נחיתה — סטטיסטיקות מ-README** — `landing/build.js` מחלץ נתוני מפתח (ערים, אזורים, קטגוריות) מטבלת `## 📊 עובדות` ב-README; עדכון README מספיק לעדכן גם את דף הנחיתה
 - **ROADMAP.md** — מסמך מפת דרכים חדש: כללי ניהול גרסאות (SemVer, שני מסלולי תיוג, checklist), מיילסטונים שהושלמו v0.1–v0.3, placeholder לגרסאות עתידיות
 
+### 🐛 תיקוני באגים
+
+- **WhatsApp→Telegram: חיתוך caption מדיה ל-1,024 תווים** — הודעות וואטסאפ עם תמונה/קובץ שגוף ההודעה שלהן ארוך מ-~960 תווים גרמו לשגיאת API (`message caption is too long`). `whatsappListenerService.ts` מיישם כעת `truncateToCaptionLimit()` על ה-caption לפני `sendPhoto`/`sendDocument`
+- **Race condition בגבול 06:00/18:00** — `getCurrentMapStyle()` נקרא פעמים נפרדות ב-`buildCacheKey()` וב-`buildMapboxUrl()`; התרעה שהגיעה בדיוק בגבול יכלה להישמר בקאש עם key של יום אבל עם תמונת לילה (או להיפך); כעת הסגנון מחושב פעם אחת בתחילת `generateMapImage()` ומועבר לכל ה-builders
+
+### 🧪 בדיקות
+
+- +4 בדיקות `_buildUnionedPolygonsUrl` — null ל-FeatureCollection ריקה, URL עם `geojson(` (לא pin markers) לעיר בודדת, URL בתוך 8,000 תווים ל-15 ערי גוש דן חופפות, URL קצר מ-naive full-polygon encoding
+
 ### 🔧 תחזוקה
 
+- **קבוע `MAP_DIMENSIONS`** — מחליף את המחרוזת הכפולה `'800x500@2x'` ב-`buildMapboxUrl` ו-`_buildMarkersUrl`
+- **שיפור ויזואלי של פוליגונים** — `fill-opacity` 0.4 → 0.5, `stroke-width` 3 → 4 לגבולות ערים בולטים יותר
+- **תלות `@turf/union`** — נוספה לצד `@turf/bbox`, `@turf/simplify`, `@turf/helpers`; guard ל-single-feature (union דורשת ≥ 2 גאומטריות)
 - **README** — badge גרסה, Sponsors badge, סקשן `## 📊 עובדות`, עדכון טבלת sync של דף הנחיתה
 - **`landing/template/index.html`** — סקשן "מה חדש?", כפתור Sponsor בפוטר, `data-target` לאזורים/קטגוריות/ערים עובר מ-hardcode לplaceholders
 - **`landing/template/style.css`** — styles ל-`.whats-new`, `.changelog-list`, `.sponsor-btn`

@@ -7,7 +7,7 @@ import path from 'path';
 const dataDir = path.join(process.cwd(), 'data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
-import { maxCacheSize, clearImageCache, _seedCache, generateMapImage, _buildMarkersUrl, initializeCache, SIMPLIFY_TOLERANCE, SIMPLIFY_TOLERANCE_AGGRESSIVE, getAlertColor, ALERT_TYPE_COLOR, getCurrentMapStyle } from '../mapService';
+import { maxCacheSize, clearImageCache, _seedCache, generateMapImage, _buildMarkersUrl, _buildUnionedPolygonsUrl, initializeCache, SIMPLIFY_TOLERANCE, SIMPLIFY_TOLERANCE_AGGRESSIVE, getAlertColor, ALERT_TYPE_COLOR, getCurrentMapStyle, getAdaptivePadding } from '../mapService';
 import { buildGeoJSON, expandGeoJSONBounds } from '../cityLookup';
 import { initDb, getDb } from '../db/schema';
 import { getMonthlyCount, incrementMonthlyCount, isMonthlyLimitReached } from '../db/mapboxUsageRepository';
@@ -179,7 +179,8 @@ describe('initializeCache', () => {
   it('populates in-memory cache from DB entries', async () => {
     const alert = { type: 'missiles', cities: ['אבו גוש'] };
     // Build the cache key the same way buildCacheKey() does: period prefix + type + sorted cities
-    const period = getCurrentMapStyle().includes('light') ? 'day' : 'night';
+    const style = getCurrentMapStyle();
+    const period = (style.includes('dark') || style.includes('night')) ? 'night' : 'day';
     const key = `${period}:${alert.type}:${[...alert.cities].sort().join('|')}`;
     const fakeBuffer = Buffer.from('persistent-image');
     saveCacheEntry(key, fakeBuffer);
@@ -277,34 +278,34 @@ describe('_buildMarkersUrl', () => {
 });
 
 describe('getCurrentMapStyle', () => {
-  it('returns light style during daytime hours (06:00 Israel time)', () => {
+  it('returns streets style during daytime hours (06:00 Israel time)', () => {
     // 04:00 UTC = 06:00 Israel time (UTC+2 in winter)
     const result = getCurrentMapStyle(new Date('2026-01-15T04:00:00Z'));
-    assert.equal(result, 'mapbox/light-v11');
+    assert.equal(result, 'mapbox/streets-v12');
   });
 
-  it('returns light style at noon (12:00 Israel time)', () => {
+  it('returns streets style at noon (12:00 Israel time)', () => {
     // 10:00 UTC = 12:00 Israel time
     const result = getCurrentMapStyle(new Date('2026-01-15T10:00:00Z'));
-    assert.equal(result, 'mapbox/light-v11');
+    assert.equal(result, 'mapbox/streets-v12');
   });
 
-  it('returns light style at 17:59 Israel time (last minute of day window)', () => {
+  it('returns streets style at 17:59 Israel time (last minute of day window)', () => {
     // 15:59 UTC = 17:59 Israel time (UTC+2)
     const result = getCurrentMapStyle(new Date('2026-01-15T15:59:00Z'));
-    assert.equal(result, 'mapbox/light-v11');
+    assert.equal(result, 'mapbox/streets-v12');
   });
 
-  it('returns dark style at 18:00 Israel time (first minute of night window)', () => {
+  it('returns navigation-night style at 18:00 Israel time (first minute of night window)', () => {
     // 16:00 UTC = 18:00 Israel time (UTC+2)
     const result = getCurrentMapStyle(new Date('2026-01-15T16:00:00Z'));
-    assert.equal(result, 'mapbox/dark-v11');
+    assert.equal(result, 'mapbox/navigation-night-v1');
   });
 
-  it('returns dark style at midnight Israel time', () => {
+  it('returns navigation-night style at midnight Israel time', () => {
     // 22:00 UTC = 00:00 Israel time (UTC+2)
     const result = getCurrentMapStyle(new Date('2026-01-14T22:00:00Z'));
-    assert.equal(result, 'mapbox/dark-v11');
+    assert.equal(result, 'mapbox/navigation-night-v1');
   });
 });
 
@@ -315,7 +316,7 @@ describe('expandGeoJSONBounds', () => {
       type: 'FeatureCollection' as const,
       features: [{
         type: 'Feature' as const,
-        properties: { fill: '#FF0000', 'fill-opacity': 0.4, stroke: '#FF0000', 'stroke-width': 3, 'stroke-opacity': 0.8 },
+        properties: { fill: '#FF0000', 'fill-opacity': 0.5, stroke: '#FF0000', 'stroke-width': 4, 'stroke-opacity': 0.8 },
         geometry: {
           type: 'Polygon' as const,
           coordinates: [[[lng, lat], [lng + 0.01, lat], [lng + 0.01, lat + 0.01], [lng, lat + 0.01], [lng, lat]]],
@@ -414,5 +415,153 @@ describe('generateMapImage — pin marker fallback for cities without polygon da
     } else {
       delete process.env.MAPBOX_ACCESS_TOKEN;
     }
+  });
+});
+
+describe('getAdaptivePadding', () => {
+  it('returns 80 for 1 city', () => {
+    assert.equal(getAdaptivePadding(1), 80);
+  });
+
+  it('returns 80 for 3 cities (boundary)', () => {
+    assert.equal(getAdaptivePadding(3), 80);
+  });
+
+  it('returns 50 for 4 cities (first medium bucket)', () => {
+    assert.equal(getAdaptivePadding(4), 50);
+  });
+
+  it('returns 50 for 15 cities (boundary)', () => {
+    assert.equal(getAdaptivePadding(15), 50);
+  });
+
+  it('returns 30 for 16 cities (first large bucket)', () => {
+    assert.equal(getAdaptivePadding(16), 30);
+  });
+
+  it('returns 30 for 50 cities', () => {
+    assert.equal(getAdaptivePadding(50), 30);
+  });
+});
+
+describe('buildGeoJSON polygon visual properties', () => {
+  it('sets fill-opacity to 0.5 on all features', () => {
+    const city = getCityData('אבו גוש');
+    assert.ok(city, 'test requires אבו גוש in city data');
+    const fc = buildGeoJSON([city.id], '#FF0000');
+    assert.ok(fc.features.length > 0, 'expected at least one polygon feature');
+    for (const feature of fc.features) {
+      assert.equal(feature.properties?.['fill-opacity'], 0.5);
+    }
+  });
+
+  it('sets stroke-width to 4 on all features', () => {
+    const city = getCityData('אבו גוש');
+    assert.ok(city, 'test requires אבו גוש in city data');
+    const fc = buildGeoJSON([city.id], '#FF0000');
+    for (const feature of fc.features) {
+      assert.equal(feature.properties?.['stroke-width'], 4);
+    }
+  });
+});
+
+describe('_buildMarkersUrl — style and padding params', () => {
+  it('accepts an explicit style and uses it in the URL', () => {
+    const city = getCityData('אבו גוש');
+    assert.ok(city, 'test requires אבו גוש in city data');
+    const url = _buildMarkersUrl([city.id], 'missiles', 'mapbox/streets-v12', 60);
+    assert.ok(url !== null);
+    assert.ok(url!.includes('mapbox/streets-v12'), 'URL must use the provided style');
+    assert.ok(url!.includes('padding=60'), 'URL must use the provided padding');
+  });
+
+  it('falls back to getCurrentMapStyle() when style is omitted', () => {
+    const city = getCityData('אבו גוש');
+    assert.ok(city, 'test requires אבו גוש in city data');
+    const url = _buildMarkersUrl([city.id]);
+    assert.ok(url !== null);
+    // getCurrentMapStyle() returns one of the two known styles
+    const usesKnownStyle = url!.includes('mapbox/streets-v12') || url!.includes('mapbox/navigation-night-v1');
+    assert.ok(usesKnownStyle, 'URL should use a known map style');
+  });
+});
+
+describe('buildMarkersWithPaddingUrl — min-span guarantee (Strategy 0)', () => {
+  it('_buildMarkersUrl URL contains pin-l marker and auto viewport', () => {
+    const city = getCityData('חמדת ימים');
+    assert.ok(city, 'test requires חמדת ימים in city data');
+    const url = _buildMarkersUrl([city.id], 'missiles', 'mapbox/streets-v12', 80);
+    assert.ok(url !== null);
+    assert.ok(url!.includes('pin-l+'), 'URL must contain pin-l markers');
+    assert.ok(url!.includes('/auto/'), 'URL must use auto viewport');
+  });
+
+  it('_buildMarkersUrl returns null for an empty city list', () => {
+    assert.equal(_buildMarkersUrl([], 'missiles', 'mapbox/streets-v12', 80), null);
+  });
+});
+
+describe('_buildUnionedPolygonsUrl', () => {
+  it('returns null for an empty FeatureCollection', () => {
+    const empty = { type: 'FeatureCollection' as const, features: [] };
+    const result = _buildUnionedPolygonsUrl(empty, '#FF0000', 'mapbox/streets-v12', 30);
+    assert.equal(result, null);
+  });
+
+  it('returns a geojson overlay URL (not pin markers) for a city with polygon data', () => {
+    const city = getCityData('אבו גוש');
+    assert.ok(city, 'test requires אבו גוש in city data');
+    const fc = buildGeoJSON([city.id], '#FF0000');
+    assert.ok(fc.features.length > 0, 'אבו גוש must have polygon data');
+
+    const url = _buildUnionedPolygonsUrl(fc, '#FF0000', 'mapbox/streets-v12', 30);
+    assert.ok(url !== null, 'should return a URL for a city with polygon data');
+    assert.ok(url!.includes('geojson('), 'URL must use geojson overlay, not pin markers');
+    assert.ok(url!.includes('mapbox/streets-v12'), 'URL must embed the provided style');
+    assert.ok(url!.includes('padding=30'), 'URL must embed the provided padding');
+  });
+
+  it('URL fits within Mapbox 8000-char limit when unioning many overlapping city polygons', () => {
+    // Tel Aviv metro area — many overlapping polygons that union should merge dramatically
+    const cityNames = [
+      'תל אביב - יפו', 'רמת גן', 'בני ברק', 'פתח תקוה', 'חולון',
+      'בת ים', 'רמת השרון', 'הרצליה', 'כפר סבא', 'רעננה',
+      'ראשון לציון', 'רחובות', 'נס ציונה', 'אור יהודה', 'גבעתיים',
+    ];
+    const cityIds = cityNames
+      .map((name) => getCityData(name))
+      .filter((c): c is NonNullable<ReturnType<typeof getCityData>> => c !== null)
+      .map((c) => c.id);
+
+    assert.ok(cityIds.length >= 5, 'need at least 5 cities for a meaningful union test');
+
+    const fc = buildGeoJSON(cityIds, '#FF0000');
+    // Only run URL-length assertion when polygon data is available
+    if (fc.features.length === 0) return;
+
+    const url = _buildUnionedPolygonsUrl(fc, '#FF0000', 'mapbox/streets-v12', 30);
+    assert.ok(url !== null, 'union strategy should succeed for dense overlapping polygons');
+    assert.ok(url!.length <= 8000, `URL must be within Mapbox limit — got ${url!.length} chars`);
+  });
+
+  it('URL is shorter than a naive all-polygons URL for many cities', () => {
+    const cityNames = ['תל אביב - יפו', 'רמת גן', 'בני ברק', 'חולון', 'בת ים'];
+    const cityIds = cityNames
+      .map((name) => getCityData(name))
+      .filter((c): c is NonNullable<ReturnType<typeof getCityData>> => c !== null)
+      .map((c) => c.id);
+
+    const fc = buildGeoJSON(cityIds, '#FF0000');
+    if (fc.features.length === 0) return;
+
+    // Build naive URL with all raw polygons encoded
+    const naiveEncoded = encodeURIComponent(JSON.stringify(fc));
+    const unionUrl = _buildUnionedPolygonsUrl(fc, '#FF0000', 'mapbox/streets-v12', 30);
+    if (unionUrl === null) return; // union may fail for non-overlapping polygons
+
+    assert.ok(
+      unionUrl.length <= naiveEncoded.length,
+      `Union URL (${unionUrl.length}) should be ≤ naive URL (${naiveEncoded.length})`
+    );
   });
 });
