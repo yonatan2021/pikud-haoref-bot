@@ -1,5 +1,6 @@
 import * as p from '@clack/prompts'
 import { c, stepBadge } from '../ui/theme.js'
+import { toVisualRtl } from '../ui/rtl.js'
 import { validateUrl } from '../validation.js'
 import type { Flags } from '../args.js'
 import { type Platform, needsTelegram } from './platform.js'
@@ -18,6 +19,7 @@ export interface OptionalVars {
 /**
  * Prompts for optional configuration fields.
  * Returns undefined if the user cancels (Ctrl+C).
+ * Every field can be skipped by pressing Enter — the placeholder makes this explicit.
  */
 export async function promptOptional(
   flags: Flags,
@@ -33,11 +35,11 @@ export async function promptOptional(
   let doFull: boolean | undefined
   if (forceFull || hasOptionalFlags) {
     doFull = true
-    if (forceFull) p.log.step(c.bold('הגדרות אופציונליות'))
+    if (forceFull) p.log.step(c.bold(toVisualRtl('הגדרות אופציונליות')))
   } else {
-    p.log.step(c.bold('הגדרות אופציונליות'))
+    p.log.step(c.bold(toVisualRtl('הגדרות אופציונליות')))
     const ans = await p.confirm({
-      message: `${stepBadge(4, 4)} ${c.primary('רוצה להגדיר הגדרות אופציונליות?')}`,
+      message: `${stepBadge(4, 4)} ${c.primary(toVisualRtl('רוצה להגדיר הגדרות אופציונליות?'))}`,
       initialValue: false,
     })
     if (p.isCancel(ans)) return undefined
@@ -46,51 +48,51 @@ export async function promptOptional(
 
   if (!doFull) return vars
 
-  // Dashboard
+  // Dashboard secret
   const dashboard = await promptOptionalField(
     flags.dashboard,
-    'סיסמת לוח הבקרה',
+    toVisualRtl('סיסמת לוח הבקרה'),
     'DASHBOARD_SECRET',
-    'מפעיל את לוח הבקרה על פורט 4000 — דלג אם אינך צריך',
+    toVisualRtl('מפעיל את לוח הבקרה על פורט 4000 — דלג אם אינך צריך'),
   )
   if (dashboard === null) return undefined
   if (dashboard) vars.DASHBOARD_SECRET = dashboard
 
-  // Proxy
+  // Proxy URL
   const proxy = await promptOptionalField(
     flags.proxy,
-    'כתובת Proxy',
+    toVisualRtl('כתובת Proxy'),
     'PROXY_URL',
-    'נדרש אם הבוט רץ מחוץ לישראל — פורמט: http://user:pass@host:port',
+    toVisualRtl('נדרש אם הבוט רץ מחוץ לישראל — פורמט: http://user:pass@host:port'),
     validateUrl,
   )
   if (proxy === null) return undefined
   if (proxy) vars.PROXY_URL = proxy
 
-  // Invite link
+  // Telegram invite link
   const inviteLink = await promptOptionalField(
     flags['invite-link'],
-    'קישור הזמנה לערוץ',
+    toVisualRtl('קישור הזמנה לערוץ'),
     'TELEGRAM_INVITE_LINK',
-    'מוצג בכפתור "הצטרף לערוץ" בתפריט DM',
+    toVisualRtl('מוצג בכפתור "הצטרף לערוץ" בתפריט DM'),
   )
   if (inviteLink === null) return undefined
   if (inviteLink) vars.TELEGRAM_INVITE_LINK = inviteLink
 
-  // Forum topic IDs (only when --full flag AND platform includes Telegram)
+  // Forum topic IDs — only with --full flag AND platform includes Telegram
   if (forceFull && (!platform || needsTelegram(platform))) {
-    p.log.info(c.dim('ניתוב נושאים — רלוונטי לקבוצות פורום בלבד'))
+    p.log.info(c.dim(toVisualRtl('ניתוב נושאים — רלוונטי לקבוצות פורום בלבד')))
     const topicFields: Array<[keyof OptionalVars, string]> = [
-      ['TELEGRAM_TOPIC_ID_SECURITY',      '🔴 Thread ID לביטחוני'],
-      ['TELEGRAM_TOPIC_ID_NATURE',        '🌍 Thread ID לאסונות טבע'],
-      ['TELEGRAM_TOPIC_ID_ENVIRONMENTAL', '☢️  Thread ID לסביבתי'],
-      ['TELEGRAM_TOPIC_ID_DRILLS',        '🔵 Thread ID לתרגילים'],
-      ['TELEGRAM_TOPIC_ID_GENERAL',       '📢 Thread ID להודעות כלליות'],
+      ['TELEGRAM_TOPIC_ID_SECURITY',      toVisualRtl('🔴 Thread ID לביטחוני')],
+      ['TELEGRAM_TOPIC_ID_NATURE',        toVisualRtl('🌍 Thread ID לאסונות טבע')],
+      ['TELEGRAM_TOPIC_ID_ENVIRONMENTAL', '☢️  Thread ID ' + toVisualRtl('לסביבתי')],
+      ['TELEGRAM_TOPIC_ID_DRILLS',        toVisualRtl('🔵 Thread ID לתרגילים')],
+      ['TELEGRAM_TOPIC_ID_GENERAL',       toVisualRtl('📢 Thread ID להודעות כלליות')],
     ]
     for (const [key, label] of topicFields) {
       const val = await promptOptionalField(
         undefined, label, key,
-        'דלג אם אינך משתמש בקבוצת פורום',
+        toVisualRtl('דלג אם אינך משתמש בקבוצת פורום'),
       )
       if (val === null) return undefined
       if (val) vars[key] = val
@@ -111,8 +113,8 @@ async function promptOptionalField(
   if (flagValue !== undefined) return String(flagValue) || ''
   const result = await p.text({
     message: `${c.primary(label)} ${c.muted(`(${envKey})`)}\n  ${c.dim(hintText)}`,
-    placeholder: c.dim('Enter לדילוג'),
-    validate: validate ? (s) => (s.trim() ? validate(s) : undefined) : undefined,
+    placeholder: c.dim(toVisualRtl('Enter לדילוג')),
+    validate: validate ? (s: string) => (s.trim() ? validate(s) : undefined) : undefined,
   })
   if (p.isCancel(result)) return null
   return String(result ?? '').trim()

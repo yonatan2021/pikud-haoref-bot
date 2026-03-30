@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@clack/prompts": "^0.9.1",
+    "bidi-js": "^1.0.3",
     "chalk": "^5.4.1"
   },
   "devDependencies": {

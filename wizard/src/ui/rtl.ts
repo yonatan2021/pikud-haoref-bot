@@ -1,7 +1,32 @@
 /** RTL and Unicode-aware terminal utilities */
 
+import bidiFactory from 'bidi-js'
+
+const _bidi = bidiFactory()
 const ANSI_RE = /\x1b\[[0-9;]*m/g
 const SEGMENTER = new Intl.Segmenter()
+
+/** Returns true if the string contains any Hebrew Unicode character (U+0590–U+05FF). */
+export function containsHebrew(str: string): boolean {
+  return /[\u0590-\u05FF]/.test(str)
+}
+
+/**
+ * Convert a logical-order Hebrew string to visual order for sequential LTR rendering.
+ *
+ * \u200F (RTL mark) and \u202B (RLE embedding) only work in terminals that implement
+ * the Unicode BiDi Algorithm — VS Code's integrated terminal ignores them, causing
+ * Hebrew to appear reversed.
+ *
+ * This function uses the Unicode BiDi Algorithm (via bidi-js) to reorder characters
+ * to visual order BEFORE printing. The result renders correctly in ALL terminals:
+ *   - Non-BiDi terminal (VS Code): visual-order string rendered LTR → correct
+ *   - BiDi terminal (macOS Terminal.app): reverses back → also correct
+ */
+export function toVisualRtl(str: string): string {
+  const levels = _bidi.getEmbeddingLevels(str, 'rtl')
+  return _bidi.getReorderedString(str, levels)
+}
 
 /**
  * Returns the visual column width of a string in a terminal,
