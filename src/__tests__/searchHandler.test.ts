@@ -176,9 +176,9 @@ describe('registerSearchHandler', () => {
         await h(ctx, noop);
       }
       // The _fireMsg helper calls all message handlers
-      await bot._fireMsg({ ...ctx, _nextCalled: () => { nextCalled = true; } } as any);
-      // chatId 9020 was never put in searchingUsers by /add, so next() should be called
-      // (The handler calls next() when not in search mode)
+      await bot._fireMsg(ctx);
+      // chatId 9020 was never put in searchingUsers by /add, so no reply should be sent
+      assert.equal(ctx._replyCalls.length, 0, 'no reply should be sent when not in search mode');
     });
   });
 });

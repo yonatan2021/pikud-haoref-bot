@@ -18,7 +18,8 @@ function mockRes() {
   const res: any = { _status: 200, _body: null, _cookie: null, _clearedCookie: null };
   res.status = (code: number) => { res._status = code; return res; };
   res.json = (body: unknown) => { res._body = body; return res; };
-  res.cookie = (name: string, val: string) => { res._cookie = { name, val }; return res; };
+  res.cookie = (name: string, val: string, opts?: Record<string, unknown>) => { res._cookie = { name, val, opts }; return res; };
+  res.set = (key: string, val: string) => { (res._headers ??= {} as Record<string, string>)[key] = val; return res; };
   res.clearCookie = (name: string) => { res._clearedCookie = name; return res; };
   return res;
 }
@@ -137,6 +138,41 @@ describe('createSessionStore', () => {
       const afterRes = mockRes();
       loginHandler(mockLoginReq('wrong'), afterRes as Response);
       assert.equal(afterRes._status, 401); // 401, not 429
+    });
+
+    it('cookie has httpOnly and sameSite strict options', () => {
+      const { loginHandler } = createSessionStore(makeDb(), SECRET);
+      const res = mockRes();
+      loginHandler(mockLoginReq(SECRET), res as Response);
+      assert.equal(res._status, 200);
+      assert.equal(res._cookie?.opts?.httpOnly, true, 'httpOnly must be true');
+      assert.equal(res._cookie?.opts?.sameSite, 'strict', 'sameSite must be strict');
+    });
+
+    it('returns 400 for empty string password', () => {
+      const { loginHandler } = createSessionStore(makeDb(), SECRET);
+      const res = mockRes();
+      loginHandler(mockLoginReq(''), res as Response);
+      assert.equal(res._status, 400);
+    });
+
+    it('returns 400 for missing password field', () => {
+      const { loginHandler } = createSessionStore(makeDb(), SECRET);
+      const res = mockRes();
+      loginHandler({ body: {}, ip: '127.0.0.1', headers: {} } as unknown as Request, res as Response);
+      assert.equal(res._status, 400);
+    });
+
+    it('responds with Retry-After header after 10 failed attempts', () => {
+      const { loginHandler } = createSessionStore(makeDb(), SECRET);
+      for (let i = 0; i < 10; i++) {
+        loginHandler(mockLoginReq('wrong'), mockRes() as Response);
+      }
+      const res = mockRes();
+      loginHandler(mockLoginReq('wrong'), res as Response);
+      assert.equal(res._status, 429);
+      assert.ok(res._headers?.['Retry-After'], 'Retry-After header must be set');
+      assert.ok(Number(res._headers['Retry-After']) > 0, 'Retry-After must be a positive number of seconds');
     });
 
     it('rate limit is per-IP — different IPs are independent', () => {

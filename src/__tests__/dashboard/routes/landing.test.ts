@@ -106,6 +106,22 @@ describe('PATCH /api/landing/config', () => {
     assert.deepEqual(res.body, { ok: true });
   });
 
+  it('accepts siteUrl with leading and trailing whitespace', async () => {
+    const res = await request(app)
+      .patch('/api/landing/config')
+      .send({ siteUrl: '  https://example.com  ' });
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body, { ok: true });
+  });
+
+  it('accepts uppercase HTTPS protocol', async () => {
+    const res = await request(app)
+      .patch('/api/landing/config')
+      .send({ siteUrl: 'HTTPS://example.com' });
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body, { ok: true });
+  });
+
   it('persists siteUrl to DB', async () => {
     await request(app).patch('/api/landing/config').send({ siteUrl: 'https://example.com' });
     const row = db.prepare("SELECT value FROM settings WHERE key = 'landing_url'").get() as { value: string } | undefined;

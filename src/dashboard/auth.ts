@@ -1,6 +1,11 @@
-import { randomUUID } from 'node:crypto';
+import { randomUUID, timingSafeEqual } from 'node:crypto';
 import type { Request, Response, NextFunction } from 'express';
 import type Database from 'better-sqlite3';
+
+function safeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+}
 
 const COOKIE_NAME = 'dashboard_token';
 const SESSION_TTL_DAYS = 7;
@@ -9,11 +14,7 @@ const RATE_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 const RATE_MAX = 10;                    // max attempts per window
 
 function getClientIp(req: Request): string {
-  const forwarded = req.headers['x-forwarded-for'];
-  const ip = (typeof forwarded === 'string' ? forwarded.split(',')[0] : null)
-    ?? req.ip
-    ?? 'unknown';
-  return ip.trim();
+  return req.ip ?? req.socket.remoteAddress ?? 'unknown';
 }
 
 export function createSessionStore(db: Database.Database, secret: string) {
@@ -46,6 +47,7 @@ export function createSessionStore(db: Database.Database, secret: string) {
 
     if (entry && now < entry.resetAt) {
       if (entry.count >= RATE_MAX) {
+        res.set('Retry-After', String(Math.ceil((entry.resetAt - now) / 1000)));
         res.status(429).json({ error: 'יותר מדי ניסיונות התחברות — נסה שוב מאוחר יותר' });
         return;
       }
@@ -59,7 +61,7 @@ export function createSessionStore(db: Database.Database, secret: string) {
       res.status(400).json({ error: 'סיסמה נדרשת' });
       return;
     }
-    if (password !== secret) {
+    if (!safeEqual(password, secret)) {
       res.status(401).json({ error: 'סיסמה שגויה' });
       return;
     }

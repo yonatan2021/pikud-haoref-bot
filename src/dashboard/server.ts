@@ -13,6 +13,7 @@ export function startDashboardServer(db: Database.Database, bot: Bot, port: numb
   const app = express();
   app.use(express.json());
   app.use(cookieParser());
+  app.set('trust proxy', 1); // trust one hop (nginx reverse proxy per deployment.md)
 
   const { authMiddleware, loginHandler, logoutHandler } = createSessionStore(db, secret);
   app.post('/auth/login', loginHandler);
