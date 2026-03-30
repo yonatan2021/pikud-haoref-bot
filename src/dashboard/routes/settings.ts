@@ -2,6 +2,13 @@ import { Router } from 'express';
 import type Database from 'better-sqlite3';
 import path from 'path';
 import { getAllSettings, setSetting } from '../settingsRepository.js';
+import { createRateLimitMiddleware } from '../rateLimiter.js';
+
+const backupLimiter = createRateLimitMiddleware({
+  maxRequests: 5,
+  windowMs: 3_600_000,
+  message: 'יותר מדי הורדות גיבוי — נסה שוב בעוד שעה',
+});
 
 const ALLOWED_KEYS = new Set([
   'alert_window_seconds', 'mapbox_monthly_limit', 'mapbox_skip_drills',
@@ -36,7 +43,7 @@ export function createSettingsRouter(db: Database.Database): Router {
     res.json({ ok: true, note: 'חלק מההגדרות ייכנסו לתוקף לאחר הפעלה מחדש' });
   });
 
-  router.get('/backup', (_req, res) => {
+  router.get('/backup', backupLimiter, (_req, res) => {
     const dbPath = path.resolve(process.env.DB_PATH ?? 'data/subscriptions.db');
     res.download(dbPath, 'backup.db');
   });

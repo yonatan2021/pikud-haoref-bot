@@ -242,4 +242,33 @@ describe('createSessionStore', () => {
       assert.deepEqual(res._body, { ok: true });
     });
   });
+
+  describe('loginHandler — SQLite-persistent rate limiting', () => {
+    it('rate limit counter persists across createSessionStore instances on the same DB', () => {
+      const db = makeDb();
+      // First "session" — exhaust most of the allowance
+      const { loginHandler: handler1 } = createSessionStore(db, SECRET);
+      for (let i = 0; i < 10; i++) {
+        handler1(mockLoginReq('wrong', '1.2.3.4'), mockRes() as Response);
+      }
+      // Simulate a restart by creating a new session store on the same DB
+      const { loginHandler: handler2 } = createSessionStore(db, SECRET);
+      const res = mockRes();
+      handler2(mockLoginReq('wrong', '1.2.3.4'), res as Response);
+      assert.equal(res._status, 429, 'rate limit should survive session store recreation');
+    });
+
+    it('clears the login_attempts record on successful login', () => {
+      const db = makeDb();
+      const { loginHandler } = createSessionStore(db, SECRET);
+      // Build up some failed attempts
+      for (let i = 0; i < 3; i++) {
+        loginHandler(mockLoginReq('wrong', '1.2.3.4'), mockRes() as Response);
+      }
+      // Successful login should clear the counter
+      loginHandler(mockLoginReq(SECRET, '1.2.3.4'), mockRes() as Response);
+      const row = db.prepare('SELECT count FROM login_attempts WHERE ip = ?').get('1.2.3.4');
+      assert.equal(row, undefined, 'login_attempts row should be deleted after successful login');
+    });
+  });
 });

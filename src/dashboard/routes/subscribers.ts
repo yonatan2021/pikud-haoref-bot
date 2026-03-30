@@ -1,6 +1,13 @@
 import { Router } from 'express';
 import type Database from 'better-sqlite3';
 import { log } from '../../logger.js';
+import { createRateLimitMiddleware } from '../rateLimiter.js';
+
+const csvExportLimiter = createRateLimitMiddleware({
+  maxRequests: 10,
+  windowMs: 3_600_000,
+  message: 'יותר מדי ייצואים — נסה שוב בעוד שעה',
+});
 
 const ALLOWED_FORMATS = ['short', 'detailed'] as const;
 const MAX_LIMIT = 200;
@@ -9,7 +16,7 @@ export function createSubscribersRouter(db: Database.Database): Router {
   const router = Router();
 
   // CSV export MUST come before /:id to avoid param conflict
-  router.get('/export/csv', (_req, res) => {
+  router.get('/export/csv', csvExportLimiter, (_req, res) => {
     try {
       const rows = db.prepare(`
         SELECT u.chat_id, u.format, u.quiet_hours_enabled, u.created_at,
