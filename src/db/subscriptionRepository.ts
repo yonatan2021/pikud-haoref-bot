@@ -6,6 +6,7 @@ export interface SubscriberInfo {
   chat_id: number;
   format: NotificationFormat;
   quiet_hours_enabled: boolean;
+  muted_until: string | null;
   matchedCities: string[];
 }
 
@@ -43,7 +44,7 @@ export function getUsersForCities(cityNames: string[]): SubscriberInfo[] {
   const placeholders = cityNames.map(() => '?').join(', ');
   const rawRows = getDb()
     .prepare(
-      `SELECT s.chat_id, u.format, u.quiet_hours_enabled, s.city_name AS matched_city
+      `SELECT s.chat_id, u.format, u.quiet_hours_enabled, u.muted_until, s.city_name AS matched_city
        FROM subscriptions s
        JOIN users u ON u.chat_id = s.chat_id
        WHERE s.city_name IN (${placeholders})`
@@ -52,6 +53,7 @@ export function getUsersForCities(cityNames: string[]): SubscriberInfo[] {
       chat_id: number;
       format: NotificationFormat;
       quiet_hours_enabled: number;
+      muted_until: string | null;
       matched_city: string;
     }[];
 
@@ -68,6 +70,7 @@ export function getUsersForCities(cityNames: string[]): SubscriberInfo[] {
         chat_id: row.chat_id,
         format: row.format,
         quiet_hours_enabled: row.quiet_hours_enabled === 1,
+        muted_until: row.muted_until ?? null,
         matchedCities: [row.matched_city],
       });
     }

@@ -3,7 +3,6 @@ import { getUsersForCities } from '../db/subscriptionRepository.js';
 import { getEmoji, getTitleHe } from '../config/templateCache.js';
 import { getCityData } from '../cityLookup.js';
 import type { NotificationFormat } from '../db/userRepository.js';
-import { isMuted } from '../db/userRepository.js';
 import { ALERT_TYPE_CATEGORY } from '../topicRouter.js';
 import { dmQueue, type DmTask } from './dmQueue.js';
 import { log } from '../logger.js';
@@ -160,10 +159,12 @@ export function notifySubscribers(
 
     // Snooze filter: mirrors quiet-hours category logic — only suppresses drills/general.
     // Security, nature, and environmental alerts always pass through even when muted.
+    // muted_until is already fetched by getUsersForCities — no extra DB call per subscriber.
     const category = ALERT_TYPE_CATEGORY[alert.type] ?? 'general';
     const muteApplies = category === 'drills' || category === 'general';
+    const now = new Date();
     const afterMute = muteApplies
-      ? afterQuietHours.filter(({ chat_id }) => !isMuted(chat_id))
+      ? afterQuietHours.filter(({ muted_until }) => !muted_until || new Date(muted_until) <= now)
       : afterQuietHours;
 
     const tasks = afterMute.map(({ chat_id, format, matchedCities }) => {
