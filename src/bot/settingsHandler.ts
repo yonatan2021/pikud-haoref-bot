@@ -10,6 +10,7 @@ import {
 import { getCityData } from '../cityLookup.js';
 import { escapeHtml } from '../telegramBot.js';
 import { log } from '../logger.js';
+import { createUserCooldown } from './userCooldown.js';
 
 const PAGE_SIZE = 15;
 
@@ -80,7 +81,8 @@ export function buildMyCitiesPage(chatId: number, page: number): { text: string;
   };
 }
 
-export function registerSettingsHandler(bot: Bot): void {
+export function registerSettingsHandler(bot: Bot, writeCooldownMs = 1500): void {
+  const settingsWriteCooldown = createUserCooldown(writeCooldownMs);
   bot.command('settings', async (ctx: Context) => {
     if (ctx.chat?.type !== 'private') return;
     const chatId = ctx.chat.id;
@@ -133,9 +135,14 @@ export function registerSettingsHandler(bot: Bot): void {
   });
 
   bot.callbackQuery('quiet:toggle', async (ctx: Context) => {
-    await ctx.answerCallbackQuery();
     const chatId = ctx.chat?.id;
     if (!chatId) return;
+    if (settingsWriteCooldown.isOnCooldown(chatId)) {
+      await ctx.answerCallbackQuery('⏳ נסה שוב בעוד רגע');
+      return;
+    }
+    await ctx.answerCallbackQuery();
+    settingsWriteCooldown.setCooldown(chatId);
     try {
       const user = getUser(chatId);
       const current = user?.quiet_hours_enabled ?? false;
@@ -148,9 +155,14 @@ export function registerSettingsHandler(bot: Bot): void {
   });
 
   bot.callbackQuery(/^snooze:(1h|4h|24h|clear)$/, async (ctx: Context) => {
-    await ctx.answerCallbackQuery();
     const chatId = ctx.chat?.id;
     if (!chatId) return;
+    if (settingsWriteCooldown.isOnCooldown(chatId)) {
+      await ctx.answerCallbackQuery('⏳ נסה שוב בעוד רגע');
+      return;
+    }
+    await ctx.answerCallbackQuery();
+    settingsWriteCooldown.setCooldown(chatId);
     try {
       const action = ctx.match![1];
       if (action === 'clear') {
@@ -191,9 +203,14 @@ export function registerSettingsHandler(bot: Bot): void {
   });
 
   bot.callbackQuery('settings:clearall:ok', async (ctx: Context) => {
-    await ctx.answerCallbackQuery('✅ כל המנויים בוטלו');
     const chatId = ctx.chat?.id;
     if (!chatId) return;
+    if (settingsWriteCooldown.isOnCooldown(chatId)) {
+      await ctx.answerCallbackQuery('⏳ נסה שוב בעוד רגע');
+      return;
+    }
+    settingsWriteCooldown.setCooldown(chatId);
+    await ctx.answerCallbackQuery('✅ כל המנויים בוטלו');
     try {
       removeAllSubscriptions(chatId);
       await ctx.editMessageText('✅ כל המנויים בוטלו.', {
@@ -234,6 +251,11 @@ export function registerSettingsHandler(bot: Bot): void {
   bot.callbackQuery(/^rm:(\d+):(\d+)$/, async (ctx: Context) => {
     const chatId = ctx.chat?.id;
     if (!chatId) return;
+    if (settingsWriteCooldown.isOnCooldown(chatId)) {
+      await ctx.answerCallbackQuery('⏳ נסה שוב בעוד רגע');
+      return;
+    }
+    settingsWriteCooldown.setCooldown(chatId);
     try {
       const cityId = parseInt(ctx.match![1]);
       const page = parseInt(ctx.match![2]);

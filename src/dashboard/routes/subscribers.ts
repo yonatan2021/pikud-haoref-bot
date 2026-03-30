@@ -1,6 +1,19 @@
 import { Router } from 'express';
 import type Database from 'better-sqlite3';
 import { log } from '../../logger.js';
+import { createRateLimitMiddleware } from '../rateLimiter.js';
+
+const csvExportLimiter = createRateLimitMiddleware({
+  maxRequests: 10,
+  windowMs: 3_600_000,
+  message: 'יותר מדי ייצואים — נסה שוב בעוד שעה',
+});
+
+const subscriberMutateLimiter = createRateLimitMiddleware({
+  maxRequests: 10,
+  windowMs: 60_000,
+  message: 'יותר מדי עדכונים — נסה שוב בעוד דקה',
+});
 
 const ALLOWED_FORMATS = ['short', 'detailed'] as const;
 const MAX_LIMIT = 200;
@@ -9,7 +22,7 @@ export function createSubscribersRouter(db: Database.Database): Router {
   const router = Router();
 
   // CSV export MUST come before /:id to avoid param conflict
-  router.get('/export/csv', (_req, res) => {
+  router.get('/export/csv', csvExportLimiter, (_req, res) => {
     try {
       const rows = db.prepare(`
         SELECT u.chat_id, u.format, u.quiet_hours_enabled, u.created_at,
@@ -98,9 +111,9 @@ export function createSubscribersRouter(db: Database.Database): Router {
     }
   });
 
-  router.patch('/:id', (req, res) => {
+  router.patch('/:id', subscriberMutateLimiter, (req, res) => {
     try {
-      const chatId = parseInt(req.params.id, 10);
+      const chatId = parseInt(req.params.id as string, 10);
       if (isNaN(chatId)) { res.status(400).json({ error: 'מזהה לא חוקי' }); return; }
 
       const { format, quiet_hours_enabled } = req.body as {
@@ -130,9 +143,9 @@ export function createSubscribersRouter(db: Database.Database): Router {
     }
   });
 
-  router.delete('/:id', (req, res) => {
+  router.delete('/:id', subscriberMutateLimiter, (req, res) => {
     try {
-      const chatId = parseInt(req.params.id, 10);
+      const chatId = parseInt(req.params.id as string, 10);
       if (isNaN(chatId)) { res.status(400).json({ error: 'מזהה לא חוקי' }); return; }
 
       db.prepare('DELETE FROM users WHERE chat_id = ?').run(chatId);
@@ -143,14 +156,14 @@ export function createSubscribersRouter(db: Database.Database): Router {
     }
   });
 
-  router.delete('/:id/cities/:city', (req, res) => {
+  router.delete('/:id/cities/:city', subscriberMutateLimiter, (req, res) => {
     try {
-      const chatId = parseInt(req.params.id, 10);
+      const chatId = parseInt(req.params.id as string, 10);
       if (isNaN(chatId)) { res.status(400).json({ error: 'מזהה לא חוקי' }); return; }
 
       db.prepare('DELETE FROM subscriptions WHERE chat_id = ? AND city_name = ?').run(
         chatId,
-        decodeURIComponent(req.params.city),
+        decodeURIComponent(req.params.city as string),
       );
       res.json({ ok: true });
     } catch (err) {
