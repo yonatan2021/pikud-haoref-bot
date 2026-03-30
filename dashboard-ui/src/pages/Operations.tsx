@@ -14,7 +14,6 @@ import { LiveDot } from '../components/ui/LiveDot';
 interface QueueStats {
   pending: number;
   rateLimited: boolean;
-  paused: boolean;
 }
 
 interface AlertWindowRow {
@@ -219,9 +218,6 @@ export function Operations() {
                 <div className="flex gap-3">
                   <span className={`text-xs px-3 py-1 rounded-full font-medium ${queue.rateLimited ? 'bg-red-500/20 text-red-400' : 'bg-green/20 text-green'}`}>
                     {queue.rateLimited ? '⚠️ Rate Limited' : '✓ תקין'}
-                  </span>
-                  <span className={`text-xs px-3 py-1 rounded-full font-medium ${queue.paused ? 'bg-amber/20 text-amber' : 'bg-surface border border-border text-text-muted'}`}>
-                    {queue.paused ? '⏸ מושהה' : '▶ פעיל'}
                   </span>
                 </div>
                 <p className="text-text-muted text-xs">מתעדכן כל 3 שניות</p>

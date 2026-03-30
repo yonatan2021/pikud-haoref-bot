@@ -124,7 +124,7 @@ describe('registerSearchHandler', () => {
 
     it('unsubscribes city on second tap (toggle)', async () => {
       const bot = buildMockBot();
-      registerSearchHandler(bot as unknown as Bot);
+      registerSearchHandler(bot as unknown as Bot, 0); // cooldownMs=0 for test isolation
 
       const chatId = 9011;
       const cityId = 511;

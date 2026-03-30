@@ -1,10 +1,10 @@
-import { describe, it, before, after } from 'node:test';
+import { describe, it, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
 import express from 'express';
 import request from 'supertest';
 import { initSchema } from '../../../db/schema.js';
-import { createSettingsRouter } from '../../../dashboard/routes/settings.js';
+import { createSettingsRouter, settingsMutateLimiter } from '../../../dashboard/routes/settings.js';
 
 let db: Database.Database;
 let app: express.Express;
@@ -17,6 +17,8 @@ before(() => {
   app.use(express.json());
   app.use('/api/settings', createSettingsRouter(db));
 });
+
+beforeEach(() => settingsMutateLimiter.clearStore());
 
 after(() => db.close());
 
