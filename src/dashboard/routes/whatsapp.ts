@@ -152,5 +152,20 @@ export function createWhatsAppRouter(
     }
   });
 
+  // GET /chats — list all WhatsApp chats visible to connected client
+  router.get('/chats', (_req: Request, res: Response) => {
+    try {
+      const chats = service.getCachedGroups().map((g) => ({
+        id: g.id,
+        name: g.name,
+        type: g.id.endsWith('@newsletter') ? 'newsletter' : 'group',
+      }));
+      res.json(chats);
+    } catch (err: unknown) {
+      log('error', 'WhatsApp', `שגיאה בטעינת צ'אטים: ${err instanceof Error ? err.message : String(err)}`);
+      res.status(500).json({ error: 'שגיאת שרת פנימית' });
+    }
+  });
+
   return router;
 }

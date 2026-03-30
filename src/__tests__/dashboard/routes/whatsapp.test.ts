@@ -216,3 +216,24 @@ describe('POST /api/whatsapp/reconnect', () => {
     assert.equal(initializeCalled, true);
   });
 });
+
+describe('GET /api/whatsapp/chats', () => {
+  it('returns empty array when no chats cached', async () => {
+    mockCachedGroups = [];
+    const res = await request(app).get('/api/whatsapp/chats');
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body, []);
+  });
+
+  it('returns chats with id, name, type from cached groups', async () => {
+    mockCachedGroups = [
+      { id: '120363001@g.us', name: 'Group A' },
+      { id: '120363002@newsletter', name: 'Channel B' },
+    ] as any;
+    const res = await request(app).get('/api/whatsapp/chats');
+    assert.equal(res.status, 200);
+    assert.equal(res.body.length, 2);
+    assert.equal(res.body[0].type, 'group');
+    assert.equal(res.body[1].type, 'newsletter');
+  });
+});
