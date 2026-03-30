@@ -1056,7 +1056,92 @@ img {
 }
 
 /* ----------------------------------------------------------
-   14. Responsive — tablet (900px)
+   14. What's New Section
+   ---------------------------------------------------------- */
+.whats-new {
+  text-align: center;
+}
+.changelog-list {
+  list-style: none;
+  max-width: 680px;
+  margin-inline: auto;
+  margin-bottom: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.changelog-list li {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.75rem 1.25rem;
+  font-size: 0.92rem;
+  color: var(--text-secondary);
+  text-align: right;
+  transition: border-color var(--transition), background var(--transition);
+  opacity: 0;
+  transform: translateY(10px);
+  transition:
+    opacity 0.35s ease,
+    transform 0.35s ease,
+    border-color var(--transition),
+    background var(--transition);
+}
+.changelog-list li.visible,
+.changelog-list.visible li {
+  opacity: 1;
+  transform: none;
+}
+.changelog-list li:hover {
+  border-color: var(--border-hover);
+  background: var(--surface-hover);
+}
+.changelog-footer {
+  margin-top: 0.5rem;
+}
+.changelog-link {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color var(--transition);
+}
+.changelog-link:hover {
+  color: var(--accent);
+}
+
+/* ----------------------------------------------------------
+   15. Sponsor Button (footer)
+   ---------------------------------------------------------- */
+.footer-sponsor {
+  margin-top: 1rem;
+  text-align: center;
+}
+.sponsor-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 1.1rem;
+  border-radius: 20px;
+  border: 1px solid rgba(234, 74, 170, 0.35);
+  background: rgba(234, 74, 170, 0.08);
+  color: #f472b6;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    background var(--transition),
+    border-color var(--transition),
+    color var(--transition);
+}
+.sponsor-btn:hover {
+  background: rgba(234, 74, 170, 0.18);
+  border-color: rgba(234, 74, 170, 0.6);
+  color: #f9a8d4;
+  opacity: 1;
+}
+
+/* ----------------------------------------------------------
+   16. Responsive — tablet (900px)
    ---------------------------------------------------------- */
 @media (max-width: 900px) {
   .steps {

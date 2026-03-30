@@ -79,20 +79,113 @@ if (!devFeaturesHtml.trim()) {
   throw new Error('parseFeatureTable returned empty HTML for dev section — check README.md "### ⚙️ למתכנתים ו-DevOps" table');
 }
 
-// Step 3: Get current date in Hebrew
+// Step 3: Parse CHANGELOG.md — extract latest version highlights
+const changelog = fs.readFileSync('CHANGELOG.md', 'utf8');
+
+function parseLatestChangelog(changelogContent) {
+  // Find the first real version entry (skip [Unreleased])
+  const versionPattern = /^## \[(\d+\.\d+\.\d+)\]/m;
+  const match = changelogContent.match(versionPattern);
+  if (!match) return { version: '', html: '' };
+
+  const version = match[1];
+  const versionStart = changelogContent.indexOf(match[0]);
+
+  // Find where the next version section starts
+  const rest = changelogContent.slice(versionStart + match[0].length);
+  const nextMatch = rest.match(/^## \[/m);
+  const versionBlock = nextMatch
+    ? changelogContent.slice(versionStart, versionStart + match[0].length + rest.indexOf(nextMatch[0]))
+    : changelogContent.slice(versionStart);
+
+  // Extract ✨ תכונות חדשות subsection
+  const featuresIdx = versionBlock.indexOf('### ✨ תכונות חדשות');
+  if (featuresIdx === -1) return { version, html: '' };
+
+  const featuresEnd = versionBlock.indexOf('\n### ', featuresIdx + 5);
+  const featuresSection = featuresEnd !== -1
+    ? versionBlock.slice(featuresIdx, featuresEnd)
+    : versionBlock.slice(featuresIdx);
+
+  const items = [];
+  for (const line of featuresSection.split('\n')) {
+    if (items.length >= 5) break;
+    const trimmed = line.trim();
+
+    // Sub-section header like "#### WhatsApp Listener Bridge (חדש)"
+    if (trimmed.startsWith('#### ')) {
+      items.push(trimmed.slice(5).trim());
+      continue;
+    }
+    // Bullet like "- **Feature Name** — description"
+    if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+      let text = trimmed.slice(2).trim();
+      const boldMatch = text.match(/^\*\*([^*]+)\*\*/);
+      if (boldMatch) {
+        text = boldMatch[1].replace(/`/g, '');
+      } else {
+        const sepIdx = text.indexOf(' — ');
+        if (sepIdx > 0) text = text.slice(0, sepIdx);
+        text = text.replace(/\*\*/g, '').replace(/`/g, '');
+      }
+      if (text.length > 2) items.push(text);
+    }
+  }
+
+  const html = items.map((item) => `<li>${item}</li>`).join('\n');
+  return { version, html };
+}
+
+const { version: changelogVersion, html: whatsNewHtml } = parseLatestChangelog(changelog);
+if (!whatsNewHtml.trim()) {
+  console.warn('[landing/build.js] parseLatestChangelog: no features found — {{WHATS_NEW_HTML}} will be empty');
+}
+
+// Step 3b: Parse README.md stats table (## 📊 עובדות)
+function parseStats(readmeContent) {
+  const marker = '## 📊 עובדות';
+  const start = readmeContent.indexOf(marker);
+  if (start === -1) return {};
+
+  const end = readmeContent.indexOf('\n---', start);
+  const section = end !== -1 ? readmeContent.slice(start, end) : readmeContent.slice(start, start + 600);
+
+  const stats = {};
+  for (const line of section.split('\n')) {
+    if (!line.startsWith('|')) continue;
+    if (line.includes('מדד') || line.includes('---')) continue;
+    const cells = line.split('|').map((c) => c.trim()).filter(Boolean);
+    if (cells.length >= 2) stats[cells[0]] = cells[1];
+  }
+  return stats;
+}
+
+const stats = parseStats(readme);
+const statCities = stats['עיירות מכוסות'] || '1400';
+const statZones  = stats['אזורים']        || '28';
+const statCats   = stats['קטגוריות']      || '5';
+const statTests  = stats['בדיקות אוטומטיות'] || '391';
+
+// Step 4: Get current date in Hebrew
 const buildDate = new Date().toLocaleDateString('he-IL', {
   year: 'numeric',
   month: 'long',
   day: 'numeric',
 });
 
-// Step 4: Read template and replace placeholders
+// Step 5: Read template and replace placeholders
 const template = fs.readFileSync('landing/template/index.html', 'utf8');
 let output = template
   .replaceAll('{{VERSION}}', version)
   .replaceAll('{{USER_FEATURES_HTML}}', userFeaturesHtml)
   .replaceAll('{{DEV_FEATURES_HTML}}', devFeaturesHtml)
-  .replaceAll('{{BUILD_DATE}}', buildDate);
+  .replaceAll('{{BUILD_DATE}}', buildDate)
+  .replaceAll('{{WHATS_NEW_HTML}}', whatsNewHtml)
+  .replaceAll('{{CHANGELOG_VERSION}}', changelogVersion || version)
+  .replaceAll('{{STAT_CITIES}}', statCities)
+  .replaceAll('{{STAT_ZONES}}', statZones)
+  .replaceAll('{{STAT_CATS}}', statCats)
+  .replaceAll('{{STAT_TESTS}}', statTests);
 
 // Inject GA4 tracking script if measurement ID is configured
 const GA4_PATTERN = /^G-[A-Z0-9]{4,12}$/;
