@@ -1,4 +1,4 @@
-import { describe, it, before, after, beforeEach, mock } from 'node:test';
+import { describe, it, before, after, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
 import { initSchema } from '../db/schema.js';
