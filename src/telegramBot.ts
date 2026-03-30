@@ -77,6 +77,7 @@ export function formatAlertMessage(alert: Alert): string {
 
   const now = new Date(alert.receivedAt ?? Date.now());
   const timeStr = now.toLocaleTimeString('he-IL', {
+    timeZone: 'Asia/Jerusalem',
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
