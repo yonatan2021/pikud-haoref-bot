@@ -11,6 +11,7 @@ import {
   getMonthlyCount,
   incrementMonthlyCount,
   isMonthlyLimitReached,
+  initUsageCache,
 } from '../db/mapboxUsageRepository';
 
 describe('mapboxUsageRepository', () => {
@@ -22,6 +23,8 @@ describe('mapboxUsageRepository', () => {
 
   beforeEach(() => {
     getDb().prepare('DELETE FROM mapbox_usage').run();
+    // Reset in-memory cache to match cleared DB state
+    initUsageCache();
     savedEnv = { ...process.env };
   });
 
@@ -114,6 +117,64 @@ describe('mapboxUsageRepository', () => {
       incrementMonthlyCount(currentMonth);
       incrementMonthlyCount(currentMonth);
       assert.equal(isMonthlyLimitReached(), true);
+    });
+  });
+
+  describe('initUsageCache', () => {
+    it('seeds memCount from DB — isMonthlyLimitReached reflects persisted count', () => {
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      process.env.MAPBOX_MONTHLY_LIMIT = '3';
+
+      // Write 3 increments directly to DB without going through in-memory path
+      // by calling incrementMonthlyCount (which also updates memCount),
+      // then re-seeding from DB to verify initUsageCache reads the persisted value
+      incrementMonthlyCount(currentMonth);
+      incrementMonthlyCount(currentMonth);
+      incrementMonthlyCount(currentMonth);
+
+      // Verify DB has the count persisted
+      assert.equal(getMonthlyCount(currentMonth), 3);
+
+      // Re-initialize cache from DB — should reflect the 3 persisted increments
+      initUsageCache();
+
+      assert.equal(isMonthlyLimitReached(), true);
+    });
+
+    it('returns true after incrementing to the limit using in-memory counter', () => {
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      process.env.MAPBOX_MONTHLY_LIMIT = '2';
+
+      incrementMonthlyCount(currentMonth);
+      assert.equal(isMonthlyLimitReached(), false);
+
+      incrementMonthlyCount(currentMonth);
+      assert.equal(isMonthlyLimitReached(), true);
+    });
+
+    it('resets counter on month rollover', () => {
+      process.env.MAPBOX_MONTHLY_LIMIT = '2';
+
+      // Seed cache for January
+      getDb()
+        .prepare(
+          `INSERT INTO mapbox_usage (month, request_count) VALUES ('2026-01', 2)
+           ON CONFLICT(month) DO UPDATE SET request_count = 2`
+        )
+        .run();
+
+      // Manually set cache to January with count 2 by calling initUsageCache
+      // while the DB row exists (we need to manipulate currentMonth to test rollover,
+      // so instead we call incrementMonthlyCount with a past month to prime memMonth)
+      incrementMonthlyCount('2026-01');
+      incrementMonthlyCount('2026-01');
+
+      // Now call increment for February — should reset memCount to 1
+      const result = incrementMonthlyCount('2026-02');
+      assert.equal(result, 1);
+
+      // DB count for Feb should also be 1
+      assert.equal(getMonthlyCount('2026-02'), 1);
     });
   });
 });

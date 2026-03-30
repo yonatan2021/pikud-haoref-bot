@@ -36,23 +36,27 @@ export function getUser(chatId: number): User | undefined {
 
 export function setFormat(chatId: number, format: NotificationFormat): void {
   upsertUser(chatId);
-  getDb()
-    .prepare('UPDATE users SET format = ? WHERE chat_id = ?')
-    .run(format, chatId);
+  getDb().prepare('UPDATE users SET format = ? WHERE chat_id = ?').run(format, chatId);
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  (require('./subscriptionRepository.js') as { updateSubscriberData: (id: number, patch: object) => void })
+    .updateSubscriberData(chatId, { format });
 }
 
 export function setQuietHours(chatId: number, enabled: boolean): void {
   upsertUser(chatId);
-  getDb()
-    .prepare('UPDATE users SET quiet_hours_enabled = ? WHERE chat_id = ?')
-    .run(enabled ? 1 : 0, chatId);
+  getDb().prepare('UPDATE users SET quiet_hours_enabled = ? WHERE chat_id = ?').run(enabled ? 1 : 0, chatId);
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  (require('./subscriptionRepository.js') as { updateSubscriberData: (id: number, patch: object) => void })
+    .updateSubscriberData(chatId, { quiet_hours_enabled: enabled });
 }
 
 export function setMutedUntil(chatId: number, until: Date | null): void {
   upsertUser(chatId);
-  getDb()
-    .prepare('UPDATE users SET muted_until = ? WHERE chat_id = ?')
-    .run(until ? until.toISOString() : null, chatId);
+  const iso = until ? until.toISOString() : null;
+  getDb().prepare('UPDATE users SET muted_until = ? WHERE chat_id = ?').run(iso, chatId);
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  (require('./subscriptionRepository.js') as { updateSubscriberData: (id: number, patch: object) => void })
+    .updateSubscriberData(chatId, { muted_until: iso });
 }
 
 export function isMuted(chatId: number, now: Date = new Date()): boolean {

@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import type Database from 'better-sqlite3';
 import { log } from '../../logger.js';
+import { updateSubscriberData, evictSubscriberFromCache } from '../../db/subscriptionRepository.js';
+import type { NotificationFormat } from '../../db/userRepository.js';
 import { createRateLimitMiddleware } from '../rateLimiter.js';
 
 const csvExportLimiter = createRateLimitMiddleware({
@@ -127,6 +129,7 @@ export function createSubscribersRouter(db: Database.Database): Router {
           return;
         }
         db.prepare('UPDATE users SET format = ? WHERE chat_id = ?').run(format, chatId);
+        updateSubscriberData(chatId, { format: format as NotificationFormat });
       }
 
       if (quiet_hours_enabled !== undefined) {
@@ -134,6 +137,7 @@ export function createSubscribersRouter(db: Database.Database): Router {
           quiet_hours_enabled ? 1 : 0,
           chatId,
         );
+        updateSubscriberData(chatId, { quiet_hours_enabled });
       }
 
       res.json({ ok: true });
@@ -148,7 +152,9 @@ export function createSubscribersRouter(db: Database.Database): Router {
       const chatId = parseInt(req.params.id as string, 10);
       if (isNaN(chatId)) { res.status(400).json({ error: 'מזהה לא חוקי' }); return; }
 
+      db.prepare('DELETE FROM subscriptions WHERE chat_id = ?').run(chatId);
       db.prepare('DELETE FROM users WHERE chat_id = ?').run(chatId);
+      evictSubscriberFromCache(chatId);
       res.json({ ok: true });
     } catch (err) {
       log('error', 'Dashboard', `Query error: ${String(err)}`);
@@ -161,10 +167,9 @@ export function createSubscribersRouter(db: Database.Database): Router {
       const chatId = parseInt(req.params.id as string, 10);
       if (isNaN(chatId)) { res.status(400).json({ error: 'מזהה לא חוקי' }); return; }
 
-      db.prepare('DELETE FROM subscriptions WHERE chat_id = ? AND city_name = ?').run(
-        chatId,
-        decodeURIComponent(req.params.city as string),
-      );
+      const cityName = decodeURIComponent(req.params.city as string);
+      db.prepare('DELETE FROM subscriptions WHERE chat_id = ? AND city_name = ?').run(chatId, cityName);
+      evictSubscriberFromCache(chatId, cityName);
       res.json({ ok: true });
     } catch (err) {
       log('error', 'Dashboard', `Query error: ${String(err)}`);

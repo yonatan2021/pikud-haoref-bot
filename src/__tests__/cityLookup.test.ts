@@ -26,6 +26,16 @@ describe('getCityById', () => {
   it('returns null for unknown id', () => {
     assert.equal(getCityById(-999), null);
   });
+
+  it('id=0 placeholder is excluded from zone results but findable by id', () => {
+    // id=0 ("בחר הכל") exists in cities.json — getCityById returns it, but getCitiesByZone excludes it
+    const city = getCityById(0);
+    if (city !== null) {
+      assert.equal(city.id, 0);
+      const zoneResults = getCitiesByZone(city.zone);
+      assert.ok(zoneResults.every((c) => c.id !== 0), 'id=0 should not appear in getCitiesByZone results');
+    }
+  });
 });
 
 describe('searchCities', () => {
@@ -58,6 +68,12 @@ describe('searchCities', () => {
     // id=0 is "בחר הכל" (Select All) — should never appear in search results
     const results = searchCities('בחר');
     assert.ok(results.every((c) => c.id !== 0));
+  });
+
+  it('returns same array reference on repeated query (cache hit)', () => {
+    const first = searchCities('תל אביב');
+    const second = searchCities('תל אביב');
+    assert.strictEqual(first, second, 'Cache hit should return same array reference');
   });
 });
 

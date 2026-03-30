@@ -19,6 +19,8 @@ import { getDb } from './db/schema.js';
 import { log, logStartupHeader, logSectionDivider } from './logger.js';
 import { toVisualRtl } from './loggerUtils.js';
 import { loadTemplateCache } from './config/templateCache.js';
+import { initSubscriptionCache } from './db/subscriptionRepository.js';
+import { initUsageCache } from './db/mapboxUsageRepository.js';
 
 // Prevent broken-pipe errors from crashing the bot when a stdout consumer exits.
 process.stdout.on('error', (err: NodeJS.ErrnoException) => {
@@ -39,6 +41,8 @@ for (const envVar of REQUIRED_ENV_VARS) {
   let alertsToday = 0;
   try {
     initDb();
+    initSubscriptionCache();
+    initUsageCache();
     initializeCache();
     loadActiveMessages();
     loadTemplateCache();
