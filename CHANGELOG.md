@@ -26,6 +26,85 @@
 
 ---
 
+## [0.3.0] — 2026-03-30
+
+<div dir="rtl">
+
+### ✨ תכונות חדשות
+
+#### WhatsApp Listener Bridge (חדש)
+- **האזנה לקבוצות/ערוצים WhatsApp** — כלל האזנה לכל קבוצה/ערוץ: keywords, topic טלגרם, is_active
+- **סינון לפי מילות מפתח** — ריק = כל הודעה; עם keywords = רק התאמות; media-only נדחות בשקט
+- **העברה אוטומטית לטלגרם** — כולל thread/topic; fallback ל-`TELEGRAM_CHAT_ID`; גוף > 3900 תווים נקצץ
+- **ניהול כללים בדשבורד** — דף "WA Listeners": רשימה, הוספה, עריכה, מחיקה, keyword chip input
+- **guard `msgFromMe`** — מניעת לופ; הבוט לא מעביר את ההודעות שלעצמו חזרה לטלגרם
+- **`TELEGRAM_FORWARD_GROUP_ID`** — env var חדש לניתוב העברות; fallback ל-`TELEGRAM_CHAT_ID`
+
+#### שיפורי הודעות ערוץ
+- **חותמת זמן יציבה** — `alert.receivedAt` מוחתם בזמן הסקר; הודעות ערוכות לא מציגות שעה משתנה; timezone: `Asia/Jerusalem`
+- **קריאות ערים משופרת** — כותרת הודעה מציגה `· N ערים` כולל; כותרת אזור מציגה `(N)` לכל אזור
+- **מיון ערים אלפבתי** — ערים ממוינות לפי `localeCompare('he')` בתוך כל אזור
+- **`📍 ערים נוספות`** — ערים ללא נתוני polygon מקבלות כותרת מפורשת במקום להידבק לאזור הקודם
+- **pin markers fallback** — כאשר `buildGeoJSON` מחזיר תוצאות ריקות (עיר ב-`cities.json` אך ללא polygon), `generateMapImage` מנסה pin markers לפני החזרת `null`
+- **שרשרת עריכה מדורגת** — `editAlert` מנסה `editMessageMedia → editMessageCaption → editMessageText` במקום לכשול על השגיאה הראשונה; רק `isMessageGoneError` מייצר הודעה חדשה
+
+### 🔒 אבטחה
+
+- **Rate limiting מקיף** — `createRateLimitMiddleware` factory חדש (`src/dashboard/rateLimiter.ts`), zero new dependencies; מגבלות per-IP: `broadcast` 2/min, `test-alert` 10/min, `delete-window` 5/min, `deploy` 3/hr, `backup` 5/hr, `CSV export` 10/hr, subscriber mutations 10/min
+- **Brute-force protection פרסיסטנטי** — מונה ניסיונות כניסה עבר מ-`Map` בזיכרון לטבלת `login_attempts` ב-SQLite; שורד restart; header `Retry-After` נכלל בתשובת 429
+- **Bot callback cooldown** — 1.5s per-user למנוי/הסרת ערים (`ct`/`ca`/`cr`), search toggle (`st`), settings (`rm`/`quiet:toggle`/`snooze`) — מונע ספאם callback
+
+### ⚡ שיפורי ביצועים
+
+- **`cityLookup` O(1)** — `Array.find()` הוחלף ב-`Map` objects: `byNormalizedName`, `byId`, `byZone` — בנויות פעם אחת בטעינה; pre-sort לרשימות אזורים; FIFO cache (200 ערכים) ל-`searchCities()`
+- **N+1 fix — `dmDispatcher`** — `isMuted(chat_id)` per-subscriber הוחלף ב-JOIN אחד עם `u.muted_until` ב-`getUsersForCities`; 1 query במקום 1+N
+- **TTL Stats Cache** — `/health` 15s, `/overview` 60s, `/alerts/by-category` 5min, `/alerts/top-cities` 5min (ה-`json_each + GROUP BY` query הוא היקר ביותר)
+- **In-memory Subscription Cache** — `cityToSubscribers` + `subscriberData` Maps נטענות ב-startup; write functions שומרות sync עם cache; guard `cacheInitialized` מונע דליפת state בין test suites
+- **In-memory Mapbox Usage Cache** — מונה module-level; DB write לעמידות בלבד; `initUsageCache()` נקרא ב-startup
+
+### 🐛 תיקוני באגים
+
+- **Queue log spam** — אזהרת queue-depth הועברה מ-`drain()` (N+1 per task) ל-`enqueueAll()` — מופיעה פעם אחת לבאץ׳ בלבד
+- **`paused` field מיותר** — `getStats()` החזיר `paused` ו-`rateLimited` לאותו ערך; הוסר `paused`; `rateLimited` הוא השם הקנוני
+- **Dead `_format` param** — `buildDmText(alert, _format)` לא השתמש בפרמטר השני; הוסר מהסיגנטורה ומה-call site; `NotificationFormat` import נוקה
+- **`retry_after=0` guard** — `setTimeout` delay מוגן עם `Math.max(1, retryAfter * 1000)` למניעת delay אפסי על ערכים תיאורטיים של `0`
+- **`validateChatId()` extracted** — לוגיקת ולידציה chatId הוצאה מה-closure לפונקציה מיוצאת; גם תוקן comment מטעה (ה-float path תופס `".5"`, לא `"123.0"`)
+
+### 🧪 בדיקות
+
+- **391 בדיקות** (+62 מ-0.2.3):
+  - +12 `dmQueue` / `dmDispatcher` — validateChatId (5), quiet hours via injectable `now` (1), mixed mute/active subscribers (2), getStats (2), empty enqueueAll (1), error paths (1)
+  - +11 `rateLimiter` (6) + `userCooldown` (5)
+  - +2 `auth.test.ts` — persistence after restart (login_attempts SQLite)
+  - WhatsApp: `whatsappService` (30+), `whatsappListenerService` (20+), `whatsappBroadcaster` (15+), `whatsappFormatter` (15+), `whatsappGroupRepository` (10+), `whatsappListenerRepository` (10+)
+  - `subscriptionRepository` — cache init, add/remove sync, evict (20+)
+  - `mapboxUsageRepository` — cache seed, limit check, month rollover (10+)
+  - `cityLookup` — O(1) lookup, search cache (5+)
+  - `statsCache` — hit/miss/expiry (5+)
+  - `mapService` — pin markers fallback, receivedAt timestamp, edit chain (10+)
+  - `telegramBot` — city counts, alphabetical sort, noZone header (15+)
+
+### 🔧 תחזוקה
+
+- **`src/dashboard/rateLimiter.ts`** — factory חדש לrate limiting (reusable, per-IP)
+- **`src/bot/userCooldown.ts`** — per-user callback cooldown Map
+- **`src/dashboard/statsCache.ts`** — TTL cache גנרי לendpoints יקרים
+- **`src/db/whatsappGroupRepository.ts`** + **`src/db/whatsappListenerRepository.ts`** — CRUD לטבלאות חדשות
+- **`src/dashboard/routes/whatsapp.ts`** + **`src/dashboard/routes/whatsappListeners.ts`** — 7 endpoints חדשים
+- **`src/whatsapp/`** — 4 קבצים חדשים: `whatsappService`, `whatsappListenerService`, `whatsappBroadcaster`, `whatsappFormatter`
+- **`dashboard-ui/src/pages/`** — שני דפים חדשים: `WhatsApp.tsx`, `WhatsAppListeners.tsx`
+- **`src/db/schema.ts`** — טבלאות חדשות: `login_attempts`, `whatsapp_groups`, `whatsapp_listeners`
+- **Startup order** — `initSubscriptionCache()` + `initUsageCache()` נוספו לרצף האתחול ב-`index.ts` לפני `initializeCache()`
+
+### ⚠️ שינויים שוברים
+
+- **`WHATSAPP_ENABLED=true`** נדרש להפעלת הלקוח; ללא הגדרה — כל קוד ה-WhatsApp מושבת (callback נשמר אך event לא מופעל)
+- **`login_attempts`** — טבלת SQLite חדשה; migration אוטומטי ב-`initSchema()`
+
+</div>
+
+---
+
 ## [0.2.3] — 2026-03-29
 
 <div dir="rtl">
@@ -495,7 +574,8 @@
 
 <div dir="rtl">
 
-[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.2.3...v0.3.0
 [0.2.3]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.2.0...v0.2.1
