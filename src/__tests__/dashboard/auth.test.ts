@@ -89,6 +89,47 @@ describe('createSessionStore', () => {
       );
       assert.equal(authRes._status, 401);
     });
+
+    it('two concurrent sessions work independently, logout invalidates only own token', async () => {
+      const { loginHandler, authMiddleware, logoutHandler } = createSessionStore(makeDb(), SECRET);
+
+      // Login session A
+      const loginReqA = { body: { password: SECRET }, ip: '127.0.0.1', headers: {}, socket: { remoteAddress: '127.0.0.1' } } as unknown as Request;
+      const loginResA = mockRes();
+      loginHandler(loginReqA, loginResA);
+      const tokenA = loginResA._cookie?.val as string;
+
+      // Login session B
+      const loginReqB = { body: { password: SECRET }, ip: '127.0.0.2', headers: {}, socket: { remoteAddress: '127.0.0.2' } } as unknown as Request;
+      const loginResB = mockRes();
+      loginHandler(loginReqB, loginResB);
+      const tokenB = loginResB._cookie?.val as string;
+
+      assert.notEqual(tokenA, tokenB, 'tokens must be distinct');
+
+      // Both tokens work
+      let nextCalledA = false;
+      const reqA = { cookies: { dashboard_token: tokenA } } as unknown as Request;
+      authMiddleware(reqA, mockRes(), () => { nextCalledA = true; });
+      assert.equal(nextCalledA, true);
+
+      let nextCalledB = false;
+      const reqB = { cookies: { dashboard_token: tokenB } } as unknown as Request;
+      authMiddleware(reqB, mockRes(), () => { nextCalledB = true; });
+      assert.equal(nextCalledB, true);
+
+      // Logout A — token B should still work
+      const logoutReqA = { cookies: { dashboard_token: tokenA } } as unknown as Request;
+      logoutHandler(logoutReqA, mockRes());
+
+      let nextAfterLogoutA = false;
+      authMiddleware(reqA, mockRes(), () => { nextAfterLogoutA = true; });
+      assert.equal(nextAfterLogoutA, false, 'token A should be invalid after logout');
+
+      let nextBStillWorks = false;
+      authMiddleware(reqB, mockRes(), () => { nextBStillWorks = true; });
+      assert.equal(nextBStillWorks, true, 'token B should still be valid');
+    });
   });
 
   describe('loginHandler', () => {
