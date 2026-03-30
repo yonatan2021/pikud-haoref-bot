@@ -59,13 +59,16 @@ export function buildZonedCityList(cities: string[]): string {
   const sections: string[] = [];
 
   for (const [zone, { cities: zoneCities, minCountdown }] of zoneMap) {
+    const sorted = [...zoneCities].sort((a, b) => a.localeCompare(b, 'he'));
     const countdownSuffix =
       minCountdown > 0 && isFinite(minCountdown) ? `  ⏱ <b>${minCountdown} שנ׳</b>` : '';
-    sections.push(`📍 <b>${escapeHtml(zone)}</b>${countdownSuffix}\n${buildCityList(zoneCities)}`);
+    const zoneCount = ` (${sorted.length})`;
+    sections.push(`📍 <b>${escapeHtml(zone)}</b>${zoneCount}${countdownSuffix}\n${buildCityList(sorted)}`);
   }
 
   if (noZone.length > 0) {
-    sections.push(buildCityList(noZone));
+    const sortedNoZone = [...noZone].sort((a, b) => a.localeCompare(b, 'he'));
+    sections.push(`📍 <i>ערים נוספות</i>\n${buildCityList(sortedNoZone)}`);
   }
 
   return sections.join('\n\n');
@@ -84,7 +87,8 @@ export function formatAlertMessage(alert: Alert): string {
   });
 
   const parts: string[] = [];
-  parts.push(`${emoji}  <b>${escapeHtml(title)}</b>\n🕐 ${escapeHtml(timeStr)}`);
+  const cityCountSuffix = alert.cities.length > 0 ? ` · ${alert.cities.length} ערים` : '';
+  parts.push(`${emoji}  <b>${escapeHtml(title)}</b>${cityCountSuffix}\n🕐 ${escapeHtml(timeStr)}`);
 
   const zonedList = buildZonedCityList(alert.cities);
   if (zonedList) parts.push(zonedList);

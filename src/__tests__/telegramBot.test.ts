@@ -63,9 +63,10 @@ describe('buildZonedCityList', () => {
     assert.equal(buildZonedCityList([]), '');
   });
 
-  it('returns plain city list when no city has zone data', () => {
+  it('uses ערים נוספות header when no city has zone data', () => {
     const result = buildZonedCityList(['עיר לא קיימת בכלל']);
-    assert.ok(!result.includes('📍'), 'should not show a zone header');
+    assert.ok(result.includes('📍'), 'should show pin emoji for ערים נוספות header');
+    assert.ok(result.includes('ערים נוספות'), 'should show ערים נוספות header');
     assert.ok(result.includes('עיר לא קיימת בכלל'));
   });
 
@@ -112,6 +113,31 @@ describe('buildZonedCityList', () => {
     const result = buildZonedCityList(['אור יהודה']);
     // Zone name is wrapped in <b> tags from our template, not injected raw
     assert.ok(!result.includes('<script>'), 'zone should not allow script injection');
+  });
+
+  it('shows per-zone city count in zone header', () => {
+    // אור יהודה and בני ברק are both in zone דן
+    const result = buildZonedCityList(['אור יהודה', 'בני ברק']);
+    assert.ok(result.includes('(2)'), `Expected "(2)" in zone header: ${result}`);
+  });
+
+  it('sorts cities alphabetically within each zone', () => {
+    // Feed in reverse alphabetical order — output should be sorted
+    const result = buildZonedCityList(['בני ברק', 'אור יהודה']);
+    const orYehudaIdx = result.indexOf('אור יהודה');
+    const bneiIdx = result.indexOf('בני ברק');
+    assert.ok(orYehudaIdx < bneiIdx, `אור יהודה should appear before בני ברק (alpha order): ${result}`);
+  });
+
+  it('shows "ערים נוספות" header for cities not found in cities.json', () => {
+    const result = buildZonedCityList(['עיר_לא_קיימת_123xyz']);
+    assert.ok(result.includes('ערים נוספות'), `Expected "ערים נוספות" header: ${result}`);
+    assert.ok(result.includes('📍'), 'should include pin emoji for noZone header');
+  });
+
+  it('does not show "ערים נוספות" header when all cities have zone data', () => {
+    const result = buildZonedCityList(['אור יהודה', 'בני ברק']); // both in דן
+    assert.ok(!result.includes('ערים נוספות'), `Should not show noZone header when all cities match: ${result}`);
   });
 });
 
@@ -192,5 +218,25 @@ describe('formatAlertMessage with receivedAt timestamp', () => {
     const result = formatAlertMessage(alert);
     // Just verify that a time pattern is included (HH:MM format)
     assert.ok(/\d{2}:\d{2}/.test(result), 'formatted message should include a time pattern HH:MM');
+  });
+});
+
+describe('formatAlertMessage city count', () => {
+  it('shows city count in header when cities present', () => {
+    const alert = {
+      type: 'missiles',
+      cities: ['עיר א', 'עיר ב', 'עיר ג'],
+    };
+    const result = formatAlertMessage(alert);
+    assert.ok(result.includes('3 ערים'), `Expected "3 ערים" in: ${result}`);
+  });
+
+  it('omits city count suffix when cities array is empty', () => {
+    const alert = {
+      type: 'missiles',
+      cities: [],
+    };
+    const result = formatAlertMessage(alert);
+    assert.ok(!result.includes('ערים'), `Should not show city count for empty cities: ${result}`);
   });
 });
