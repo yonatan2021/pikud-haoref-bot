@@ -224,3 +224,50 @@ describe('runNodeSetup — access() non-ENOENT error', () => {
     )
   })
 })
+
+// ── spawnStep — non-ENOENT error event ───────────────────────────────────────
+
+describe('spawnStep — non-ENOENT spawn error (e.g. EACCES)', () => {
+  it('rejects with "cannot run" message, not "not found"', async () => {
+    const { spawnFn, trigger } = makeFakeSpawn()
+    setImmediate(() => {
+      const err = Object.assign(new Error('spawn git EACCES'), { code: 'EACCES' })
+      trigger.error(err)
+      trigger.close(null)
+    })
+
+    await assert.rejects(
+      runNodeSetup('/fake/.env', 'telegram', {
+        spawn: spawnFn, copyFile: noopCopyFile, access: missingAccess, rm: noopRm,
+      }),
+      (err: Error) => {
+        assert.ok(err.message.includes('לא ניתן להפעיל'), `unexpected message: ${err.message}`)
+        assert.ok(!err.message.includes('לא נמצא'), `should not say "not found": ${err.message}`)
+        return true
+      },
+    )
+  })
+})
+
+// ── runNodeSetup — rm failure does not shadow clone error ─────────────────────
+
+describe('runNodeSetup — rm failure does not shadow clone error', () => {
+  it('propagates clone error even when rm also fails', async () => {
+    const { spawnFn, trigger } = makeFakeSpawn()
+    setImmediate(() => trigger.close(128))
+
+    await assert.rejects(
+      runNodeSetup('/fake/.env', 'telegram', {
+        spawn: spawnFn,
+        copyFile: noopCopyFile,
+        access: missingAccess,
+        rm: () => Promise.reject(new Error('EPERM: rm failed')),
+      }),
+      (err: Error) => {
+        assert.ok(err.message.includes('קוד שגיאה 128'), `expected clone error, got: ${err.message}`)
+        assert.ok(!err.message.includes('EPERM'), `rm error should not surface: ${err.message}`)
+        return true
+      },
+    )
+  })
+})
