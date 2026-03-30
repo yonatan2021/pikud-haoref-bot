@@ -1,6 +1,6 @@
 import path from 'node:path'
-import { spawn } from 'node:child_process'
-import { copyFile, access } from 'node:fs/promises'
+import { spawn, type ChildProcess, type SpawnOptions } from 'node:child_process'
+import { copyFile, access, rm } from 'node:fs/promises'
 import * as p from '@clack/prompts'
 import { c, printResultBox, printSectionCard } from '../ui/theme.js'
 import { toVisualRtl } from '../ui/rtl.js'
@@ -73,6 +73,28 @@ export function printNodeInstructions(platform: Platform = 'telegram'): void {
 
 const REPO_URL = 'https://github.com/yonatan2021/pikud-haoref-bot.git'
 const TARGET_DIR = 'pikud-haoref-bot'
+
+// Narrower type alias — selects the (cmd, args, opts) overload without overload complexity.
+export type SpawnFn = (cmd: string, args: string[], opts?: SpawnOptions) => ChildProcess
+
+interface NodeSetupDeps {
+  spawn:    SpawnFn
+  copyFile: (src: string, dst: string) => Promise<void>
+  access:   (path: string) => Promise<void>
+  rm:       (path: string, opts: { recursive: boolean; force: boolean }) => Promise<void>
+}
+
+/** Checks if a directory exists. Propagates all errors except ENOENT. */
+async function dirExists(accessFn: NodeSetupDeps['access'], targetPath: string): Promise<boolean> {
+  try {
+    await accessFn(targetPath)
+    return true
+  } catch (err) {
+    const e = err as NodeJS.ErrnoException
+    if (e.code === 'ENOENT') return false
+    throw new Error(`שגיאת גישה לתיקייה ${targetPath}: ${e.message}`)
+  }
+}
 
 /**
  * Clones the repo, copies the generated .env, and runs npm install.
