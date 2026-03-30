@@ -74,27 +74,27 @@ describe('POST /api/whatsapp/listeners', () => {
   });
 });
 
-describe('PUT /api/whatsapp/listeners/:id', () => {
+describe('PATCH /api/whatsapp/listeners/:id', () => {
   it('updates an existing listener', async () => {
     const c = createListener(db, BASE);
-    const res = await request(app).put(`/api/whatsapp/listeners/${c.id}`).send({ channelName: 'New' });
+    const res = await request(app).patch(`/api/whatsapp/listeners/${c.id}`).send({ channelName: 'New' });
     assert.equal(res.status, 200);
     assert.equal(res.body.channelName, 'New');
   });
 
   it('returns 404 for non-existent id', async () => {
-    const res = await request(app).put('/api/whatsapp/listeners/9999').send({ channelName: 'X' });
+    const res = await request(app).patch('/api/whatsapp/listeners/9999').send({ channelName: 'X' });
     assert.equal(res.status, 404);
   });
 
   it('returns 400 for non-numeric id', async () => {
-    const res = await request(app).put('/api/whatsapp/listeners/abc').send({ channelName: 'X' });
+    const res = await request(app).patch('/api/whatsapp/listeners/abc').send({ channelName: 'X' });
     assert.equal(res.status, 400);
   });
 
   it('returns 400 when isActive is not boolean', async () => {
     const c = createListener(db, BASE);
-    const res = await request(app).put(`/api/whatsapp/listeners/${c.id}`).send({ isActive: 'yes' });
+    const res = await request(app).patch(`/api/whatsapp/listeners/${c.id}`).send({ isActive: 'yes' });
     assert.equal(res.status, 400);
   });
 });

@@ -117,8 +117,8 @@ export function createListenersRouter(db: Database.Database, bot: Bot): Router {
     }
   });
 
-  // PUT /:id — update an existing listener (all fields optional)
-  router.put('/:id', (req: Request, res: Response) => {
+  // PATCH /:id — update an existing listener (all fields optional)
+  router.patch('/:id', (req: Request, res: Response) => {
     const rawId = req.params['id'];
     const id = Number(rawId);
     if (!Number.isInteger(id) || id <= 0) {
