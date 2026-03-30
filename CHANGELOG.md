@@ -26,6 +26,25 @@
 
 ---
 
+## [0.3.1] — 2026-03-30
+
+<div dir="rtl">
+
+### ✨ תכונות חדשות
+
+- **`TELEGRAM_TOPIC_ID_WHATSAPP`** — env var חדש; topic טלגרם ברירת-מחדל להעברות WhatsApp-to-Telegram; כאשר ל-listener אין `telegramTopicId` ספציפי, ההודעות מנותבות לתפריט זה במקום ל-chat הראשי; per-listener `telegramTopicId` ממשיך לגבור (opt-in override); ערכים לא-מספריים ו-ID=1 נדחים כמו ב-`topicRouter`
+- **Wizard — RTL rendering תקין** — שילוב `bidi-js` להמרת עברית לסדר visual לפני הדפסה; עובד בכל הטרמינלים כולל VS Code (שמתעלם מ-`\u202B`); `toVisualRtl()` חדש ב-`wizard/src/ui/rtl.ts`
+- **Wizard — overhaul ויזואלי ו-UX** — banner gradient (כחול טלגרם → ענבר) ב-boxen round; progress bar עם `█`/`░` blocks לפני כל שלב; section cards ב-boxen לפני כל קבוצת prompts; skip warnings: boxen warning card עם רשימת consequences מדויקת; `PROXY_URL` מקבל אזהרה קריטית אדומה כברירת-מחדל; completion card עם סיכום ✓/`→ --update` + פקודת deploy
+
+### 🧪 בדיקות
+
+- +5 בדיקות `whatsappListenerService` — fallback topic נוצל, fallback מדולג כשלא מוגדר, listener-specific topic גובר על env var, דחיית ID=1, דחיית ערך לא-מספרי
+- +5 בדיקות RTL (`wizard/__tests__/rtl.test.ts`) — `toVisualRtl`, `containsHebrew`, hebrew-before-chalk ordering
+
+</div>
+
+---
+
 ## [0.3.0] — 2026-03-30
 
 <div dir="rtl">
@@ -574,7 +593,8 @@
 
 <div dir="rtl">
 
-[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.2.3...v0.3.0
 [0.2.3]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.2.1...v0.2.2
