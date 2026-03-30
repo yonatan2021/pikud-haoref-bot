@@ -86,9 +86,9 @@ export function buildGeoJSON(
       type: 'Feature',
       properties: {
         fill: color,
-        'fill-opacity': 0.4,
+        'fill-opacity': 0.5,
         stroke: color,
-        'stroke-width': 3,
+        'stroke-width': 4,
         'stroke-opacity': 0.8,
       },
       geometry: {
