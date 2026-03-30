@@ -71,10 +71,16 @@ export function createLandingRouter(db: Database.Database): Router {
         res.status(502).json({ error: 'GitHub API נכשל', status: response.status, detail });
         return;
       }
-      setSetting(db, 'last_landing_deploy', new Date().toISOString());
       res.json({ ok: true });
-    } catch {
+    } catch (err) {
+      log('error', 'Dashboard', `Deploy trigger failed: ${String(err)}`);
       res.status(500).json({ error: 'שגיאת רשת בהפעלת deploy' });
+      return;
+    }
+    try {
+      setSetting(db, 'last_landing_deploy', new Date().toISOString());
+    } catch (err) {
+      log('warn', 'Dashboard', `Failed to save last_landing_deploy: ${String(err)}`);
     }
   });
 

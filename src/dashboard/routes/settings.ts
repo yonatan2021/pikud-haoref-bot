@@ -10,6 +10,12 @@ const backupLimiter = createRateLimitMiddleware({
   message: 'יותר מדי הורדות גיבוי — נסה שוב בעוד שעה',
 });
 
+export const settingsMutateLimiter = createRateLimitMiddleware({
+  maxRequests: 5,
+  windowMs: 60_000,
+  message: 'יותר מדי שינויים בהגדרות — נסה שוב בעוד דקה',
+});
+
 const ALLOWED_KEYS = new Set([
   'alert_window_seconds', 'mapbox_monthly_limit', 'mapbox_skip_drills',
   'quiet_hours_global', 'ga4_measurement_id', 'github_repo', 'landing_url',
@@ -30,7 +36,7 @@ export function createSettingsRouter(db: Database.Database): Router {
     res.json({ ...envDefaults, ...dbSettings });
   });
 
-  router.patch('/', (req, res) => {
+  router.patch('/', settingsMutateLimiter, (req, res) => {
     const updates = req.body as Record<string, string>;
     const invalid = Object.keys(updates).filter(k => !ALLOWED_KEYS.has(k));
     if (invalid.length) {

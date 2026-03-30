@@ -9,6 +9,12 @@ const csvExportLimiter = createRateLimitMiddleware({
   message: 'יותר מדי ייצואים — נסה שוב בעוד שעה',
 });
 
+const subscriberMutateLimiter = createRateLimitMiddleware({
+  maxRequests: 10,
+  windowMs: 60_000,
+  message: 'יותר מדי עדכונים — נסה שוב בעוד דקה',
+});
+
 const ALLOWED_FORMATS = ['short', 'detailed'] as const;
 const MAX_LIMIT = 200;
 
@@ -105,7 +111,7 @@ export function createSubscribersRouter(db: Database.Database): Router {
     }
   });
 
-  router.patch('/:id', (req, res) => {
+  router.patch('/:id', subscriberMutateLimiter, (req, res) => {
     try {
       const chatId = parseInt(req.params.id, 10);
       if (isNaN(chatId)) { res.status(400).json({ error: 'מזהה לא חוקי' }); return; }
@@ -137,7 +143,7 @@ export function createSubscribersRouter(db: Database.Database): Router {
     }
   });
 
-  router.delete('/:id', (req, res) => {
+  router.delete('/:id', subscriberMutateLimiter, (req, res) => {
     try {
       const chatId = parseInt(req.params.id, 10);
       if (isNaN(chatId)) { res.status(400).json({ error: 'מזהה לא חוקי' }); return; }
@@ -150,7 +156,7 @@ export function createSubscribersRouter(db: Database.Database): Router {
     }
   });
 
-  router.delete('/:id/cities/:city', (req, res) => {
+  router.delete('/:id/cities/:city', subscriberMutateLimiter, (req, res) => {
     try {
       const chatId = parseInt(req.params.id, 10);
       if (isNaN(chatId)) { res.status(400).json({ error: 'מזהה לא חוקי' }); return; }

@@ -33,9 +33,15 @@ export function createRateLimitMiddleware(opts: RateLimitOptions): RateLimitHand
   const handler: RateLimitHandler = (req: Request, res: Response, next: NextFunction): void => {
     const ip = getClientIp(req);
     const now = Date.now();
-    const entry = store.get(ip);
+    let entry = store.get(ip);
 
-    if (entry !== undefined && now < entry.resetAt) {
+    // Lazy eviction: delete expired entries to prevent unbounded memory growth
+    if (entry !== undefined && now >= entry.resetAt) {
+      store.delete(ip);
+      entry = undefined;
+    }
+
+    if (entry !== undefined) {
       if (entry.count >= opts.maxRequests) {
         const retryAfter = Math.ceil((entry.resetAt - now) / 1000);
         res.set('Retry-After', String(retryAfter));

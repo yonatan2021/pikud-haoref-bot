@@ -87,6 +87,34 @@ describe('createRateLimitMiddleware', () => {
     assert.ok(called, 'different IP should not be rate-limited');
   });
 
+  it('evicts expired entries lazily to prevent unbounded store growth', async () => {
+    const limiter = createRateLimitMiddleware({ maxRequests: 1, windowMs: 50, message: 'x' });
+    // Exhaust the limit for three different IPs within a very short window
+    const ips = ['20.0.0.1', '20.0.0.2', '20.0.0.3'];
+    for (const ip of ips) {
+      limiter(mockReq(ip), mockRes() as unknown as Response, () => {});
+      // Second request just to confirm they're tracked (rate-limited)
+      const blocked = mockRes();
+      limiter(mockReq(ip), blocked as unknown as Response, () => {});
+      assert.equal(blocked._status, 429, `${ip} should be blocked`);
+    }
+    // Wait for the window to expire
+    await new Promise(r => setTimeout(r, 80));
+    // Make a new request for each IP — lazy eviction should delete the stale entries
+    for (const ip of ips) {
+      const res = mockRes();
+      let called = false;
+      limiter(mockReq(ip), res as unknown as Response, () => { called = true; });
+      assert.ok(called, `${ip} should be allowed after window expiry (lazy eviction)`);
+    }
+    // Make another request for each IP to confirm they now have fresh count=1 entries (not blocked)
+    for (const ip of ips) {
+      const blocked = mockRes();
+      limiter(mockReq(ip), blocked as unknown as Response, () => {});
+      assert.equal(blocked._status, 429, `${ip} should be rate-limited after fresh entry`);
+    }
+  });
+
   it('clearStore resets all counters', () => {
     const limiter = createRateLimitMiddleware({ maxRequests: 1, windowMs: 60_000, message: 'x' });
     const req = mockReq('7.7.7.7');

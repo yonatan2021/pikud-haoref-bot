@@ -135,10 +135,13 @@ export function registerSettingsHandler(bot: Bot, writeCooldownMs = 1500): void 
   });
 
   bot.callbackQuery('quiet:toggle', async (ctx: Context) => {
-    await ctx.answerCallbackQuery();
     const chatId = ctx.chat?.id;
     if (!chatId) return;
-    if (settingsWriteCooldown.isOnCooldown(chatId)) return;
+    if (settingsWriteCooldown.isOnCooldown(chatId)) {
+      await ctx.answerCallbackQuery('⏳ נסה שוב בעוד רגע');
+      return;
+    }
+    await ctx.answerCallbackQuery();
     settingsWriteCooldown.setCooldown(chatId);
     try {
       const user = getUser(chatId);
@@ -152,10 +155,13 @@ export function registerSettingsHandler(bot: Bot, writeCooldownMs = 1500): void 
   });
 
   bot.callbackQuery(/^snooze:(1h|4h|24h|clear)$/, async (ctx: Context) => {
-    await ctx.answerCallbackQuery();
     const chatId = ctx.chat?.id;
     if (!chatId) return;
-    if (settingsWriteCooldown.isOnCooldown(chatId)) return;
+    if (settingsWriteCooldown.isOnCooldown(chatId)) {
+      await ctx.answerCallbackQuery('⏳ נסה שוב בעוד רגע');
+      return;
+    }
+    await ctx.answerCallbackQuery();
     settingsWriteCooldown.setCooldown(chatId);
     try {
       const action = ctx.match![1];
@@ -197,9 +203,14 @@ export function registerSettingsHandler(bot: Bot, writeCooldownMs = 1500): void 
   });
 
   bot.callbackQuery('settings:clearall:ok', async (ctx: Context) => {
-    await ctx.answerCallbackQuery('✅ כל המנויים בוטלו');
     const chatId = ctx.chat?.id;
     if (!chatId) return;
+    if (settingsWriteCooldown.isOnCooldown(chatId)) {
+      await ctx.answerCallbackQuery('⏳ נסה שוב בעוד רגע');
+      return;
+    }
+    settingsWriteCooldown.setCooldown(chatId);
+    await ctx.answerCallbackQuery('✅ כל המנויים בוטלו');
     try {
       removeAllSubscriptions(chatId);
       await ctx.editMessageText('✅ כל המנויים בוטלו.', {
@@ -241,7 +252,7 @@ export function registerSettingsHandler(bot: Bot, writeCooldownMs = 1500): void 
     const chatId = ctx.chat?.id;
     if (!chatId) return;
     if (settingsWriteCooldown.isOnCooldown(chatId)) {
-      await ctx.answerCallbackQuery();
+      await ctx.answerCallbackQuery('⏳ נסה שוב בעוד רגע');
       return;
     }
     settingsWriteCooldown.setCooldown(chatId);

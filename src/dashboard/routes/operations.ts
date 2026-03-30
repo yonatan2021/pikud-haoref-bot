@@ -66,7 +66,10 @@ export function createOperationsRouter(db: Database.Database, bot: Bot): Router 
       let failed = 0;
       for (const chatId of targets) {
         try { await bot.api.sendMessage(chatId, text, { parse_mode: 'HTML' }); sent++; }
-        catch { failed++; }
+        catch (err) {
+          log('warn', 'Dashboard', `Broadcast failed for chatId ${chatId}: ${String(err)}`);
+          failed++;
+        }
       }
       log('info', 'Dashboard', `Broadcast complete: ${sent} sent, ${failed} failed of ${targets.length}`);
     })();
