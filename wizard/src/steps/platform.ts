@@ -1,5 +1,6 @@
 import * as p from '@clack/prompts'
-import { c } from '../ui/theme.js'
+import { c, printSectionCard } from '../ui/theme.js'
+import { toVisualRtl } from '../ui/rtl.js'
 import type { Flags } from '../args.js'
 
 export type Platform = 'telegram' | 'whatsapp' | 'both'
@@ -25,13 +26,25 @@ export async function promptPlatform(flags: Flags): Promise<Platform | undefined
   const derived = derivePlatformFromFlags(flags)
   if (derived !== undefined) return derived
 
-  p.log.step(c.bold('בחר פלטפורמה'))
+  printSectionCard('🌐', 'בחירת פלטפורמה', 'בחר את הפלטפורמה שדרכה הבוט ישלח התראות. ניתן לשנות בכל עת עם --update')
   const choice = await p.select<Platform>({
-    message: c.primary('באיזו פלטפורמה הבוט ישתמש?'),
+    message: c.primary(toVisualRtl('באיזו פלטפורמה הבוט ישתמש?')),
     options: [
-      { value: 'telegram' as Platform, label: c.bold('Telegram בלבד'), hint: 'בוט + ערוץ' },
-      { value: 'whatsapp' as Platform, label: c.bold('WhatsApp בלבד'), hint: 'אימות QR — אין צורך בטוקן' },
-      { value: 'both' as Platform, label: c.bold('שתי הפלטפורמות'), hint: 'Telegram + WhatsApp במקביל' },
+      {
+        value: 'telegram' as Platform,
+        label: c.bold('Telegram ' + toVisualRtl('בלבד')),
+        hint: toVisualRtl('בוט + ערוץ'),
+      },
+      {
+        value: 'whatsapp' as Platform,
+        label: c.bold('WhatsApp ' + toVisualRtl('בלבד')),
+        hint: toVisualRtl('אימות QR — אין צורך בטוקן'),
+      },
+      {
+        value: 'both' as Platform,
+        label: c.bold(toVisualRtl('שתי הפלטפורמות')),
+        hint: 'Telegram + WhatsApp ' + toVisualRtl('במקביל'),
+      },
     ],
   })
   if (p.isCancel(choice)) return undefined

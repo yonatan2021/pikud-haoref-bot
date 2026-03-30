@@ -1,5 +1,6 @@
 import * as p from '@clack/prompts'
-import { c, stepBadge } from '../ui/theme.js'
+import { c, stepBadge, printSkipWarning } from '../ui/theme.js'
+import { toVisualRtl } from '../ui/rtl.js'
 import { validateUrl } from '../validation.js'
 import type { Flags } from '../args.js'
 import { type Platform, needsTelegram } from './platform.js'
@@ -15,9 +16,57 @@ export interface OptionalVars {
   TELEGRAM_TOPIC_ID_GENERAL?:       string
 }
 
+interface OptionalFieldConfig {
+  key:          keyof OptionalVars
+  label:        string
+  envKey:       string
+  hint:         string
+  consequences: string[]
+  critical?:    boolean
+  secret?:      boolean
+  validate?:    (s: string) => string | undefined
+}
+
+const OPTIONAL_FIELDS: OptionalFieldConfig[] = [
+  {
+    key:     'DASHBOARD_SECRET',
+    label:   toVisualRtl('סיסמת לוח הבקרה'),
+    envKey:  'DASHBOARD_SECRET',
+    hint:    toVisualRtl('מפעיל את לוח הבקרה על פורט 4000 — דלג אם אינך צריך'),
+    consequences: [
+      toVisualRtl('לא ניתן לנהל מנויים מרחוק'),
+      toVisualRtl('אין גישה לסטטיסטיקות ולהיסטוריית התראות'),
+      toVisualRtl('שינוי הגדרות דורש עצירת הבוט'),
+    ],
+    secret: true,
+  },
+  {
+    key:     'PROXY_URL',
+    label:   toVisualRtl('כתובת Proxy'),
+    envKey:  'PROXY_URL',
+    hint:    toVisualRtl('נדרש אם הבוט רץ מחוץ לישראל — פורמט: http://user:pass@host:port'),
+    consequences: [
+      toVisualRtl('ה-API של פיקוד העורף חסום גיאוגרפית מחוץ לישראל'),
+      toVisualRtl('הבוט לא יקבל התראות — אפס פונקציונליות!'),
+    ],
+    critical: true,
+    validate: validateUrl,
+  },
+  {
+    key:     'TELEGRAM_INVITE_LINK',
+    label:   toVisualRtl('קישור הזמנה לערוץ'),
+    envKey:  'TELEGRAM_INVITE_LINK',
+    hint:    toVisualRtl('מוצג בכפתור "הצטרף לערוץ" בתפריט DM'),
+    consequences: [
+      toVisualRtl('כפתור "הצטרף לערוץ" לא יופיע בתפריט DM'),
+    ],
+  },
+]
+
 /**
  * Prompts for optional configuration fields.
  * Returns undefined if the user cancels (Ctrl+C).
+ * Every field shows a skip warning (boxen box) if the user presses Enter without a value.
  */
 export async function promptOptional(
   flags: Flags,
@@ -33,11 +82,11 @@ export async function promptOptional(
   let doFull: boolean | undefined
   if (forceFull || hasOptionalFlags) {
     doFull = true
-    if (forceFull) p.log.step(c.bold('הגדרות אופציונליות'))
+    if (forceFull) p.log.step(c.bold(toVisualRtl('הגדרות אופציונליות')))
   } else {
-    p.log.step(c.bold('הגדרות אופציונליות'))
+    p.log.step(c.bold(toVisualRtl('הגדרות אופציונליות')))
     const ans = await p.confirm({
-      message: `${stepBadge(4, 4)} ${c.primary('רוצה להגדיר הגדרות אופציונליות?')}`,
+      message: `${stepBadge(4, 4)} ${c.primary(toVisualRtl('רוצה להגדיר הגדרות אופציונליות?'))}`,
       initialValue: false,
     })
     if (p.isCancel(ans)) return undefined
@@ -46,51 +95,44 @@ export async function promptOptional(
 
   if (!doFull) return vars
 
-  // Dashboard
-  const dashboard = await promptOptionalField(
-    flags.dashboard,
-    'סיסמת לוח הבקרה',
-    'DASHBOARD_SECRET',
-    'מפעיל את לוח הבקרה על פורט 4000 — דלג אם אינך צריך',
-  )
-  if (dashboard === null) return undefined
-  if (dashboard) vars.DASHBOARD_SECRET = dashboard
+  // Standard optional fields with skip warning
+  const flagMap: Partial<Record<keyof OptionalVars, string | boolean | undefined>> = {
+    DASHBOARD_SECRET:   flags.dashboard,
+    PROXY_URL:          flags.proxy,
+    TELEGRAM_INVITE_LINK: flags['invite-link'],
+  }
 
-  // Proxy
-  const proxy = await promptOptionalField(
-    flags.proxy,
-    'כתובת Proxy',
-    'PROXY_URL',
-    'נדרש אם הבוט רץ מחוץ לישראל — פורמט: http://user:pass@host:port',
-    validateUrl,
-  )
-  if (proxy === null) return undefined
-  if (proxy) vars.PROXY_URL = proxy
+  for (const field of OPTIONAL_FIELDS) {
+    const flagVal = flagMap[field.key]
+    const val = await promptOptionalField(
+      flagVal,
+      field.label,
+      field.envKey,
+      field.hint,
+      field.consequences,
+      field.critical,
+      field.secret,
+      field.validate,
+    )
+    if (val === null) return undefined
+    if (val) vars[field.key] = val
+  }
 
-  // Invite link
-  const inviteLink = await promptOptionalField(
-    flags['invite-link'],
-    'קישור הזמנה לערוץ',
-    'TELEGRAM_INVITE_LINK',
-    'מוצג בכפתור "הצטרף לערוץ" בתפריט DM',
-  )
-  if (inviteLink === null) return undefined
-  if (inviteLink) vars.TELEGRAM_INVITE_LINK = inviteLink
-
-  // Forum topic IDs (only when --full flag AND platform includes Telegram)
+  // Forum topic IDs — only with --full flag AND platform includes Telegram
   if (forceFull && (!platform || needsTelegram(platform))) {
-    p.log.info(c.dim('ניתוב נושאים — רלוונטי לקבוצות פורום בלבד'))
+    p.log.info(c.dim(toVisualRtl('ניתוב נושאים — רלוונטי לקבוצות פורום בלבד')))
     const topicFields: Array<[keyof OptionalVars, string]> = [
-      ['TELEGRAM_TOPIC_ID_SECURITY',      '🔴 Thread ID לביטחוני'],
-      ['TELEGRAM_TOPIC_ID_NATURE',        '🌍 Thread ID לאסונות טבע'],
-      ['TELEGRAM_TOPIC_ID_ENVIRONMENTAL', '☢️  Thread ID לסביבתי'],
-      ['TELEGRAM_TOPIC_ID_DRILLS',        '🔵 Thread ID לתרגילים'],
-      ['TELEGRAM_TOPIC_ID_GENERAL',       '📢 Thread ID להודעות כלליות'],
+      ['TELEGRAM_TOPIC_ID_SECURITY',      toVisualRtl('🔴 Thread ID לביטחוני')],
+      ['TELEGRAM_TOPIC_ID_NATURE',        toVisualRtl('🌍 Thread ID לאסונות טבע')],
+      ['TELEGRAM_TOPIC_ID_ENVIRONMENTAL', '☢️  Thread ID ' + toVisualRtl('לסביבתי')],
+      ['TELEGRAM_TOPIC_ID_DRILLS',        toVisualRtl('🔵 Thread ID לתרגילים')],
+      ['TELEGRAM_TOPIC_ID_GENERAL',       toVisualRtl('📢 Thread ID להודעות כלליות')],
     ]
     for (const [key, label] of topicFields) {
       const val = await promptOptionalField(
         undefined, label, key,
-        'דלג אם אינך משתמש בקבוצת פורום',
+        toVisualRtl('דלג אם אינך משתמש בקבוצת פורום'),
+        [toVisualRtl('ניתוב נושאים לא יעבוד עבור סוג זה')],
       )
       if (val === null) return undefined
       if (val) vars[key] = val
@@ -100,20 +142,53 @@ export async function promptOptional(
   return vars
 }
 
-/** Returns value string, empty string for skip, or null on cancel. */
+/**
+ * Prompts a single optional field.
+ * If the user presses Enter without a value, shows a skip warning box and
+ * asks for confirmation. If denied, re-prompts the field.
+ * Returns value string, empty string for skip, or null on cancel.
+ */
 async function promptOptionalField(
   flagValue: string | boolean | undefined,
   label: string,
   envKey: string,
   hintText: string,
+  consequences: string[],
+  critical = false,
+  secret = false,
   validate?: (s: string) => string | undefined,
 ): Promise<string | null> {
   if (flagValue !== undefined) return String(flagValue) || ''
-  const result = await p.text({
-    message: `${c.primary(label)} ${c.muted(`(${envKey})`)}\n  ${c.dim(hintText)}`,
-    placeholder: c.dim('Enter לדילוג'),
-    validate: validate ? (s) => (s.trim() ? validate(s) : undefined) : undefined,
-  })
-  if (p.isCancel(result)) return null
-  return String(result ?? '').trim()
+
+  for (;;) {
+    const promptOpts = {
+      message: `${c.primary(label)} ${c.muted(`(${envKey})`)}\n  ${c.dim(hintText)}`,
+      placeholder: c.dim(toVisualRtl('Enter לדילוג')),
+      validate: validate ? (s: string) => (s.trim() ? validate(s) : undefined) : undefined,
+    }
+
+    const result = secret
+      ? await p.password({ message: promptOpts.message, validate: promptOpts.validate })
+      : await p.text(promptOpts)
+
+    if (p.isCancel(result)) return null
+
+    const trimmed = String(result ?? '').trim()
+    if (trimmed) return trimmed
+
+    // User pressed Enter — show skip warning and ask for confirmation
+    printSkipWarning(label, consequences, critical)
+
+    const confirmMsg = critical
+      ? toVisualRtl('הבוט לא יעבוד מחוץ לישראל ללא Proxy — להמשיך בכל זאת?')
+      : toVisualRtl('להמשיך בלי הגדרה זו?')
+
+    const confirmed = await p.confirm({
+      message: c.warning(confirmMsg),
+      initialValue: !critical,
+    })
+    if (p.isCancel(confirmed)) return null
+    if (confirmed) return ''
+    // User chose to re-enter — loop
+  }
 }

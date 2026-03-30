@@ -4,6 +4,7 @@ import path from 'node:path'
 import * as p from '@clack/prompts'
 import { parseArgs } from './args.js'
 import { c, printBanner, msg } from './ui/theme.js'
+import { toVisualRtl } from './ui/rtl.js'
 import { runSetup }  from './modes/setup.js'
 import { runUpdate } from './modes/update.js'
 import { runVerify } from './modes/verify.js'
@@ -19,7 +20,7 @@ async function main(): Promise<void> {
   }
 
   printBanner(VERSION)
-  p.intro(c.dim('בוט התראות פיקוד העורף · הגדרה מהירה'))
+  p.intro(c.dim(toVisualRtl('בוט התראות פיקוד העורף · הגדרה מהירה')))
 
   // ── Mode detection ──────────────────────────────────────────────────────────
   if (flags.verify) {
@@ -36,8 +37,9 @@ async function main(): Promise<void> {
       return
     }
     // .env exists but --update not specified — ask user
+    const relPath = path.relative(process.cwd(), outputPath)
     const choice = await p.confirm({
-      message: `${c.warning('⚠️')}  זיהינו קובץ הגדרות קיים ב-${c.primary(path.relative(process.cwd(), outputPath))} — לעדכן?`,
+      message: `${c.warning('⚠️')}  ${toVisualRtl('זיהינו קובץ הגדרות קיים ב-')}${c.primary(relPath)} — ${toVisualRtl('לעדכן?')}`,
       initialValue: false,
     })
     if (p.isCancel(choice)) { p.outro(msg.cancelled); return }
@@ -51,33 +53,34 @@ async function main(): Promise<void> {
 }
 
 function printHelp(): void {
+  const h = (s: string) => toVisualRtl(s)
   console.log(`
   ${c.bold('npx pikud-haoref-bot')} ${c.dim('[options]')}
 
-  ${c.primary('פלטפורמה:')}
-    --whatsapp           ${c.muted('הפעל WhatsApp (ניתן לשלב עם Telegram) — חל על setup/update בלבד')}
+  ${c.primary(h('פלטפורמה:'))}
+    --whatsapp           ${c.muted(h('הפעל WhatsApp (ניתן לשלב עם Telegram) — חל על setup/update בלבד'))}
 
-  ${c.primary('הגדרות Telegram:')}
-    --token <val>        TELEGRAM_BOT_TOKEN  ${c.muted('(חובה ל-Telegram)')}
-    --chat-id <val>      TELEGRAM_CHAT_ID    ${c.muted('(חובה ל-Telegram)')}
-    --mapbox <val>       MAPBOX_ACCESS_TOKEN ${c.muted('(חובה ל-Telegram)')}
+  ${c.primary(h('הגדרות Telegram:'))}
+    --token <val>        TELEGRAM_BOT_TOKEN  ${c.muted(`(${h('חובה ל-Telegram')})`)}
+    --chat-id <val>      TELEGRAM_CHAT_ID    ${c.muted(`(${h('חובה ל-Telegram')})`)}
+    --mapbox <val>       MAPBOX_ACCESS_TOKEN ${c.muted(`(${h('חובה ל-Telegram')})`)}
 
-  ${c.primary('הגדרות כלליות:')}
-    --dashboard <val>    DASHBOARD_SECRET    ${c.muted('(מפעיל לוח בקרה)')}
-    --proxy <val>        PROXY_URL           ${c.muted('(נדרש מחוץ לישראל)')}
+  ${c.primary(h('הגדרות כלליות:'))}
+    --dashboard <val>    DASHBOARD_SECRET    ${c.muted(`(${h('מפעיל לוח בקרה')})`)}
+    --proxy <val>        PROXY_URL           ${c.muted(`(${h('נדרש מחוץ לישראל')})`)}
     --invite-link <val>  TELEGRAM_INVITE_LINK
-    --full               ${c.muted('הצג את כל ההגדרות האופציונליות')}
-    --output <path>      ${c.muted('נתיב לקובץ .env (ברירת מחדל: ./.env)')}
-    --update             ${c.muted('עדכן .env קיים')}
-    --verify             ${c.muted('בדוק תקינות הטוקנים ב-.env')}
-    --help               ${c.muted('הצג הודעה זו')}
+    --full               ${c.muted(h('הצג את כל ההגדרות האופציונליות'))}
+    --output <path>      ${c.muted(h('נתיב לקובץ .env (ברירת מחדל: ./.env)'))}
+    --update             ${c.muted(h('עדכן .env קיים'))}
+    --verify             ${c.muted(h('בדוק תקינות הטוקנים ב-.env'))}
+    --help               ${c.muted(h('הצג הודעה זו'))}
 
-  ${c.primary('מצבים:')}
-    ${c.dim('Telegram בלבד:')}  npx pikud-haoref-bot --token=xxx --chat-id=-123456 --mapbox=pk.yyy
-    ${c.dim('WhatsApp בלבד:')}  npx pikud-haoref-bot --whatsapp
-    ${c.dim('שתי הפלטפורמות:')} npx pikud-haoref-bot --whatsapp --token=xxx --chat-id=-123456 --mapbox=pk.yyy
+  ${c.primary(h('מצבים:'))}
+    ${c.dim('Telegram ' + h('בלבד:'))}  npx pikud-haoref-bot --token=xxx --chat-id=-123456 --mapbox=pk.yyy
+    ${c.dim('WhatsApp ' + h('בלבד:'))}  npx pikud-haoref-bot --whatsapp
+    ${c.dim(h('שתי הפלטפורמות:'))} npx pikud-haoref-bot --whatsapp --token=xxx --chat-id=-123456 --mapbox=pk.yyy
 
-  ${c.primary('דוגמאות נוספות:')}
+  ${c.primary(h('דוגמאות נוספות:'))}
     npx pikud-haoref-bot --full --output=/home/user/bot/.env
     npx pikud-haoref-bot --verify
     npx pikud-haoref-bot --update
@@ -85,6 +88,6 @@ function printHelp(): void {
 }
 
 main().catch((err: Error) => {
-  p.outro(c.error(`שגיאה: ${err.message}`))
+  p.outro(c.error(toVisualRtl(`שגיאה: ${err.message}`)))
   process.exit(1)
 })

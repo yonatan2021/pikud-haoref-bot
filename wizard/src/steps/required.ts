@@ -1,5 +1,6 @@
 import * as p from '@clack/prompts'
-import { c, stepBadge } from '../ui/theme.js'
+import { c, stepBadge, msg, printSectionCard } from '../ui/theme.js'
+import { toVisualRtl } from '../ui/rtl.js'
 import { validateToken, validateChatId, validateMapboxToken } from '../validation.js'
 import type { Flags } from '../args.js'
 import { type Platform, needsTelegram, needsMapbox } from './platform.js'
@@ -40,7 +41,7 @@ export async function promptRequired(
     return {}
   }
 
-  p.log.step(c.bold('הגדרות חובה'))
+  printSectionCard('🔑', 'הגדרות חובה', '3 שדות נדרשים לחיבור Telegram — ללא הן הבוט לא יכול לשלוח הודעות')
 
   let token: string | undefined
   let chatId: string | undefined
@@ -53,12 +54,15 @@ export async function promptRequired(
       if (err) throw new Error(`--token: ${err}`)
       token = flags.token
     } else {
-      const val = await p.password({
-        message: `${stepBadge(1, 3)} ${c.primary('טוקן הבוט מ-@BotFather')}\n  ${c.dim('צור בוט ב-https://t.me/BotFather וקבל את הטוקן')}`,
-        validate: validateToken,
+      token = await promptWithRetry(async () => {
+        const val = await p.password({
+          message: `${stepBadge(1, 3)} ${c.primary(toVisualRtl('טוקן הבוט מ-@BotFather'))}\n  ${c.dim(toVisualRtl('צור בוט ב-https://t.me/BotFather וקבל את הטוקן'))}`,
+          validate: validateToken,
+        })
+        if (p.isCancel(val)) return undefined
+        return String(val)
       })
-      if (p.isCancel(val)) return undefined
-      token = String(val)
+      if (token === undefined) { p.outro(msg.cancelled); return undefined }
     }
   }
 
@@ -69,32 +73,58 @@ export async function promptRequired(
       if (err) throw new Error(`--chat-id: ${err}`)
       chatId = flags['chat-id']
     } else {
-      const val = await p.text({
-        message: `${stepBadge(2, 3)} ${c.primary('מזהה הערוץ/קבוצה')}\n  ${c.dim('ערוץ: מספר שלילי כמו ‎-1001234567890 | DM: מספר חיובי')}`,
-        placeholder: '-1001234567890',
-        validate: validateChatId,
+      chatId = await promptWithRetry(async () => {
+        const val = await p.text({
+          message: `${stepBadge(2, 3)} ${c.primary(toVisualRtl('מזהה הערוץ/קבוצה'))}\n  ${c.dim(toVisualRtl('ערוץ: מספר שלילי כמו ‎-1001234567890 | DM: מספר חיובי'))}`,
+          placeholder: '-1001234567890',
+          validate: validateChatId,
+        })
+        if (p.isCancel(val)) return undefined
+        return String(val)
       })
-      if (p.isCancel(val)) return undefined
-      chatId = String(val)
+      if (chatId === undefined) { p.outro(msg.cancelled); return undefined }
     }
   }
 
-  // Mapbox
+  // Mapbox token
   if (needsMapbox(platform)) {
     if (flags.mapbox !== undefined) {
       const err = validateMapboxToken(flags.mapbox)
       if (err) throw new Error(`--mapbox: ${err}`)
       mapbox = flags.mapbox
     } else {
-      const val = await p.text({
-        message: `${stepBadge(3, 3)} ${c.primary('טוקן Mapbox')}\n  ${c.dim('חשבון חינמי: https://account.mapbox.com/access-tokens')}`,
-        placeholder: 'pk.eyJ...',
-        validate: validateMapboxToken,
+      mapbox = await promptWithRetry(async () => {
+        const val = await p.text({
+          message: `${stepBadge(3, 3)} ${c.primary(toVisualRtl('טוקן Mapbox'))}\n  ${c.dim(toVisualRtl('חשבון חינמי: https://account.mapbox.com/access-tokens'))}`,
+          placeholder: 'pk.eyJ...',
+          validate: validateMapboxToken,
+        })
+        if (p.isCancel(val)) return undefined
+        return String(val)
       })
-      if (p.isCancel(val)) return undefined
-      mapbox = String(val)
+      if (mapbox === undefined) { p.outro(msg.cancelled); return undefined }
     }
   }
 
   return buildRequiredResult(platform, { token, chatId, mapbox })
+}
+
+/**
+ * Runs a prompt function in a retry loop.
+ * @clack already handles re-prompting on validation failure within the same
+ * prompt call, so this loop mainly exists to recover from unexpected errors.
+ * Returns undefined if the user cancels.
+ */
+async function promptWithRetry(prompt: () => Promise<string | undefined>): Promise<string | undefined> {
+  for (;;) {
+    try {
+      return await prompt()
+    } catch (err) {
+      const shouldRetry = await p.confirm({
+        message: c.warning(toVisualRtl(`שגיאה בלתי צפויה: ${(err as Error).message} — לנסות שוב?`)),
+        initialValue: true,
+      })
+      if (p.isCancel(shouldRetry) || !shouldRetry) return undefined
+    }
+  }
 }

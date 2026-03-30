@@ -1,26 +1,30 @@
 import path from 'node:path'
 import * as p from '@clack/prompts'
-import { c, msg } from '../ui/theme.js'
+import { c, msg, printProgressBar, printCompletionCard, type CompletionSummary } from '../ui/theme.js'
 import { writeEnvFile } from '../env.js'
 import { promptRequired } from '../steps/required.js'
 import { promptOptional } from '../steps/optional.js'
 import { promptDeploymentMode, printDockerInstructions, printNodeInstructions } from '../steps/deployment.js'
-import { promptPlatform, needsWhatsApp } from '../steps/platform.js'
+import { promptPlatform, needsWhatsApp, needsTelegram, needsMapbox } from '../steps/platform.js'
 import type { Flags } from '../args.js'
 
-/** Fresh setup flow: required → optional → deployment → write .env → outro. */
+/** Fresh setup flow: platform → required → optional → deployment → write .env → completion card. */
 export async function runSetup(flags: Flags): Promise<void> {
   const outputPath = path.resolve(String(flags.output ?? '.env'))
 
+  printProgressBar(1, 4, 'בחירת פלטפורמה')
   const platform = await promptPlatform(flags)
   if (!platform) { p.outro(msg.cancelled); return }
 
+  printProgressBar(2, 4, 'הגדרות חובה')
   const required = await promptRequired(platform, flags)
   if (!required) { p.outro(msg.cancelled); return }
 
+  printProgressBar(3, 4, 'הגדרות אופציונליות')
   const optional = await promptOptional(flags, !!flags.full, platform)
   if (!optional) { p.outro(msg.cancelled); return }
 
+  printProgressBar(4, 4, 'שיטת פריסה')
   const mode = await promptDeploymentMode()
   if (!mode) { p.outro(msg.cancelled); return }
 
@@ -41,7 +45,17 @@ export async function runSetup(flags: Flags): Promise<void> {
   }
 
   writeEnvFile(outputPath, vars)
-  p.log.success(msg.envWritten(outputPath))
+
+  // Print completion card with summary
+  const summary: CompletionSummary = {
+    telegram:   needsTelegram(platform) && !!required.token,
+    mapbox:     needsMapbox(platform)   && !!required.mapbox,
+    whatsapp:   needsWhatsApp(platform),
+    dashboard:  !!optional.DASHBOARD_SECRET,
+    inviteLink: !!optional.TELEGRAM_INVITE_LINK,
+    proxy:      !!optional.PROXY_URL,
+  }
+  printCompletionCard(summary, outputPath, mode)
 
   if (mode === 'docker') {
     printDockerInstructions(outputPath, platform)

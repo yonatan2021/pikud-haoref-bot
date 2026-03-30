@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { visibleWidth, rtlMark, padToWidth } from '../src/ui/rtl.js'
+import { visibleWidth, rtlMark, padToWidth, toVisualRtl, containsHebrew } from '../src/ui/rtl.js'
 
 describe('visibleWidth', () => {
   it('counts plain ASCII correctly', () => {
@@ -74,5 +74,56 @@ describe('padToWidth', () => {
   it('pads Hebrew strings correctly', () => {
     const result = padToWidth('שלום', 7)
     assert.equal(visibleWidth(result), 7)
+  })
+})
+
+describe('containsHebrew', () => {
+  it('detects Hebrew characters', () => {
+    assert.equal(containsHebrew('שלום'), true)
+  })
+
+  it('returns false for pure Latin text', () => {
+    assert.equal(containsHebrew('hello world'), false)
+  })
+
+  it('returns false for empty string', () => {
+    assert.equal(containsHebrew(''), false)
+  })
+
+  it('returns true for mixed Hebrew and Latin', () => {
+    assert.equal(containsHebrew('hello שלום'), true)
+  })
+
+  it('returns false for numbers and punctuation', () => {
+    assert.equal(containsHebrew('123 !@#'), false)
+  })
+})
+
+describe('toVisualRtl', () => {
+  it('reverses a pure Hebrew word to visual order', () => {
+    // "שלום" (shalom) in logical order becomes reversed in visual order
+    const result = toVisualRtl('שלום')
+    assert.notEqual(result, 'שלום')
+    assert.equal(result.length, 4)
+  })
+
+  it('returns Latin-only strings unchanged', () => {
+    assert.equal(toVisualRtl('hello'), 'hello')
+  })
+
+  it('returns empty string unchanged', () => {
+    assert.equal(toVisualRtl(''), '')
+  })
+
+  it('preserves character count for pure Hebrew', () => {
+    const input = 'פיקוד העורף'
+    const result = toVisualRtl(input)
+    assert.equal(result.length, input.length)
+  })
+
+  it('handles mixed Hebrew + numbers — numbers stay LTR within RTL context', () => {
+    // "פורט 3000" — digits form an LTR run within a RTL paragraph
+    const result = toVisualRtl('פורט 3000')
+    assert.equal(result.length, 'פורט 3000'.length)
   })
 })

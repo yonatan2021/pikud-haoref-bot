@@ -1,6 +1,7 @@
 import https from 'node:https'
 import * as p from '@clack/prompts'
-import { c, msg } from '../ui/theme.js'
+import { c, msg, printResultBox } from '../ui/theme.js'
+import { toVisualRtl } from '../ui/rtl.js'
 import { readEnvFile } from '../env.js'
 import type { Flags } from '../args.js'
 
@@ -19,11 +20,11 @@ const defaultGet: HttpGetter = (url) =>
       res.on('data', (chunk: string) => { body += chunk })
       res.on('end', () => {
         try { resolve(JSON.parse(body)) }
-        catch { reject(new Error('תגובה לא תקינה מהשרת')) }
+        catch { reject(new Error(toVisualRtl('תגובה לא תקינה מהשרת'))) }
       })
     }).on('error', reject)
     req.setTimeout(TIMEOUT_MS, () => {
-      req.destroy(new Error(`הבקשה לקחה יותר מ-${TIMEOUT_MS / 1000} שניות — בדוק את חיבור הרשת`))
+      req.destroy(new Error(toVisualRtl(`הבקשה לקחה יותר מ-${TIMEOUT_MS / 1000} שניות — בדוק את חיבור הרשת`)))
     })
   })
 
@@ -38,7 +39,7 @@ export async function checkTelegramToken(
       const result = data.result as Record<string, unknown>
       return { valid: true, detail: `@${result.username} (id: ${result.id})` }
     }
-    return { valid: false, detail: String(data.description ?? 'שגיאה לא ידועה') }
+    return { valid: false, detail: String(data.description ?? toVisualRtl('שגיאה לא ידועה')) }
   } catch (err) {
     const raw = (err as Error).message
     const detail = token ? raw.replaceAll(token, '***') : raw
@@ -56,7 +57,7 @@ export async function checkMapboxToken(
     if (String(data.code ?? '') === 'TokenValid') {
       return { valid: true }
     }
-    return { valid: false, detail: String(data.code ?? 'Mapbox דחה את הטוקן') }
+    return { valid: false, detail: String(data.code ?? 'Mapbox ' + toVisualRtl('דחה את הטוקן')) }
   } catch (err) {
     const raw = (err as Error).message
     const detail = token ? raw.replaceAll(token, '***') : raw
@@ -79,7 +80,7 @@ export async function runVerify(flags: Flags): Promise<void> {
   const whatsappEnabled = env.WHATSAPP_ENABLED === 'true'
 
   if (!token && !mapbox && env.WHATSAPP_ENABLED !== 'true') {
-    p.log.error(`לא נמצאו הגדרות ב-${outputPath} — הפעל ${c.primary('npx pikud-haoref-bot')} תחילה`)
+    p.log.error(toVisualRtl(`לא נמצאו הגדרות ב-${outputPath} — הפעל `) + c.primary('npx pikud-haoref-bot') + toVisualRtl(' תחילה'))
     return
   }
 
@@ -88,7 +89,7 @@ export async function runVerify(flags: Flags): Promise<void> {
 
   if (token) {
     const spin = p.spinner()
-    spin.start('בודק TELEGRAM_BOT_TOKEN...')
+    spin.start('Telegram ' + toVisualRtl('— בודק טוקן...'))
     const res = await checkTelegramToken(token)
     if (res.valid) {
       spin.stop(`${c.success('✅')} Telegram: ${res.detail}`)
@@ -100,10 +101,10 @@ export async function runVerify(flags: Flags): Promise<void> {
 
   if (mapbox) {
     const spin = p.spinner()
-    spin.start('בודק MAPBOX_ACCESS_TOKEN...')
+    spin.start('Mapbox ' + toVisualRtl('— בודק טוקן...'))
     const res = await checkMapboxToken(mapbox)
     if (res.valid) {
-      spin.stop(`${c.success('✅')} Mapbox: טוקן תקין`)
+      spin.stop(`${c.success('✅')} Mapbox: ${toVisualRtl('טוקן תקין')}`)
       passed++
     } else {
       spin.stop(`${c.error('❌')} Mapbox: ${res.detail}`)
@@ -113,16 +114,39 @@ export async function runVerify(flags: Flags): Promise<void> {
   if (whatsappEnabled) {
     const res = checkWhatsAppEnabled(env.WHATSAPP_ENABLED)
     if (res.configured) {
-      p.log.success(`${c.success('✅')} WhatsApp: מוגדר — סריקת QR נדרשת בהפעלה ראשונה`)
+      p.log.success(`${c.success('✅')} WhatsApp: ${toVisualRtl('מוגדר — סריקת QR נדרשת בהפעלה ראשונה')}`)
       passed++
     }
   }
 
   const allOk = passed === total
-  p.outro(
-    allOk
-      ? `${c.success('✅')} ${passed}/${total} הגדרות תקינות`
-      : `${c.warning('⚠️')}  ${passed}/${total} תקינות — הפעל ${c.primary('npx pikud-haoref-bot --update')} לתיקון`,
-  )
-  if (!allOk) process.exit(1)
+
+  if (allOk) {
+    p.outro(`${c.success('✅')} ${passed}/${total} ${toVisualRtl('הגדרות תקינות')}`)
+    return
+  }
+
+  // Some checks failed — show boxen warning card, then offer to fix
+  printResultBox(toVisualRtl(`⚠️  ${passed}/${total} הגדרות תקינות`), [
+    `  ${c.warning(toVisualRtl('אחד או יותר מהטוקנים אינם תקינים.'))}`,
+    `  ${c.dim(toVisualRtl('בדוק את הערכים ב-.env ונסה שוב.'))}`,
+  ])
+
+  const wantFix = await p.confirm({
+    message: c.primary(toVisualRtl('לעדכן את ההגדרות הבעייתיות עכשיו?')),
+    initialValue: true,
+  })
+
+  if (!p.isCancel(wantFix) && wantFix) {
+    p.outro(c.dim(toVisualRtl('מפעיל עדכון הגדרות... הפעל:')))
+    console.log()
+    console.log(`  ${c.primary('npx pikud-haoref-bot --update')}`)
+    console.log()
+  } else {
+    p.outro(
+      `${c.warning('⚠️')}  ${toVisualRtl('לתיקון הפעל:')} ${c.primary('npx pikud-haoref-bot --update')}`,
+    )
+  }
+
+  process.exit(1)
 }
