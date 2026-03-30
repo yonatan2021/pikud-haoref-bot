@@ -1,6 +1,5 @@
 import { Alert } from '../types.js';
 import { getUsersForCities } from '../db/subscriptionRepository.js';
-import { formatAlertMessage } from '../telegramBot.js';
 import { getEmoji, getTitleHe } from '../config/templateCache.js';
 import { getCityData } from '../cityLookup.js';
 import type { NotificationFormat } from '../db/userRepository.js';
@@ -28,9 +27,45 @@ export function buildShortMessage(alert: Alert): string {
   return `${emoji} ${title} | ${cities}${more}${cdSuffix}`;
 }
 
+export function buildAlertDmMessage(alert: Alert): string {
+  const emoji = getEmoji(alert.type);
+  const title = getTitleHe(alert.type);
+  const category = ALERT_TYPE_CATEGORY[alert.type] ?? 'general';
+  const isDrill = category === 'drills';
+  const isNationwide = alert.cities.length === 0;
+
+  const titleLine = isNationwide
+    ? `${emoji} ${title}`
+    : `${emoji} ${title} באזורך`;
+
+  const locationLine = isNationwide
+    ? '📍 ברחבי הארץ'
+    : `📍 ${alert.cities.slice(0, 10).join(', ')}${alert.cities.length > 10 ? ` ועוד ${alert.cities.length - 10}` : ''}`;
+
+  const parts: string[] = [titleLine, locationLine];
+
+  const cd = getMinCountdown(alert.cities);
+  if (cd > 0) {
+    const drillSuffix = isDrill ? ' (תרגיל)' : '';
+    parts.push(`⏱ יש לך ${cd} שניות להיכנס למרחב מוגן${drillSuffix}`);
+  } else if (alert.instructions) {
+    parts.push(alert.instructions);
+  }
+
+  return parts.join('\n');
+}
+
+function isPreliminaryAlert(instructions?: string): boolean {
+  if (!instructions) return false;
+  return (
+    instructions.includes('בדקות הקרובות') ||
+    instructions.includes('התראה מקדימה') ||
+    instructions.includes('צפויות להתקבל')
+  );
+}
+
 export function buildNewsFlashDmMessage(alert: Alert): string {
-  const emoji = getEmoji('newsFlash');
-  const title = getTitleHe('newsFlash');
+  const isPreliminary = isPreliminaryAlert(alert.instructions);
 
   const seenZones = new Set<string>();
   const seenCities = new Set<string>();
@@ -54,11 +89,14 @@ export function buildNewsFlashDmMessage(alert: Alert): string {
 
   const allLabels = [...zones, ...noZoneCities];
 
-  const parts: string[] = [];
+  const headline = isPreliminary
+    ? `⚠️ התראה מקדימה${allLabels.length > 0 ? ' באזורך' : ''}`
+    : `📢 הודעה מיוחדת`;
+
+  const parts: string[] = [headline];
+
   if (allLabels.length > 0) {
-    parts.push(`${emoji} ${title} | ${allLabels.join(', ')}`);
-  } else {
-    parts.push(`${emoji} ${title}`);
+    parts.push(`📍 ${allLabels.join(', ')}`);
   }
 
   if (alert.instructions) {
@@ -68,10 +106,9 @@ export function buildNewsFlashDmMessage(alert: Alert): string {
   return parts.join('\n');
 }
 
-export function buildDmText(alert: Alert, format: NotificationFormat): string {
+export function buildDmText(alert: Alert, _format: NotificationFormat): string {
   if (alert.type === 'newsFlash') return buildNewsFlashDmMessage(alert);
-  if (format === 'detailed') return formatAlertMessage(alert);
-  return buildShortMessage(alert);
+  return buildAlertDmMessage(alert);
 }
 
 function getIsraelHour(now: Date): number {

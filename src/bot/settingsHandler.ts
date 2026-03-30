@@ -1,6 +1,6 @@
 import { Bot, InlineKeyboard } from 'grammy';
 import type { Context } from 'grammy';
-import { getUser, setFormat, setQuietHours, setMutedUntil, isMuted, upsertUser } from '../db/userRepository.js';
+import { getUser, setQuietHours, setMutedUntil, isMuted, upsertUser } from '../db/userRepository.js';
 import {
   removeSubscription,
   removeAllSubscriptions,
@@ -15,17 +15,11 @@ const PAGE_SIZE = 15;
 
 export function buildSettingsMenu(chatId: number): { text: string; keyboard: InlineKeyboard } {
   const user = getUser(chatId);
-  const format = user?.format ?? 'short';
-  const shortMark = format === 'short' ? '●' : '○';
-  const detailMark = format === 'detailed' ? '●' : '○';
   const quietEnabled = user?.quiet_hours_enabled ?? false;
   const quietLabel = quietEnabled ? 'פעיל ✓' : 'כבוי';
   const muted = isMuted(chatId);
 
   const keyboard = new InlineKeyboard()
-    .text(`${shortMark} קצר`, 'fmt:short')
-    .text(`${detailMark} מפורט`, 'fmt:detailed')
-    .row()
     .text(`🔕 שעות שקט: ${quietLabel}`, 'quiet:toggle')
     .row();
 
@@ -50,9 +44,7 @@ export function buildSettingsMenu(chatId: number): { text: string; keyboard: Inl
 
   const text =
     '⚙️ <b>הגדרות</b>\n\n' +
-    '<b>פורמט התראות:</b>\n' +
-    '• קצר — "🔴 טילים | תל אביב, רמת גן"\n' +
-    '• מפורט — אותה הודעה כמו בערוץ (ללא תמונה)' +
+    '📱 התראות ישלחו בפורמט אישי מותאם' +
     muteNote;
 
   return { text, keyboard };
@@ -137,20 +129,6 @@ export function registerSettingsHandler(bot: Bot): void {
       await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
     } catch (err) {
       log('error', 'Settings', `menu:settings נכשל: ${err}`);
-    }
-  });
-
-  bot.callbackQuery(/^fmt:(short|detailed)$/, async (ctx: Context) => {
-    await ctx.answerCallbackQuery();
-    const chatId = ctx.chat?.id;
-    if (!chatId) return;
-    try {
-      const format = ctx.match![1] as 'short' | 'detailed';
-      setFormat(chatId, format);
-      const { text, keyboard } = buildSettingsMenu(chatId);
-      await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
-    } catch (err) {
-      log('error', 'Settings', `fmt callback נכשל: ${err}`);
     }
   });
 

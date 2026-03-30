@@ -51,6 +51,9 @@ export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Prom
   let finalAlert = alert;
   let sentToGroup = false;
   let wasEdit = false;
+  // Cities to dispatch to DM subscribers — only NEW cities on the edit path,
+  // full list on the fresh send path.
+  let dmCities = alert.cities;
 
   // Channel broadcast
   try {
@@ -63,6 +66,9 @@ export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Prom
         instructions: alert.instructions ?? active.alert.instructions,
       };
       finalAlert = mergedAlert;
+
+      const prevCitySet = new Set(active.alert.cities);
+      dmCities = alert.cities.filter((c) => !prevCitySet.has(c));
 
       let imageBuffer: Buffer | null = null;
       if (!skipMap) {
@@ -154,6 +160,12 @@ export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Prom
   });
 
   // DM dispatch is outside the channel try/catch — a channel failure must not prevent
-  // subscriber notification; alert data is valid regardless of whether the channel post succeeded
-  notifySubscribers(finalAlert);
+  // subscriber notification; alert data is valid regardless of whether the channel post succeeded.
+  // On the edit path, only dispatch cities that are NEW (not already sent in a prior DM).
+  if (dmCities.length > 0) {
+    // Spread original `alert` (not `finalAlert`): DM subscribers receive the incoming
+    // alert's type/instructions with only the NEW cities (dmCities). `finalAlert` is
+    // the merged channel state used for Telegram channel edits only.
+    notifySubscribers({ ...alert, cities: dmCities });
+  }
 }
