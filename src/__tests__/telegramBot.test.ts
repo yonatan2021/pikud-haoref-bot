@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert';
-import { describe, it, test } from 'node:test';
+import { describe, it, test, mock, beforeEach, afterEach } from 'node:test';
 import {
   escapeHtml,
   buildCityList,
@@ -8,6 +8,11 @@ import {
   truncateToCaptionLimit,
   formatAlertMessage,
   TELEGRAM_CAPTION_MAX,
+  isUnmodifiedError,
+  isMediaEditError,
+  isMessageGoneError,
+  editAlert,
+  getBot,
 } from '../telegramBot.js';
 
 test('escapeHtml escapes ampersand', () => {
@@ -109,10 +114,14 @@ describe('buildZonedCityList', () => {
     assert.ok(result.includes('ועוד 5 ערים נוספות'));
   });
 
-  it('escapes HTML in zone names', () => {
-    const result = buildZonedCityList(['אור יהודה']);
-    // Zone name is wrapped in <b> tags from our template, not injected raw
-    assert.ok(!result.includes('<script>'), 'zone should not allow script injection');
+  it('escapes HTML special characters in city names rendered inside zones', () => {
+    // Unknown cities fall into the ערים נוספות section, rendered via buildCityList → escapeHtml.
+    // Verifies user-supplied strings are never inserted as raw HTML.
+    const malicious = 'עיר <b>רעה</b> & "בעיה"';
+    const result = buildZonedCityList([malicious]);
+    assert.ok(!result.includes('<b>רעה</b>'), 'raw <b> tag must not appear in output');
+    assert.ok(result.includes('&lt;b&gt;'), 'angle brackets must be HTML-escaped');
+    assert.ok(result.includes('&amp;'), 'ampersand must be HTML-escaped');
   });
 
   it('shows per-zone city count in zone header', () => {
