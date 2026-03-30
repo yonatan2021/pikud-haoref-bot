@@ -42,8 +42,8 @@ export function createStatsRouter(db: Database.Database): Router {
     let alertsToday = 0;
     try {
       alertsToday = countQuery(db, `SELECT COUNT(*) as c FROM alert_history WHERE fired_at >= date('now')`);
-    } catch {
-      // non-critical — table may not be seeded yet
+    } catch (err) {
+      log('warn', 'Dashboard', `alertsToday query failed: ${String(err)}`);
     }
     const result = {
       uptime: process.uptime(),
@@ -51,7 +51,7 @@ export function createStatsRouter(db: Database.Database): Router {
       lastPollAt: lastPollAt?.toISOString() ?? null,
       alertsToday,
     };
-    setCached('stats:health', result, 15_000);
+    setCached('stats:health', result, 3_000);
     return res.json(result);
   });
 

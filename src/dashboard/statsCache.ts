@@ -7,7 +7,10 @@ const store = new Map<string, CacheEntry<unknown>>();
 
 export function getCached<T>(key: string): T | null {
   const entry = store.get(key) as CacheEntry<T> | undefined;
-  if (!entry || Date.now() > entry.expiresAt) return null;
+  if (!entry || Date.now() > entry.expiresAt) {
+    store.delete(key);  // lazy eviction
+    return null;
+  }
   return entry.data;
 }
 

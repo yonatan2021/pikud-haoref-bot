@@ -1,6 +1,9 @@
 import { Router } from 'express';
 import type Database from 'better-sqlite3';
 import { log } from '../../logger.js';
+import { removeAllSubscriptions, removeSubscription } from '../../db/subscriptionRepository.js';
+import { setFormat, setQuietHours } from '../../db/userRepository.js';
+import type { NotificationFormat } from '../../db/userRepository.js';
 
 const ALLOWED_FORMATS = ['short', 'detailed'] as const;
 const MAX_LIMIT = 200;
@@ -113,14 +116,11 @@ export function createSubscribersRouter(db: Database.Database): Router {
           res.status(400).json({ error: 'פורמט לא חוקי. ערכים חוקיים: short, detailed' });
           return;
         }
-        db.prepare('UPDATE users SET format = ? WHERE chat_id = ?').run(format, chatId);
+        setFormat(chatId, format as NotificationFormat);
       }
 
       if (quiet_hours_enabled !== undefined) {
-        db.prepare('UPDATE users SET quiet_hours_enabled = ? WHERE chat_id = ?').run(
-          quiet_hours_enabled ? 1 : 0,
-          chatId,
-        );
+        setQuietHours(chatId, quiet_hours_enabled);
       }
 
       res.json({ ok: true });
@@ -135,7 +135,8 @@ export function createSubscribersRouter(db: Database.Database): Router {
       const chatId = parseInt(req.params.id, 10);
       if (isNaN(chatId)) { res.status(400).json({ error: 'מזהה לא חוקי' }); return; }
 
-      db.prepare('DELETE FROM users WHERE chat_id = ?').run(chatId);
+      removeAllSubscriptions(chatId);  // clears subscriptions + cache
+      db.prepare('DELETE FROM users WHERE chat_id = ?').run(chatId);  // then delete user record
       res.json({ ok: true });
     } catch (err) {
       log('error', 'Dashboard', `Query error: ${String(err)}`);
@@ -148,10 +149,7 @@ export function createSubscribersRouter(db: Database.Database): Router {
       const chatId = parseInt(req.params.id, 10);
       if (isNaN(chatId)) { res.status(400).json({ error: 'מזהה לא חוקי' }); return; }
 
-      db.prepare('DELETE FROM subscriptions WHERE chat_id = ? AND city_name = ?').run(
-        chatId,
-        decodeURIComponent(req.params.city),
-      );
+      removeSubscription(chatId, decodeURIComponent(req.params.city));
       res.json({ ok: true });
     } catch (err) {
       log('error', 'Dashboard', `Query error: ${String(err)}`);

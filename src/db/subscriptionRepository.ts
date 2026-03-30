@@ -1,6 +1,7 @@
 import { getDb } from './schema.js';
 import { upsertUser } from './userRepository.js';
 import type { NotificationFormat } from './userRepository.js';
+import { log } from '../logger.js';
 
 export interface SubscriberInfo {
   chat_id: number;
@@ -18,7 +19,7 @@ export interface SubscriberInfo {
 let cacheInitialized = false;
 const cityToSubscribers = new Map<string, Set<number>>(); // cityName → Set<chatId>
 
-interface CachedSubscriberData {
+export interface CachedSubscriberData {
   format: NotificationFormat;
   quiet_hours_enabled: boolean;
   muted_until: string | null;
@@ -26,7 +27,6 @@ interface CachedSubscriberData {
 const subscriberData = new Map<number, CachedSubscriberData>(); // chatId → user data
 
 export function initSubscriptionCache(): void {
-  cacheInitialized = true;
   cityToSubscribers.clear();
   subscriberData.clear();
 
@@ -58,6 +58,7 @@ export function initSubscriptionCache(): void {
       });
     }
   }
+  cacheInitialized = true;
 }
 
 export function addSubscription(chatId: number, cityName: string): void {
@@ -91,7 +92,11 @@ export function removeSubscription(chatId: number, cityName: string): void {
     .prepare('DELETE FROM subscriptions WHERE chat_id = ? AND city_name = ?')
     .run(chatId, cityName);
 
-  if (cacheInitialized) cityToSubscribers.get(cityName)?.delete(chatId);
+  if (cacheInitialized) {
+    cityToSubscribers.get(cityName)?.delete(chatId);
+    const hasAny = [...cityToSubscribers.values()].some(s => s.has(chatId));
+    if (!hasAny) subscriberData.delete(chatId);
+  }
 }
 
 export function removeAllSubscriptions(chatId: number): void {
@@ -165,7 +170,11 @@ export function getUsersForCities(cityNames: string[]): SubscriberInfo[] {
   }
 
   return Array.from(chatIds).map((id) => {
-    const data = subscriberData.get(id)!;
+    const data = subscriberData.get(id);
+    if (!data) {
+      log('error', 'SubscriptionCache', `Cache desync: missing subscriberData for chatId=${id}, skipping`);
+      return null;
+    }
     return {
       chat_id: id,
       format: data.format,
@@ -173,7 +182,7 @@ export function getUsersForCities(cityNames: string[]): SubscriberInfo[] {
       muted_until: data.muted_until,
       matchedCities: cityNames.filter((c) => cityToSubscribers.get(c)?.has(id)),
     };
-  });
+  }).filter((x): x is SubscriberInfo => x !== null);
 }
 
 export function isSubscribed(chatId: number, cityName: string): boolean {
@@ -188,4 +197,10 @@ export function getSubscriptionCount(chatId: number): number {
     .prepare('SELECT COUNT(*) as cnt FROM subscriptions WHERE chat_id = ?')
     .get(chatId) as { cnt: number };
   return row.cnt;
+}
+
+export function updateSubscriberData(chatId: number, patch: Partial<CachedSubscriberData>): void {
+  if (!cacheInitialized) return;
+  const current = subscriberData.get(chatId);
+  if (current) subscriberData.set(chatId, { ...current, ...patch });
 }

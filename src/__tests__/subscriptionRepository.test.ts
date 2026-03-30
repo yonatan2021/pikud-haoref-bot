@@ -14,6 +14,7 @@ import {
   getUsersForCities,
   initSubscriptionCache,
 } from '../db/subscriptionRepository';
+import { setFormat, setQuietHours, setMutedUntil } from '../db/userRepository';
 
 describe('subscriptionRepository — in-memory cache', () => {
   before(() => {
@@ -146,5 +147,58 @@ describe('subscriptionRepository — in-memory cache', () => {
     addSubscription(701, 'כפר סבא');
     const results = getUsersForCities([]);
     assert.deepEqual(results, []);
+  });
+});
+
+describe('subscriptionRepository — cache invalidation via userRepository setters', () => {
+  before(() => {
+    initDb();
+  });
+
+  after(() => {
+    closeDb();
+  });
+
+  beforeEach(() => {
+    getDb().prepare('DELETE FROM subscriptions').run();
+    getDb().prepare('DELETE FROM users').run();
+    initSubscriptionCache();
+  });
+
+  it('setFormat: cache reflects updated format without re-init', () => {
+    addSubscription(801, 'תל אביב');
+    setFormat(801, 'detailed');
+
+    const results = getUsersForCities(['תל אביב']);
+    assert.equal(results.length, 1);
+    assert.equal(results[0].format, 'detailed');
+  });
+
+  it('setQuietHours: cache reflects updated quiet_hours_enabled without re-init', () => {
+    addSubscription(802, 'חיפה');
+    setQuietHours(802, true);
+
+    const results = getUsersForCities(['חיפה']);
+    assert.equal(results.length, 1);
+    assert.equal(results[0].quiet_hours_enabled, true);
+  });
+
+  it('setMutedUntil: cache reflects updated muted_until without re-init', () => {
+    addSubscription(803, 'ירושלים');
+    const futureDate = new Date(Date.now() + 3600 * 1000);
+    setMutedUntil(803, futureDate);
+
+    const results = getUsersForCities(['ירושלים']);
+    assert.equal(results.length, 1);
+    assert.notEqual(results[0].muted_until, null);
+  });
+
+  it('removeSubscription: user removed from cache when last subscription removed', () => {
+    addSubscription(804, 'באר שבע');
+
+    removeSubscription(804, 'באר שבע');
+
+    const results = getUsersForCities(['באר שבע']);
+    assert.equal(results.length, 0);
   });
 });
