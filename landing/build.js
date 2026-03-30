@@ -82,11 +82,18 @@ if (!devFeaturesHtml.trim()) {
 // Step 3: Parse CHANGELOG.md — extract latest version highlights
 const changelog = fs.readFileSync('CHANGELOG.md', 'utf8');
 
+function escapeHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 function parseLatestChangelog(changelogContent) {
   // Find the first real version entry (skip [Unreleased])
   const versionPattern = /^## \[(\d+\.\d+\.\d+)\]/m;
   const match = changelogContent.match(versionPattern);
-  if (!match) return { version: '', html: '' };
+  if (!match) {
+    console.warn('[landing/build.js] parseLatestChangelog: no version entry found in CHANGELOG.md — {{WHATS_NEW_HTML}} and {{CHANGELOG_VERSION}} will be empty');
+    return { version: '', html: '' };
+  }
 
   const version = match[1];
   const versionStart = changelogContent.indexOf(match[0]);
@@ -132,7 +139,7 @@ function parseLatestChangelog(changelogContent) {
     }
   }
 
-  const html = items.map((item) => `<li>${item}</li>`).join('\n');
+  const html = items.map((item) => `<li>${escapeHtml(item)}</li>`).join('\n');
   return { version, html };
 }
 
@@ -160,11 +167,22 @@ function parseStats(readmeContent) {
   return stats;
 }
 
+const DEFAULT_STAT_CITIES = '1400';
+const DEFAULT_STAT_ZONES  = '28';
+const DEFAULT_STAT_CATS   = '5';
+const DEFAULT_STAT_TESTS  = '391';
+
 const stats = parseStats(readme);
-const statCities = stats['עיירות מכוסות'] || '1400';
-const statZones  = stats['אזורים']        || '28';
-const statCats   = stats['קטגוריות']      || '5';
-const statTests  = stats['בדיקות אוטומטיות'] || '391';
+const EXPECTED_STAT_KEYS = ['עיירות מכוסות', 'אזורים', 'קטגוריות', 'בדיקות אוטומטיות'];
+const missingStatKeys = EXPECTED_STAT_KEYS.filter(k => !stats[k]);
+if (missingStatKeys.length > 0) {
+  console.warn(`[landing/build.js] parseStats: missing keys — falling back to hardcoded values for: ${missingStatKeys.join(', ')}`);
+}
+
+const statCities = stats['עיירות מכוסות'] || DEFAULT_STAT_CITIES;
+const statZones  = stats['אזורים']        || DEFAULT_STAT_ZONES;
+const statCats   = stats['קטגוריות']      || DEFAULT_STAT_CATS;
+const statTests  = stats['בדיקות אוטומטיות'] || DEFAULT_STAT_TESTS;
 
 // Step 4: Get current date in Hebrew
 const buildDate = new Date().toLocaleDateString('he-IL', {
