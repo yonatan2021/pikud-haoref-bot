@@ -101,26 +101,45 @@ async function dirExists(accessFn: NodeSetupDeps['access'], targetPath: string):
  * Used by setup mode (Node.js path) to make the bot immediately runnable.
  * Streams all subprocess output live via stdio: 'inherit'.
  */
-export async function runNodeSetup(envPath: string, platform: Platform): Promise<void> {
+export async function runNodeSetup(
+  envPath: string,
+  platform: Platform,
+  deps: NodeSetupDeps = { spawn: spawn as SpawnFn, copyFile, access, rm },
+): Promise<void> {
   const targetPath = path.join(process.cwd(), TARGET_DIR)
 
-  const exists = await access(targetPath).then(() => true).catch(() => false)
+  const exists = await dirExists(deps.access, targetPath)
   if (exists) {
     p.log.warn(c.warning(toVisualRtl(`תיקיית ${TARGET_DIR} כבר קיימת — מדלג על git clone`)))
   } else {
     p.log.step(c.primary(toVisualRtl('מוריד את קוד המקור...')))
-    await spawnStep(spawn as SpawnFn, 'git', ['clone', REPO_URL, TARGET_DIR])
+    try {
+      await spawnStep(deps.spawn, 'git', ['clone', REPO_URL, TARGET_DIR])
+    } catch (err) {
+      await deps.rm(targetPath, { recursive: true, force: true }).catch(() => undefined)
+      throw err
+    }
   }
 
-  await copyFile(envPath, path.join(targetPath, '.env'))
+  try {
+    await deps.copyFile(envPath, path.join(targetPath, '.env'))
+  } catch (err) {
+    const e = err as NodeJS.ErrnoException
+    throw new Error(
+      `${toVisualRtl('לא ניתן להעתיק את קובץ ה-.env:')} ${e.message}\n` +
+      `${toVisualRtl('העתק ידנית:')} cp "${envPath}" "${path.join(targetPath, '.env')}"`,
+    )
+  }
   p.log.success(toVisualRtl('.env הועתק לתיקיית הפרויקט'))
 
   p.log.step(c.primary(toVisualRtl('מתקין תלויות npm...')))
-  await spawnStep(spawn as SpawnFn, 'npm', ['install'], { cwd: targetPath })
+  await spawnStep(deps.spawn, 'npm', ['install'], { cwd: targetPath })
 
   p.log.success(toVisualRtl('ההתקנה הושלמה!'))
-  console.log(`\n  ${c.primary('npm start')}  ${c.dim('# ' + toVisualRtl(`הרץ מתוך תיקיית ${TARGET_DIR}/`))}`)
-  buildWhatsAppNote(platform).forEach(line => console.log(line))
+  p.log.info(`  ${c.primary('npm start')}  ${c.dim('# ' + toVisualRtl(`הרץ מתוך תיקיית ${TARGET_DIR}/`))}`)
+  buildWhatsAppNote(platform)
+    .filter(line => line.trim() !== '')
+    .forEach(line => p.log.info(line))
 }
 
 /** Spawns a command with live output (stdio: inherit). Rejects on non-zero exit or signal. */
