@@ -113,7 +113,7 @@ export function createSubscribersRouter(db: Database.Database): Router {
 
   router.patch('/:id', subscriberMutateLimiter, (req, res) => {
     try {
-      const chatId = parseInt(req.params.id, 10);
+      const chatId = parseInt(req.params.id as string, 10);
       if (isNaN(chatId)) { res.status(400).json({ error: 'מזהה לא חוקי' }); return; }
 
       const { format, quiet_hours_enabled } = req.body as {
@@ -145,7 +145,7 @@ export function createSubscribersRouter(db: Database.Database): Router {
 
   router.delete('/:id', subscriberMutateLimiter, (req, res) => {
     try {
-      const chatId = parseInt(req.params.id, 10);
+      const chatId = parseInt(req.params.id as string, 10);
       if (isNaN(chatId)) { res.status(400).json({ error: 'מזהה לא חוקי' }); return; }
 
       db.prepare('DELETE FROM users WHERE chat_id = ?').run(chatId);
@@ -158,12 +158,12 @@ export function createSubscribersRouter(db: Database.Database): Router {
 
   router.delete('/:id/cities/:city', subscriberMutateLimiter, (req, res) => {
     try {
-      const chatId = parseInt(req.params.id, 10);
+      const chatId = parseInt(req.params.id as string, 10);
       if (isNaN(chatId)) { res.status(400).json({ error: 'מזהה לא חוקי' }); return; }
 
       db.prepare('DELETE FROM subscriptions WHERE chat_id = ? AND city_name = ?').run(
         chatId,
-        decodeURIComponent(req.params.city),
+        decodeURIComponent(req.params.city as string),
       );
       res.json({ ok: true });
     } catch (err) {
