@@ -77,11 +77,11 @@ const TARGET_DIR = 'pikud-haoref-bot'
 // Narrower type alias — selects the (cmd, args, opts) overload without overload complexity.
 export type SpawnFn = (cmd: string, args: string[], opts?: SpawnOptions) => ChildProcess
 
-interface NodeSetupDeps {
+export interface NodeSetupDeps {
   spawn:    SpawnFn
   copyFile: (src: string, dst: string) => Promise<void>
-  access:   (path: string) => Promise<void>
-  rm:       (path: string, opts: { recursive: boolean; force: boolean }) => Promise<void>
+  access:   (filePath: string) => Promise<void>
+  rm:       (filePath: string, opts: { recursive: boolean; force: boolean }) => Promise<void>
 }
 
 /** Checks if a directory exists. Propagates all errors except ENOENT. */
@@ -101,10 +101,13 @@ async function dirExists(accessFn: NodeSetupDeps['access'], targetPath: string):
  * Used by setup mode (Node.js path) to make the bot immediately runnable.
  * Streams all subprocess output live via stdio: 'inherit'.
  */
+// Thin wrapper — avoids a downcast by explicitly forwarding the three-argument form.
+const defaultSpawn: SpawnFn = (cmd, args, opts) => spawn(cmd, args, opts ?? {})
+
 export async function runNodeSetup(
   envPath: string,
   platform: Platform,
-  deps: NodeSetupDeps = { spawn: spawn as SpawnFn, copyFile, access, rm },
+  deps: NodeSetupDeps = { spawn: defaultSpawn, copyFile, access, rm },
 ): Promise<void> {
   const targetPath = path.join(process.cwd(), TARGET_DIR)
 
