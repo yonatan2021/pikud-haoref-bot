@@ -91,11 +91,13 @@ function parseLatestChangelog(changelogContent) {
   const versionPattern = /^## \[(\d+\.\d+\.\d+)\]/m;
   const match = changelogContent.match(versionPattern);
   if (!match) {
-    console.warn('[landing/build.js] parseLatestChangelog: no version entry found in CHANGELOG.md — {{WHATS_NEW_HTML}} and {{CHANGELOG_VERSION}} will be empty');
-    return { version: '', html: '' };
+    throw new Error(
+      'parseLatestChangelog: no versioned entry found in CHANGELOG.md — ' +
+      'expected a line matching "## [X.Y.Z]". Cannot populate {{WHATS_NEW_HTML}}.'
+    );
   }
 
-  const version = match[1];
+  const latestVersion = match[1];
   const versionStart = changelogContent.indexOf(match[0]);
 
   // Find where the next version section starts
@@ -107,7 +109,12 @@ function parseLatestChangelog(changelogContent) {
 
   // Extract ✨ תכונות חדשות subsection
   const featuresIdx = versionBlock.indexOf('### ✨ תכונות חדשות');
-  if (featuresIdx === -1) return { version, html: '' };
+  if (featuresIdx === -1) {
+    throw new Error(
+      `parseLatestChangelog: version ${latestVersion} has no "### ✨ תכונות חדשות" subsection — ` +
+      'cannot populate {{WHATS_NEW_HTML}}. Add the subsection or remove the placeholder.'
+    );
+  }
 
   const featuresEnd = versionBlock.indexOf('\n### ', featuresIdx + 5);
   const featuresSection = featuresEnd !== -1
@@ -140,19 +147,22 @@ function parseLatestChangelog(changelogContent) {
   }
 
   const html = items.map((item) => `<li>${escapeHtml(item)}</li>`).join('\n');
-  return { version, html };
+  return { version: latestVersion, html };
 }
 
 const { version: changelogVersion, html: whatsNewHtml } = parseLatestChangelog(changelog);
 if (!whatsNewHtml.trim()) {
-  console.warn('[landing/build.js] parseLatestChangelog: no features found — {{WHATS_NEW_HTML}} will be empty');
+  throw new Error('{{WHATS_NEW_HTML}} would be empty — check CHANGELOG.md format');
 }
 
 // Step 3b: Parse README.md stats table (## 📊 עובדות)
 function parseStats(readmeContent) {
   const marker = '## 📊 עובדות';
   const start = readmeContent.indexOf(marker);
-  if (start === -1) return {};
+  if (start === -1) {
+    console.warn('[landing/build.js] parseStats: "## 📊 עובדות" section not found in README.md — using hardcoded fallback values');
+    return {};
+  }
 
   const end = readmeContent.indexOf('\n---', start);
   const section = end !== -1 ? readmeContent.slice(start, end) : readmeContent.slice(start, start + 600);
@@ -200,10 +210,10 @@ let output = template
   .replaceAll('{{BUILD_DATE}}', buildDate)
   .replaceAll('{{WHATS_NEW_HTML}}', whatsNewHtml)
   .replaceAll('{{CHANGELOG_VERSION}}', changelogVersion || version)
-  .replaceAll('{{STAT_CITIES}}', statCities)
-  .replaceAll('{{STAT_ZONES}}', statZones)
-  .replaceAll('{{STAT_CATS}}', statCats)
-  .replaceAll('{{STAT_TESTS}}', statTests);
+  .replaceAll('{{STAT_CITIES}}', escapeHtml(statCities))
+  .replaceAll('{{STAT_ZONES}}',  escapeHtml(statZones))
+  .replaceAll('{{STAT_CATS}}',   escapeHtml(statCats))
+  .replaceAll('{{STAT_TESTS}}',  escapeHtml(statTests));
 
 // Inject GA4 tracking script if measurement ID is configured
 const GA4_PATTERN = /^G-[A-Z0-9]{4,12}$/;
@@ -249,10 +259,13 @@ if (fs.existsSync(screenshotsDir)) {
   const screenshotFiles = fs.readdirSync(screenshotsDir);
   for (const file of screenshotFiles) {
     if (path.extname(file).toLowerCase() === '.jpg') {
-      fs.copyFileSync(
-        path.join(screenshotsDir, file),
-        path.join('landing/dist/screenshots', file)
-      );
+      const src = path.join(screenshotsDir, file);
+      const dst = path.join('landing/dist/screenshots', file);
+      try {
+        fs.copyFileSync(src, dst);
+      } catch (err) {
+        throw new Error(`Failed to copy screenshot "${file}" from ${src}: ${err.message}`);
+      }
     }
   }
 }
