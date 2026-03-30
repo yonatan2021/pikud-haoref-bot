@@ -9,7 +9,10 @@ function mockRes() {
   const res: any = { _status: 200, _body: null, _cookie: null, _clearedCookie: null };
   res.status = (code: number) => { res._status = code; return res; };
   res.json = (body: unknown) => { res._body = body; return res; };
-  res.cookie = (name: string, val: string) => { res._cookie = { name, val }; return res; };
+  res.cookie = (name: string, val: string, opts?: Record<string, unknown>) => {
+    res._cookie = { name, val, opts };
+    return res;
+  };
   res.clearCookie = (name: string) => { res._clearedCookie = name; return res; };
   return res;
 }
@@ -75,6 +78,47 @@ describe('createSessionStore', () => {
       );
       assert.equal(authRes._status, 401);
     });
+
+    it('two concurrent sessions work independently, logout invalidates only own token', async () => {
+      const { loginHandler, authMiddleware, logoutHandler } = createSessionStore(SECRET);
+
+      // Login session A
+      const loginReqA = { body: { password: SECRET }, ip: '127.0.0.1', headers: {}, socket: { remoteAddress: '127.0.0.1' } } as unknown as Request;
+      const loginResA = mockRes();
+      loginHandler(loginReqA, loginResA);
+      const tokenA = loginResA._cookie?.val as string;
+
+      // Login session B
+      const loginReqB = { body: { password: SECRET }, ip: '127.0.0.2', headers: {}, socket: { remoteAddress: '127.0.0.2' } } as unknown as Request;
+      const loginResB = mockRes();
+      loginHandler(loginReqB, loginResB);
+      const tokenB = loginResB._cookie?.val as string;
+
+      assert.notEqual(tokenA, tokenB, 'tokens must be distinct');
+
+      // Both tokens work
+      let nextCalledA = false;
+      const reqA = { cookies: { dashboard_token: tokenA } } as unknown as Request;
+      authMiddleware(reqA, mockRes(), () => { nextCalledA = true; });
+      assert.equal(nextCalledA, true);
+
+      let nextCalledB = false;
+      const reqB = { cookies: { dashboard_token: tokenB } } as unknown as Request;
+      authMiddleware(reqB, mockRes(), () => { nextCalledB = true; });
+      assert.equal(nextCalledB, true);
+
+      // Logout A — token B should still work
+      const logoutReqA = { cookies: { dashboard_token: tokenA } } as unknown as Request;
+      logoutHandler(logoutReqA, mockRes());
+
+      let nextAfterLogoutA = false;
+      authMiddleware(reqA, mockRes(), () => { nextAfterLogoutA = true; });
+      assert.equal(nextAfterLogoutA, false, 'token A should be invalid after logout');
+
+      let nextBStillWorks = false;
+      authMiddleware(reqB, mockRes(), () => { nextBStillWorks = true; });
+      assert.equal(nextBStillWorks, true, 'token B should still be valid');
+    });
   });
 
   describe('loginHandler', () => {
@@ -94,6 +138,32 @@ describe('createSessionStore', () => {
       // Cookie value should be a UUID, not the secret itself
       assert.notEqual(res._cookie.val, SECRET);
       assert.match(res._cookie.val, /^[0-9a-f-]{36}$/);
+    });
+
+    it('returns 400 for empty string password', () => {
+      const { loginHandler } = createSessionStore(SECRET);
+      const req = { body: { password: '' } } as unknown as Request;
+      const res = mockRes();
+      loginHandler(req, res);
+      assert.equal(res._status, 400);
+    });
+
+    it('returns 400 for missing password field', () => {
+      const { loginHandler } = createSessionStore(SECRET);
+      const req = { body: {} } as unknown as Request;
+      const res = mockRes();
+      loginHandler(req, res);
+      assert.equal(res._status, 400);
+    });
+
+    it('cookie has httpOnly and sameSite strict options', () => {
+      const { loginHandler } = createSessionStore(SECRET);
+      const req = { body: { password: SECRET }, ip: '127.0.0.1', headers: {}, socket: { remoteAddress: '127.0.0.1' } } as unknown as Request;
+      const res = mockRes();
+      loginHandler(req, res);
+      assert.equal(res._status, 200);
+      assert.equal(res._cookie?.opts?.httpOnly, true, 'httpOnly must be true');
+      assert.equal(res._cookie?.opts?.sameSite, 'strict', 'sameSite must be strict');
     });
   });
 
