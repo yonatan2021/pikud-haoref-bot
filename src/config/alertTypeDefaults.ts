@@ -41,7 +41,7 @@ export const DEFAULT_ALERT_TYPE_EMOJI: Readonly<Record<string, string>> = {
 };
 
 export const DEFAULT_INSTRUCTIONS_PREFIX: Readonly<Record<string, string>> = {
-  newsFlash: '📌 <b>תוכן ההודעה:</b>',
+  newsFlash: '',
   _default: '🛡',
 };
 

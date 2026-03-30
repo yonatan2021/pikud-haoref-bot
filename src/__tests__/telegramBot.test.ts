@@ -69,7 +69,7 @@ describe('buildZonedCityList', () => {
 
   it('uses ערים נוספות header when no city has zone data', () => {
     const result = buildZonedCityList(['עיר לא קיימת בכלל']);
-    assert.ok(result.includes('📍'), 'should show pin emoji for ערים נוספות header');
+    assert.ok(result.includes('▸'), 'should show arrow emoji for ערים נוספות header');
     assert.ok(result.includes('ערים נוספות'), 'should show ערים נוספות header');
     assert.ok(result.includes('עיר לא קיימת בכלל'));
   });
@@ -77,7 +77,7 @@ describe('buildZonedCityList', () => {
   it('shows zone header for cities in a known zone', () => {
     // אור יהודה and בני ברק are both in the "דן" zone (countdown: 90s each)
     const result = buildZonedCityList(['אור יהודה', 'בני ברק']);
-    assert.ok(result.includes('📍'), 'should include pin emoji');
+    assert.ok(result.includes('▸'), 'should include arrow emoji');
     assert.ok(result.includes('דן'), 'should show zone name');
     assert.ok(result.includes('אור יהודה'), 'should list city');
     assert.ok(result.includes('בני ברק'), 'should list city');
@@ -98,7 +98,7 @@ describe('buildZonedCityList', () => {
     assert.ok(result.includes('דן'), 'should show "דן" zone');
     assert.ok(result.includes('חיפה'), 'should show "חיפה" zone');
     assert.ok(result.includes('מרכז הנגב'), 'should show "מרכז הנגב" zone');
-    assert.equal((result.match(/📍/g) ?? []).length, 3, 'should have one pin per zone');
+    assert.equal((result.match(/▸/g) ?? []).length, 3, 'should have one arrow per zone');
   });
 
   it('does not show countdown suffix for cities with no zone data', () => {
@@ -140,7 +140,7 @@ describe('buildZonedCityList', () => {
   it('shows "ערים נוספות" header for cities not found in cities.json', () => {
     const result = buildZonedCityList(['עיר_לא_קיימת_123xyz']);
     assert.ok(result.includes('ערים נוספות'), `Expected "ערים נוספות" header: ${result}`);
-    assert.ok(result.includes('📍'), 'should include pin emoji for noZone header');
+    assert.ok(result.includes('▸'), 'should include arrow emoji for noZone header');
   });
 
   it('does not show "ערים נוספות" header when all cities have zone data', () => {

@@ -28,6 +28,7 @@
 
 ### ✨ תכונות חדשות
 
+- **פורמט הודעות חדש** — תוכן/הוראות ההתראה מופיע **לפני** רשימת הערים בכל סוגי ההודעות (ערוץ, DM, WhatsApp), כך שהוא גלוי בהתראת ה-push ולא קבור אחרי מאות ערים; כותרת ערוץ עברה לשתי שורות (`🔴 סוג\n⏰ שעה · N ערים`); כותרות אזור שינו מ-`📍` ל-`▸`; label מיותר `תוכן ההודעה:` הוסר מ-`newsFlash`
 - **שדרוג סגנון מפה** — יום: `light-v11` → `mapbox/streets-v12` (כבישים, נקודות ציון, תוויות בעברית/ערבית); לילה: `dark-v11` → `mapbox/navigation-night-v1` (ניגודיות גבוהה, קריאות משופרת בלילה)
 - **Padding אדפטיבי** — מחליף את `padding=40` הקשיח: 80px ל-1–3 ערים, 50px ל-4–15, 30px ל-16+ — התראות קטנות מקבלות יותר הקשר גיאוגרפי; גדולות לא מבזבזות viewport
 - **ערובת min-span לסמני pin (Strategy 0)** — ערים ללא נתוני polygon שלחו עד כה pin markers עם zoom-in קרוב מדי; כעת `buildMarkersWithPaddingUrl` מוסיף bbox בלתי-נראה ל-URL שמבטיח ~50 ק"מ הקשר (כמו `expandGeoJSONBounds` בנתיב הפוליגונים)
@@ -40,6 +41,7 @@
 
 ### 🐛 תיקוני באגים
 
+- **WhatsApp→Telegram: חיתוך caption מדיה ל-1,024 תווים** — הודעות וואטסאפ עם תמונה/קובץ שגוף ההודעה שלהן ארוך מ-~960 תווים גרמו לשגיאת API (`message caption is too long`). `whatsappListenerService.ts` מיישם כעת `truncateToCaptionLimit()` על ה-caption לפני `sendPhoto`/`sendDocument`
 - **Race condition בגבול 06:00/18:00** — `getCurrentMapStyle()` נקרא פעמים נפרדות ב-`buildCacheKey()` וב-`buildMapboxUrl()`; התרעה שהגיעה בדיוק בגבול יכלה להישמר בקאש עם key של יום אבל עם תמונת לילה (או להיפך); כעת הסגנון מחושב פעם אחת בתחילת `generateMapImage()` ומועבר לכל ה-builders
 
 ### 🧪 בדיקות

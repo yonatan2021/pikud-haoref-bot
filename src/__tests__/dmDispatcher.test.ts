@@ -173,9 +173,9 @@ describe('buildNewsFlashDmMessage', () => {
     };
     const msg = buildNewsFlashDmMessage(alert);
     const lines = msg.split('\n');
-    // New format: line 1=headline, line 2=📍 location, line 3=instructions
-    assert.equal(lines.length, 3, 'should have three lines: headline, location, instructions');
-    assert.equal(lines[2], 'ניתן לצאת מהמרחבים המוגנים', 'third line should be the instructions');
+    // New format: line 1=headline, line 2=instructions, line 3=📍 location
+    assert.equal(lines.length, 3, 'should have three lines: headline, instructions, location');
+    assert.equal(lines[1], 'ניתן לצאת מהמרחבים המוגנים', 'second line should be the instructions');
   });
 
   it('produces two lines when has cities but no instructions', () => {
@@ -252,7 +252,7 @@ describe('buildNewsFlashDmMessage — preliminary alert detection', () => {
     const alert: Alert = { type: 'newsFlash', cities: ['אבו גוש'], instructions };
     const msg = buildNewsFlashDmMessage(alert);
     const lines = msg.split('\n');
-    assert.equal(lines[2], instructions, 'instructions must appear verbatim on line 3');
+    assert.equal(lines[1], instructions, 'instructions must appear verbatim on line 2');
   });
 });
 

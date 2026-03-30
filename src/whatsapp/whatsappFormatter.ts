@@ -63,6 +63,12 @@ export function formatAlertForWhatsApp(alert: Alert): string {
   const lines: string[] = [];
   lines.push(`${emoji} *${titleHe}*`);
   lines.push(`🕐 ${time}`);
+
+  if (alert.instructions) {
+    lines.push('');
+    lines.push(`📌 ${alert.instructions}`);
+  }
+
   lines.push('');
 
   const { zones, unzoned } = groupCitiesByZone(alert.cities);
@@ -85,11 +91,5 @@ export function formatAlertForWhatsApp(alert: Alert): string {
     lines.pop();
   }
 
-  const body = lines.join('\n');
-
-  if (alert.instructions) {
-    return `${body}\n\n📌 ${alert.instructions}`;
-  }
-
-  return body;
+  return lines.join('\n');
 }

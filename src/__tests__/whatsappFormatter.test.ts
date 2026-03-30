@@ -81,7 +81,7 @@ describe('formatAlertForWhatsApp — unzoned cities', () => {
 });
 
 describe('formatAlertForWhatsApp — instructions', () => {
-  it('appends instructions when alert.instructions is set', () => {
+  it('shows 📌 instructions with a blank-line separator', () => {
     const alert: Alert = {
       type: 'missiles',
       cities: [],
@@ -89,7 +89,25 @@ describe('formatAlertForWhatsApp — instructions', () => {
     };
     const result = formatAlertForWhatsApp(alert);
 
-    assert.ok(result.includes('\n\n📌 היכנסו למרחב המוגן'), 'expected instructions appended with separator');
+    assert.ok(result.includes('\n\n📌 היכנסו למרחב המוגן'), 'expected 📌 instructions separated by blank line');
+  });
+
+  it('shows instructions BEFORE zone groups when cities are present', () => {
+    // אבו גוש (id=511) has zone='בית שמש' — ensures a 📍 zone header is emitted
+    const alert: Alert = {
+      type: 'missiles',
+      cities: ['אבו גוש'],
+      instructions: 'היכנסו למרחב המוגן',
+    };
+    const result = formatAlertForWhatsApp(alert);
+    const instrPos = result.indexOf('📌');
+    const zonePos  = result.indexOf('📍');
+    assert.ok(instrPos !== -1, 'should contain 📌 instructions marker');
+    assert.ok(zonePos  !== -1, 'should contain 📍 zone header');
+    assert.ok(
+      instrPos < zonePos,
+      `instructions (pos ${instrPos}) must appear before zone header (pos ${zonePos})`
+    );
   });
 
   it('does not append instructions section when not set', () => {

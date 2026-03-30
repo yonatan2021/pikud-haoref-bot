@@ -65,10 +65,11 @@
     <td align="center"><img src="docs/screenshots/settings.jpg" width="180"/><br/><sub><b>הגדרות פורמט</b></sub></td>
     <td align="center">
       <br/>
-      <code>🔴  התרעת טילים</code><br/>
-      <code>🕐 14:32  ·  📍 שפלה</code><br/><br/>
-      <code>אשדוד, אשקלון, קריית גת</code><br/><br/>
-      <code>🛡 היכנסו למרחב המוגן</code><br/>
+      <code>🔴 התרעת טילים</code><br/>
+      <code>⏰ 14:32  ·  3 ערים</code><br/><br/>
+      <code>🛡 היכנסו למרחב המוגן</code><br/><br/>
+      <code>▸ שפלה (3)  ⏱ 45 שנ׳</code><br/>
+      <code>אשדוד, אשקלון, קריית גת</code><br/>
       <br/><sub><b>הודעת ערוץ</b></sub>
     </td>
   </tr>
@@ -120,7 +121,7 @@
 | 📱 **WhatsApp Listener** | האזנה לקבוצות/ערוצים WhatsApp, סינון לפי מילות מפתח, העברה לטלגרם (WHATSAPP_ENABLED=true) |
 | 🔒 **Rate Limiting** | הגנה על endpoints בדשבורד (broadcast, deploy, export), bot callbacks, ו-brute-force פרסיסטנטי ב-SQLite |
 | ⚡ **Caching O(1)** | cityLookup Maps, subscription cache in-memory, TTL stats cache, Mapbox usage cache — אפס DB hits בנתיב ההתראות |
-| 📨 **שיפורי הודעות** | חותמת זמן יציבה (Asia/Jerusalem), ספירת ערים בכותרת, מיון אלפבתי, `📍 ערים נוספות` לערים ללא polygon |
+| 📨 **שיפורי הודעות** | חותמת זמן יציבה (Asia/Jerusalem), ספירת ערים בכותרת, מיון אלפבתי, `▸ ערים נוספות` לערים ללא polygon; תוכן ההודעה מופיע לפני רשימת הערים |
 
 </div>
 
