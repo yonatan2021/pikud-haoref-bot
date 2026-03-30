@@ -111,12 +111,30 @@ describe('DELETE /api/whatsapp/listeners/:id', () => {
     const res = await request(app).delete('/api/whatsapp/listeners/9999');
     assert.equal(res.status, 404);
   });
+
+  it('returns 400 for non-numeric id', async () => {
+    const res = await request(app).delete('/api/whatsapp/listeners/abc');
+    assert.equal(res.status, 400);
+  });
 });
 
 describe('GET /api/whatsapp/listeners/telegram-topics', () => {
   it('returns empty array when bot returns no topics', async () => {
     process.env['TELEGRAM_CHAT_ID'] = '-100123';
     const res = await request(app).get('/api/whatsapp/listeners/telegram-topics');
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body, []);
+  });
+
+  it('returns empty array when bot throws (group is not a forum)', async () => {
+    process.env['TELEGRAM_CHAT_ID'] = '-100123';
+    const throwingBot = {
+      api: { raw: { getForumTopics: async () => { throw new Error('FORUM_CHAT_NOT_FOUND'); } } },
+    };
+    const throwingApp = express();
+    throwingApp.use(express.json());
+    throwingApp.use('/api/whatsapp/listeners', createListenersRouter(db, throwingBot as any));
+    const res = await request(throwingApp).get('/api/whatsapp/listeners/telegram-topics');
     assert.equal(res.status, 200);
     assert.deepEqual(res.body, []);
   });

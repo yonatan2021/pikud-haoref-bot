@@ -87,6 +87,10 @@ export function createListenersRouter(db: Database.Database, bot: Bot): Router {
     const telegramTopicName: string | null =
       typeof rawTelegramTopicName === 'string' ? rawTelegramTopicName : null;
 
+    if (body['isActive'] !== undefined && typeof body['isActive'] !== 'boolean') {
+      res.status(400).json({ error: 'isActive חייב להיות boolean' });
+      return;
+    }
     const rawIsActive = body['isActive'];
     const isActive: boolean = rawIsActive === false ? false : true;
 
@@ -117,7 +121,7 @@ export function createListenersRouter(db: Database.Database, bot: Bot): Router {
   router.put('/:id', (req: Request, res: Response) => {
     const rawId = req.params['id'];
     const id = Number(rawId);
-    if (!Number.isInteger(id) || isNaN(id)) {
+    if (!Number.isInteger(id) || id <= 0) {
       res.status(400).json({ error: 'מזהה listener לא תקין — חייב להיות מספר שלם' });
       return;
     }
@@ -182,7 +186,7 @@ export function createListenersRouter(db: Database.Database, bot: Bot): Router {
   router.delete('/:id', (req: Request, res: Response) => {
     const rawId = req.params['id'];
     const id = Number(rawId);
-    if (!Number.isInteger(id) || isNaN(id)) {
+    if (!Number.isInteger(id) || id <= 0) {
       res.status(400).json({ error: 'מזהה listener לא תקין — חייב להיות מספר שלם' });
       return;
     }
