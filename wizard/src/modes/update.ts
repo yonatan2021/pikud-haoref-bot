@@ -1,6 +1,6 @@
 import path from 'node:path'
 import * as p from '@clack/prompts'
-import { c, msg } from '../ui/theme.js'
+import { c, msg, printSectionCard } from '../ui/theme.js'
 import { toVisualRtl } from '../ui/rtl.js'
 import { readEnvFile, writeEnvFile, mergeEnvVars, maskValue } from '../env.js'
 import { validateToken, validateChatId, validateMapboxToken, validateUrl } from '../validation.js'
@@ -30,8 +30,7 @@ export async function runUpdate(flags: Flags): Promise<void> {
   const outputPath = path.resolve(String(flags.output ?? '.env'))
   const existing = readEnvFile(outputPath)
 
-  p.log.step(c.bold(toVisualRtl('עדכון הגדרות קיימות')))
-  p.log.info(`${c.dim(toVisualRtl('קובץ:'))} ${c.primary(outputPath)}`)
+  printSectionCard('✏️', 'עדכון הגדרות', `${toVisualRtl('קובץ:')} ${outputPath}`)
 
   // Build multiselect options — show masked current values
   const fields = buildUpdateFields()

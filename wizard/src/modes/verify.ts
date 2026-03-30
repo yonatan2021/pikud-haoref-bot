@@ -1,6 +1,6 @@
 import https from 'node:https'
 import * as p from '@clack/prompts'
-import { c, msg } from '../ui/theme.js'
+import { c, msg, printResultBox } from '../ui/theme.js'
 import { toVisualRtl } from '../ui/rtl.js'
 import { readEnvFile } from '../env.js'
 import type { Flags } from '../args.js'
@@ -126,8 +126,11 @@ export async function runVerify(flags: Flags): Promise<void> {
     return
   }
 
-  // Some checks failed — offer to fix
-  p.log.warn(`${c.warning('⚠️')}  ${passed}/${total} ${toVisualRtl('הגדרות תקינות')}`)
+  // Some checks failed — show boxen warning card, then offer to fix
+  printResultBox(toVisualRtl(`⚠️  ${passed}/${total} הגדרות תקינות`), [
+    `  ${c.warning(toVisualRtl('אחד או יותר מהטוקנים אינם תקינים.'))}`,
+    `  ${c.dim(toVisualRtl('בדוק את הערכים ב-.env ונסה שוב.'))}`,
+  ])
 
   const wantFix = await p.confirm({
     message: c.primary(toVisualRtl('לעדכן את ההגדרות הבעייתיות עכשיו?')),

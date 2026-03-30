@@ -1,5 +1,5 @@
 import * as p from '@clack/prompts'
-import { c } from '../ui/theme.js'
+import { c, printSectionCard } from '../ui/theme.js'
 import { toVisualRtl } from '../ui/rtl.js'
 import type { Flags } from '../args.js'
 
@@ -26,7 +26,7 @@ export async function promptPlatform(flags: Flags): Promise<Platform | undefined
   const derived = derivePlatformFromFlags(flags)
   if (derived !== undefined) return derived
 
-  p.log.step(c.bold(toVisualRtl('בחר פלטפורמה')))
+  printSectionCard('🌐', 'בחירת פלטפורמה', 'בחר את הפלטפורמה שדרכה הבוט ישלח התראות. ניתן לשנות בכל עת עם --update')
   const choice = await p.select<Platform>({
     message: c.primary(toVisualRtl('באיזו פלטפורמה הבוט ישתמש?')),
     options: [

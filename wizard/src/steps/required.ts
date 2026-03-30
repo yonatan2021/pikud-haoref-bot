@@ -1,5 +1,5 @@
 import * as p from '@clack/prompts'
-import { c, stepBadge, msg } from '../ui/theme.js'
+import { c, stepBadge, msg, printSectionCard } from '../ui/theme.js'
 import { toVisualRtl } from '../ui/rtl.js'
 import { validateToken, validateChatId, validateMapboxToken } from '../validation.js'
 import type { Flags } from '../args.js'
@@ -41,7 +41,7 @@ export async function promptRequired(
     return {}
   }
 
-  p.log.step(c.bold(toVisualRtl('הגדרות חובה')))
+  printSectionCard('🔑', 'הגדרות חובה', '3 שדות נדרשים לחיבור Telegram — ללא הן הבוט לא יכול לשלוח הודעות')
 
   let token: string | undefined
   let chatId: string | undefined

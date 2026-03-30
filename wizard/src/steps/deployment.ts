@@ -1,6 +1,6 @@
 import path from 'node:path'
 import * as p from '@clack/prompts'
-import { c, printResultBox } from '../ui/theme.js'
+import { c, printResultBox, printSectionCard } from '../ui/theme.js'
 import { toVisualRtl } from '../ui/rtl.js'
 import type { Platform } from './platform.js'
 import { needsWhatsApp } from './platform.js'
@@ -9,6 +9,7 @@ export type DeploymentMode = 'docker' | 'node'
 
 /** Prompts the user to choose a deployment mode. Returns undefined on cancel. */
 export async function promptDeploymentMode(): Promise<DeploymentMode | undefined> {
+  printSectionCard('🚀', 'שיטת פריסה', 'בחר איך להריץ את הבוט — ניתן להחליף בעתיד')
   const choice = await p.select<DeploymentMode>({
     message: c.primary(toVisualRtl('איך תרצה להריץ את הבוט?')),
     options: [
