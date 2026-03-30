@@ -3,6 +3,7 @@ export interface Alert {
   type: string;
   cities: string[];
   instructions?: string;
+  receivedAt?: number; // Unix ms timestamp set by the poller at emission time
 }
 
 export interface CityEntry {

@@ -23,6 +23,8 @@ import { initialize as initWhatsApp, setMessageCallback } from './whatsapp/whats
 import { createBroadcaster } from './whatsapp/whatsappBroadcaster.js';
 import { createMessageHandler } from './whatsapp/whatsappListenerService.js';
 import { InputFile } from 'grammy';
+import { initSubscriptionCache } from './db/subscriptionRepository.js';
+import { initUsageCache } from './db/mapboxUsageRepository.js';
 
 // Prevent broken-pipe errors from crashing the bot when a stdout consumer exits.
 process.stdout.on('error', (err: NodeJS.ErrnoException) => {
@@ -43,6 +45,8 @@ for (const envVar of REQUIRED_ENV_VARS) {
   let alertsToday = 0;
   try {
     initDb();
+    initSubscriptionCache();
+    initUsageCache();
     initializeCache();
     loadActiveMessages();
     loadTemplateCache();

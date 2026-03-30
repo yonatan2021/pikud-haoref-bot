@@ -100,7 +100,7 @@ export class AlertPoller extends EventEmitter {
             if (!this.seenFingerprints.has(fingerprint)) {
               this.seenFingerprints.add(fingerprint);
               log('info', 'Poller', `התראה חדשה: ${alert.type} — ${alert.cities.length} ערים`);
-              this.emit('newAlert', alert);
+              this.emit('newAlert', { ...alert, receivedAt: Date.now() });
             }
           }
           resolve();
@@ -202,7 +202,7 @@ export class AlertPoller extends EventEmitter {
           ? `newsFlash — ${normalizedCities.length} cities (direct fetch)`
           : 'nationwide newsFlash (no cities)';
         log('info', 'Poller', `התראה חדשה: ${desc}`);
-        this.emit('newAlert', alert);
+        this.emit('newAlert', { ...alert, receivedAt: Date.now() });
       }
     } catch (err) {
       log('error', 'Poller', `שגיאה בבדיקת newsFlash ארצי: ${err}`);
