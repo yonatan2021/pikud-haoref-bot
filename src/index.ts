@@ -19,6 +19,10 @@ import { getDb } from './db/schema.js';
 import { log, logStartupHeader, logSectionDivider } from './logger.js';
 import { toVisualRtl } from './loggerUtils.js';
 import { loadTemplateCache } from './config/templateCache.js';
+import { initialize as initWhatsApp, setMessageCallback } from './whatsapp/whatsappService.js';
+import { createBroadcaster } from './whatsapp/whatsappBroadcaster.js';
+import { createMessageHandler } from './whatsapp/whatsappListenerService.js';
+import { InputFile } from 'grammy';
 import { initSubscriptionCache } from './db/subscriptionRepository.js';
 import { initUsageCache } from './db/mapboxUsageRepository.js';
 
@@ -52,6 +56,12 @@ for (const envVar of REQUIRED_ENV_VARS) {
     process.exit(1);
   }
 
+  try {
+    initWhatsApp();
+  } catch (err) {
+    log('warn', 'Init', `WhatsApp אתחול נכשל — ממשיך ללא WhatsApp: ${err}`);
+  }
+
   const rawHealthPort = parseInt(process.env.HEALTH_PORT ?? '3000', 10);
   const resolvedHealthPort = isNaN(rawHealthPort) ? 3000 : rawHealthPort;
   if (process.env.HEALTH_PORT && isNaN(rawHealthPort)) {
@@ -71,11 +81,48 @@ for (const envVar of REQUIRED_ENV_VARS) {
   const bot = getBot();
   await setupBotHandlers(bot);
 
+  // Wire WhatsApp→Telegram listener. setMessageCallback is safe to call even when
+  // WHATSAPP_ENABLED=false — the callback is stored but the message event never fires.
+  const sendMediaToTelegram = async (
+    chatId: string,
+    buffer: Buffer,
+    mimetype: string,
+    caption: string,
+    threadId?: number
+  ): Promise<void> => {
+    const threadOpts = threadId != null ? { message_thread_id: threadId } : {};
+    if (mimetype.startsWith('image/')) {
+      await bot.api.sendPhoto(chatId, new InputFile(buffer, 'media.jpg'), {
+        caption,
+        parse_mode: 'HTML',
+        ...threadOpts,
+      });
+    } else {
+      await bot.api.sendDocument(chatId, new InputFile(buffer, 'media'), {
+        caption,
+        parse_mode: 'HTML',
+        ...threadOpts,
+      });
+    }
+  };
+
+  setMessageCallback(
+    createMessageHandler(getDb(), async (chatId, text, threadId) => {
+      await bot.api.sendMessage(chatId, text, {
+        parse_mode: 'HTML',
+        ...(threadId != null ? { message_thread_id: threadId } : {}),
+      });
+    }, sendMediaToTelegram)
+  );
+
   if (dashboardSecret) {
     startDashboardServer(getDb(), bot, dashboardPort, dashboardSecret);
   }
 
   const poller = new AlertPoller();
+  const broadcastToWhatsApp = process.env.WHATSAPP_ENABLED === 'true'
+    ? createBroadcaster(getDb())
+    : undefined;
 
   poller.on('newAlert', async (alert: Alert) => {
     updateLastAlertAt();
@@ -91,6 +138,7 @@ for (const envVar of REQUIRED_ENV_VARS) {
       shouldSkipMap,
       getTopicId,
       insertAlertHistory,
+      broadcastToWhatsApp,
     });
   });
 
@@ -101,6 +149,7 @@ for (const envVar of REQUIRED_ENV_VARS) {
     { name: 'Alert Poller',  detail: toVisualRtl('כל 2 שניות'),                                                ok: true },
     { name: 'Dashboard',     detail: dashboardSecret ? toVisualRtl(`פורט ${dashboardPort}`) : toVisualRtl('כבוי (אין DASHBOARD_SECRET)'), ok: !!dashboardSecret, url: dashboardSecret ? `http://localhost:${dashboardPort}` : undefined },
     { name: 'Database',      detail: toVisualRtl('מאותחל'),                                                ok: true },
+    { name: 'WhatsApp',      detail: toVisualRtl(process.env.WHATSAPP_ENABLED === 'true' ? 'מופעל' : 'כבוי'), ok: process.env.WHATSAPP_ENABLED === 'true' },
   ], alertsToday);
 
   logSectionDivider();

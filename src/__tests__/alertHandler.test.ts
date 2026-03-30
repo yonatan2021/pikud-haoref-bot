@@ -268,4 +268,59 @@ describe('handleNewAlert', () => {
       );
     });
   });
+
+  describe('broadcastToWhatsApp', () => {
+    it('calls broadcastToWhatsApp with finalAlert when provided', async () => {
+      const waFn = mock.fn(async () => {});
+      // Use a merging scenario so finalAlert differs from the incoming alert
+      const active = makeTracked({ alert: { type: 'missiles', cities: ['תל אביב'] } });
+      const deps = makeDeps({
+        getActiveMessage: mock.fn(() => active),
+        broadcastToWhatsApp: waFn,
+      });
+      await handleNewAlert({ type: 'missiles', cities: ['חיפה'] }, deps);
+
+      const calls = (waFn as unknown as ReturnType<typeof mock.fn>).mock.calls;
+      assert.equal(calls.length, 1, 'broadcastToWhatsApp must be called once');
+      const calledWith = calls[0].arguments[0] as Alert;
+      // finalAlert should be the merged alert — includes both cities
+      assert.ok(calledWith.cities.includes('תל אביב'), 'finalAlert must include pre-existing city');
+      assert.ok(calledWith.cities.includes('חיפה'), 'finalAlert must include new city');
+    });
+
+    it('broadcastToWhatsApp error does not propagate', async () => {
+      const waFn = mock.fn(async () => { throw new Error('wa fail'); });
+      const deps = makeDeps({ broadcastToWhatsApp: waFn });
+      await assert.doesNotReject(() => handleNewAlert(BASE_ALERT, deps));
+      assert.equal(
+        (deps.notifySubscribers as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
+        1,
+        'notifySubscribers must complete before WhatsApp error'
+      );
+    });
+
+    it('called on fresh-send path (no active message) with original alert', async () => {
+      const waFn = mock.fn(async () => {});
+      const deps = makeDeps({
+        getActiveMessage: mock.fn(() => null),
+        broadcastToWhatsApp: waFn,
+      });
+      await handleNewAlert(BASE_ALERT, deps);
+      const calls = (waFn as unknown as ReturnType<typeof mock.fn>).mock.calls;
+      assert.equal(calls.length, 1, 'broadcastToWhatsApp must be called exactly once');
+      assert.deepEqual(calls[0].arguments[0], BASE_ALERT, 'broadcastToWhatsApp must be called with the original alert');
+    });
+
+    it('no broadcastToWhatsApp in deps — no error, notifySubscribers still runs', async () => {
+      const deps = makeDeps();
+      // Explicitly omit broadcastToWhatsApp (it defaults to undefined in makeDeps)
+      delete (deps as Partial<typeof deps>).broadcastToWhatsApp;
+      await assert.doesNotReject(() => handleNewAlert(BASE_ALERT, deps));
+      assert.equal(
+        (deps.notifySubscribers as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
+        1,
+        'notifySubscribers must be called even when broadcastToWhatsApp is absent'
+      );
+    });
+  });
 });

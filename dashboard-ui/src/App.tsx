@@ -10,6 +10,8 @@ import { Operations } from './pages/Operations';
 import { Settings } from './pages/Settings';
 import { LandingPage } from './pages/LandingPage';
 import { Messages } from './pages/Messages';
+import { WhatsApp } from './pages/WhatsApp';
+import { WhatsAppListeners } from './pages/WhatsAppListeners';
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000 } } });
 
@@ -28,6 +30,8 @@ export function App() {
             <Route path="settings" element={<Settings />} />
             <Route path="landing" element={<LandingPage />} />
             <Route path="messages" element={<Messages />} />
+            <Route path="whatsapp" element={<WhatsApp />} />
+            <Route path="whatsapp-listeners" element={<WhatsAppListeners />} />
           </Route>
         </Routes>
       </BrowserRouter>

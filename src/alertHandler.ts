@@ -23,6 +23,7 @@ export interface AlertHandlerDeps {
   shouldSkipMap: (alertType: string) => boolean;
   getTopicId: (alertType: string) => number | undefined;
   insertAlertHistory: (alert: Alert) => void;
+  broadcastToWhatsApp?: (alert: Alert) => Promise<void>;
 }
 
 export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Promise<void> {
@@ -37,6 +38,7 @@ export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Prom
     shouldSkipMap,
     getTopicId,
     insertAlertHistory,
+    broadcastToWhatsApp,
   } = deps;
 
   const skipMap = shouldSkipMap(alert.type);
@@ -164,5 +166,13 @@ export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Prom
     // alert's type/instructions with only the NEW cities (dmCities). `finalAlert` is
     // the merged channel state used for Telegram channel edits only.
     notifySubscribers({ ...alert, cities: dmCities });
+  }
+
+  if (broadcastToWhatsApp) {
+    try {
+      await broadcastToWhatsApp(finalAlert);
+    } catch (err) {
+      log('error', 'AlertHandler', `כישלון בשידור לוואטסאפ type=${alert.type} cities=${finalAlert.cities.length}: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
+    }
   }
 }
