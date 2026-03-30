@@ -84,6 +84,16 @@ export function initSchema(database: Database.Database): void {
       instructions_prefix TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS message_template_history (
+      id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+      alert_type          TEXT NOT NULL,
+      emoji               TEXT NOT NULL,
+      title_he            TEXT NOT NULL,
+      instructions_prefix TEXT NOT NULL,
+      saved_at            TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_tmpl_history_type ON message_template_history(alert_type);
+
     CREATE TABLE IF NOT EXISTS sessions (
       token      TEXT PRIMARY KEY,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
