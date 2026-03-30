@@ -115,6 +115,16 @@ describe('createMessageHandler', () => {
 
   // ─── New tests for HTML format, timestamp, and media ─────────────────────────
 
+  it('caption has blank line between timestamp and body', async () => {
+    createListener(db, { ...BASE, channelId: 'nl@g.us', keywords: [] });
+    const { calls, fn } = makeSend();
+    const h = createMessageHandler(db, fn as any);
+    h(makeMsg('nl@g.us', 'message body'));
+    await new Promise(r => setTimeout(r, 10));
+    // Expect: "...🕐 ...\n\nmessage body" — double newline between timestamp and body
+    assert.ok(calls[0]!.text.includes('\n\nmessage body'), 'blank line should separate timestamp from body');
+  });
+
   it('caption contains timestamp in DD.MM · HH:MM format', async () => {
     createListener(db, { ...BASE, channelId: 'ts@g.us', keywords: [] });
     const { calls, fn } = makeSend();

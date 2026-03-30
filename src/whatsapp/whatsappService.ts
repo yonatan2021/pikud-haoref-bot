@@ -126,7 +126,7 @@ export function initialize(): void {
       downloadMedia: () => msg.downloadMedia().then((m) => {
         if (!m) return null;
         return { data: m.data, mimetype: m.mimetype, filename: m.filename ?? undefined };
-      }).catch(() => null),
+      }),
     });
   });
 

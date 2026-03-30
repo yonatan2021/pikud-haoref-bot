@@ -75,7 +75,7 @@ export function createMessageHandler(
         if (!shouldForward) continue;
 
         const headerLine = `📲 <b>${escapeHtml(listener.channelName)}</b>\n🕐 ${timeStr}`;
-        const bodyLine = truncatedBody ? `\n${escapeHtml(truncatedBody)}` : '';
+        const bodyLine = truncatedBody ? `\n\n${escapeHtml(truncatedBody)}` : '';
         const caption = `${headerLine}${bodyLine}`;
         const topicId = listener.telegramTopicId ?? undefined;
 
