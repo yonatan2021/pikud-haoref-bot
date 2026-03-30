@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type Database from 'better-sqlite3';
 import { getSetting, setSetting } from '../settingsRepository.js';
+import { log } from '../../logger.js';
 
 export function createLandingRouter(db: Database.Database): Router {
   const router = Router();
@@ -22,7 +23,13 @@ export function createLandingRouter(db: Database.Database): Router {
       }
       setSetting(db, 'ga4_measurement_id', ga4MeasurementId);
     }
-    if (siteUrl !== undefined) setSetting(db, 'landing_url', siteUrl);
+    if (siteUrl !== undefined) {
+      if (siteUrl !== '' && !/^https?:\/\//i.test(siteUrl.trim())) {
+        res.status(400).json({ error: 'כתובת האתר חייבת להתחיל ב-http:// או https://' });
+        return;
+      }
+      setSetting(db, 'landing_url', siteUrl);
+    }
     res.json({ ok: true });
   });
 
@@ -53,7 +60,7 @@ export function createLandingRouter(db: Database.Database): Router {
       );
       if (!response.ok) {
         const detail = await response.text();
-        console.error('[landing] GitHub API error:', response.status, detail);
+        log('error', 'Dashboard', `GitHub API error ${response.status}: ${detail}`);
         res.status(502).json({ error: 'GitHub API נכשל', status: response.status, detail });
         return;
       }

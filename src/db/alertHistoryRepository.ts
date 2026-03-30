@@ -1,5 +1,6 @@
 import { getDb } from './schema.js';
 import type { Alert } from '../types.js';
+import { log } from '../logger.js';
 
 export interface AlertHistoryRow {
   id: number;
@@ -21,7 +22,7 @@ function parseRow(raw: RawRow): AlertHistoryRow | null {
   try {
     const parsed = JSON.parse(raw.cities);
     if (!Array.isArray(parsed)) {
-      console.error(`[AlertHistory] cities is not an array for row id=${raw.id} — skipping`);
+      log('error', 'AlertHistory', `cities is not an array for row id=${raw.id} — skipping`);
       return null;
     }
     return {
@@ -32,7 +33,7 @@ function parseRow(raw: RawRow): AlertHistoryRow | null {
       fired_at: raw.fired_at,
     };
   } catch (err) {
-    console.error(`[AlertHistory] Corrupt cities data for row id=${raw.id} — skipping:`, err);
+    log('error', 'AlertHistory', `Corrupt cities data for row id=${raw.id} — skipping: ${String(err)}`);
     return null;
   }
 }

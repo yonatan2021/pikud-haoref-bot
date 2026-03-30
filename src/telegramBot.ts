@@ -3,6 +3,7 @@ import { autoRetry } from '@grammyjs/auto-retry';
 import { Alert } from './types';
 import { getCityData } from './cityLookup';
 import { getEmoji, getTitleHe, getInstructionsPrefix } from './config/templateCache.js';
+import { log } from './logger.js';
 export { DEFAULT_ALERT_TYPE_HE as ALERT_TYPE_HE, DEFAULT_ALERT_TYPE_EMOJI as ALERT_TYPE_EMOJI } from './config/alertTypeDefaults.js';
 
 const MAX_CITIES_DISPLAYED = 25;
@@ -132,27 +133,21 @@ export async function sendAlert(
         parse_mode: 'HTML',
         ...threadOptions,
       });
-      console.log(
-        `[Telegram] Sent: ${alert.type} — ${alert.cities.length} cities + map${topicStr}`
-      );
+      log('info', 'Bot', `Sent ${alert.type} — ${alert.cities.length} cities + map${topicStr}`);
       return { messageId: sent.message_id, hasPhoto: true };
     } else {
       if (imageBuffer) {
-        console.warn(
-          `[Telegram] Caption too long (${message.length} chars) — sending as text-only`
-        );
+        log('warn', 'Bot', `Caption too long (${message.length} chars) — sending as text-only`);
       }
       const sent = await bot.api.sendMessage(chatId, message, {
         parse_mode: 'HTML',
         ...threadOptions,
       });
-      console.log(
-        `[Telegram] Sent: ${alert.type} — ${alert.cities.length} cities${topicStr}`
-      );
+      log('info', 'Bot', `Sent ${alert.type} — ${alert.cities.length} cities${topicStr}`);
       return { messageId: sent.message_id, hasPhoto: false };
     }
   } catch (err) {
-    console.error('[Telegram] Error sending message:', err);
+    log('error', 'Bot', `Error sending message: ${String(err)}`);
     throw err;
   }
 }
@@ -195,8 +190,8 @@ export async function editAlert(
       parse_mode: 'HTML',
     });
   }
-  console.log(
-    `[Telegram] Updated message ${tracked.messageId}: ${alert.type} — ${alert.cities.length} cities` +
+  log('info', 'Bot',
+    `Updated message ${tracked.messageId}: ${alert.type} — ${alert.cities.length} cities` +
     `${imageBuffer ? ' + map' : ''} (${method})`
   );
 }

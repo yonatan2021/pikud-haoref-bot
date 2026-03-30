@@ -83,6 +83,12 @@ export function initSchema(database: Database.Database): void {
       title_he            TEXT NOT NULL,
       instructions_prefix TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS sessions (
+      token      TEXT PRIMARY KEY,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      expires_at TEXT NOT NULL
+    );
   `);
 
   database.exec(

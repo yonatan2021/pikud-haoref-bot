@@ -4,6 +4,7 @@ import type { Context } from 'grammy';
 /** 7 days expressed in hours — matches the alert_history retention window */
 const HISTORY_WINDOW_HOURS = 168;
 import { upsertUser } from '../db/userRepository.js';
+import { log } from '../logger.js';
 import { getUserCities, getSubscriptionCount } from '../db/subscriptionRepository.js';
 import {
   getAlertsForCity,
@@ -105,9 +106,9 @@ export function registerHistoryHandler(bot: Bot): void {
         { parse_mode: 'HTML' }
       );
     } catch (err) {
-      console.error('[History] Command failed:', err);
+      log('error', 'Bot', `History command failed: ${String(err)}`);
       await ctx.reply('אירעה שגיאה בטעינת היסטוריית ההתראות. נסה שוב מאוחר יותר.').catch((e) =>
-        console.error('[History] Failed to send error reply:', e)
+        log('error', 'Bot', `History failed to send error reply: ${String(e)}`)
       );
     }
   });

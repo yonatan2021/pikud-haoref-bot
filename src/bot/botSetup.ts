@@ -5,6 +5,7 @@ import { registerSearchHandler } from './searchHandler.js';
 import { registerSettingsHandler } from './settingsHandler.js';
 import { registerStatsHandler } from './statsHandler.js';
 import { registerHistoryHandler } from './historyHandler.js';
+import { log } from '../logger.js';
 
 export async function setupBotHandlers(bot: Bot): Promise<void> {
   // Group /start — must be registered before registerMenuHandler so it fires first
@@ -18,7 +19,7 @@ export async function setupBotHandlers(bot: Bot): Promise<void> {
         { reply_to_message_id: ctx.message?.message_id }
       );
     } catch (err) {
-      console.error('[Bot] Group /start reply failed:', err);
+      log('error', 'Bot', `Group /start reply failed: ${String(err)}`);
     }
   });
 
@@ -30,7 +31,7 @@ export async function setupBotHandlers(bot: Bot): Promise<void> {
   registerHistoryHandler(bot);
 
   bot.catch((err) => {
-    console.error('[Bot] Unhandled error:', err);
+    log('error', 'Bot', `Unhandled error: ${String(err)}`);
   });
 
   await bot.api.setMyCommands([
