@@ -163,6 +163,9 @@ export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Prom
   // subscriber notification; alert data is valid regardless of whether the channel post succeeded.
   // On the edit path, only dispatch cities that are NEW (not already sent in a prior DM).
   if (dmCities.length > 0) {
+    // Spread original `alert` (not `finalAlert`): DM subscribers receive the incoming
+    // alert's type/instructions with only the NEW cities (dmCities). `finalAlert` is
+    // the merged channel state used for Telegram channel edits only.
     notifySubscribers({ ...alert, cities: dmCities });
   }
 }

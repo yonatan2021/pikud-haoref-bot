@@ -1,6 +1,5 @@
 import { Alert } from '../types.js';
 import { getUsersForCities } from '../db/subscriptionRepository.js';
-import { formatAlertMessage } from '../telegramBot.js';
 import { getEmoji, getTitleHe } from '../config/templateCache.js';
 import { getCityData } from '../cityLookup.js';
 import type { NotificationFormat } from '../db/userRepository.js';
