@@ -3,7 +3,7 @@ import cookieParser from 'cookie-parser';
 import path from 'path';
 import type Database from 'better-sqlite3';
 import type { Bot } from 'grammy';
-import { createAuthMiddleware, createLoginHandler, createLogoutHandler } from './auth.js';
+import { createSessionStore } from './auth.js';
 import { createApiRouter } from './router.js';
 
 const UI_DIST = path.join(__dirname, '../../dashboard-ui/dist');
@@ -13,11 +13,10 @@ export function startDashboardServer(db: Database.Database, bot: Bot, port: numb
   app.use(express.json());
   app.use(cookieParser());
 
-  app.post('/auth/login', createLoginHandler(secret));
-  app.post('/auth/logout', createLogoutHandler());
-
-  const auth = createAuthMiddleware(secret);
-  app.use('/api', auth, createApiRouter(db, bot));
+  const { authMiddleware, loginHandler, logoutHandler } = createSessionStore(secret);
+  app.post('/auth/login', loginHandler);
+  app.post('/auth/logout', logoutHandler);
+  app.use('/api', authMiddleware, createApiRouter(db, bot));
 
   app.use(express.static(UI_DIST));
   app.get('*path', (_req, res) => res.sendFile(path.join(UI_DIST, 'index.html')));

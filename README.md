@@ -1,6 +1,6 @@
 <div dir="rtl" align="center">
 
-<img src="./logo.jpg" alt="לוגו בוט התראות פיקוד העורף" width="180" />
+<img src="./landing/template/logo.jpg" alt="לוגו בוט התראות פיקוד העורף" width="180" />
 
 # 🚨 בוט התראות פיקוד העורף
 
@@ -536,7 +536,7 @@ dashboard-ui/                   # React SPA (Vite + Tailwind v4 RTL) — נבנ�
 | `package.json` | גרסה (`{{VERSION}}`) |
 | `README.md` | טבלת פיצ'רים (`## ✨ תכונות`) |
 | `docs/screenshots/*.jpg` | צילומי מסך |
-| `logo.jpg` | לוגו |
+| `landing/template/logo.jpg` | לוגו (גרסה דחוסה — 18KB) |
 
 ### הגדרה חד-פעמית
 
