@@ -16,6 +16,7 @@ let status: WhatsAppStatus = 'disconnected';
 let currentQr: string | null = null;
 let phone: string | null = null;
 let cachedGroups: WhatsAppGroup[] = [];
+let onMessageCallback: ((from: string, body: string) => void) | null = null;
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
@@ -37,6 +38,12 @@ export function getCachedGroups(): WhatsAppGroup[] {
 
 export function getClient(): Client | null {
   return client;
+}
+
+export function setMessageCallback(
+  cb: (from: string, body: string) => void
+): void {
+  onMessageCallback = cb;
 }
 
 export async function refreshGroups(): Promise<void> {
@@ -105,6 +112,12 @@ export function initialize(): void {
 
   client.on('loading_screen', () => {
     status = 'connecting';
+  });
+
+  client.on('message', (msg) => {
+    if (msg.fromMe) return;                    // prevent forwarding the bot's own messages
+    if (!msg.body?.trim()) return;             // skip media-only messages with no text
+    onMessageCallback?.(msg.from, msg.body);
   });
 
   status = 'connecting';

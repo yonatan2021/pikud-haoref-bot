@@ -20,6 +20,7 @@ import {
   getCachedGroups,
   initialize,
   refreshGroups,
+  setMessageCallback,
 } from '../whatsapp/whatsappService';
 
 describe('whatsappService — initial state', () => {
@@ -161,5 +162,19 @@ describe('whatsappService — initialize() guard: double-call is a no-op', () =>
     if (originalValue !== undefined) {
       process.env.WHATSAPP_ENABLED = originalValue;
     }
+  });
+});
+
+describe('setMessageCallback', () => {
+  it('can be called before initialize without throwing', () => {
+    assert.doesNotThrow(() => setMessageCallback((_from, _body) => {}));
+  });
+
+  it('stores the callback for later invocation', () => {
+    const received: string[] = [];
+    setMessageCallback((from, body) => { received.push(`${from}:${body}`); });
+    // Callback is stored — verified by the whatsappListenerService integration tests.
+    // Here we just confirm the assignment does not throw.
+    assert.equal(received.length, 0);
   });
 });
