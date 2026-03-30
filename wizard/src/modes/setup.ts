@@ -4,7 +4,8 @@ import { c, msg, printProgressBar, printCompletionCard, type CompletionSummary }
 import { writeEnvFile } from '../env.js'
 import { promptRequired } from '../steps/required.js'
 import { promptOptional } from '../steps/optional.js'
-import { promptDeploymentMode, printDockerInstructions, printNodeInstructions } from '../steps/deployment.js'
+import { promptDeploymentMode, printDockerInstructions, printNodeInstructions, runNodeSetup } from '../steps/deployment.js'
+import { toVisualRtl } from '../ui/rtl.js'
 import { promptPlatform, needsWhatsApp, needsTelegram, needsMapbox } from '../steps/platform.js'
 import type { Flags } from '../args.js'
 
@@ -60,7 +61,14 @@ export async function runSetup(flags: Flags): Promise<void> {
   if (mode === 'docker') {
     printDockerInstructions(outputPath, platform)
   } else {
-    printNodeInstructions(platform)
+    try {
+      await runNodeSetup(outputPath, platform)
+    } catch (err) {
+      p.log.error((err as Error).message)
+      printNodeInstructions(platform)
+      p.outro(c.warning(toVisualRtl('ההגדרה הושלמה חלקית — קובץ ה-.env נכתב, אך ההתקנה האוטומטית נכשלה')))
+      return
+    }
   }
 
   p.outro(msg.allDone)

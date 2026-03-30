@@ -17,6 +17,7 @@
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://hub.docker.com)
 [![CI](https://img.shields.io/badge/CI/CD-GitHub_Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/yonatan2021/pikud-haoref-bot/actions)
 [![Telegram](https://img.shields.io/badge/ערוץ_טלגרם-הצטרף-26A5E4?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/phalaret)
+[![Sponsor](https://img.shields.io/github/sponsors/yonatan2021?style=for-the-badge&logo=githubsponsors&color=EA4AAA&label=Sponsor)](https://github.com/sponsors/yonatan2021)
 
 <br/>
 
@@ -29,6 +30,18 @@
 סוקר את ה-API של פיקוד העורף כל **2 שניות** ושולח התראות לערוץ טלגרם עם **מפת Mapbox** של האזורים המוכרזים — ותומך בהתראות DM אישיות לפי ערים.
 
 </div>
+
+</div>
+
+---
+
+<div dir="rtl" align="center">
+
+## ❤️ תמיכה בפרויקט
+
+אם הבוט שימושי עבורך, אפשר לתמוך בפיתוח דרך GitHub Sponsors:
+
+[![Sponsor](https://img.shields.io/badge/❤️_Sponsor-EA4AAA?style=for-the-badge&logo=githubsponsors&logoColor=white)](https://github.com/sponsors/yonatan2021)
 
 </div>
 
@@ -575,6 +588,8 @@ dashboard-ui/                   # React SPA (Vite + Tailwind v4 RTL) — נבנ�
 |------|------|
 | `package.json` | גרסה (`{{VERSION}}`) |
 | `README.md` | טבלת פיצ'רים (`## ✨ תכונות`) |
+| `README.md` | נתוני מפתח (`## 📊 עובדות`) → עיירות, אזורים, קטגוריות |
+| `CHANGELOG.md` | 5 שינויים אחרונים (`## [X.Y.Z]`) → סקשן "מה חדש?" |
 | `docs/screenshots/*.jpg` | צילומי מסך |
 | `landing/template/logo.jpg` | לוגו (גרסה דחוסה — 18KB) |
 
@@ -624,6 +639,22 @@ node landing/build.js   # מייצר landing/dist/ — פתח index.html בדפ�
 - שליטה ב-GA4 ו-deploy לדף הנחיתה
 - **WhatsApp Listeners** — ניהול כללי האזנה לקבוצות WhatsApp והעברתן לטלגרם
 - **Rate limiting** — הגנה על endpoints (broadcast, export, deploy) ו-bot callbacks
+
+</div>
+
+---
+
+<div dir="rtl">
+
+## 📊 עובדות
+
+| מדד | ערך |
+|-----|-----|
+| עדכון API (שניות) | 2 |
+| עיירות מכוסות | 1400 |
+| אזורים | 28 |
+| קטגוריות | 5 |
+| בדיקות אוטומטיות | 391 |
 
 </div>
 

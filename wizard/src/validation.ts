@@ -17,7 +17,8 @@ export function validateChatId(s: string): string | undefined {
 
 export function validateMapboxToken(s: string): string | undefined {
   if (!s.trim()) return 'טוקן Mapbox חסר'
-  if (!s.trim().startsWith('pk.')) return 'פורמט לא תקין — טוקן Mapbox חייב להתחיל ב-pk.'
+  if (!s.trim().startsWith('pk.') && !s.trim().startsWith('sk.'))
+    return 'פורמט לא תקין — טוקן Mapbox חייב להתחיל ב-pk. או sk.'
   return undefined
 }
 

@@ -30,35 +30,35 @@ interface OptionalFieldConfig {
 const OPTIONAL_FIELDS: OptionalFieldConfig[] = [
   {
     key:     'DASHBOARD_SECRET',
-    label:   toVisualRtl('סיסמת לוח הבקרה'),
+    label:   'סיסמת לוח הבקרה',
     envKey:  'DASHBOARD_SECRET',
-    hint:    toVisualRtl('מפעיל את לוח הבקרה על פורט 4000 — דלג אם אינך צריך'),
+    hint:    'מפעיל את לוח הבקרה על פורט 4000 — דלג אם אינך צריך',
     consequences: [
-      toVisualRtl('לא ניתן לנהל מנויים מרחוק'),
-      toVisualRtl('אין גישה לסטטיסטיקות ולהיסטוריית התראות'),
-      toVisualRtl('שינוי הגדרות דורש עצירת הבוט'),
+      'לא ניתן לנהל מנויים מרחוק',
+      'אין גישה לסטטיסטיקות ולהיסטוריית התראות',
+      'שינוי הגדרות דורש עצירת הבוט',
     ],
     secret: true,
   },
   {
     key:     'PROXY_URL',
-    label:   toVisualRtl('כתובת Proxy'),
+    label:   'כתובת Proxy',
     envKey:  'PROXY_URL',
-    hint:    toVisualRtl('נדרש אם הבוט רץ מחוץ לישראל — פורמט: http://user:pass@host:port'),
+    hint:    'נדרש אם הבוט רץ מחוץ לישראל — פורמט: http://user:pass@host:port',
     consequences: [
-      toVisualRtl('ה-API של פיקוד העורף חסום גיאוגרפית מחוץ לישראל'),
-      toVisualRtl('הבוט לא יקבל התראות — אפס פונקציונליות!'),
+      'ה-API של פיקוד העורף חסום גיאוגרפית מחוץ לישראל',
+      'הבוט לא יקבל התראות — אפס פונקציונליות!',
     ],
     critical: true,
     validate: validateUrl,
   },
   {
     key:     'TELEGRAM_INVITE_LINK',
-    label:   toVisualRtl('קישור הזמנה לערוץ'),
+    label:   'קישור הזמנה לערוץ',
     envKey:  'TELEGRAM_INVITE_LINK',
-    hint:    toVisualRtl('מוצג בכפתור "הצטרף לערוץ" בתפריט DM'),
+    hint:    'מוצג בכפתור "הצטרף לערוץ" בתפריט DM',
     consequences: [
-      toVisualRtl('כפתור "הצטרף לערוץ" לא יופיע בתפריט DM'),
+      'כפתור "הצטרף לערוץ" לא יופיע בתפריט DM',
     ],
   },
 ]
@@ -122,17 +122,17 @@ export async function promptOptional(
   if (forceFull && (!platform || needsTelegram(platform))) {
     p.log.info(c.dim(toVisualRtl('ניתוב נושאים — רלוונטי לקבוצות פורום בלבד')))
     const topicFields: Array<[keyof OptionalVars, string]> = [
-      ['TELEGRAM_TOPIC_ID_SECURITY',      toVisualRtl('🔴 Thread ID לביטחוני')],
-      ['TELEGRAM_TOPIC_ID_NATURE',        toVisualRtl('🌍 Thread ID לאסונות טבע')],
-      ['TELEGRAM_TOPIC_ID_ENVIRONMENTAL', '☢️  Thread ID ' + toVisualRtl('לסביבתי')],
-      ['TELEGRAM_TOPIC_ID_DRILLS',        toVisualRtl('🔵 Thread ID לתרגילים')],
-      ['TELEGRAM_TOPIC_ID_GENERAL',       toVisualRtl('📢 Thread ID להודעות כלליות')],
+      ['TELEGRAM_TOPIC_ID_SECURITY',      '🔴 Thread ID לביטחוני'],
+      ['TELEGRAM_TOPIC_ID_NATURE',        '🌍 Thread ID לאסונות טבע'],
+      ['TELEGRAM_TOPIC_ID_ENVIRONMENTAL', '☢️  Thread ID לסביבתי'],
+      ['TELEGRAM_TOPIC_ID_DRILLS',        '🔵 Thread ID לתרגילים'],
+      ['TELEGRAM_TOPIC_ID_GENERAL',       '📢 Thread ID להודעות כלליות'],
     ]
     for (const [key, label] of topicFields) {
       const val = await promptOptionalField(
         undefined, label, key,
-        toVisualRtl('דלג אם אינך משתמש בקבוצת פורום'),
-        [toVisualRtl('ניתוב נושאים לא יעבוד עבור סוג זה')],
+        'דלג אם אינך משתמש בקבוצת פורום',
+        ['ניתוב נושאים לא יעבוד עבור סוג זה'],
       )
       if (val === null) return undefined
       if (val) vars[key] = val
@@ -162,7 +162,7 @@ async function promptOptionalField(
 
   for (;;) {
     const promptOpts = {
-      message: `${c.primary(label)} ${c.muted(`(${envKey})`)}\n  ${c.dim(hintText)}`,
+      message: `${c.primary(toVisualRtl(label))} ${c.muted(`(${envKey})`)}\n  ${c.dim(toVisualRtl(hintText))}`,
       placeholder: c.dim(toVisualRtl('Enter לדילוג')),
       validate: validate ? (s: string) => (s.trim() ? validate(s) : undefined) : undefined,
     }
