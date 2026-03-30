@@ -24,7 +24,8 @@ export function createListenersRouter(db: Database.Database, bot: Bot): Router {
       return;
     }
     try {
-      const result = await bot.api.raw.getForumTopics({ chat_id: chatId });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await (bot.api.raw as any).getForumTopics({ chat_id: chatId });
       const topics = (result.topics ?? []).map((t: { message_thread_id: number; name: string }) => ({
         id: t.message_thread_id,
         name: t.name,
