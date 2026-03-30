@@ -10,23 +10,93 @@ export interface SubscriberInfo {
   matchedCities: string[];
 }
 
+// In-memory subscription cache — loaded at startup, kept in sync on writes
+const cityToSubscribers = new Map<string, Set<number>>(); // cityName → Set<chatId>
+
+interface CachedSubscriberData {
+  format: NotificationFormat;
+  quiet_hours_enabled: boolean;
+  muted_until: string | null;
+}
+const subscriberData = new Map<number, CachedSubscriberData>(); // chatId → user data
+
+export function initSubscriptionCache(): void {
+  cityToSubscribers.clear();
+  subscriberData.clear();
+
+  const rows = getDb()
+    .prepare(
+      `SELECT s.chat_id, s.city_name, u.format, u.quiet_hours_enabled, u.muted_until
+       FROM subscriptions s
+       JOIN users u ON u.chat_id = s.chat_id`
+    )
+    .all() as {
+      chat_id: number;
+      city_name: string;
+      format: NotificationFormat;
+      quiet_hours_enabled: number;
+      muted_until: string | null;
+    }[];
+
+  for (const row of rows) {
+    if (!cityToSubscribers.has(row.city_name)) {
+      cityToSubscribers.set(row.city_name, new Set());
+    }
+    cityToSubscribers.get(row.city_name)!.add(row.chat_id);
+
+    if (!subscriberData.has(row.chat_id)) {
+      subscriberData.set(row.chat_id, {
+        format: row.format,
+        quiet_hours_enabled: row.quiet_hours_enabled === 1,
+        muted_until: row.muted_until ?? null,
+      });
+    }
+  }
+}
+
 export function addSubscription(chatId: number, cityName: string): void {
   upsertUser(chatId);
   getDb()
     .prepare('INSERT OR IGNORE INTO subscriptions (chat_id, city_name) VALUES (?, ?)')
     .run(chatId, cityName);
+
+  // Cache update
+  if (!cityToSubscribers.has(cityName)) {
+    cityToSubscribers.set(cityName, new Set());
+  }
+  cityToSubscribers.get(cityName)!.add(chatId);
+  if (!subscriberData.has(chatId)) {
+    // Fetch user data to populate cache entry
+    const user = getDb()
+      .prepare('SELECT format, quiet_hours_enabled, muted_until FROM users WHERE chat_id = ?')
+      .get(chatId) as { format: NotificationFormat; quiet_hours_enabled: number; muted_until: string | null } | undefined;
+    if (user) {
+      subscriberData.set(chatId, {
+        format: user.format,
+        quiet_hours_enabled: user.quiet_hours_enabled === 1,
+        muted_until: user.muted_until ?? null,
+      });
+    }
+  }
 }
 
 export function removeSubscription(chatId: number, cityName: string): void {
   getDb()
     .prepare('DELETE FROM subscriptions WHERE chat_id = ? AND city_name = ?')
     .run(chatId, cityName);
+
+  cityToSubscribers.get(cityName)?.delete(chatId);
 }
 
 export function removeAllSubscriptions(chatId: number): void {
   getDb()
     .prepare('DELETE FROM subscriptions WHERE chat_id = ?')
     .run(chatId);
+
+  for (const set of cityToSubscribers.values()) {
+    set.delete(chatId);
+  }
+  subscriberData.delete(chatId);
 }
 
 export function getUserCities(chatId: number): string[] {
@@ -36,10 +106,8 @@ export function getUserCities(chatId: number): string[] {
   return rows.map((r) => r.city_name);
 }
 
-// Returns one SubscriberInfo per subscriber with all their matched cities.
-// The raw query produces N rows per subscriber (one per matched city);
-// aggregation into matchedCities is done in application code to avoid GROUP_CONCAT + JSON parsing.
-export function getUsersForCities(cityNames: string[]): SubscriberInfo[] {
+// Private DB fallback — used when cache is not initialized
+function getUsersForCitiesDb(cityNames: string[]): SubscriberInfo[] {
   if (cityNames.length === 0) return [];
   const placeholders = cityNames.map(() => '?').join(', ');
   const rawRows = getDb()
@@ -76,6 +144,28 @@ export function getUsersForCities(cityNames: string[]): SubscriberInfo[] {
     }
   }
   return Array.from(map.values());
+}
+
+export function getUsersForCities(cityNames: string[]): SubscriberInfo[] {
+  if (cityNames.length === 0) return [];
+  // Fall back to DB if cache not initialized (e.g., zero subscribers at startup)
+  if (cityToSubscribers.size === 0) return getUsersForCitiesDb(cityNames);
+
+  const chatIds = new Set<number>();
+  for (const city of cityNames) {
+    cityToSubscribers.get(city)?.forEach((id) => chatIds.add(id));
+  }
+
+  return Array.from(chatIds).map((id) => {
+    const data = subscriberData.get(id)!;
+    return {
+      chat_id: id,
+      format: data.format,
+      quiet_hours_enabled: data.quiet_hours_enabled,
+      muted_until: data.muted_until,
+      matchedCities: cityNames.filter((c) => cityToSubscribers.get(c)?.has(id)),
+    };
+  });
 }
 
 export function isSubscribed(chatId: number, cityName: string): boolean {
