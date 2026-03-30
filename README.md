@@ -73,7 +73,7 @@
 | תכונה | פרטים |
 |--------|-------|
 | ⚡ **התראות בזמן אמת** | מתעדכן כל 2 שניות — ללא עיכוב |
-| 🗺️ **מפה לכל התראה** | הדגשת האזורים המוזהרים בצבע לפי סוג האירוע; סגנון `streets-v12` ביום (06:00–18:00) עם כבישים ונקודות ציון, `navigation-night-v1` בלילה (18:00–06:00) בניגודיות גבוהה; padding אדפטיבי לפי כמות הערים; fallback לסמני מיקום כשאין נתוני polygon |
+| 🗺️ **מפה לכל התראה** | הדגשת האזורים המוזהרים בצבע לפי סוג האירוע; סגנון `streets-v12` ביום (06:00–18:00) עם כבישים ונקודות ציון, `navigation-night-v1` בלילה (18:00–06:00) בניגודיות גבוהה; padding אדפטיבי לפי כמות הערים; איחוד פוליגונים חופפים להתראות רב-עיר (50+ ערים כגון כל מרכז הארץ מוצגות כאזורים ממולאים ולא כ-pin markers); fallback לסמני מיקום כשאין נתוני polygon |
 | 📢 **5 קטגוריות נושא** | ביטחוני, טבע, סביבתי, תרגילים, כללי — ניתוב לערוץ המתאים |
 | 📋 **הודעה מפורטת** | ספירת ערים כוללת בכותרת, ערים ממוינות אלפבתית לפי אזור, שעת ההתראה המדויקת |
 | ✏️ **עדכון הודעה חי** | התראות מאותו סוג עורכות את ההודעה הקיימת בערוץ (ברירת מחדל: 120 שניות) — אין הצפה של הודעות חדשות |
@@ -485,7 +485,7 @@ src/
 ├── healthServer.ts             # GET /health — uptime, lastAlertAt, lastPollAt, alertsToday
 ├── metrics.ts                  # מצב גלובלי: lastAlertAt, lastPollAt
 ├── telegramBot.ts              # עיצוב הודעות + sendAlert + editAlert
-├── mapService.ts               # Mapbox: יצירת מפה (צבע לפי סוג) + cache + fallback
+├── mapService.ts               # Mapbox: יצירת מפה (צבע לפי סוג) + cache; שרשרת fallback: simplified polygons → aggressively simplified → union-merged blobs → pin markers → bbox → no image
 ├── cityLookup.ts               # נתוני ערים + פוליגונים + חיפוש
 ├── topicRouter.ts              # ניתוב סוג התראה → נושא טלגרם + ALERT_TYPE_CATEGORY
 ├── types.ts                    # TypeScript interfaces
