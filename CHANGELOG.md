@@ -24,6 +24,24 @@
 <!-- העתק את המקטע הזה כשפותחים ענף גרסה חדשה -->
 ## [Unreleased]
 
+<div dir="rtl">
+
+### ✨ תכונות חדשות
+
+- **GitHub Sponsors** — `.github/FUNDING.yml` חדש; מאפשר כפתור "Sponsor" בעמוד הריפו; badge ❤️ Sponsor נוסף לשורת הbadges ב-README וסקשן תמיכה ייעודי
+- **דף נחיתה — סקשן "מה חדש?"** — `landing/build.js` מחלץ אוטומטית את 5 השינויים האחרונים מ-`CHANGELOG.md` ומזריק אותם לדף הנחיתה; מתעדכן בכל build ללא עדכון ידני
+- **דף נחיתה — כפתור Sponsor** — כפתור "❤️ תמוך בפרויקט" בפוטר דף הנחיתה מקשר ל-GitHub Sponsors
+- **דף נחיתה — סטטיסטיקות מ-README** — `landing/build.js` מחלץ נתוני מפתח (ערים, אזורים, קטגוריות) מטבלת `## 📊 עובדות` ב-README; עדכון README מספיק לעדכן גם את דף הנחיתה
+- **ROADMAP.md** — מסמך מפת דרכים חדש: כללי ניהול גרסאות (SemVer, שני מסלולי תיוג, checklist), מיילסטונים שהושלמו v0.1–v0.3, placeholder לגרסאות עתידיות
+
+### 🔧 תחזוקה
+
+- **README** — badge גרסה, Sponsors badge, סקשן `## 📊 עובדות`, עדכון טבלת sync של דף הנחיתה
+- **`landing/template/index.html`** — סקשן "מה חדש?", כפתור Sponsor בפוטר, `data-target` לאזורים/קטגוריות/ערים עובר מ-hardcode לplaceholders
+- **`landing/template/style.css`** — styles ל-`.whats-new`, `.changelog-list`, `.sponsor-btn`
+
+</div>
+
 ---
 
 ## [0.3.1] — 2026-03-30
