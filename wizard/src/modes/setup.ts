@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import * as p from '@clack/prompts'
 import { c, msg, printProgressBar, printCompletionCard, type CompletionSummary } from '../ui/theme.js'
-import { writeEnvFile } from '../env.js'
+import { writeFullEnvFile } from '../env.js'
 import { promptRequired } from '../steps/required.js'
 import { promptOptional } from '../steps/optional.js'
 import { promptDeploymentMode, printDockerInstructions, printNodeInstructions, runNodeSetup, resolveTargetPath } from '../steps/deployment.js'
@@ -46,7 +46,7 @@ export async function runSetup(flags: Flags): Promise<void> {
     ...(optional.TELEGRAM_TOPIC_ID_GENERAL       ? { TELEGRAM_TOPIC_ID_GENERAL:       optional.TELEGRAM_TOPIC_ID_GENERAL }       : {}),
   }
 
-  writeEnvFile(outputPath, vars)
+  writeFullEnvFile(outputPath, vars)
 
   // For node mode, the .env's final resting place is inside the cloned repo,
   // not CWD. Compute that path now so the completion card shows the right location.

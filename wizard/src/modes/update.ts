@@ -2,7 +2,7 @@ import path from 'node:path'
 import * as p from '@clack/prompts'
 import { c, msg, printSectionCard } from '../ui/theme.js'
 import { toVisualRtl } from '../ui/rtl.js'
-import { readEnvFile, writeEnvFile, mergeEnvVars, maskValue } from '../env.js'
+import { readEnvFile, writeFullEnvFile, mergeEnvVars, maskValue } from '../env.js'
 import { validateToken, validateChatId, validateMapboxToken, validateUrl } from '../validation.js'
 import type { Flags } from '../args.js'
 
@@ -73,6 +73,6 @@ export async function runUpdate(flags: Flags): Promise<void> {
   }
 
   const merged = mergeEnvVars(existing, updates)
-  writeEnvFile(outputPath, merged)
+  writeFullEnvFile(outputPath, merged)
   p.outro(msg.envUpdated(outputPath))
 }
