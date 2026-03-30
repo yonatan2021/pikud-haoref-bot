@@ -26,6 +26,14 @@ export type SendMediaFn = (
   threadId?: number
 ) => Promise<void>;
 
+function getWhatsAppDefaultTopicId(): number | undefined {
+  const raw = process.env['TELEGRAM_TOPIC_ID_WHATSAPP'];
+  if (!raw) return undefined;
+  const parsed = parseInt(raw, 10);
+  if (isNaN(parsed) || parsed === 1) return undefined;
+  return parsed;
+}
+
 function escapeHtml(text: string): string {
   return text
     .replace(/&/g, '&amp;')
@@ -77,7 +85,7 @@ export function createMessageHandler(
         const headerLine = `📲 <b>${escapeHtml(listener.channelName)}</b>\n🕐 ${timeStr}`;
         const bodyLine = truncatedBody ? `\n\n${escapeHtml(truncatedBody)}` : '';
         const caption = `${headerLine}${bodyLine}`;
-        const topicId = listener.telegramTopicId ?? undefined;
+        const topicId = listener.telegramTopicId ?? getWhatsAppDefaultTopicId() ?? undefined;
 
         // Attempt media forward first
         if (msg.hasMedia && sendMediaFn) {
