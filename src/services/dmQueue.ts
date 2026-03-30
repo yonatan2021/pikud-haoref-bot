@@ -121,9 +121,9 @@ export function extractRetryAfter(err: unknown): number | null {
     if (typeof params?.retry_after === 'number') return Math.min(params.retry_after, MAX_PAUSE_SECONDS);
   }
   if (err instanceof Error) {
-    const m = err.message.match(/retry after (\d+)/i);
+    const m = err.message.match(/retry after ([\d.]+)/i);
     if (m) {
-      const parsed = parseInt(m[1], 10);
+      const parsed = parseFloat(m[1]);
       if (parsed > MAX_PAUSE_SECONDS) log('warn', 'DM', `retryAfter=${parsed}ש חורג מהמקסימום — מגביל ל-${MAX_PAUSE_SECONDS}ש`);
       return Math.min(parsed, MAX_PAUSE_SECONDS);
     }
@@ -137,8 +137,8 @@ export function extractRetryAfter(err: unknown): number | null {
 export function validateChatId(chatId: string): number | null {
   const intParsed = parseInt(chatId, 10);
   if (!isNaN(intParsed)) return intParsed;
-  const floatParsed = Math.trunc(parseFloat(chatId));
-  if (!isNaN(floatParsed)) return floatParsed;
+  const floatParsed = parseFloat(chatId);
+  if (!isNaN(floatParsed) && isFinite(floatParsed)) return Math.trunc(floatParsed);
   return null;
 }
 

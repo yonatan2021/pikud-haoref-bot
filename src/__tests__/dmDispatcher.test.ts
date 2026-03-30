@@ -432,6 +432,21 @@ describe('notifySubscribers', () => {
     assert.equal(captured.length, 0, 'drill alert must be skipped for muted subscriber');
   });
 
+  it('snooze: subscriber with muted_until in the future is skipped when injected now is before muted_until', () => {
+    const CHAT_SNOOZED = 777010;
+    upsertUser(CHAT_SNOOZED);
+    addSubscription(CHAT_SNOOZED, TEST_CITY);
+    // muted_until = T (some fixed future timestamp)
+    const mutedUntil = new Date('2030-01-01T12:00:00.000Z');
+    setMutedUntil(CHAT_SNOOZED, mutedUntil);
+    // now = before mutedUntil → subscriber should be skipped
+    const nowBeforeMute = new Date('2030-01-01T11:00:00.000Z');
+    const captured: DmTask[] = [];
+    const alert: Alert = { type: 'missilesDrill', cities: [TEST_CITY] };
+    notifySubscribers(alert, (tasks) => captured.push(...tasks), nowBeforeMute);
+    assert.equal(captured.length, 0, 'subscriber must be skipped when injected now is before muted_until');
+  });
+
   it('sends only matched cities to each subscriber', () => {
     upsertUser(CHAT_A);
     addSubscription(CHAT_A, TEST_CITY); // subscribed to only one city

@@ -166,7 +166,7 @@ export function notifySubscribers(
     const category = ALERT_TYPE_CATEGORY[alert.type] ?? 'general';
     const muteApplies = category === 'drills' || category === 'general';
     const afterMute = muteApplies
-      ? afterQuietHours.filter(({ chat_id }) => !isMuted(chat_id))
+      ? afterQuietHours.filter(({ chat_id }) => !isMuted(chat_id, now))
       : afterQuietHours;
 
     const tasks = afterMute.map(({ chat_id, matchedCities }) => {

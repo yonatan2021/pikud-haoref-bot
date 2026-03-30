@@ -236,4 +236,12 @@ describe('validateChatId', () => {
   it('returns null for empty string', () => {
     assert.equal(validateChatId(''), null);
   });
+
+  it('returns null for "Infinity"', () => {
+    assert.equal(validateChatId('Infinity'), null);
+  });
+
+  it('returns null for "-Infinity"', () => {
+    assert.equal(validateChatId('-Infinity'), null);
+  });
 });
