@@ -7,6 +7,7 @@ import { Alert, CityEntry } from './types';
 import { getCityData, getCityById, buildGeoJSON, expandGeoJSONBounds } from './cityLookup';
 import { isMonthlyLimitReached, incrementMonthlyCount } from './db/mapboxUsageRepository.js';
 import { loadCacheEntries, saveCacheEntry, deleteCacheEntry, pruneCacheEntries } from './db/mapboxCacheRepository.js';
+import { log } from './logger.js';
 
 const MAPBOX_URL_MAX_LENGTH = 8000;
 export const SIMPLIFY_TOLERANCE = 0.0003;
@@ -162,12 +163,12 @@ export async function generateMapImage(alert: Alert): Promise<Buffer | null> {
     const cacheKey = buildCacheKey(alert);
     const cached = imageCache.get(cacheKey);
     if (cached) {
-      console.log('[MapService] Cache hit — skipping Mapbox request');
+      log('info', 'MapService', 'Cache hit — skipping Mapbox request');
       return cached.buffer;
     }
 
     if (isMonthlyLimitReached()) {
-      console.warn('[MapService] Monthly Mapbox limit reached — sending without map');
+      log('warn', 'MapService', 'Monthly Mapbox limit reached — sending without map');
       return null;
     }
 
@@ -176,14 +177,14 @@ export async function generateMapImage(alert: Alert): Promise<Buffer | null> {
     for (const cityName of alert.cities) {
       const cityData = getCityData(cityName);
       if (!cityData) {
-        console.warn(`[MapService] City not found: ${cityName}`);
+        log('warn', 'MapService', `City not found: ${cityName}`);
         continue;
       }
       cityIds.push(cityData.id);
     }
 
     if (cityIds.length === 0) {
-      console.warn('[MapService] No polygons — sending without map');
+      log('warn', 'MapService', 'No polygons — sending without map');
       return null;
     }
 
@@ -191,7 +192,7 @@ export async function generateMapImage(alert: Alert): Promise<Buffer | null> {
     const rawGeojson = buildGeoJSON(cityIds, color);
 
     if (rawGeojson.features.length === 0) {
-      console.warn('[MapService] No polygons in data files — sending without map');
+      log('warn', 'MapService', 'No polygons in data files — sending without map');
       return null;
     }
 
@@ -204,26 +205,26 @@ export async function generateMapImage(alert: Alert): Promise<Buffer | null> {
 
     // ניסיון 2: פוליגונים עם פישוט אגרסיבי יותר
     if (url.length > MAPBOX_URL_MAX_LENGTH) {
-      console.warn('[MapService] URL too long — trying aggressive simplification');
+      log('warn', 'MapService', 'URL too long — trying aggressive simplification');
       url = buildMapboxUrl(simplifyFeatureCollection(geojson, SIMPLIFY_TOLERANCE_AGGRESSIVE));
     }
 
     // ניסיון 3: סמני מרכז עיר (pin markers) — קומפקטי בהרבה מפוליגונים
     if (url.length > MAPBOX_URL_MAX_LENGTH) {
-      console.warn('[MapService] URL still too long — falling back to city markers');
+      log('warn', 'MapService', 'URL still too long — falling back to city markers');
       const markersUrl = _buildMarkersUrl(cityIds, alert.type);
       if (markersUrl) url = markersUrl;
     }
 
     // ניסיון 4: bounding box
     if (url.length > MAPBOX_URL_MAX_LENGTH) {
-      console.warn('[MapService] URL still too long — falling back to bounding box');
+      log('warn', 'MapService', 'URL still too long — falling back to bounding box');
       url = buildMapboxUrl(buildBboxFeatureCollection(geojson, color));
     }
 
     // ניסיון 5: אין תמונה
     if (url.length > MAPBOX_URL_MAX_LENGTH) {
-      console.warn('[MapService] URL still too long — sending without map');
+      log('warn', 'MapService', 'URL still too long — sending without map');
       return null;
     }
 
@@ -249,14 +250,14 @@ export async function generateMapImage(alert: Alert): Promise<Buffer | null> {
     try {
       const currentMonth = new Date().toISOString().slice(0, 7);
       const newCount = incrementMonthlyCount(currentMonth);
-      console.log(`[MapService] Mapbox request #${newCount} for ${currentMonth}`);
+      log('info', 'MapService', `Mapbox request #${newCount} for ${currentMonth}`);
     } catch (countErr) {
-      console.error('[MapService] Mapbox counter update failed — possible desync:', countErr);
+      log('error', 'MapService', `Mapbox counter update failed — possible desync: ${String(countErr)}`);
     }
 
     return buffer;
   } catch (err) {
-    console.error('[MapService] Error generating map image:', err);
+    log('error', 'MapService', `Error generating map image: ${String(err)}`);
     return null;
   }
 }

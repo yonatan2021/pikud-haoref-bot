@@ -128,23 +128,29 @@ describe('handleNewAlert', () => {
       assert.deepEqual(new Set(mergedAlert.cities), new Set(['תל אביב', 'חיפה']));
     });
 
-    it('passes MERGED alert (not original) to notifySubscribers', async () => {
+    it('on edit path: notifySubscribers receives only NEW cities (not already-sent ones)', async () => {
       const active = makeTracked({ alert: { type: 'missiles', cities: ['תל אביב'] } });
       const deps = makeDeps({ getActiveMessage: mock.fn(() => active) });
-      await handleNewAlert({ type: 'missiles', cities: ['חיפה'] }, deps);
+      // Incoming alert has ONE new city ('חיפה') plus the already-sent city ('תל אביב')
+      await handleNewAlert({ type: 'missiles', cities: ['תל אביב', 'חיפה'] }, deps);
 
       const notifyCalls = (deps.notifySubscribers as unknown as ReturnType<typeof mock.fn>).mock.calls;
-      assert.equal(notifyCalls.length, 1);
+      assert.equal(notifyCalls.length, 1, 'notifySubscribers must be called once');
       const notifiedAlert = notifyCalls[0].arguments[0] as Alert;
-      // Must include BOTH old and new cities — not just the incoming alert's cities
-      assert.ok(
-        notifiedAlert.cities.includes('תל אביב'),
-        'merged alert must include pre-existing city'
-      );
-      assert.ok(
-        notifiedAlert.cities.includes('חיפה'),
-        'merged alert must include new city'
-      );
+      // Only the NEW city should be in the DM
+      assert.ok(notifiedAlert.cities.includes('חיפה'), 'new city must be included');
+      assert.ok(!notifiedAlert.cities.includes('תל אביב'), 'already-notified city must NOT be re-sent');
+    });
+
+    it('on edit path: notifySubscribers is NOT called when no new cities added', async () => {
+      // Active message already has the same cities as the incoming alert
+      const active = makeTracked({ alert: { type: 'missiles', cities: ['תל אביב'] } });
+      const deps = makeDeps({ getActiveMessage: mock.fn(() => active) });
+      // Incoming alert has the same city — no new cities
+      await handleNewAlert({ type: 'missiles', cities: ['תל אביב'] }, deps);
+
+      const notifyCalls = (deps.notifySubscribers as unknown as ReturnType<typeof mock.fn>).mock.calls;
+      assert.equal(notifyCalls.length, 0, 'must not notify when there are no new cities');
     });
 
     it('tracks updated message after successful edit', async () => {
@@ -190,18 +196,19 @@ describe('handleNewAlert', () => {
       assert.equal(sendCall.arguments[2], 3);
     });
 
-    it('passes MERGED alert to notifySubscribers even when edit falls back to sendAlert', async () => {
+    it('on edit-fallback-to-send path: notifySubscribers receives only new cities', async () => {
       const active = makeTracked({ alert: { type: 'missiles', cities: ['תל אביב'] } });
       const deps = makeDeps({
         getActiveMessage: mock.fn(() => active),
         editAlert: mock.fn(async () => { throw new Error('Network error'); }),
       });
-      await handleNewAlert({ type: 'missiles', cities: ['חיפה'] }, deps);
+      await handleNewAlert({ type: 'missiles', cities: ['תל אביב', 'חיפה'] }, deps);
 
       const notifyCalls = (deps.notifySubscribers as unknown as unknown as ReturnType<typeof mock.fn>).mock.calls;
+      assert.equal(notifyCalls.length, 1);
       const notifiedAlert = notifyCalls[0].arguments[0] as Alert;
-      assert.ok(notifiedAlert.cities.includes('תל אביב'), 'must include pre-existing city');
-      assert.ok(notifiedAlert.cities.includes('חיפה'), 'must include new city');
+      assert.ok(notifiedAlert.cities.includes('חיפה'), 'new city must be in DM');
+      assert.ok(!notifiedAlert.cities.includes('תל אביב'), 'pre-existing city must NOT be re-sent');
     });
 
     it('does NOT call insertAlertHistory on edit', async () => {

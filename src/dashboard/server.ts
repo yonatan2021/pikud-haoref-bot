@@ -13,8 +13,9 @@ export function startDashboardServer(db: Database.Database, bot: Bot, port: numb
   const app = express();
   app.use(express.json());
   app.use(cookieParser());
+  app.set('trust proxy', 1); // trust one hop (nginx reverse proxy per deployment.md)
 
-  const { authMiddleware, loginHandler, logoutHandler } = createSessionStore(secret);
+  const { authMiddleware, loginHandler, logoutHandler } = createSessionStore(db, secret);
   app.post('/auth/login', loginHandler);
   app.post('/auth/logout', logoutHandler);
   app.use('/api', authMiddleware, createApiRouter(db, bot));
@@ -22,5 +23,5 @@ export function startDashboardServer(db: Database.Database, bot: Bot, port: numb
   app.use(express.static(UI_DIST));
   app.get('*path', (_req, res) => res.sendFile(path.join(UI_DIST, 'index.html')));
 
-  app.listen(port, () => log('success', 'Dashboard', `מאזין על פורט :${port}`));
+  app.listen(port, () => log('info', 'Init', `Dashboard listening on port ${port}`));
 }

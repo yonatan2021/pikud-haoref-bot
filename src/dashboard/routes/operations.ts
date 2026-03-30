@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type Database from 'better-sqlite3';
 import type { Bot } from 'grammy';
 import { getQueueStats } from '../../services/dmQueue.js';
+import { log } from '../../logger.js';
 
 export function createOperationsRouter(db: Database.Database, bot: Bot): Router {
   const router = Router();
@@ -48,7 +49,7 @@ export function createOperationsRouter(db: Database.Database, bot: Bot): Router 
         try { await bot.api.sendMessage(chatId, text, { parse_mode: 'HTML' }); sent++; }
         catch { failed++; }
       }
-      console.warn(`[dashboard] broadcast complete: ${sent} sent, ${failed} failed of ${targets.length}`);
+      log('info', 'Dashboard', `Broadcast complete: ${sent} sent, ${failed} failed of ${targets.length}`);
     })();
   });
 
@@ -59,7 +60,7 @@ export function createOperationsRouter(db: Database.Database, bot: Bot): Router 
       await bot.api.sendMessage(chatId, `🧪 <b>בדיקה</b>\n\n${text}`, { parse_mode: 'HTML' });
       res.json({ ok: true });
     } catch (err) {
-      console.error('[dashboard] test-alert failed:', err);
+      log('error', 'Dashboard', `Test-alert failed: ${String(err)}`);
       res.status(500).json({ error: 'שליחת ההודעה נכשלה' });
     }
   });

@@ -1,5 +1,6 @@
 import { getDb } from './schema.js';
 import type { TrackedMessage } from '../alertWindowTracker.js';
+import { log } from '../logger.js';
 
 interface RawWindowRow {
   alert_type: string;
@@ -38,7 +39,7 @@ export function loadAllWindows(): Array<{ alertType: string; msg: TrackedMessage
     .map((r) => {
       try {
         if (typeof r.sent_at !== 'number') {
-          console.error(`[AlertWindow] Corrupt sent_at for alert_type=${r.alert_type} — skipping`);
+          log('error', 'AlertWindow', `Corrupt sent_at for alert_type=${r.alert_type} — skipping`);
           return null;
         }
         return {
@@ -53,7 +54,7 @@ export function loadAllWindows(): Array<{ alertType: string; msg: TrackedMessage
           },
         };
       } catch (err) {
-        console.error(`[AlertWindow] Corrupt row for alert_type=${r.alert_type} — skipping:`, err);
+        log('error', 'AlertWindow', `Corrupt row for alert_type=${r.alert_type} — skipping: ${String(err)}`);
         return null;
       }
     })

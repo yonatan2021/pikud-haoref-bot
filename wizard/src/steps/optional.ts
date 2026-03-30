@@ -2,6 +2,7 @@ import * as p from '@clack/prompts'
 import { c, stepBadge } from '../ui/theme.js'
 import { validateUrl } from '../validation.js'
 import type { Flags } from '../args.js'
+import { type Platform, needsTelegram } from './platform.js'
 
 export interface OptionalVars {
   DASHBOARD_SECRET?:                string
@@ -21,6 +22,7 @@ export interface OptionalVars {
 export async function promptOptional(
   flags: Flags,
   forceFull: boolean,
+  platform?: Platform,
 ): Promise<OptionalVars | undefined> {
   const vars: OptionalVars = {}
 
@@ -75,8 +77,8 @@ export async function promptOptional(
   if (inviteLink === null) return undefined
   if (inviteLink) vars.TELEGRAM_INVITE_LINK = inviteLink
 
-  // Forum topic IDs (only when --full flag)
-  if (forceFull) {
+  // Forum topic IDs (only when --full flag AND platform includes Telegram)
+  if (forceFull && (!platform || needsTelegram(platform))) {
     p.log.info(c.dim('ניתוב נושאים — רלוונטי לקבוצות פורום בלבד'))
     const topicFields: Array<[keyof OptionalVars, string]> = [
       ['TELEGRAM_TOPIC_ID_SECURITY',      '🔴 Thread ID לביטחוני'],

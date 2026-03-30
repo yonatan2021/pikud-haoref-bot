@@ -1,7 +1,7 @@
 import { describe, it, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Alert } from '../types';
-import { buildShortMessage, buildNewsFlashDmMessage, buildDmText, shouldSkipForQuietHours, notifySubscribers } from '../services/dmDispatcher';
+import { buildShortMessage, buildAlertDmMessage, buildNewsFlashDmMessage, buildDmText, shouldSkipForQuietHours, notifySubscribers } from '../services/dmDispatcher';
 import type { DmTask } from '../services/dmQueue';
 
 // Use in-memory DB for all notifySubscribers integration tests
@@ -67,6 +67,68 @@ describe('buildShortMessage — countdown suffix', () => {
   });
 });
 
+describe('buildAlertDmMessage', () => {
+  it('title line includes "באזורך" for non-empty city list', () => {
+    const alert: Alert = { type: 'missiles', cities: ['תל אביב', 'רמת גן'] };
+    const msg = buildAlertDmMessage(alert);
+    assert.ok(msg.includes('באזורך'));
+    assert.ok(msg.startsWith('🔴'));
+  });
+
+  it('shows 📍 line with city names', () => {
+    const alert: Alert = { type: 'missiles', cities: ['תל אביב', 'רמת גן'] };
+    const msg = buildAlertDmMessage(alert);
+    assert.ok(msg.includes('📍'));
+    assert.ok(msg.includes('תל אביב'));
+    assert.ok(msg.includes('רמת גן'));
+  });
+
+  it('countdown line uses full "שניות" word (not "שנ׳") for city with countdown > 0', () => {
+    // אבו גוש has countdown > 0 in cities.json
+    const alert: Alert = { type: 'missiles', cities: ['אבו גוש'] };
+    const msg = buildAlertDmMessage(alert);
+    assert.ok(msg.includes('⏱'), 'expected ⏱ indicator');
+    assert.ok(msg.includes('שניות'), 'expected full "שניות" word');
+    assert.ok(!msg.includes("שנ׳"), 'must NOT use abbreviated "שנ׳"');
+    assert.ok(msg.includes('להיכנס למרחב מוגן'), 'expected action text');
+  });
+
+  it('omits countdown line when countdown = 0 and no instructions', () => {
+    const alert: Alert = { type: 'missiles', cities: ['עיר_לא_קיימת_בכלל'] };
+    const msg = buildAlertDmMessage(alert);
+    assert.ok(!msg.includes('⏱'), 'no countdown for unknown city');
+    assert.ok(!msg.includes('להיכנס'), 'no action text without countdown');
+  });
+
+  it('shows instructions when countdown = 0 and instructions present', () => {
+    const alert: Alert = { type: 'earthQuake', cities: ['עיר_לא_קיימת_בכלל'], instructions: 'נסו לצאת לשטח פתוח' };
+    const msg = buildAlertDmMessage(alert);
+    assert.ok(msg.includes('נסו לצאת לשטח פתוח'));
+    assert.ok(!msg.includes('⏱'));
+  });
+
+  it('adds "(תרגיל)" suffix to countdown line for drill types', () => {
+    const alert: Alert = { type: 'missilesDrill', cities: ['אבו גוש'] };
+    const msg = buildAlertDmMessage(alert);
+    assert.ok(msg.includes('(תרגיל)'), 'drill marker must appear');
+    assert.ok(msg.includes('⏱'));
+  });
+
+  it('shows "ברחבי הארץ" and no "באזורך" for nationwide alert (empty cities)', () => {
+    const alert: Alert = { type: 'missiles', cities: [] };
+    const msg = buildAlertDmMessage(alert);
+    assert.ok(msg.includes('ברחבי הארץ'));
+    assert.ok(!msg.includes('באזורך'));
+  });
+
+  it('shows overflow count when more than 10 cities', () => {
+    const cities = Array.from({ length: 15 }, (_, i) => `עיר ${i + 1}`);
+    const alert: Alert = { type: 'missiles', cities };
+    const msg = buildAlertDmMessage(alert);
+    assert.ok(msg.includes('ועוד 5'));
+  });
+});
+
 describe('buildNewsFlashDmMessage', () => {
   it('shows zone names instead of city names', () => {
     const alert: Alert = {
@@ -111,17 +173,20 @@ describe('buildNewsFlashDmMessage', () => {
     };
     const msg = buildNewsFlashDmMessage(alert);
     const lines = msg.split('\n');
-    assert.equal(lines.length, 2, 'should have exactly two lines when instructions present');
-    assert.ok(lines[1] === 'ניתן לצאת מהמרחבים המוגנים', 'second line should be the instructions');
+    // New format: line 1=headline, line 2=📍 location, line 3=instructions
+    assert.equal(lines.length, 3, 'should have three lines: headline, location, instructions');
+    assert.equal(lines[2], 'ניתן לצאת מהמרחבים המוגנים', 'third line should be the instructions');
   });
 
-  it('produces a single line when no instructions', () => {
+  it('produces two lines when has cities but no instructions', () => {
     const alert: Alert = {
       type: 'newsFlash',
       cities: ['אבו גוש'],
     };
     const msg = buildNewsFlashDmMessage(alert);
-    assert.equal(msg.split('\n').length, 1, 'should be a single line when no instructions');
+    // New format: headline + 📍 location = 2 lines
+    assert.equal(msg.split('\n').length, 2, 'should have two lines: headline and location');
+    assert.ok(msg.split('\n')[1].startsWith('📍'), 'second line must start with 📍');
   });
 
   it('handles empty city list gracefully', () => {
@@ -138,6 +203,70 @@ describe('buildNewsFlashDmMessage', () => {
     };
     const msg = buildNewsFlashDmMessage(alert);
     assert.ok(msg.includes('עיר_לא_קיימת_בכלל'), 'should fall back to city name');
+  });
+});
+
+describe('buildNewsFlashDmMessage — preliminary alert detection', () => {
+  it('regular newsFlash uses 📢 emoji and plain title', () => {
+    const alert: Alert = { type: 'newsFlash', cities: ['אבו גוש'], instructions: 'האירוע הסתיים' };
+    const msg = buildNewsFlashDmMessage(alert);
+    assert.ok(msg.split('\n')[0].startsWith('📢'));
+    assert.ok(!msg.split('\n')[0].includes('מקדימה'));
+  });
+
+  it('detects preliminary alert by "בדקות הקרובות" keyword — uses ⚠️ and "באזורך"', () => {
+    const alert: Alert = {
+      type: 'newsFlash',
+      cities: ['אבו גוש'],
+      instructions: 'בדקות הקרובות צפויות להתקבל התראות באזורך',
+    };
+    const msg = buildNewsFlashDmMessage(alert);
+    const firstLine = msg.split('\n')[0];
+    assert.ok(firstLine.startsWith('⚠️'), `expected ⚠️ but got: ${firstLine}`);
+    assert.ok(firstLine.includes('באזורך'));
+    assert.ok(firstLine.includes('התראה מקדימה'));
+  });
+
+  it('detects preliminary by "צפויות להתקבל" keyword', () => {
+    const alert: Alert = {
+      type: 'newsFlash',
+      cities: ['אבו גוש'],
+      instructions: 'צפויות להתקבל התראות בשעות הקרובות',
+    };
+    const msg = buildNewsFlashDmMessage(alert);
+    assert.ok(msg.startsWith('⚠️'));
+  });
+
+  it('detects preliminary by "התראה מקדימה" keyword', () => {
+    const alert: Alert = {
+      type: 'newsFlash',
+      cities: ['אבו גוש'],
+      instructions: 'התראה מקדימה לאזורכם',
+    };
+    const msg = buildNewsFlashDmMessage(alert);
+    assert.ok(msg.startsWith('⚠️'));
+  });
+
+  it('preliminary alert passes instructions as-is on third line', () => {
+    const instructions = 'בדקות הקרובות צפויות להתקבל התראות באזורך';
+    const alert: Alert = { type: 'newsFlash', cities: ['אבו גוש'], instructions };
+    const msg = buildNewsFlashDmMessage(alert);
+    const lines = msg.split('\n');
+    assert.equal(lines[2], instructions, 'instructions must appear verbatim on line 3');
+  });
+});
+
+describe('buildDmText — unified format (no short/detailed distinction)', () => {
+  it('missiles: short and detailed produce identical output', () => {
+    const alert: Alert = { type: 'missiles', cities: ['אבו גוש'] };
+    assert.equal(buildDmText(alert, 'short'), buildDmText(alert, 'detailed'));
+  });
+
+  it('missiles: output uses new personal format with "באזורך"', () => {
+    const alert: Alert = { type: 'missiles', cities: ['אבו גוש'] };
+    const msg = buildDmText(alert, 'short');
+    assert.ok(msg.includes('באזורך'));
+    assert.ok(msg.includes('📍'));
   });
 });
 

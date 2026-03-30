@@ -12,14 +12,17 @@ interface FieldDef {
   secret?: boolean
 }
 
-const FIELDS: FieldDef[] = [
-  { key: 'TELEGRAM_BOT_TOKEN',   label: 'טוקן הבוט',          validate: validateToken,       secret: true },
-  { key: 'TELEGRAM_CHAT_ID',     label: 'מזהה הערוץ/קבוצה',   validate: validateChatId },
-  { key: 'MAPBOX_ACCESS_TOKEN',  label: 'טוקן Mapbox',         validate: validateMapboxToken, secret: true },
-  { key: 'DASHBOARD_SECRET',     label: 'סיסמת לוח הבקרה',    secret: true },
-  { key: 'PROXY_URL',            label: 'כתובת Proxy',          validate: validateUrl },
-  { key: 'TELEGRAM_INVITE_LINK', label: 'קישור הזמנה לערוץ' },
-]
+export function buildUpdateFields(): FieldDef[] {
+  return [
+    { key: 'TELEGRAM_BOT_TOKEN',   label: 'טוקן הבוט',          validate: validateToken,       secret: true },
+    { key: 'TELEGRAM_CHAT_ID',     label: 'מזהה הערוץ/קבוצה',   validate: validateChatId },
+    { key: 'MAPBOX_ACCESS_TOKEN',  label: 'טוקן Mapbox',         validate: validateMapboxToken, secret: true },
+    { key: 'DASHBOARD_SECRET',     label: 'סיסמת לוח הבקרה',    secret: true },
+    { key: 'PROXY_URL',            label: 'כתובת Proxy',          validate: validateUrl },
+    { key: 'TELEGRAM_INVITE_LINK', label: 'קישור הזמנה לערוץ' },
+    { key: 'WHATSAPP_ENABLED',     label: 'WhatsApp מופעל (true / false)', validate: (s) => /^(true|false)$/.test(s.trim()) ? undefined : 'יש להזין "true" או "false" בלבד (אותיות קטנות)' },
+  ]
+}
 
 /** Update mode: read .env, show multiselect of fields, re-prompt only selected, merge and write. */
 export async function runUpdate(flags: Flags): Promise<void> {
@@ -30,7 +33,8 @@ export async function runUpdate(flags: Flags): Promise<void> {
   p.log.info(`${c.dim('קובץ:')} ${c.primary(outputPath)}`)
 
   // Build multiselect options — show masked current values
-  const options = FIELDS.map((f) => {
+  const fields = buildUpdateFields()
+  const options = fields.map((f) => {
     const current = existing[f.key]
     const currentLabel = current ? c.dim(`  ← ${maskValue(current)}`) : c.dim('  ← לא מוגדר')
     return {
@@ -52,7 +56,7 @@ export async function runUpdate(flags: Flags): Promise<void> {
   // Re-prompt only selected fields
   const updates: Record<string, string> = {}
   for (const key of selected) {
-    const field = FIELDS.find((f) => f.key === key)!
+    const field = fields.find((f) => f.key === key)!
     const value = field.secret
       ? await p.password({ message: c.primary(field.label), validate: field.validate })
       : await p.text({    message: c.primary(field.label), validate: field.validate })

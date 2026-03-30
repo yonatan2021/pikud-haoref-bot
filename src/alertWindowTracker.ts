@@ -1,5 +1,6 @@
 import { Alert } from './types';
 import { upsertWindow, deleteWindow, clearAllWindows, loadAllWindows } from './db/alertWindowRepository.js';
+import { log } from './logger.js';
 
 export interface TrackedMessage {
   messageId: number;
@@ -27,7 +28,7 @@ export function getActiveMessage(alertType: string): TrackedMessage | null {
     try {
       deleteWindow(alertType);
     } catch (err) {
-      console.error(`[AlertWindow] Failed to delete expired window for type=${alertType}:`, err);
+      log('error', 'AlertWindow', `Failed to delete expired window for type=${alertType}: ${String(err)}`);
     }
     activeMessages.delete(alertType);
     return null;
@@ -42,7 +43,7 @@ export function trackMessage(alertType: string, msg: TrackedMessage): void {
   try {
     upsertWindow(alertType, msg);
   } catch (err) {
-    console.error(`[AlertWindow] Failed to persist window for type=${alertType} — restart within window may cause duplicate channel message:`, err);
+    log('error', 'AlertWindow', `Failed to persist window for type=${alertType} — restart within window may cause duplicate channel message: ${String(err)}`);
   }
 }
 
@@ -51,7 +52,7 @@ export function clearAll(): void {
   try {
     clearAllWindows();
   } catch (err) {
-    console.error('[AlertWindow] Failed to clear all windows from DB:', err);
+    log('error', 'AlertWindow', `Failed to clear all windows from DB: ${String(err)}`);
   }
 }
 
@@ -66,7 +67,7 @@ export function loadActiveMessages(): void {
   try {
     windows = loadAllWindows();
   } catch (err) {
-    console.error('[AlertWindow] Failed to load windows from DB — starting with empty state:', err);
+    log('error', 'AlertWindow', `Failed to load windows from DB — starting with empty state: ${String(err)}`);
     return;
   }
   const now = Date.now();
@@ -79,9 +80,9 @@ export function loadActiveMessages(): void {
       try {
         deleteWindow(alertType);
       } catch (err) {
-        console.error(`[AlertWindow] Failed to delete expired window for type=${alertType}:`, err);
+        log('error', 'AlertWindow', `Failed to delete expired window for type=${alertType}: ${String(err)}`);
       }
     }
   }
-  console.log(`[AlertWindow] Loaded ${windows.length} window(s) from DB — ${restored} active, ${windows.length - restored} expired`);
+  log('info', 'AlertWindow', `Loaded ${windows.length} window(s) from DB — ${restored} active, ${windows.length - restored} expired`);
 }

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type Database from 'better-sqlite3';
 import { getMetrics } from '../../metrics.js';
 import { ALERT_TYPE_CATEGORY } from '../../topicRouter.js';
+import { log } from '../../logger.js';
 
 // Reverse map: category → list of alert types (derived once at module load)
 const groups: Record<string, string[]> = {};
@@ -65,7 +66,7 @@ export function createStatsRouter(db: Database.Database): Router {
         mapboxMonth: mapboxRow?.request_count ?? 0,
       });
     } catch (err) {
-      console.error('[dashboard] query error:', err);
+      log('error', 'Dashboard', `Query error: ${String(err)}`);
       res.status(500).json({ error: 'שגיאת שרת פנימית' });
     }
   });
@@ -81,7 +82,7 @@ export function createStatsRouter(db: Database.Database): Router {
       `).all();
       res.json(rows);
     } catch (err) {
-      console.error('[dashboard] query error:', err);
+      log('error', 'Dashboard', `Query error: ${String(err)}`);
       res.status(500).json({ error: 'שגיאת שרת פנימית' });
     }
   });
@@ -99,7 +100,7 @@ export function createStatsRouter(db: Database.Database): Router {
       `).all();
       res.json(rows);
     } catch (err) {
-      console.error('[dashboard] query error:', err);
+      log('error', 'Dashboard', `Query error: ${String(err)}`);
       res.status(500).json({ error: 'שגיאת שרת פנימית' });
     }
   });
@@ -152,7 +153,7 @@ export function createStatsRouter(db: Database.Database): Router {
 
       res.json(rows.map(r => ({ ...r, cities: JSON.parse(r.cities) as string[] })));
     } catch (err) {
-      console.error('[dashboard] query error:', err);
+      log('error', 'Dashboard', `Query error: ${String(err)}`);
       res.status(500).json({ error: 'שגיאת שרת פנימית' });
     }
   });

@@ -26,6 +26,46 @@
 
 ---
 
+## [0.2.3] — 2026-03-29
+
+<div dir="rtl">
+
+### 🔒 אבטחה
+
+#### דשבורד — אימות
+- **`timingSafeEqual` להשוואת סיסמה** — מניעת timing-attack על endpoint הכניסה דרך `node:crypto`
+- **Session token** — הכניסה מייצרת `randomUUID()` ושומרת אותו ב-cookie; הסיסמה עצמה לעולם לא יוצאת מהשרת
+- **Session persistence** — טוקני סשן שמורים ב-SQLite עם TTL של 7 ימים ומתמידים לאחר restart
+- **Logout מיידי** — `DELETE FROM sessions` מבטל את הטוקן באופן מיידי; אין המתנה לפקיעה
+- **`trust proxy: 1`** — Express קורא את ה-IP הנכון מ-`X-Forwarded-For` (hop אחד — nginx) במקום IP פנימי של ה-proxy
+- **Rate limiting — 10 ניסיונות / 15 דקות לכל IP** — לאחר 10 כשלונות, IP נחסם עם `429 Too Many Requests` + header `Retry-After`
+- **Reset מונה לאחר כניסה מוצלחת** — מונה הניסיונות הכושלים מתאפס כשמזינים סיסמה נכונה
+- **ולידציה של סיסמה ריקה** — `400 Bad Request` על סיסמה ריקה / חסרה במקום השוואה מיותרת
+
+### 🐛 תיקוני באגים
+
+#### דשבורד — הגדרות Landing
+- **תמיכה ב-HTTPS אותיות גדולות** — regex `/^https?:\/\//i` (עם `i` flag); קודם `HTTPS://example.com` נדחה בטעות
+- **Trim לכתובת URL** — `siteUrl.trim()` מנקה רווחים מוביל/נגרר לפני הולידציה
+
+#### DM Dispatcher
+- **כפילות DMs בעריכת הודעה** — במסלול העריכה, המנויים מקבלים רק את הערים **החדשות** (`dmCities`) ולא את כל הרשימה המאוחדת
+
+#### Bot — Search Handler
+- **Phantom test** — בדיקת `message:text handler` תוקנה עם assertion מפורש שמוודא שאין reply כשלא במצב חיפוש
+
+### 🧪 בדיקות
+- **`auth.test.ts`** — בדיקות חדשות: cookie flags (`httpOnly`, `sameSite: strict`), סיסמה ריקה (400), שדה סיסמה חסר (400), שני סשנים במקביל (logout של אחד לא מבטל את השני), header `Retry-After` על 429, rate limit per-IP עצמאי
+- **`landing.test.ts`** — בדיקות חדשות: `siteUrl` עם רווחים (trim), פרוטוקול `HTTPS://` (i flag)
+
+### 🔧 תחזוקה
+- `src/services/dmDispatcher.ts` — הוסר import מיותר של `formatAlertMessage` שלא היה בשימוש
+- `src/alertHandler.ts` — הוסף הסבר ל-`notifySubscribers({ ...alert, cities: dmCities })` המבהיר את ההבדל בין `alert` ל-`finalAlert`
+
+</div>
+
+---
+
 ## [0.2.2] — 2026-03-29
 
 ### ✨ תכונות חדשות
@@ -455,7 +495,8 @@
 
 <div dir="rtl">
 
-[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.1.6...v0.2.0
