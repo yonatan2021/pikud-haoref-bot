@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { DmQueue, extractRetryAfter } from '../services/dmQueue.js';
+import { DmQueue, extractRetryAfter, validateChatId } from '../services/dmQueue.js';
 
 describe('DmQueue', () => {
   it('calls send for every enqueued task', async () => {
@@ -130,5 +130,118 @@ describe('DmQueue', () => {
     assert.equal(extractRetryAfter(new Error('bot was blocked')), null);
     assert.equal(extractRetryAfter(new Error('random error')), null);
     assert.equal(extractRetryAfter(null), null);
+  });
+
+  // Issue 4 — missing error path tests
+  it('does not retry "user is deactivated" — drops task and continues', async () => {
+    let sendCount = 0;
+    const calls: string[] = [];
+    const q = new DmQueue(async (task) => {
+      sendCount++;
+      if (task.chatId === 'deactivated') throw new Error('user is deactivated');
+      calls.push(task.chatId);
+    }, { concurrency: 1 });
+    q.enqueueAll([
+      { chatId: 'deactivated', text: 'x' },
+      { chatId: 'ok-1', text: 'y' },
+    ]);
+    await new Promise<void>((r) => setTimeout(r, 200));
+    assert.equal(sendCount, 2, 'deactivated task must be attempted once, not retried');
+    assert.deepEqual(calls, ['ok-1'], 'next task must still be processed');
+  });
+
+  it('does not retry "chat not found" — drops task and continues', async () => {
+    let sendCount = 0;
+    const calls: string[] = [];
+    const q = new DmQueue(async (task) => {
+      sendCount++;
+      if (task.chatId === 'notfound') throw new Error('chat not found');
+      calls.push(task.chatId);
+    }, { concurrency: 1 });
+    q.enqueueAll([
+      { chatId: 'notfound', text: 'x' },
+      { chatId: 'ok-1', text: 'y' },
+    ]);
+    await new Promise<void>((r) => setTimeout(r, 200));
+    assert.equal(sendCount, 2, 'chat-not-found task must be attempted once, not retried');
+    assert.deepEqual(calls, ['ok-1'], 'next task must still be processed');
+  });
+
+  // Issue 5 — getStats() not tested
+  it('getStats(): pending reflects tasks waiting behind concurrency=1', async () => {
+    let resolve!: () => void;
+    const blocker = new Promise<void>((r) => { resolve = r; });
+    const q = new DmQueue(async () => blocker, { concurrency: 1 });
+
+    assert.deepEqual(q.getStats(), { pending: 0, rateLimited: false });
+
+    q.enqueueAll([
+      { chatId: '1', text: 'a' },
+      { chatId: '2', text: 'b' },
+      { chatId: '3', text: 'c' },
+    ]);
+    // concurrency=1: task '1' is in-flight; '2' and '3' are pending
+    assert.equal(q.getStats().pending, 2);
+    assert.equal(q.getStats().rateLimited, false);
+
+    resolve();
+    await new Promise<void>((r) => setTimeout(r, 100));
+    assert.equal(q.getStats().pending, 0);
+  });
+
+  it('getStats(): rateLimited becomes true during a 429 pause', async () => {
+    let attempts = 0;
+    const q = new DmQueue(async () => {
+      attempts++;
+      if (attempts === 1) {
+        throw Object.assign(new Error('Too Many Requests'), { parameters: { retry_after: 60 } });
+      }
+    }, { concurrency: 1 });
+    q.enqueueAll([{ chatId: '1', text: 'a' }]);
+    await new Promise<void>((r) => setTimeout(r, 50));
+    assert.equal(q.getStats().rateLimited, true, 'should be rate-limited after 429');
+    assert.equal(q.getStats().pending, 1, 'requeued task must appear as pending');
+  });
+
+  // Issue 6 — enqueueAll([]) not tested
+  it('enqueueAll([]) is a no-op — nothing sent, no crash', async () => {
+    let sendCount = 0;
+    const q = new DmQueue(async () => { sendCount++; });
+    q.enqueueAll([]);
+    await new Promise<void>((r) => setTimeout(r, 50));
+    assert.equal(sendCount, 0);
+    assert.deepEqual(q.getStats(), { pending: 0, rateLimited: false });
+  });
+});
+
+// Issue 7 — validateChatId extracted from singleton closure and made testable
+describe('validateChatId', () => {
+  it('parses a valid integer string', () => {
+    assert.equal(validateChatId('123'), 123);
+  });
+
+  it('returns null for a non-numeric string', () => {
+    assert.equal(validateChatId('invalid'), null);
+  });
+
+  it('truncates a float string to integer', () => {
+    assert.equal(validateChatId('0.5'), 0);
+    assert.equal(validateChatId('456.9'), 456);
+  });
+
+  it('returns null for a string that is NaN even after float parse', () => {
+    assert.equal(validateChatId('abc.xyz'), null);
+  });
+
+  it('returns null for empty string', () => {
+    assert.equal(validateChatId(''), null);
+  });
+
+  it('returns null for "Infinity"', () => {
+    assert.equal(validateChatId('Infinity'), null);
+  });
+
+  it('returns null for "-Infinity"', () => {
+    assert.equal(validateChatId('-Infinity'), null);
   });
 });
