@@ -116,7 +116,11 @@ export async function runNodeSetup(
     try {
       await spawnStep(deps.spawn, 'git', ['clone', REPO_URL, TARGET_DIR])
     } catch (err) {
-      await deps.rm(targetPath, { recursive: true, force: true }).catch(() => undefined)
+      await deps.rm(targetPath, { recursive: true, force: true }).catch((rmErr: unknown) => {
+        const e = rmErr as NodeJS.ErrnoException
+        p.log.warn(c.warning(toVisualRtl(`אזהרה: לא ניתן למחוק תיקייה חלקית: ${e.message}`)))
+        p.log.warn(toVisualRtl(`מחק ידנית: rm -rf "${targetPath}"`))
+      })
       throw err
     }
   }
@@ -133,7 +137,14 @@ export async function runNodeSetup(
   p.log.success(toVisualRtl('.env הועתק לתיקיית הפרויקט'))
 
   p.log.step(c.primary(toVisualRtl('מתקין תלויות npm...')))
-  await spawnStep(deps.spawn, 'npm', ['install'], { cwd: targetPath })
+  try {
+    await spawnStep(deps.spawn, 'npm', ['install'], { cwd: targetPath })
+  } catch (err) {
+    throw new Error(
+      `${(err as Error).message}\n` +
+      toVisualRtl(`הקוד הורד והוגדר — הרץ ידנית: cd "${TARGET_DIR}" && npm install`)
+    )
+  }
 
   p.log.success(toVisualRtl('ההתקנה הושלמה!'))
   p.log.info(`  ${c.primary('npm start')}  ${c.dim('# ' + toVisualRtl(`הרץ מתוך תיקיית ${TARGET_DIR}/`))}`)
@@ -156,11 +167,10 @@ function spawnStep(
     const child = spawnFn(cmd, args, { stdio: 'inherit', cwd: opts?.cwd })
 
     child.on('close', (code, signal) => {
-      if (code === 0) { done(resolve); return }
-      if (code === null && signal)
-        done(() => reject(new Error(`${cmd} הופסק על ידי אות ${signal}`)))
-      else
-        done(() => reject(new Error(`${cmd} יצא עם קוד שגיאה ${code}`)))
+      if (code === 0)        { done(resolve); return }
+      if (signal)              done(() => reject(new Error(`${cmd} הופסק על ידי אות ${signal}`)))
+      else if (code !== null)  done(() => reject(new Error(`${cmd} יצא עם קוד שגיאה ${code}`)))
+      else                     done(() => reject(new Error(`${cmd} הסתיים באופן בלתי צפוי (ללא קוד יציאה)`)))
     })
 
     child.on('error', (err: NodeJS.ErrnoException) => {
