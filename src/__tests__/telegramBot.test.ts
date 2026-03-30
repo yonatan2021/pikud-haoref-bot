@@ -6,6 +6,7 @@ import {
   buildZonedCityList,
   selectEditMethod,
   truncateToCaptionLimit,
+  formatAlertMessage,
   TELEGRAM_CAPTION_MAX,
 } from '../telegramBot.js';
 
@@ -165,5 +166,31 @@ describe('selectEditMethod', () => {
   it('returns "text" when hasPhoto=false regardless of imageBuffer', () => {
     assert.equal(selectEditMethod(false, null), 'text');
     assert.equal(selectEditMethod(false, Buffer.from('img')), 'text');
+  });
+});
+
+describe('formatAlertMessage with receivedAt timestamp', () => {
+  it('uses receivedAt timestamp when provided', () => {
+    // 2024-06-15 14:30:00 UTC = 17:30 Israel time (UTC+3 in summer)
+    const fixedMs = new Date('2024-06-15T14:30:00Z').getTime();
+    const alert = {
+      type: 'rockets',
+      cities: ['תל אביב'],
+      receivedAt: fixedMs,
+    };
+
+    const result = formatAlertMessage(alert);
+    assert.ok(result.includes('17:30'), 'formatted message should include the time 17:30 for the fixed timestamp');
+  });
+
+  it('falls back to current time when receivedAt is not provided', () => {
+    const alert = {
+      type: 'rockets',
+      cities: ['תל אביב'],
+    };
+
+    const result = formatAlertMessage(alert);
+    // Just verify that a time pattern is included (HH:MM format)
+    assert.ok(/\d{2}:\d{2}/.test(result), 'formatted message should include a time pattern HH:MM');
   });
 });

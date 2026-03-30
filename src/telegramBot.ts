@@ -75,7 +75,7 @@ export function formatAlertMessage(alert: Alert): string {
   const emoji = getEmoji(alert.type);
   const title = getTitleHe(alert.type);
 
-  const now = new Date();
+  const now = new Date(alert.receivedAt ?? Date.now());
   const timeStr = now.toLocaleTimeString('he-IL', {
     hour: '2-digit',
     minute: '2-digit',
