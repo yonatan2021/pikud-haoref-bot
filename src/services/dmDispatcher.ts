@@ -2,7 +2,6 @@ import { Alert } from '../types.js';
 import { getUsersForCities } from '../db/subscriptionRepository.js';
 import { getEmoji, getTitleHe } from '../config/templateCache.js';
 import { getCityData } from '../cityLookup.js';
-import type { NotificationFormat } from '../db/userRepository.js';
 import { isMuted } from '../db/userRepository.js';
 import { ALERT_TYPE_CATEGORY } from '../topicRouter.js';
 import { dmQueue, type DmTask } from './dmQueue.js';
@@ -106,7 +105,9 @@ export function buildNewsFlashDmMessage(alert: Alert): string {
   return parts.join('\n');
 }
 
-export function buildDmText(alert: Alert, _format: NotificationFormat): string {
+// Issue 3: format param removed — DM format was unified; short/detailed produce identical output.
+// NotificationFormat is still stored in the DB and shown in the UI settings panel.
+export function buildDmText(alert: Alert): string {
   if (alert.type === 'newsFlash') return buildNewsFlashDmMessage(alert);
   return buildAlertDmMessage(alert);
 }
@@ -144,9 +145,11 @@ export function shouldSkipForQuietHours(
   return category === 'drills' || category === 'general';
 }
 
+// Issue 8: `now` is injectable for deterministic quiet-hours testing
 export function notifySubscribers(
   alert: Alert,
-  enqueueAll: (tasks: DmTask[]) => void = (tasks) => dmQueue.enqueueAll(tasks)
+  enqueueAll: (tasks: DmTask[]) => void = (tasks) => dmQueue.enqueueAll(tasks),
+  now: Date = new Date()
 ): void {
   try {
     const subscribers = getUsersForCities(alert.cities);
@@ -155,7 +158,7 @@ export function notifySubscribers(
     if (subscribers.length === 0) return;
 
     const afterQuietHours = subscribers.filter(
-      ({ quiet_hours_enabled }) => !shouldSkipForQuietHours(alert.type, quiet_hours_enabled)
+      ({ quiet_hours_enabled }) => !shouldSkipForQuietHours(alert.type, quiet_hours_enabled, now)
     );
 
     // Snooze filter: mirrors quiet-hours category logic — only suppresses drills/general.
@@ -166,9 +169,9 @@ export function notifySubscribers(
       ? afterQuietHours.filter(({ chat_id }) => !isMuted(chat_id))
       : afterQuietHours;
 
-    const tasks = afterMute.map(({ chat_id, format, matchedCities }) => {
+    const tasks = afterMute.map(({ chat_id, matchedCities }) => {
       const personalAlert: Alert = { ...alert, cities: matchedCities };
-      return { chatId: String(chat_id), text: buildDmText(personalAlert, format) };
+      return { chatId: String(chat_id), text: buildDmText(personalAlert) };
     });
 
     const skippedQH = subscribers.length - afterQuietHours.length;

@@ -256,39 +256,34 @@ describe('buildNewsFlashDmMessage — preliminary alert detection', () => {
   });
 });
 
-describe('buildDmText — unified format (no short/detailed distinction)', () => {
-  it('missiles: short and detailed produce identical output', () => {
+describe('buildDmText — unified format (format param removed)', () => {
+  it('missiles: buildDmText produces personal format output', () => {
     const alert: Alert = { type: 'missiles', cities: ['אבו גוש'] };
-    assert.equal(buildDmText(alert, 'short'), buildDmText(alert, 'detailed'));
-  });
-
-  it('missiles: output uses new personal format with "באזורך"', () => {
-    const alert: Alert = { type: 'missiles', cities: ['אבו גוש'] };
-    const msg = buildDmText(alert, 'short');
+    const msg = buildDmText(alert);
     assert.ok(msg.includes('באזורך'));
     assert.ok(msg.includes('📍'));
   });
 });
 
 describe('buildDmText — personalization integration', () => {
-  it('short format shows only matchedCities, not all alert cities', () => {
+  it('shows only matchedCities, not all alert cities', () => {
     const personalAlert: Alert = { type: 'missiles', cities: ['אבו גוש'] };
-    const msg = buildDmText(personalAlert, 'short');
+    const msg = buildDmText(personalAlert);
     assert.ok(msg.includes('אבו גוש'), 'matched city must appear');
     assert.ok(!msg.includes('נהריה'), 'unmatched city must not appear');
     assert.ok(!msg.includes('חיפה'), 'unmatched city must not appear');
   });
 
-  it('detailed format uses formatAlertMessage with matched cities only', () => {
+  it('renders matched cities only for missiles', () => {
     const personalAlert: Alert = { type: 'missiles', cities: ['אבו גוש'] };
-    const msg = buildDmText(personalAlert, 'detailed');
+    const msg = buildDmText(personalAlert);
     assert.ok(msg.includes('אבו גוש'));
     assert.ok(!msg.includes('נהריה'));
   });
 
-  it('newsFlash uses buildNewsFlashDmMessage regardless of format', () => {
+  it('newsFlash uses buildNewsFlashDmMessage', () => {
     const personalAlert: Alert = { type: 'newsFlash', cities: ['אבו גוש'], instructions: 'הנחיות' };
-    const msg = buildDmText(personalAlert, 'short');
+    const msg = buildDmText(personalAlert);
     assert.ok(msg.startsWith('📢'), 'newsFlash must use newsFlash formatter');
     assert.ok(msg.includes('הנחיות'));
   });
@@ -459,5 +454,62 @@ describe('notifySubscribers', () => {
     assert.equal(threw, false, 'notifySubscribers must not propagate errors');
     // Re-init for remaining tests
     initDb();
+  });
+
+  // Issue 8 — quiet hours integration test (uses injected `now` param)
+  it('quiet hours: subscriber with quiet_hours_enabled=true skipped for drill at night', () => {
+    const CHAT_QH = 777002;
+    const CHAT_NORMAL = 777003;
+    upsertUser(CHAT_QH);
+    upsertUser(CHAT_NORMAL);
+    addSubscription(CHAT_QH, TEST_CITY);
+    addSubscription(CHAT_NORMAL, TEST_CITY);
+    setQuietHours(CHAT_QH, true);
+    // CHAT_NORMAL keeps default quiet_hours_enabled=false
+
+    const NIGHT = new Date('2026-03-28T23:00:00.000Z'); // UTC 23:00 → Israel ~01:00
+    const captured: DmTask[] = [];
+    const alert: Alert = { type: 'missilesDrill', cities: [TEST_CITY] };
+
+    notifySubscribers(alert, (tasks) => captured.push(...tasks), NIGHT);
+
+    assert.equal(captured.length, 1, 'only non-quiet-hours subscriber should receive task');
+    assert.equal(captured[0].chatId, String(CHAT_NORMAL));
+  });
+
+  // Issue 9 — mixed mute/active integration tests
+  it('mixed mute/active: only unmuted subscriber gets task for drill alert', () => {
+    const CHAT_MUTED = 777004;
+    const CHAT_ACTIVE = 777005;
+    upsertUser(CHAT_MUTED);
+    upsertUser(CHAT_ACTIVE);
+    addSubscription(CHAT_MUTED, TEST_CITY);
+    addSubscription(CHAT_ACTIVE, TEST_CITY);
+    setMutedUntil(CHAT_MUTED, new Date(Date.now() + 3_600_000));
+
+    const captured: DmTask[] = [];
+    const alert: Alert = { type: 'missilesDrill', cities: [TEST_CITY] };
+    notifySubscribers(alert, (tasks) => captured.push(...tasks));
+
+    assert.equal(captured.length, 1, 'only unmuted subscriber should receive drill task');
+    assert.equal(captured[0].chatId, String(CHAT_ACTIVE));
+  });
+
+  it('mixed mute/active: both subscribers get task for security alert (mute bypassed)', () => {
+    const CHAT_MUTED = 777006;
+    const CHAT_ACTIVE = 777007;
+    upsertUser(CHAT_MUTED);
+    upsertUser(CHAT_ACTIVE);
+    addSubscription(CHAT_MUTED, TEST_CITY);
+    addSubscription(CHAT_ACTIVE, TEST_CITY);
+    setMutedUntil(CHAT_MUTED, new Date(Date.now() + 3_600_000));
+
+    const captured: DmTask[] = [];
+    const alert: Alert = { type: 'missiles', cities: [TEST_CITY] };
+    notifySubscribers(alert, (tasks) => captured.push(...tasks));
+
+    assert.equal(captured.length, 2, 'security alert must reach both muted and active subscribers');
+    const ids = captured.map((t) => t.chatId).sort();
+    assert.deepEqual(ids, [String(CHAT_MUTED), String(CHAT_ACTIVE)].sort());
   });
 });
