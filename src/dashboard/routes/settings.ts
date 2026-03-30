@@ -1,8 +1,14 @@
 import { Router } from 'express';
 import type Database from 'better-sqlite3';
 import path from 'path';
+import { statSync } from 'fs';
+import { readFileSync } from 'fs';
 import { getAllSettings, setSetting } from '../settingsRepository.js';
 import { createRateLimitMiddleware } from '../rateLimiter.js';
+import { loadRoutingCache } from '../../config/routingCache.js';
+
+const pkgPath = new URL('../../../../package.json', import.meta.url);
+const pkgVersion: string = (JSON.parse(readFileSync(pkgPath, 'utf8')) as { version: string }).version;
 
 const backupLimiter = createRateLimitMiddleware({
   maxRequests: 5,
@@ -19,6 +25,9 @@ export const settingsMutateLimiter = createRateLimitMiddleware({
 const ALLOWED_KEYS = new Set([
   'alert_window_seconds', 'mapbox_monthly_limit', 'mapbox_skip_drills',
   'quiet_hours_global', 'ga4_measurement_id', 'github_repo', 'landing_url',
+  'topic_id_security', 'topic_id_nature', 'topic_id_environmental',
+  'topic_id_drills', 'topic_id_general',
+  'telegram_invite_link', 'mapbox_image_cache_size', 'whatsapp_enabled',
 ]);
 
 export function createSettingsRouter(db: Database.Database): Router {
@@ -26,14 +35,21 @@ export function createSettingsRouter(db: Database.Database): Router {
 
   router.get('/', (_req, res) => {
     const dbSettings = getAllSettings(db);
+    const dbPath = path.resolve(process.env.DB_PATH ?? 'data/subscriptions.db');
+    let dbSizeBytes = 0;
+    try { dbSizeBytes = statSync(dbPath).size; } catch { /* db may not exist yet */ }
+
     const envDefaults: Record<string, string> = {
-      alert_window_seconds: process.env.ALERT_UPDATE_WINDOW_SECONDS ?? '120',
-      mapbox_monthly_limit: process.env.MAPBOX_MONTHLY_LIMIT ?? '',
-      mapbox_skip_drills: process.env.MAPBOX_SKIP_DRILLS ?? 'false',
-      health_port: process.env.HEALTH_PORT ?? '3000',
-      dashboard_port: process.env.DASHBOARD_PORT ?? '4000',
+      alert_window_seconds:   process.env.ALERT_UPDATE_WINDOW_SECONDS ?? '120',
+      mapbox_monthly_limit:   process.env.MAPBOX_MONTHLY_LIMIT ?? '',
+      mapbox_skip_drills:     process.env.MAPBOX_SKIP_DRILLS ?? 'false',
+      health_port:            process.env.HEALTH_PORT ?? '3000',
+      dashboard_port:         process.env.DASHBOARD_PORT ?? '4000',
+      telegram_invite_link:   process.env.TELEGRAM_INVITE_LINK ?? '',
+      mapbox_image_cache_size: process.env.MAPBOX_IMAGE_CACHE_SIZE ?? '20',
+      whatsapp_enabled:       process.env.WHATSAPP_ENABLED ?? 'false',
     };
-    res.json({ ...envDefaults, ...dbSettings });
+    res.json({ ...envDefaults, ...dbSettings, bot_version: pkgVersion, db_size_bytes: String(dbSizeBytes) });
   });
 
   router.patch('/', settingsMutateLimiter, (req, res) => {
@@ -46,6 +62,7 @@ export function createSettingsRouter(db: Database.Database): Router {
     for (const [key, value] of Object.entries(updates)) {
       setSetting(db, key, String(value));
     }
+    loadRoutingCache(db);
     res.json({ ok: true, note: 'חלק מההגדרות ייכנסו לתוקף לאחר הפעלה מחדש' });
   });
 

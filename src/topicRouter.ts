@@ -1,3 +1,5 @@
+import { isRoutingCacheLoaded, getTopicIdCached } from './config/routingCache.js';
+
 export type AlertCategory = 'security' | 'nature' | 'environmental' | 'drills' | 'general';
 
 export const ALERT_TYPE_CATEGORY: Readonly<Record<string, AlertCategory>> = {
@@ -38,8 +40,12 @@ const CATEGORY_ENV_VAR: Record<AlertCategory, string> = {
  * or undefined if the env var for that category is not set or is invalid.
  * Topic ID 1 is rejected — it is reserved in Telegram forum groups and causes
  * "message thread not found" errors.
+ *
+ * When the routing cache has been loaded (after DB init), the cache is used
+ * so that dashboard-configured topic IDs take effect without a restart.
  */
 export function getTopicId(alertType: string): number | undefined {
+  if (isRoutingCacheLoaded()) return getTopicIdCached(alertType);
   const category = ALERT_TYPE_CATEGORY[alertType] ?? 'general';
   const envVar = CATEGORY_ENV_VAR[category];
   const raw = process.env[envVar];
