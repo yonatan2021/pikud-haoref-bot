@@ -11,6 +11,11 @@ export interface SubscriberInfo {
 }
 
 // In-memory subscription cache — loaded at startup, kept in sync on writes
+// cacheInitialized guards against partial state: write functions only update
+// the Maps after initSubscriptionCache() has been called explicitly. Without
+// this guard, addSubscription() in tests would populate the Maps and cause
+// getUsersForCities() to serve stale cache data in subsequent test suites.
+let cacheInitialized = false;
 const cityToSubscribers = new Map<string, Set<number>>(); // cityName → Set<chatId>
 
 interface CachedSubscriberData {
@@ -21,6 +26,7 @@ interface CachedSubscriberData {
 const subscriberData = new Map<number, CachedSubscriberData>(); // chatId → user data
 
 export function initSubscriptionCache(): void {
+  cacheInitialized = true;
   cityToSubscribers.clear();
   subscriberData.clear();
 
@@ -60,22 +66,22 @@ export function addSubscription(chatId: number, cityName: string): void {
     .prepare('INSERT OR IGNORE INTO subscriptions (chat_id, city_name) VALUES (?, ?)')
     .run(chatId, cityName);
 
-  // Cache update
-  if (!cityToSubscribers.has(cityName)) {
-    cityToSubscribers.set(cityName, new Set());
-  }
-  cityToSubscribers.get(cityName)!.add(chatId);
-  if (!subscriberData.has(chatId)) {
-    // Fetch user data to populate cache entry
-    const user = getDb()
-      .prepare('SELECT format, quiet_hours_enabled, muted_until FROM users WHERE chat_id = ?')
-      .get(chatId) as { format: NotificationFormat; quiet_hours_enabled: number; muted_until: string | null } | undefined;
-    if (user) {
-      subscriberData.set(chatId, {
-        format: user.format,
-        quiet_hours_enabled: user.quiet_hours_enabled === 1,
-        muted_until: user.muted_until ?? null,
-      });
+  if (cacheInitialized) {
+    if (!cityToSubscribers.has(cityName)) {
+      cityToSubscribers.set(cityName, new Set());
+    }
+    cityToSubscribers.get(cityName)!.add(chatId);
+    if (!subscriberData.has(chatId)) {
+      const user = getDb()
+        .prepare('SELECT format, quiet_hours_enabled, muted_until FROM users WHERE chat_id = ?')
+        .get(chatId) as { format: NotificationFormat; quiet_hours_enabled: number; muted_until: string | null } | undefined;
+      if (user) {
+        subscriberData.set(chatId, {
+          format: user.format,
+          quiet_hours_enabled: user.quiet_hours_enabled === 1,
+          muted_until: user.muted_until ?? null,
+        });
+      }
     }
   }
 }
@@ -85,7 +91,7 @@ export function removeSubscription(chatId: number, cityName: string): void {
     .prepare('DELETE FROM subscriptions WHERE chat_id = ? AND city_name = ?')
     .run(chatId, cityName);
 
-  cityToSubscribers.get(cityName)?.delete(chatId);
+  if (cacheInitialized) cityToSubscribers.get(cityName)?.delete(chatId);
 }
 
 export function removeAllSubscriptions(chatId: number): void {
@@ -93,10 +99,12 @@ export function removeAllSubscriptions(chatId: number): void {
     .prepare('DELETE FROM subscriptions WHERE chat_id = ?')
     .run(chatId);
 
-  for (const set of cityToSubscribers.values()) {
-    set.delete(chatId);
+  if (cacheInitialized) {
+    for (const set of cityToSubscribers.values()) {
+      set.delete(chatId);
+    }
+    subscriberData.delete(chatId);
   }
-  subscriberData.delete(chatId);
 }
 
 export function getUserCities(chatId: number): string[] {
@@ -148,8 +156,8 @@ function getUsersForCitiesDb(cityNames: string[]): SubscriberInfo[] {
 
 export function getUsersForCities(cityNames: string[]): SubscriberInfo[] {
   if (cityNames.length === 0) return [];
-  // Fall back to DB if cache not initialized (e.g., zero subscribers at startup)
-  if (cityToSubscribers.size === 0) return getUsersForCitiesDb(cityNames);
+  // Fall back to DB if initSubscriptionCache() was never called
+  if (!cacheInitialized) return getUsersForCitiesDb(cityNames);
 
   const chatIds = new Set<number>();
   for (const city of cityNames) {
