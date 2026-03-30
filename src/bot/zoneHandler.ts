@@ -9,6 +9,7 @@ import {
   isSubscribed,
 } from '../db/subscriptionRepository.js';
 import { upsertUser } from '../db/userRepository.js';
+import { createUserCooldown } from './userCooldown.js';
 
 const PAGE_SIZE = 8;
 
@@ -88,7 +89,8 @@ function buildCitiesMenu(chatId: number, superRegionIdx: number, zoneIdx: number
   return { text, keyboard };
 }
 
-export function registerZoneHandler(bot: Bot): void {
+export function registerZoneHandler(bot: Bot, subscriptionCooldownMs = 1500): void {
+  const subscriptionCooldown = createUserCooldown(subscriptionCooldownMs);
   bot.command('zones', async (ctx: Context) => {
     if (ctx.chat?.type !== 'private') return;
     const keyboard = buildSuperRegionMenu();
@@ -139,6 +141,11 @@ export function registerZoneHandler(bot: Bot): void {
   bot.callbackQuery(/^ct:(\d+):(\d+):(\d+):(\d+)$/, async (ctx: Context) => {
     const chatId = ctx.chat?.id;
     if (!chatId) return;
+    if (subscriptionCooldown.isOnCooldown(chatId)) {
+      await ctx.answerCallbackQuery();
+      return;
+    }
+    subscriptionCooldown.setCooldown(chatId);
     upsertUser(chatId);
     const cityId = parseInt(ctx.match![1]);
     const superRegionIdx = parseInt(ctx.match![2]);
@@ -165,6 +172,11 @@ export function registerZoneHandler(bot: Bot): void {
   bot.callbackQuery(/^ca:(\d+):(\d+):(\d+)$/, async (ctx: Context) => {
     const chatId = ctx.chat?.id;
     if (!chatId) return;
+    if (subscriptionCooldown.isOnCooldown(chatId)) {
+      await ctx.answerCallbackQuery();
+      return;
+    }
+    subscriptionCooldown.setCooldown(chatId);
     upsertUser(chatId);
     const superRegionIdx = parseInt(ctx.match![1]);
     const zoneIdx = parseInt(ctx.match![2]);
@@ -185,6 +197,11 @@ export function registerZoneHandler(bot: Bot): void {
   bot.callbackQuery(/^cr:(\d+):(\d+):(\d+)$/, async (ctx: Context) => {
     const chatId = ctx.chat?.id;
     if (!chatId) return;
+    if (subscriptionCooldown.isOnCooldown(chatId)) {
+      await ctx.answerCallbackQuery();
+      return;
+    }
+    subscriptionCooldown.setCooldown(chatId);
     const superRegionIdx = parseInt(ctx.match![1]);
     const zoneIdx = parseInt(ctx.match![2]);
     const page = parseInt(ctx.match![3]);

@@ -3,6 +3,7 @@ import type { Context } from 'grammy';
 import { searchCities, getCityById } from '../cityLookup.js';
 import { addSubscription, removeSubscription, isSubscribed } from '../db/subscriptionRepository.js';
 import { upsertUser } from '../db/userRepository.js';
+import { createUserCooldown } from './userCooldown.js';
 
 const searchingUsers = new Set<number>();
 
@@ -34,7 +35,8 @@ function buildSearchResults(chatId: number, query: string): { text: string; keyb
   };
 }
 
-export function registerSearchHandler(bot: Bot): void {
+export function registerSearchHandler(bot: Bot, toggleCooldownMs = 1500): void {
+  const searchToggleCooldown = createUserCooldown(toggleCooldownMs);
   bot.command('add', async (ctx: Context) => {
     if (ctx.chat?.type !== 'private') return;
     searchingUsers.add(ctx.chat.id);
@@ -72,6 +74,11 @@ export function registerSearchHandler(bot: Bot): void {
   bot.callbackQuery(/^st:(\d+)$/, async (ctx: Context) => {
     const chatId = ctx.chat?.id;
     if (!chatId) return;
+    if (searchToggleCooldown.isOnCooldown(chatId)) {
+      await ctx.answerCallbackQuery();
+      return;
+    }
+    searchToggleCooldown.setCooldown(chatId);
     upsertUser(chatId);
     const cityId = parseInt(ctx.match![1]);
     const city = getCityById(cityId);

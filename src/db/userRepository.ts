@@ -59,10 +59,10 @@ export function setMutedUntil(chatId: number, until: Date | null): void {
     .updateSubscriberData(chatId, { muted_until: iso });
 }
 
-export function isMuted(chatId: number): boolean {
+export function isMuted(chatId: number, now: Date = new Date()): boolean {
   const user = getUser(chatId);
   if (!user?.muted_until) return false;
-  return new Date(user.muted_until) > new Date();
+  return new Date(user.muted_until) > now;
 }
 
 export function deleteUser(chatId: number): void {

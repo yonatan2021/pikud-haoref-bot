@@ -151,7 +151,7 @@ describe('registerZoneHandler', () => {
   describe('cr:<sr>:<z>:<page> — remove all in zone', () => {
     it('unsubscribes all cities in the zone', async () => {
       const bot = buildMockBot();
-      registerZoneHandler(bot as unknown as Bot);
+      registerZoneHandler(bot as unknown as Bot, 0); // cooldownMs=0 for test isolation
 
       const chatId = 8021;
       // First subscribe all via ca:

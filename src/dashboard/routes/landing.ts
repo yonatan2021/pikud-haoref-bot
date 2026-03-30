@@ -2,6 +2,13 @@ import { Router } from 'express';
 import type Database from 'better-sqlite3';
 import { getSetting, setSetting } from '../settingsRepository.js';
 import { log } from '../../logger.js';
+import { createRateLimitMiddleware } from '../rateLimiter.js';
+
+const deployLimiter = createRateLimitMiddleware({
+  maxRequests: 3,
+  windowMs: 3_600_000,
+  message: 'יותר מדי בקשות deploy — נסה שוב בעוד שעה',
+});
 
 export function createLandingRouter(db: Database.Database): Router {
   const router = Router();
@@ -33,7 +40,7 @@ export function createLandingRouter(db: Database.Database): Router {
     res.json({ ok: true });
   });
 
-  router.post('/deploy', async (_req, res) => {
+  router.post('/deploy', deployLimiter, async (_req, res) => {
     const token = process.env.GITHUB_PAT;
     const repo = getSetting(db, 'github_repo') ?? process.env.GITHUB_REPO ?? '';
     if (!token || !repo) {
@@ -64,10 +71,16 @@ export function createLandingRouter(db: Database.Database): Router {
         res.status(502).json({ error: 'GitHub API נכשל', status: response.status, detail });
         return;
       }
-      setSetting(db, 'last_landing_deploy', new Date().toISOString());
       res.json({ ok: true });
-    } catch {
+    } catch (err) {
+      log('error', 'Dashboard', `Deploy trigger failed: ${String(err)}`);
       res.status(500).json({ error: 'שגיאת רשת בהפעלת deploy' });
+      return;
+    }
+    try {
+      setSetting(db, 'last_landing_deploy', new Date().toISOString());
+    } catch (err) {
+      log('warn', 'Dashboard', `Failed to save last_landing_deploy: ${String(err)}`);
     }
   });
 

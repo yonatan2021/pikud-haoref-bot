@@ -31,14 +31,18 @@ export class DmQueue {
 
   enqueueAll(tasks: DmTask[]): void {
     this.queue.push(...tasks);
+    // Issue 1: warn once here, not on every drain() call (which fires N+1 times per batch)
+    if (this.queue.length > 100) {
+      log('warn', 'DM', `⚠️  תור עמוק: ${this.queue.length} משימות ממתינות`);
+    }
     this.drain();
   }
 
-  getStats(): { pending: number; rateLimited: boolean; paused: boolean } {
+  // Issue 2: removed duplicate `paused` field — `rateLimited` is the canonical name
+  getStats(): { pending: number; rateLimited: boolean } {
     return {
       pending: this.queue.length,
       rateLimited: this.paused,
-      paused: this.paused,
     };
   }
 
@@ -54,9 +58,6 @@ export class DmQueue {
           this.running--;
           this.drain();
         });
-    }
-    if (this.queue.length > 100) {
-      log('warn', 'DM', `⚠️  תור עמוק: ${this.queue.length} משימות ממתינות`);
     }
   }
 
@@ -81,7 +82,7 @@ export class DmQueue {
           this.pauseTimer = null;
           this.paused = false;
           this.drain();
-        }, retryAfter * 1000);
+        }, Math.max(1, retryAfter * 1000)); // Issue 10: guard against retry_after=0 (min 1ms)
       }
       return;
     }
@@ -120,9 +121,9 @@ export function extractRetryAfter(err: unknown): number | null {
     if (typeof params?.retry_after === 'number') return Math.min(params.retry_after, MAX_PAUSE_SECONDS);
   }
   if (err instanceof Error) {
-    const m = err.message.match(/retry after (\d+)/i);
+    const m = err.message.match(/retry after ([\d.]+)/i);
     if (m) {
-      const parsed = parseInt(m[1], 10);
+      const parsed = parseFloat(m[1]);
       if (parsed > MAX_PAUSE_SECONDS) log('warn', 'DM', `retryAfter=${parsed}ש חורג מהמקסימום — מגביל ל-${MAX_PAUSE_SECONDS}ש`);
       return Math.min(parsed, MAX_PAUSE_SECONDS);
     }
@@ -130,23 +131,35 @@ export function extractRetryAfter(err: unknown): number | null {
   return null;
 }
 
+// Issue 7: extracted from singleton closure so it can be tested independently.
+// Two-phase parse: integer strings first (parseInt stops at '.', so "1.5" → 1 NOT NaN),
+// then float fallback for strings like ".5" where parseInt returns NaN.
+export function validateChatId(chatId: string): number | null {
+  const intParsed = parseInt(chatId, 10);
+  if (!isNaN(intParsed)) return intParsed;
+  const floatParsed = parseFloat(chatId);
+  if (!isNaN(floatParsed) && isFinite(floatParsed)) return Math.trunc(floatParsed);
+  return null;
+}
+
 export const dmQueue = new DmQueue(async (task) => {
-  const chatIdNum = parseInt(task.chatId, 10);
-  if (isNaN(chatIdNum)) {
-    // Try float-parse fallback (e.g. chatId stored as "123.0") before giving up on DB cleanup
-    const floatId = Math.trunc(parseFloat(task.chatId));
-    if (!isNaN(floatId)) {
-      try { deleteUser(floatId); } catch (e) {
-        log('error', 'DM', `כישלון בהסרת משתמש NaN-path ${task.chatId}: ${e}`);
-      }
-    } else {
-      log('error', 'DM', `chatId לא תקין (NaN) — המנוי "${task.chatId}" חייב הסרה ידנית`);
-    }
+  const intParsed = parseInt(task.chatId, 10);
+  if (!isNaN(intParsed)) {
+    await getBot().api.sendMessage(intParsed, task.text, { parse_mode: 'HTML' });
     return;
   }
-  await getBot().api.sendMessage(chatIdNum, task.text, { parse_mode: 'HTML' });
+  // Float-format fallback (e.g. chatId ".5"): clean up DB entry, skip send
+  const floatId = validateChatId(task.chatId);
+  if (floatId !== null) {
+    try { deleteUser(floatId); } catch (e) {
+      log('error', 'DM', `כישלון בהסרת משתמש NaN-path ${task.chatId}: ${e}`);
+    }
+  } else {
+    log('error', 'DM', `chatId לא תקין (NaN) — המנוי "${task.chatId}" חייב הסרה ידנית`);
+  }
 });
 
-export function getQueueStats(): { pending: number; rateLimited: boolean; paused: boolean } {
+// Issue 2: return type updated to match getStats() — no `paused` field
+export function getQueueStats(): { pending: number; rateLimited: boolean } {
   return dmQueue.getStats();
 }

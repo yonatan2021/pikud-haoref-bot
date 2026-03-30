@@ -89,6 +89,12 @@ export function initSchema(database: Database.Database): void {
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       expires_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS login_attempts (
+      ip       TEXT PRIMARY KEY,
+      count    INTEGER NOT NULL DEFAULT 0,
+      reset_at INTEGER NOT NULL
+    );
   `);
 
   database.exec(
@@ -116,4 +122,6 @@ export function initDb(): void {
   initSchema(database);
   // Prune alert history older than 7 days on startup
   database.exec(`DELETE FROM alert_history WHERE fired_at < datetime('now', '-7 days')`);
+  // Prune expired login attempt records on startup
+  database.exec('DELETE FROM login_attempts WHERE reset_at < (unixepoch() * 1000)');
 }
