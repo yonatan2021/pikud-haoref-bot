@@ -71,6 +71,7 @@ function printHelp(): void {
     --invite-link <val>  TELEGRAM_INVITE_LINK
     --full               ${c.muted(h('הצג את כל ההגדרות האופציונליות'))}
     --output <path>      ${c.muted(h('נתיב לקובץ .env (ברירת מחדל: ./.env)'))}
+    --install-dir <path> ${c.muted(h('תיקיית התקנה עבור git clone (ברירת מחדל: ~/pikud-haoref-bot)'))}
     --update             ${c.muted(h('עדכן .env קיים'))}
     --verify             ${c.muted(h('בדוק תקינות הטוקנים ב-.env'))}
     --help               ${c.muted(h('הצג הודעה זו'))}

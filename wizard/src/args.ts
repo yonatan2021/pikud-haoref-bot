@@ -8,6 +8,7 @@ export interface Flags {
   'chat-id'?: string
   mapbox?: string
   output?: string
+  'install-dir'?: string
   dashboard?: string
   proxy?: string
   'invite-link'?: string

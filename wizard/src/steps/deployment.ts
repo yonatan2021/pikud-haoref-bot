@@ -1,4 +1,5 @@
 import path from 'node:path'
+import os from 'node:os'
 import { spawn, type ChildProcess, type SpawnOptions } from 'node:child_process'
 import { copyFile, access, rm } from 'node:fs/promises'
 import * as p from '@clack/prompts'
@@ -60,10 +61,13 @@ export function printDockerInstructions(envPath: string, platform: Platform = 't
 }
 
 /** Prints Node.js setup instructions in a styled box. */
-export function printNodeInstructions(platform: Platform = 'telegram'): void {
+export function printNodeInstructions(platform: Platform = 'telegram', installDir?: string): void {
+  const displayPath = installDir
+    ? path.resolve(installDir)
+    : path.join(os.homedir(), TARGET_DIR)
   printResultBox('הוראות הרצה עם Node.js:', [
-    `  ${c.primary('git clone')} https://github.com/yonatan2021/pikud-haoref-bot.git`,
-    `  ${c.primary('cd')} pikud-haoref-bot`,
+    `  ${c.primary('git clone')} https://github.com/yonatan2021/pikud-haoref-bot.git ${c.accent(displayPath)}`,
+    `  ${c.primary('cd')} ${displayPath}`,
     `  ${c.primary('npm install')}`,
     `  ${c.dim('# ' + toVisualRtl('העבר את קובץ ה-.env שנוצר לתיקיית הפרויקט'))}`,
     `  ${c.primary('npm start')}`,
@@ -73,6 +77,32 @@ export function printNodeInstructions(platform: Platform = 'telegram'): void {
 
 const REPO_URL = 'https://github.com/yonatan2021/pikud-haoref-bot.git'
 const TARGET_DIR = 'pikud-haoref-bot'
+
+/** Returns true only if every character is printable ASCII (U+0020–U+007E). */
+function isAsciiSafe(str: string): boolean {
+  return /^[\x20-\x7E]*$/.test(str)
+}
+
+/**
+ * Returns the absolute path where the bot will be installed.
+ * Defaults to ~/pikud-haoref-bot (os.homedir() is always ASCII on macOS/Linux).
+ * Throws if the resolved path contains non-ASCII characters that would break ESM module resolution.
+ */
+export function resolveTargetPath(installDir?: string): string {
+  const base = installDir !== undefined
+    ? path.resolve(installDir)
+    : path.join(os.homedir(), TARGET_DIR)
+
+  if (!isAsciiSafe(base)) {
+    throw new Error(
+      `נתיב ההתקנה מכיל תווים שאינם ASCII ועלול לגרום לכשלון ב-npm install:\n` +
+      `  "${base}"\n` +
+      `השתמש ב---install-dir עם נתיב שמכיל רק תווים לטיניים.\n` +
+      `לדוגמה: --install-dir=/opt/bots/haoref`,
+    )
+  }
+  return base
+}
 
 // Narrower type alias — selects the (cmd, args, opts) overload without overload complexity.
 export type SpawnFn = (cmd: string, args: string[], opts?: SpawnOptions) => ChildProcess
@@ -108,16 +138,19 @@ export async function runNodeSetup(
   envPath: string,
   platform: Platform,
   deps: NodeSetupDeps = { spawn: defaultSpawn, copyFile, access, rm },
+  installDir?: string,
 ): Promise<void> {
-  const targetPath = path.join(process.cwd(), TARGET_DIR)
+  const targetPath = resolveTargetPath(installDir)
+
+  p.log.info(c.dim(`  ${toVisualRtl('נתיב התקנה:')} ${targetPath}`))
 
   const exists = await dirExists(deps.access, targetPath)
   if (exists) {
-    p.log.warn(c.warning(toVisualRtl(`תיקיית ${TARGET_DIR} כבר קיימת — מדלג על git clone`)))
+    p.log.warn(c.warning(toVisualRtl(`תיקיית pikud-haoref-bot כבר קיימת — מדלג על git clone`)))
   } else {
     p.log.step(c.primary(toVisualRtl('מוריד את קוד המקור...')))
     try {
-      await spawnStep(deps.spawn, 'git', ['clone', REPO_URL, TARGET_DIR])
+      await spawnStep(deps.spawn, 'git', ['clone', REPO_URL, targetPath])
     } catch (err) {
       await deps.rm(targetPath, { recursive: true, force: true }).catch((rmErr: unknown) => {
         const e = rmErr as NodeJS.ErrnoException
@@ -145,12 +178,12 @@ export async function runNodeSetup(
   } catch (err) {
     throw new Error(
       `${(err as Error).message}\n` +
-      toVisualRtl(`הקוד הורד והוגדר — הרץ ידנית: cd "${TARGET_DIR}" && npm install`)
+      toVisualRtl(`הקוד הורד והוגדר — הרץ ידנית: cd "${targetPath}" && npm install`)
     )
   }
 
   p.log.success(toVisualRtl('ההתקנה הושלמה!'))
-  p.log.info(`  ${c.primary('npm start')}  ${c.dim('# ' + toVisualRtl(`הרץ מתוך תיקיית ${TARGET_DIR}/`))}`)
+  p.log.info(`  ${c.primary('npm start')}  ${c.dim('# ' + toVisualRtl(`הרץ מתוך תיקיית ${targetPath}/`))}`)
   buildWhatsAppNote(platform)
     .filter(line => line.trim() !== '')
     .forEach(line => p.log.info(line))

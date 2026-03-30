@@ -62,10 +62,10 @@ export async function runSetup(flags: Flags): Promise<void> {
     printDockerInstructions(outputPath, platform)
   } else {
     try {
-      await runNodeSetup(outputPath, platform)
+      await runNodeSetup(outputPath, platform, undefined, flags['install-dir'])
     } catch (err) {
       p.log.error((err as Error).message)
-      printNodeInstructions(platform)
+      printNodeInstructions(platform, flags['install-dir'])
       p.outro(c.warning(toVisualRtl('ההגדרה הושלמה חלקית — קובץ ה-.env נכתב, אך ההתקנה האוטומטית נכשלה')))
       return
     }
