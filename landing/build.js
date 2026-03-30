@@ -79,20 +79,141 @@ if (!devFeaturesHtml.trim()) {
   throw new Error('parseFeatureTable returned empty HTML for dev section — check README.md "### ⚙️ למתכנתים ו-DevOps" table');
 }
 
-// Step 3: Get current date in Hebrew
+// Step 3: Parse CHANGELOG.md — extract latest version highlights
+const changelog = fs.readFileSync('CHANGELOG.md', 'utf8');
+
+function escapeHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function parseLatestChangelog(changelogContent) {
+  // Find the first real version entry (skip [Unreleased])
+  const versionPattern = /^## \[(\d+\.\d+\.\d+)\]/m;
+  const match = changelogContent.match(versionPattern);
+  if (!match) {
+    throw new Error(
+      'parseLatestChangelog: no versioned entry found in CHANGELOG.md — ' +
+      'expected a line matching "## [X.Y.Z]". Cannot populate {{WHATS_NEW_HTML}}.'
+    );
+  }
+
+  const latestVersion = match[1];
+  const versionStart = changelogContent.indexOf(match[0]);
+
+  // Find where the next version section starts
+  const rest = changelogContent.slice(versionStart + match[0].length);
+  const nextMatch = rest.match(/^## \[/m);
+  const versionBlock = nextMatch
+    ? changelogContent.slice(versionStart, versionStart + match[0].length + rest.indexOf(nextMatch[0]))
+    : changelogContent.slice(versionStart);
+
+  // Extract ✨ תכונות חדשות subsection
+  const featuresIdx = versionBlock.indexOf('### ✨ תכונות חדשות');
+  if (featuresIdx === -1) {
+    throw new Error(
+      `parseLatestChangelog: version ${latestVersion} has no "### ✨ תכונות חדשות" subsection — ` +
+      'cannot populate {{WHATS_NEW_HTML}}. Add the subsection or remove the placeholder.'
+    );
+  }
+
+  const featuresEnd = versionBlock.indexOf('\n### ', featuresIdx + 5);
+  const featuresSection = featuresEnd !== -1
+    ? versionBlock.slice(featuresIdx, featuresEnd)
+    : versionBlock.slice(featuresIdx);
+
+  const items = [];
+  for (const line of featuresSection.split('\n')) {
+    if (items.length >= 5) break;
+    const trimmed = line.trim();
+
+    // Sub-section header like "#### WhatsApp Listener Bridge (חדש)"
+    if (trimmed.startsWith('#### ')) {
+      items.push(trimmed.slice(5).trim());
+      continue;
+    }
+    // Bullet like "- **Feature Name** — description"
+    if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+      let text = trimmed.slice(2).trim();
+      const boldMatch = text.match(/^\*\*([^*]+)\*\*/);
+      if (boldMatch) {
+        text = boldMatch[1].replace(/`/g, '');
+      } else {
+        const sepIdx = text.indexOf(' — ');
+        if (sepIdx > 0) text = text.slice(0, sepIdx);
+        text = text.replace(/\*\*/g, '').replace(/`/g, '');
+      }
+      if (text.length > 2) items.push(text);
+    }
+  }
+
+  const html = items.map((item) => `<li>${escapeHtml(item)}</li>`).join('\n');
+  return { version: latestVersion, html };
+}
+
+const { version: changelogVersion, html: whatsNewHtml } = parseLatestChangelog(changelog);
+if (!whatsNewHtml.trim()) {
+  throw new Error('{{WHATS_NEW_HTML}} would be empty — check CHANGELOG.md format');
+}
+
+// Step 3b: Parse README.md stats table (## 📊 עובדות)
+function parseStats(readmeContent) {
+  const marker = '## 📊 עובדות';
+  const start = readmeContent.indexOf(marker);
+  if (start === -1) {
+    console.warn('[landing/build.js] parseStats: "## 📊 עובדות" section not found in README.md — using hardcoded fallback values');
+    return {};
+  }
+
+  const end = readmeContent.indexOf('\n---', start);
+  const section = end !== -1 ? readmeContent.slice(start, end) : readmeContent.slice(start, start + 600);
+
+  const stats = {};
+  for (const line of section.split('\n')) {
+    if (!line.startsWith('|')) continue;
+    if (line.includes('מדד') || line.includes('---')) continue;
+    const cells = line.split('|').map((c) => c.trim()).filter(Boolean);
+    if (cells.length >= 2) stats[cells[0]] = cells[1];
+  }
+  return stats;
+}
+
+const DEFAULT_STAT_CITIES = '1400';
+const DEFAULT_STAT_ZONES  = '28';
+const DEFAULT_STAT_CATS   = '5';
+const DEFAULT_STAT_TESTS  = '391';
+
+const stats = parseStats(readme);
+const EXPECTED_STAT_KEYS = ['עיירות מכוסות', 'אזורים', 'קטגוריות', 'בדיקות אוטומטיות'];
+const missingStatKeys = EXPECTED_STAT_KEYS.filter(k => !stats[k]);
+if (missingStatKeys.length > 0) {
+  console.warn(`[landing/build.js] parseStats: missing keys — falling back to hardcoded values for: ${missingStatKeys.join(', ')}`);
+}
+
+const statCities = stats['עיירות מכוסות'] || DEFAULT_STAT_CITIES;
+const statZones  = stats['אזורים']        || DEFAULT_STAT_ZONES;
+const statCats   = stats['קטגוריות']      || DEFAULT_STAT_CATS;
+const statTests  = stats['בדיקות אוטומטיות'] || DEFAULT_STAT_TESTS;
+
+// Step 4: Get current date in Hebrew
 const buildDate = new Date().toLocaleDateString('he-IL', {
   year: 'numeric',
   month: 'long',
   day: 'numeric',
 });
 
-// Step 4: Read template and replace placeholders
+// Step 5: Read template and replace placeholders
 const template = fs.readFileSync('landing/template/index.html', 'utf8');
 let output = template
   .replaceAll('{{VERSION}}', version)
   .replaceAll('{{USER_FEATURES_HTML}}', userFeaturesHtml)
   .replaceAll('{{DEV_FEATURES_HTML}}', devFeaturesHtml)
-  .replaceAll('{{BUILD_DATE}}', buildDate);
+  .replaceAll('{{BUILD_DATE}}', buildDate)
+  .replaceAll('{{WHATS_NEW_HTML}}', whatsNewHtml)
+  .replaceAll('{{CHANGELOG_VERSION}}', changelogVersion || version)
+  .replaceAll('{{STAT_CITIES}}', escapeHtml(statCities))
+  .replaceAll('{{STAT_ZONES}}',  escapeHtml(statZones))
+  .replaceAll('{{STAT_CATS}}',   escapeHtml(statCats))
+  .replaceAll('{{STAT_TESTS}}',  escapeHtml(statTests));
 
 // Inject GA4 tracking script if measurement ID is configured
 const GA4_PATTERN = /^G-[A-Z0-9]{4,12}$/;
@@ -138,10 +259,13 @@ if (fs.existsSync(screenshotsDir)) {
   const screenshotFiles = fs.readdirSync(screenshotsDir);
   for (const file of screenshotFiles) {
     if (path.extname(file).toLowerCase() === '.jpg') {
-      fs.copyFileSync(
-        path.join(screenshotsDir, file),
-        path.join('landing/dist/screenshots', file)
-      );
+      const src = path.join(screenshotsDir, file);
+      const dst = path.join('landing/dist/screenshots', file);
+      try {
+        fs.copyFileSync(src, dst);
+      } catch (err) {
+        throw new Error(`Failed to copy screenshot "${file}" from ${src}: ${err.message}`);
+      }
     }
   }
 }

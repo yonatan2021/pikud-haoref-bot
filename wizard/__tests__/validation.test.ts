@@ -62,15 +62,15 @@ describe('validateMapboxToken', () => {
     assert.equal(validateMapboxToken('pk.eyJhbGciOiJIUzI1NiJ9.something'), undefined)
   })
 
-  it('rejects a token starting with sk.', () => {
-    assert.ok(typeof validateMapboxToken('sk.eyJhbGciOiJIUzI1NiJ9.something') === 'string')
+  it('accepts a token starting with sk.', () => {
+    assert.equal(validateMapboxToken('sk.eyJhbGciOiJIUzI1NiJ9.something'), undefined)
   })
 
   it('rejects an empty string', () => {
     assert.ok(typeof validateMapboxToken('') === 'string')
   })
 
-  it('rejects a token without the pk. prefix', () => {
+  it('rejects a token without pk. or sk. prefix', () => {
     assert.ok(typeof validateMapboxToken('eyJhbGciOiJIUzI1NiJ9.something') === 'string')
   })
 })

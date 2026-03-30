@@ -114,7 +114,7 @@
       <div class="stat-item reveal" style="--reveal-delay: 0.1s">
         <span class="stat-icon">🗺️</span>
         <div class="stat-value">
-          <span class="stat-num" data-target="28">0</span>
+          <span class="stat-num" data-target="{{STAT_ZONES}}">0</span>
         </div>
         <span class="stat-label">אזורים מכוסים</span>
       </div>
@@ -122,7 +122,7 @@
       <div class="stat-item reveal" style="--reveal-delay: 0.2s">
         <span class="stat-icon">🏷️</span>
         <div class="stat-value">
-          <span class="stat-num" data-target="5">0</span>
+          <span class="stat-num" data-target="{{STAT_CATS}}">0</span>
         </div>
         <span class="stat-label">קטגוריות נושא</span>
       </div>
@@ -373,14 +373,32 @@
     </div>
   </section>
 
-  <!-- ⑦ Live Counter (social proof) ---------------------------------------- -->
+  <!-- ⑦ What's New ---------------------------------------------------------- -->
+  <section class="whats-new section" id="whats-new">
+    <div class="container">
+      <h2 class="section-title reveal">✨ מה חדש בגרסה {{CHANGELOG_VERSION}}?</h2>
+      <ul class="changelog-list reveal" style="--reveal-delay: 0.1s">
+        {{WHATS_NEW_HTML}}
+      </ul>
+      <div class="changelog-footer reveal" style="--reveal-delay: 0.2s">
+        <a
+          href="https://github.com/yonatan2021/pikud-haoref-bot/blob/main/CHANGELOG.md"
+          class="changelog-link"
+          target="_blank"
+          rel="noopener noreferrer"
+        >← כל יומן השינויים</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ⑧ Live Counter (social proof) ---------------------------------------- -->
   <section class="live-counter section" id="stats">
     <div class="container">
       <h2 class="section-title reveal">📊 במספרים</h2>
       <div class="counters-grid">
 
         <div class="counter-item reveal">
-          <div class="counter-value" data-target="1400">0</div>
+          <div class="counter-value" data-target="{{STAT_CITIES}}">0</div>
           <div class="counter-label">ערים ויישובים מכוסים</div>
         </div>
 
@@ -432,6 +450,15 @@
       <span>Apache 2.0</span>
       <span class="footer-sep" aria-hidden="true">·</span>
       <span>עודכן {{BUILD_DATE}}</span>
+    </div>
+    <div class="footer-sponsor">
+      <a
+        href="https://github.com/sponsors/yonatan2021"
+        class="sponsor-btn"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="תמוך בפרויקט דרך GitHub Sponsors"
+      >❤️ תמוך בפרויקט</a>
     </div>
     <p class="footer-credit">עשוי עם ❤️ בישראל 🇮🇱</p>
   </footer>
