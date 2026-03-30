@@ -7,7 +7,7 @@ import path from 'path';
 const dataDir = path.join(process.cwd(), 'data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
-import { maxCacheSize, clearImageCache, _seedCache, generateMapImage, _buildMarkersUrl, initializeCache, SIMPLIFY_TOLERANCE, SIMPLIFY_TOLERANCE_AGGRESSIVE, getAlertColor, ALERT_TYPE_COLOR, getCurrentMapStyle, getAdaptivePadding } from '../mapService';
+import { maxCacheSize, clearImageCache, _seedCache, generateMapImage, _buildMarkersUrl, _buildUnionedPolygonsUrl, initializeCache, SIMPLIFY_TOLERANCE, SIMPLIFY_TOLERANCE_AGGRESSIVE, getAlertColor, ALERT_TYPE_COLOR, getCurrentMapStyle, getAdaptivePadding } from '../mapService';
 import { buildGeoJSON, expandGeoJSONBounds } from '../cityLookup';
 import { initDb, getDb } from '../db/schema';
 import { getMonthlyCount, incrementMonthlyCount, isMonthlyLimitReached } from '../db/mapboxUsageRepository';
@@ -498,5 +498,70 @@ describe('buildMarkersWithPaddingUrl — min-span guarantee (Strategy 0)', () =>
 
   it('_buildMarkersUrl returns null for an empty city list', () => {
     assert.equal(_buildMarkersUrl([], 'missiles', 'mapbox/streets-v12', 80), null);
+  });
+});
+
+describe('_buildUnionedPolygonsUrl', () => {
+  it('returns null for an empty FeatureCollection', () => {
+    const empty = { type: 'FeatureCollection' as const, features: [] };
+    const result = _buildUnionedPolygonsUrl(empty, '#FF0000', 'mapbox/streets-v12', 30);
+    assert.equal(result, null);
+  });
+
+  it('returns a geojson overlay URL (not pin markers) for a city with polygon data', () => {
+    const city = getCityData('אבו גוש');
+    assert.ok(city, 'test requires אבו גוש in city data');
+    const fc = buildGeoJSON([city.id], '#FF0000');
+    assert.ok(fc.features.length > 0, 'אבו גוש must have polygon data');
+
+    const url = _buildUnionedPolygonsUrl(fc, '#FF0000', 'mapbox/streets-v12', 30);
+    assert.ok(url !== null, 'should return a URL for a city with polygon data');
+    assert.ok(url!.includes('geojson('), 'URL must use geojson overlay, not pin markers');
+    assert.ok(url!.includes('mapbox/streets-v12'), 'URL must embed the provided style');
+    assert.ok(url!.includes('padding=30'), 'URL must embed the provided padding');
+  });
+
+  it('URL fits within Mapbox 8000-char limit when unioning many overlapping city polygons', () => {
+    // Tel Aviv metro area — many overlapping polygons that union should merge dramatically
+    const cityNames = [
+      'תל אביב - יפו', 'רמת גן', 'בני ברק', 'פתח תקוה', 'חולון',
+      'בת ים', 'רמת השרון', 'הרצליה', 'כפר סבא', 'רעננה',
+      'ראשון לציון', 'רחובות', 'נס ציונה', 'אור יהודה', 'גבעתיים',
+    ];
+    const cityIds = cityNames
+      .map((name) => getCityData(name))
+      .filter((c): c is NonNullable<ReturnType<typeof getCityData>> => c !== null)
+      .map((c) => c.id);
+
+    assert.ok(cityIds.length >= 5, 'need at least 5 cities for a meaningful union test');
+
+    const fc = buildGeoJSON(cityIds, '#FF0000');
+    // Only run URL-length assertion when polygon data is available
+    if (fc.features.length === 0) return;
+
+    const url = _buildUnionedPolygonsUrl(fc, '#FF0000', 'mapbox/streets-v12', 30);
+    assert.ok(url !== null, 'union strategy should succeed for dense overlapping polygons');
+    assert.ok(url!.length <= 8000, `URL must be within Mapbox limit — got ${url!.length} chars`);
+  });
+
+  it('URL is shorter than a naive all-polygons URL for many cities', () => {
+    const cityNames = ['תל אביב - יפו', 'רמת גן', 'בני ברק', 'חולון', 'בת ים'];
+    const cityIds = cityNames
+      .map((name) => getCityData(name))
+      .filter((c): c is NonNullable<ReturnType<typeof getCityData>> => c !== null)
+      .map((c) => c.id);
+
+    const fc = buildGeoJSON(cityIds, '#FF0000');
+    if (fc.features.length === 0) return;
+
+    // Build naive URL with all raw polygons encoded
+    const naiveEncoded = encodeURIComponent(JSON.stringify(fc));
+    const unionUrl = _buildUnionedPolygonsUrl(fc, '#FF0000', 'mapbox/streets-v12', 30);
+    if (unionUrl === null) return; // union may fail for non-overlapping polygons
+
+    assert.ok(
+      unionUrl.length <= naiveEncoded.length,
+      `Union URL (${unionUrl.length}) should be ≤ naive URL (${naiveEncoded.length})`
+    );
   });
 });

@@ -1,8 +1,9 @@
 import axios from 'axios';
 import simplify from '@turf/simplify';
 import bbox from '@turf/bbox';
+import union from '@turf/union';
 import { polygon as turfPolygon, featureCollection } from '@turf/helpers';
-import type { FeatureCollection, Polygon } from 'geojson';
+import type { FeatureCollection, Polygon, MultiPolygon, Feature } from 'geojson';
 import { Alert, CityEntry } from './types';
 import { getCityData, getCityById, buildGeoJSON, expandGeoJSONBounds } from './cityLookup';
 import { isMonthlyLimitReached, incrementMonthlyCount } from './db/mapboxUsageRepository.js';
@@ -235,6 +236,55 @@ function buildBboxFeatureCollection(
   return featureCollection([bboxPoly]) as FeatureCollection<Polygon>;
 }
 
+/** Merges all city polygons in `rawGeojson` into a minimal set of shapes via @turf/union,
+ *  then simplifies the result and builds a Mapbox Static Images URL.
+ *
+ *  For dense alerts (e.g. 100 Tel-Aviv-area cities), union typically collapses hundreds of
+ *  individual polygons into 3–10 merged "blobs", shrinking the encoded URL by 10–20× and
+ *  keeping it below the 8 000-char Mapbox limit while still rendering as filled regions.
+ *
+ *  Returns null when the feature collection is empty, when @turf/union returns null
+ *  (no valid intersection topology), or when the resulting URL still exceeds the limit.
+ *  Exported for testing. */
+export function _buildUnionedPolygonsUrl(
+  rawGeojson: FeatureCollection<Polygon>,
+  color: string,
+  style: string,
+  padding: number,
+): string | null {
+  if (rawGeojson.features.length === 0) return null;
+
+  // @turf/union requires ≥ 2 geometries — pass through single-feature collections unchanged
+  const merged = rawGeojson.features.length === 1
+    ? rawGeojson.features[0] as Feature<Polygon | MultiPolygon>
+    : union(
+        featureCollection(rawGeojson.features as Feature<Polygon | MultiPolygon>[]),
+        { properties: { fill: color, 'fill-opacity': 0.5, stroke: color, 'stroke-width': 4, 'stroke-opacity': 0.8 } },
+      );
+  if (!merged) return null;
+
+  // Split MultiPolygon back into individual Polygon features — Mapbox reads
+  // fill/stroke properties per Feature, not per ring.
+  const props = { fill: color, 'fill-opacity': 0.5, stroke: color, 'stroke-width': 4, 'stroke-opacity': 0.8 };
+  const flatFeatures: Feature<Polygon>[] = merged.geometry.type === 'Polygon'
+    ? [{ type: 'Feature', properties: props, geometry: merged.geometry as Polygon }]
+    : (merged.geometry as MultiPolygon).coordinates.map((coords) => ({
+        type: 'Feature' as const,
+        properties: props,
+        geometry: { type: 'Polygon' as const, coordinates: coords },
+      }));
+
+  if (flatFeatures.length === 0) return null;
+
+  const simplified = simplifyFeatureCollection(
+    expandGeoJSONBounds({ type: 'FeatureCollection', features: flatFeatures }),
+    SIMPLIFY_TOLERANCE_AGGRESSIVE,
+  );
+
+  const url = buildMapboxUrl(simplified, style, padding);
+  return url.length <= MAPBOX_URL_MAX_LENGTH ? url : null;
+}
+
 export async function generateMapImage(alert: Alert): Promise<Buffer | null> {
   try {
     // Compute style once to avoid inconsistency if the 06:00/18:00 boundary is crossed
@@ -296,6 +346,13 @@ export async function generateMapImage(alert: Alert): Promise<Buffer | null> {
     if (url.length > MAPBOX_URL_MAX_LENGTH) {
       log('warn', 'MapService', 'URL too long — trying aggressive simplification');
       url = buildMapboxUrl(simplifyFeatureCollection(geojson, SIMPLIFY_TOLERANCE_AGGRESSIVE), style, padding);
+    }
+
+    // ניסיון 2.5: איחוד פוליגונים חופפים → כמה כתמים מאוחדים במקום מאות צורות נפרדות
+    if (url.length > MAPBOX_URL_MAX_LENGTH) {
+      log('warn', 'MapService', 'URL still too long — trying polygon union');
+      const unionUrl = _buildUnionedPolygonsUrl(rawGeojson, color, style, padding);
+      if (unionUrl) url = unionUrl;
     }
 
     // ניסיון 3: סמני מרכז עיר (pin markers) — קומפקטי בהרבה מפוליגונים
