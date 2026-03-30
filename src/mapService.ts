@@ -192,8 +192,15 @@ export async function generateMapImage(alert: Alert): Promise<Buffer | null> {
     const rawGeojson = buildGeoJSON(cityIds, color);
 
     if (rawGeojson.features.length === 0) {
-      log('warn', 'MapService', 'No polygons in data files — sending without map');
-      return null;
+      // Strategy 0: cities are in cities.json but have no polygon shapes —
+      // try pin markers which only need lat/lng coordinates.
+      log('warn', 'MapService', 'No polygons in data files — trying pin markers');
+      const markersUrl = _buildMarkersUrl(cityIds, alert.type);
+      if (!markersUrl) {
+        log('warn', 'MapService', 'No valid city coordinates — sending without map');
+        return null;
+      }
+      return await fetchAndCacheImage(markersUrl, cacheKey);
     }
 
     // Expand bounding box to guarantee ~50 km of geographic context
@@ -228,36 +235,40 @@ export async function generateMapImage(alert: Alert): Promise<Buffer | null> {
       return null;
     }
 
-    const response = await axios.get<ArrayBuffer>(url, {
-      responseType: 'arraybuffer',
-      timeout: 10_000,
-    });
-    const buffer = Buffer.from(response.data);
-
-    // Cache the result (FIFO eviction: Map iterates in insertion order)
-    if (imageCache.size >= maxCacheSize()) {
-      // FIFO eviction: Map iterates in insertion order, so .keys().next() yields the oldest entry
-      const oldestKey = imageCache.keys().next().value;
-      if (oldestKey !== undefined) {
-        imageCache.delete(oldestKey);
-        deleteCacheEntry(oldestKey);
-      }
-    }
-    imageCache.set(cacheKey, { buffer });
-    saveCacheEntry(cacheKey, buffer);
-
-    // Increment usage counter separately — failure here must not discard the image
-    try {
-      const currentMonth = new Date().toISOString().slice(0, 7);
-      const newCount = incrementMonthlyCount(currentMonth);
-      log('info', 'MapService', `Mapbox request #${newCount} for ${currentMonth}`);
-    } catch (countErr) {
-      log('error', 'MapService', `Mapbox counter update failed — possible desync: ${String(countErr)}`);
-    }
-
-    return buffer;
+    return await fetchAndCacheImage(url, cacheKey);
   } catch (err) {
     log('error', 'MapService', `Error generating map image: ${String(err)}`);
     return null;
   }
+}
+
+/** Fetches a Mapbox image URL, persists it in cache, and increments the monthly usage counter. */
+async function fetchAndCacheImage(url: string, cacheKey: string): Promise<Buffer> {
+  const response = await axios.get<ArrayBuffer>(url, {
+    responseType: 'arraybuffer',
+    timeout: 10_000,
+  });
+  const buffer = Buffer.from(response.data);
+
+  // Cache the result (FIFO eviction: Map iterates in insertion order)
+  if (imageCache.size >= maxCacheSize()) {
+    const oldestKey = imageCache.keys().next().value;
+    if (oldestKey !== undefined) {
+      imageCache.delete(oldestKey);
+      deleteCacheEntry(oldestKey);
+    }
+  }
+  imageCache.set(cacheKey, { buffer });
+  saveCacheEntry(cacheKey, buffer);
+
+  // Increment usage counter separately — failure here must not discard the image
+  try {
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    const newCount = incrementMonthlyCount(currentMonth);
+    log('info', 'MapService', `Mapbox request #${newCount} for ${currentMonth}`);
+  } catch (countErr) {
+    log('error', 'MapService', `Mapbox counter update failed — possible desync: ${String(countErr)}`);
+  }
+
+  return buffer;
 }

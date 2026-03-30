@@ -1,12 +1,17 @@
 import { strict as assert } from 'node:assert';
-import { describe, it, test } from 'node:test';
+import { describe, it, test, mock, beforeEach, afterEach } from 'node:test';
 import {
   escapeHtml,
   buildCityList,
   buildZonedCityList,
   selectEditMethod,
   truncateToCaptionLimit,
+  formatAlertMessage,
   TELEGRAM_CAPTION_MAX,
+  isUnmodifiedError,
+  isMediaEditError,
+  isMessageGoneError,
+  type EditBotApi,
 } from '../telegramBot.js';
 
 test('escapeHtml escapes ampersand', () => {
@@ -62,9 +67,10 @@ describe('buildZonedCityList', () => {
     assert.equal(buildZonedCityList([]), '');
   });
 
-  it('returns plain city list when no city has zone data', () => {
+  it('uses ערים נוספות header when no city has zone data', () => {
     const result = buildZonedCityList(['עיר לא קיימת בכלל']);
-    assert.ok(!result.includes('📍'), 'should not show a zone header');
+    assert.ok(result.includes('📍'), 'should show pin emoji for ערים נוספות header');
+    assert.ok(result.includes('ערים נוספות'), 'should show ערים נוספות header');
     assert.ok(result.includes('עיר לא קיימת בכלל'));
   });
 
@@ -107,10 +113,39 @@ describe('buildZonedCityList', () => {
     assert.ok(result.includes('ועוד 5 ערים נוספות'));
   });
 
-  it('escapes HTML in zone names', () => {
-    const result = buildZonedCityList(['אור יהודה']);
-    // Zone name is wrapped in <b> tags from our template, not injected raw
-    assert.ok(!result.includes('<script>'), 'zone should not allow script injection');
+  it('escapes HTML special characters in city names rendered inside zones', () => {
+    // Unknown cities fall into the ערים נוספות section, rendered via buildCityList → escapeHtml.
+    // Verifies user-supplied strings are never inserted as raw HTML.
+    const malicious = 'עיר <b>רעה</b> & "בעיה"';
+    const result = buildZonedCityList([malicious]);
+    assert.ok(!result.includes('<b>רעה</b>'), 'raw <b> tag must not appear in output');
+    assert.ok(result.includes('&lt;b&gt;'), 'angle brackets must be HTML-escaped');
+    assert.ok(result.includes('&amp;'), 'ampersand must be HTML-escaped');
+  });
+
+  it('shows per-zone city count in zone header', () => {
+    // אור יהודה and בני ברק are both in zone דן
+    const result = buildZonedCityList(['אור יהודה', 'בני ברק']);
+    assert.ok(result.includes('(2)'), `Expected "(2)" in zone header: ${result}`);
+  });
+
+  it('sorts cities alphabetically within each zone', () => {
+    // Feed in reverse alphabetical order — output should be sorted
+    const result = buildZonedCityList(['בני ברק', 'אור יהודה']);
+    const orYehudaIdx = result.indexOf('אור יהודה');
+    const bneiIdx = result.indexOf('בני ברק');
+    assert.ok(orYehudaIdx < bneiIdx, `אור יהודה should appear before בני ברק (alpha order): ${result}`);
+  });
+
+  it('shows "ערים נוספות" header for cities not found in cities.json', () => {
+    const result = buildZonedCityList(['עיר_לא_קיימת_123xyz']);
+    assert.ok(result.includes('ערים נוספות'), `Expected "ערים נוספות" header: ${result}`);
+    assert.ok(result.includes('📍'), 'should include pin emoji for noZone header');
+  });
+
+  it('does not show "ערים נוספות" header when all cities have zone data', () => {
+    const result = buildZonedCityList(['אור יהודה', 'בני ברק']); // both in דן
+    assert.ok(!result.includes('ערים נוספות'), `Should not show noZone header when all cities match: ${result}`);
   });
 });
 
@@ -165,5 +200,285 @@ describe('selectEditMethod', () => {
   it('returns "text" when hasPhoto=false regardless of imageBuffer', () => {
     assert.equal(selectEditMethod(false, null), 'text');
     assert.equal(selectEditMethod(false, Buffer.from('img')), 'text');
+  });
+});
+
+describe('formatAlertMessage with receivedAt timestamp', () => {
+  it('uses receivedAt timestamp when provided', () => {
+    // 2024-06-15 14:30:00 UTC = 17:30 Israel time (UTC+3 in summer)
+    const fixedMs = new Date('2024-06-15T14:30:00Z').getTime();
+    const alert = {
+      type: 'rockets',
+      cities: ['תל אביב'],
+      receivedAt: fixedMs,
+    };
+
+    const result = formatAlertMessage(alert);
+    assert.ok(result.includes('17:30'), 'formatted message should include the time 17:30 for the fixed timestamp');
+  });
+
+  it('falls back to current time when receivedAt is not provided', () => {
+    const alert = {
+      type: 'rockets',
+      cities: ['תל אביב'],
+    };
+
+    const result = formatAlertMessage(alert);
+    // Just verify that a time pattern is included (HH:MM format)
+    assert.ok(/\d{2}:\d{2}/.test(result), 'formatted message should include a time pattern HH:MM');
+  });
+});
+
+describe('formatAlertMessage city count', () => {
+  it('shows city count in header when cities present', () => {
+    const alert = {
+      type: 'missiles',
+      cities: ['עיר א', 'עיר ב', 'עיר ג'],
+    };
+    const result = formatAlertMessage(alert);
+    assert.ok(result.includes('3 ערים'), `Expected "3 ערים" in: ${result}`);
+  });
+
+  it('omits city count suffix when cities array is empty', () => {
+    const alert = {
+      type: 'missiles',
+      cities: [],
+    };
+    const result = formatAlertMessage(alert);
+    assert.ok(!result.includes('ערים'), `Should not show city count for empty cities: ${result}`);
+  });
+});
+
+// ─── Error classifier pure-function tests ────────────────────────────────────
+
+describe('isUnmodifiedError', () => {
+  it('returns true for "message is not modified" error', () => {
+    assert.equal(isUnmodifiedError(new Error('Bad Request: message is not modified')), true);
+  });
+
+  it('returns false for a different error message', () => {
+    assert.equal(isUnmodifiedError(new Error('Network error')), false);
+  });
+
+  it('returns false for non-Error values', () => {
+    assert.equal(isUnmodifiedError('string'), false);
+    assert.equal(isUnmodifiedError(null), false);
+    assert.equal(isUnmodifiedError(42), false);
+  });
+});
+
+describe('isMediaEditError', () => {
+  it('returns true for MEDIA_EDIT_FAILED', () => {
+    assert.equal(isMediaEditError(new Error('MEDIA_EDIT_FAILED')), true);
+  });
+
+  it("returns true for \"media can't be edited\"", () => {
+    assert.equal(isMediaEditError(new Error("Bad Request: media can't be edited")), true);
+  });
+
+  it('returns true for "wrong type of the web page content"', () => {
+    assert.equal(isMediaEditError(new Error('wrong type of the web page content')), true);
+  });
+
+  it('returns false for unrelated errors', () => {
+    assert.equal(isMediaEditError(new Error('Network error')), false);
+    assert.equal(isMediaEditError(new Error('message is not modified')), false);
+  });
+
+  it('returns false for non-Error values', () => {
+    assert.equal(isMediaEditError(null), false);
+    assert.equal(isMediaEditError('MEDIA_EDIT_FAILED'), false);
+  });
+});
+
+describe('isMessageGoneError', () => {
+  it('returns true for "message to edit not found"', () => {
+    assert.equal(isMessageGoneError(new Error('Bad Request: message to edit not found')), true);
+  });
+
+  it("returns true for \"message can't be edited\"", () => {
+    assert.equal(isMessageGoneError(new Error("Bad Request: message can't be edited")), true);
+  });
+
+  it('returns false for unrelated errors', () => {
+    assert.equal(isMessageGoneError(new Error('Network error')), false);
+    assert.equal(isMessageGoneError(new Error('MEDIA_EDIT_FAILED')), false);
+  });
+
+  it('returns false for non-Error values', () => {
+    assert.equal(isMessageGoneError(null), false);
+    assert.equal(isMessageGoneError(undefined), false);
+  });
+});
+
+// ─── editAlert degraded chain tests ──────────────────────────────────────────
+
+describe('editAlert degraded chain (_editAlertChain)', () => {
+  // Suppress logger stdout so test output stays clean
+  let stdoutSpy: ReturnType<typeof mock.method>;
+  beforeEach(() => {
+    stdoutSpy = mock.method(process.stdout, 'write', () => true);
+  });
+  afterEach(() => {
+    stdoutSpy.mock.restore();
+  });
+
+  const tracked = { messageId: 42, chatId: '-100', hasPhoto: true };
+  const alert = { type: 'missiles', cities: ['תל אביב'] };
+  const imageBuffer = Buffer.from('img');
+
+  it('Step 1 success: calls editMessageMedia and does not degrade', async () => {
+    const api = {
+      editMessageMedia: mock.fn(async () => ({})),
+      editMessageCaption: mock.fn(async () => ({})),
+      editMessageText: mock.fn(async () => ({})),
+    };
+
+    const { _editAlertChain } = await import('../telegramBot.js');
+    await _editAlertChain(
+      api as unknown as EditBotApi,
+      tracked,
+      alert,
+      imageBuffer
+    );
+
+    assert.equal(api.editMessageMedia.mock.calls.length, 1, 'Step 1 must be attempted');
+    assert.equal(api.editMessageCaption.mock.calls.length, 0, 'Step 2 must NOT be called on success');
+    assert.equal(api.editMessageText.mock.calls.length, 0, 'Step 3 must NOT be called on success');
+  });
+
+  it('Step 1 media error → Step 2 caption edit succeeds: does not re-throw', async () => {
+    const api = {
+      editMessageMedia: mock.fn(async () => { throw new Error('MEDIA_EDIT_FAILED'); }),
+      editMessageCaption: mock.fn(async () => ({})),
+      editMessageText: mock.fn(async () => ({})),
+    };
+
+    const { _editAlertChain } = await import('../telegramBot.js');
+    await assert.doesNotReject(() =>
+      _editAlertChain(
+        api as unknown as EditBotApi,
+        tracked,
+        alert,
+        imageBuffer
+      )
+    );
+
+    assert.equal(api.editMessageMedia.mock.calls.length, 1, 'Step 1 must be attempted');
+    assert.equal(api.editMessageCaption.mock.calls.length, 1, 'Step 2 must be called on media failure');
+    assert.equal(api.editMessageText.mock.calls.length, 0, 'Step 3 must NOT be called');
+  });
+
+  it('Step 1 media error → Step 2 caption error → Step 3 text edit succeeds', async () => {
+    const api = {
+      editMessageMedia: mock.fn(async () => { throw new Error('MEDIA_EDIT_FAILED'); }),
+      editMessageCaption: mock.fn(async () => { throw new Error('caption failed unexpectedly'); }),
+      editMessageText: mock.fn(async () => ({})),
+    };
+
+    const { _editAlertChain } = await import('../telegramBot.js');
+    await assert.doesNotReject(() =>
+      _editAlertChain(
+        api as unknown as EditBotApi,
+        tracked,
+        alert,
+        imageBuffer
+      )
+    );
+
+    assert.equal(api.editMessageMedia.mock.calls.length, 1, 'Step 1 attempted');
+    assert.equal(api.editMessageCaption.mock.calls.length, 1, 'Step 2 attempted');
+    assert.equal(api.editMessageText.mock.calls.length, 1, 'Step 3 attempted as final fallback');
+  });
+
+  it('isUnmodifiedError in Step 1 → resolves without degrading', async () => {
+    const api = {
+      editMessageMedia: mock.fn(async () => { throw new Error('message is not modified'); }),
+      editMessageCaption: mock.fn(async () => ({})),
+      editMessageText: mock.fn(async () => ({})),
+    };
+
+    const { _editAlertChain } = await import('../telegramBot.js');
+    await assert.doesNotReject(() =>
+      _editAlertChain(
+        api as unknown as EditBotApi,
+        tracked,
+        alert,
+        imageBuffer
+      )
+    );
+
+    assert.equal(api.editMessageCaption.mock.calls.length, 0, 'must not degrade on unmodified');
+    assert.equal(api.editMessageText.mock.calls.length, 0, 'must not degrade on unmodified');
+  });
+
+  it('isMessageGoneError → re-throws so alertHandler can send fresh message', async () => {
+    const goneError = new Error('message to edit not found');
+    const api = {
+      editMessageMedia: mock.fn(async () => { throw goneError; }),
+      editMessageCaption: mock.fn(async () => ({})),
+      editMessageText: mock.fn(async () => ({})),
+    };
+
+    const { _editAlertChain } = await import('../telegramBot.js');
+    await assert.rejects(
+      () => _editAlertChain(
+        api as unknown as EditBotApi,
+        tracked,
+        alert,
+        imageBuffer
+      ),
+      (err: Error) => {
+        assert.equal(err, goneError);
+        return true;
+      }
+    );
+
+    assert.equal(api.editMessageCaption.mock.calls.length, 0, 'must not degrade when message is gone');
+    assert.equal(api.editMessageText.mock.calls.length, 0, 'must not degrade when message is gone');
+  });
+
+  it('unknown error in Step 1 → degrades to Step 2 (caption)', async () => {
+    const api = {
+      editMessageMedia: mock.fn(async () => { throw new Error('Some unknown Telegram error'); }),
+      editMessageCaption: mock.fn(async () => ({})),
+      editMessageText: mock.fn(async () => ({})),
+    };
+
+    const { _editAlertChain } = await import('../telegramBot.js');
+    await assert.doesNotReject(() =>
+      _editAlertChain(
+        api as unknown as EditBotApi,
+        tracked,
+        alert,
+        imageBuffer
+      )
+    );
+
+    assert.equal(api.editMessageCaption.mock.calls.length, 1, 'Step 2 must be tried for unknown errors');
+  });
+
+  it('caption-only path (hasPhoto=true, no image): Step 1 is caption, Step 2 is text on failure', async () => {
+    const trackedNoImg = { messageId: 42, chatId: '-100', hasPhoto: true };
+    const api = {
+      editMessageMedia: mock.fn(async () => ({})),
+      editMessageCaption: mock.fn(async () => { throw new Error('some caption error'); }),
+      editMessageText: mock.fn(async () => ({})),
+    };
+
+    const { _editAlertChain } = await import('../telegramBot.js');
+    // No imageBuffer — starts at caption
+    await assert.doesNotReject(() =>
+      _editAlertChain(
+        api as unknown as EditBotApi,
+        trackedNoImg,
+        alert,
+        null   // no image buffer
+      )
+    );
+
+    assert.equal(api.editMessageMedia.mock.calls.length, 0, 'Step 1 (media) must not be called when no image');
+    assert.equal(api.editMessageCaption.mock.calls.length, 1, 'caption attempted');
+    assert.equal(api.editMessageText.mock.calls.length, 1, 'text fallback used on caption failure');
   });
 });

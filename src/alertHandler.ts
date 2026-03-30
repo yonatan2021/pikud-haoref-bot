@@ -1,7 +1,7 @@
 import type { Alert } from './types';
 import type { TrackedMessage } from './alertWindowTracker';
 import { log, logAlert } from './logger.js';
-import { ALERT_TYPE_HE, ALERT_TYPE_EMOJI } from './telegramBot.js';
+import { ALERT_TYPE_HE, ALERT_TYPE_EMOJI, isMessageGoneError } from './telegramBot.js';
 import { ALERT_TYPE_CATEGORY } from './topicRouter.js';
 
 export interface AlertHandlerDeps {
@@ -23,10 +23,6 @@ export interface AlertHandlerDeps {
   shouldSkipMap: (alertType: string) => boolean;
   getTopicId: (alertType: string) => number | undefined;
   insertAlertHistory: (alert: Alert) => void;
-}
-
-function isUnmodifiedError(err: unknown): boolean {
-  return err instanceof Error && err.message.includes('message is not modified');
 }
 
 export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Promise<void> {
@@ -87,15 +83,16 @@ export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Prom
         sentToGroup = true;
         wasEdit = true;
       } catch (editErr) {
-        if (isUnmodifiedError(editErr)) {
-          // Telegram 400 "message is not modified" — content unchanged, treat as success
-          log('warn', 'AlertHandler', `הודעה לא שונתה (Telegram 400) — type=${alert.type}, cities=${mergedAlert.cities.length}`);
+        if (isMessageGoneError(editErr)) {
+          // Message was deleted or is too old to edit — fall back to sending a fresh message
+          log('error', 'AlertHandler', `עריכת הודעה נכשלה — הודעה לא קיימת, שולח הודעה חדשה: ${editErr}`);
+        } else {
+          // editAlert handles all other errors internally (degraded chain).
+          // If it still throws here it is an unexpected internal error — log and treat as handled
+          // to avoid sending a duplicate fresh message.
+          log('error', 'AlertHandler', `editAlert נכשל בצורה בלתי צפויה — type=${alert.type}: ${editErr}`);
           trackMessage(alert.type, { ...active, alert: mergedAlert });
           editHandled = true;
-          sentToGroup = true;
-          wasEdit = true;
-        } else {
-          log('error', 'AlertHandler', `עריכת הודעה נכשלה — שולח הודעה חדשה: ${editErr}`);
         }
       }
 

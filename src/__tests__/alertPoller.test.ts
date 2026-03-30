@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeCityName } from '../alertPoller';
+import { normalizeCityName } from '../alertPoller.js';
 
 describe('normalizeCityName', () => {
   it('trims leading and trailing whitespace', () => {
