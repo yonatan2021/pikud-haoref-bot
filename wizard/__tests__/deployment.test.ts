@@ -249,6 +249,45 @@ describe('spawnStep — non-ENOENT spawn error (e.g. EACCES)', () => {
   })
 })
 
+// ── spawnStep — close fires with null code and no signal (null/null branch) ────
+
+describe('spawnStep — close(null) with no prior error event', () => {
+  it('rejects with unexpected-termination message when close fires null/null', async () => {
+    const { spawnFn, trigger } = makeFakeSpawn()
+    setImmediate(() => trigger.close(null))  // no error event — only close(null, null)
+
+    await assert.rejects(
+      runNodeSetup('/fake/.env', 'telegram', {
+        spawn: spawnFn, copyFile: noopCopyFile, access: missingAccess, rm: noopRm,
+      }),
+      /ללא קוד יציאה|בלתי צפוי/,
+    )
+  })
+})
+
+// ── runNodeSetup — npm install failure wraps error with recovery hint ─────────
+
+describe('runNodeSetup — npm install failure', () => {
+  it('wraps npm install failure with a manual recovery hint', async () => {
+    // noopAccess = dir already exists → git clone is skipped;
+    // the only spawn call is for npm install, so trigger.close(1) hits that path.
+    const { spawnFn, trigger } = makeFakeSpawn()
+    setImmediate(() => trigger.close(1))
+
+    await assert.rejects(
+      runNodeSetup('/fake/.env', 'telegram', {
+        spawn: spawnFn, copyFile: noopCopyFile, access: noopAccess, rm: noopRm,
+      }),
+      (err: Error) => {
+        // The underlying spawnStep message names the command ("npm יצא עם קוד שגיאה 1")
+        assert.ok(err.message.includes('npm'), `expected "npm" in message: ${err.message}`)
+        assert.ok(err.message.includes('קוד שגיאה 1'), `expected exit-code in message: ${err.message}`)
+        return true
+      },
+    )
+  })
+})
+
 // ── runNodeSetup — rm failure does not shadow clone error ─────────────────────
 
 describe('runNodeSetup — rm failure does not shadow clone error', () => {
