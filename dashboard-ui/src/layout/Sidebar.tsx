@@ -71,11 +71,11 @@ export function Sidebar({ uptime }: { uptime: number }) {
                 to={item.to}
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-4 py-2 text-sm transition-colors ${isActive
-                    ? 'border-l-2 border-amber text-amber bg-[var(--color-glow-amber)]'
+                    ? 'border-r-2 border-amber text-amber bg-[var(--color-glow-amber)]'
                     : 'text-text-secondary hover:bg-white/5 hover:text-text-primary'}`
                 }
               >
-                <motion.div whileHover={{ x: -2 }} className="flex items-center gap-3 w-full">
+                <motion.div whileHover={{ x: 2 }} className="flex items-center gap-3 w-full">
                   <item.icon size={16} className="flex-shrink-0" />
                   <AnimatePresence mode="wait">
                     {!collapsed && (
