@@ -113,6 +113,11 @@ export function WhatsAppListeners() {
     queryFn: () => api.get('/api/whatsapp/chats'),
   });
 
+  const { data: waStatus } = useQuery<{ status: string }>({
+    queryKey: ['whatsapp-status'],
+    queryFn: () => api.get('/api/whatsapp/status'),
+  });
+
   const { data: topics } = useQuery<TelegramTopic[]>({
     queryKey: ['telegram-topics'],
     queryFn: () => api.get('/api/whatsapp/listeners/telegram-topics'),
@@ -271,6 +276,7 @@ export function WhatsAppListeners() {
               value={form.channelId}
               onChange={channelId => setForm(prev => ({ ...prev, channelId }))}
               disabled={editingId != null}
+              whatsappConnected={waStatus?.status === 'ready'}
             />
 
             {/* Channel name */}

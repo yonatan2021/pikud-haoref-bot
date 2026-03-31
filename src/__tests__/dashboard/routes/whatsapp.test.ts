@@ -15,6 +15,8 @@ let mockQr: string | null = null;
 let mockPhone: string | null = null;
 let mockCachedGroups: { id: string; name: string }[] = [];
 let initializeCalled = false;
+let disconnectCalled = false;
+let refreshGroupsCalled = false;
 
 const mockSvc: WhatsAppServiceDeps = {
   getStatus: () => mockStatus as any,
@@ -22,6 +24,8 @@ const mockSvc: WhatsAppServiceDeps = {
   getPhone: () => mockPhone,
   getCachedGroups: () => mockCachedGroups as any,
   initialize: () => { initializeCalled = true; },
+  disconnect: async () => { disconnectCalled = true; mockStatus = 'disconnected'; mockPhone = null; mockCachedGroups = []; },
+  refreshGroups: async () => { refreshGroupsCalled = true; },
 };
 
 // ─── Test setup ──────────────────────────────────────────────────────────────
@@ -46,6 +50,8 @@ beforeEach(() => {
   mockPhone = null;
   mockCachedGroups = [];
   initializeCalled = false;
+  disconnectCalled = false;
+  refreshGroupsCalled = false;
   // Clear DB groups
   db.prepare('DELETE FROM whatsapp_groups').run();
 });
@@ -210,10 +216,36 @@ describe('POST /api/whatsapp/reconnect', () => {
     assert.deepEqual(res.body, { ok: true });
   });
 
-  it('calls initialize()', async () => {
+  it('calls initialize() when disconnected', async () => {
+    mockStatus = 'disconnected';
     initializeCalled = false;
+    disconnectCalled = false;
     await request(app).post('/api/whatsapp/reconnect');
     assert.equal(initializeCalled, true);
+    assert.equal(disconnectCalled, false, 'should not disconnect when already disconnected');
+  });
+
+  it('calls disconnect() then initialize() when already ready', async () => {
+    mockStatus = 'ready';
+    initializeCalled = false;
+    disconnectCalled = false;
+    await request(app).post('/api/whatsapp/reconnect');
+    assert.equal(disconnectCalled, true, 'should disconnect when already ready');
+    assert.equal(initializeCalled, true, 'should re-initialize after disconnect');
+  });
+});
+
+describe('POST /api/whatsapp/disconnect', () => {
+  it('returns { ok: true }', async () => {
+    const res = await request(app).post('/api/whatsapp/disconnect');
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body, { ok: true });
+  });
+
+  it('calls disconnect()', async () => {
+    disconnectCalled = false;
+    await request(app).post('/api/whatsapp/disconnect');
+    assert.equal(disconnectCalled, true);
   });
 });
 

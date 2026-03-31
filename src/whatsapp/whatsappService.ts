@@ -53,11 +53,25 @@ export async function refreshGroups(): Promise<void> {
   try {
     const chats = await client.getChats();
     cachedGroups = chats
-      .filter((chat) => chat.isGroup)
+      .filter((chat) => chat.isGroup || chat.id._serialized.endsWith('@newsletter'))
       .map((chat) => ({ id: chat.id._serialized, name: chat.name }));
   } catch (err: unknown) {
     log('error', 'WhatsApp', `שגיאה בטעינת קבוצות: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
   }
+}
+
+export async function disconnect(): Promise<void> {
+  if (!client) return;
+  try {
+    await client.destroy();
+  } catch (err: unknown) {
+    log('error', 'WhatsApp', `שגיאה בניתוק: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  client = null;
+  status = 'disconnected';
+  phone = null;
+  cachedGroups = [];
+  currentQr = null;
 }
 
 export function initialize(): void {
@@ -66,7 +80,8 @@ export function initialize(): void {
   }
 
   if (client !== null) {
-    log('warn', 'WhatsApp', 'כבר מחובר — מדלג על אתחול נוסף');
+    log('info', 'WhatsApp', 'כבר מחובר — מרענן קבוצות');
+    refreshGroups().catch(() => {});
     return;
   }
 
@@ -106,12 +121,17 @@ export function initialize(): void {
     phone = client!.info.wid.user;
     log('success', 'WhatsApp', `מחובר — טלפון: ${phone}`);
     await refreshGroups();
+    if (cachedGroups.length === 0) {
+      log('info', 'WhatsApp', 'לא נמצאו קבוצות — מנסה שוב בעוד 3 שניות');
+      setTimeout(() => { refreshGroups().catch(() => {}); }, 3000);
+    }
   });
 
   client.on('disconnected', (reason: string) => {
     client = null;
     status = 'disconnected';
     phone = null;
+    cachedGroups = [];
     log('warn', 'WhatsApp', `מנותק — סיבה: ${reason}`);
   });
 

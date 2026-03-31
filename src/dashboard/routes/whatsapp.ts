@@ -14,6 +14,8 @@ export interface WhatsAppServiceDeps {
   getPhone: () => string | null;
   getCachedGroups: () => WhatsAppGroup[];
   initialize: () => void;
+  disconnect: () => Promise<void>;
+  refreshGroups: () => Promise<void>;
 }
 
 export function createWhatsAppRouter(
@@ -141,14 +143,29 @@ export function createWhatsAppRouter(
     }
   });
 
-  // POST /reconnect — triggers re-initialization (non-blocking)
-  router.post('/reconnect', (_req: Request, res: Response) => {
+  // POST /reconnect — disconnect (if connected) then re-initialize
+  router.post('/reconnect', async (_req: Request, res: Response) => {
     try {
+      const currentStatus = service.getStatus();
+      if (currentStatus === 'ready' || currentStatus === 'connecting' || currentStatus === 'qr') {
+        await service.disconnect();
+      }
       service.initialize();
       res.json({ ok: true });
     } catch (err: unknown) {
       log('error', 'WhatsApp', `שגיאה באתחול מחדש: ${err instanceof Error ? err.message : String(err)}`);
       res.status(500).json({ error: 'אתחול WhatsApp נכשל' });
+    }
+  });
+
+  // POST /disconnect — disconnect WhatsApp client
+  router.post('/disconnect', async (_req: Request, res: Response) => {
+    try {
+      await service.disconnect();
+      res.json({ ok: true });
+    } catch (err: unknown) {
+      log('error', 'WhatsApp', `שגיאה בניתוק: ${err instanceof Error ? err.message : String(err)}`);
+      res.status(500).json({ error: 'ניתוק WhatsApp נכשל' });
     }
   });
 

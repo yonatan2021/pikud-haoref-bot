@@ -11,9 +11,10 @@ interface SourceSelectorProps {
   value: string;
   onChange: (channelId: string) => void;
   disabled: boolean;
+  whatsappConnected?: boolean;
 }
 
-export function SourceSelector({ chats, value, onChange, disabled }: SourceSelectorProps) {
+export function SourceSelector({ chats, value, onChange, disabled, whatsappConnected }: SourceSelectorProps) {
   const chatsEmpty = !chats || chats.length === 0;
   const selected = chats?.find(c => c.id === value);
 
@@ -46,11 +47,23 @@ export function SourceSelector({ chats, value, onChange, disabled }: SourceSelec
         <div className="bg-base border border-amber/20 rounded-lg p-3 flex gap-2 items-start">
           <span>⚠️</span>
           <div>
-            <p className="text-text-secondary text-xs font-medium">WhatsApp לא מחובר</p>
-            <p className="text-text-muted text-xs">
-              כדי להוסיף כלל האזנה, יש תחילה לחבר את WhatsApp.{' '}
-              <a href="/whatsapp" className="text-amber hover:underline">עבור לחיבור WhatsApp</a>
-            </p>
+            {whatsappConnected ? (
+              <>
+                <p className="text-text-secondary text-xs font-medium">לא נמצאו קבוצות או ערוצים</p>
+                <p className="text-text-muted text-xs">
+                  WhatsApp מחובר אך לא נמצאו צ&apos;אטים.{' '}
+                  <a href="/whatsapp" className="text-amber hover:underline">נסה לחבר מחדש</a>
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-text-secondary text-xs font-medium">WhatsApp לא מחובר</p>
+                <p className="text-text-muted text-xs">
+                  כדי להוסיף כלל האזנה, יש תחילה לחבר את WhatsApp.{' '}
+                  <a href="/whatsapp" className="text-amber hover:underline">עבור לחיבור WhatsApp</a>
+                </p>
+              </>
+            )}
           </div>
         </div>
       )}

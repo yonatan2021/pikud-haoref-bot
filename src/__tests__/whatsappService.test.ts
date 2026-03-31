@@ -20,6 +20,7 @@ import {
   getCachedGroups,
   initialize,
   refreshGroups,
+  disconnect,
   setMessageCallback,
 } from '../whatsapp/whatsappService';
 
@@ -162,6 +163,22 @@ describe('whatsappService — initialize() guard: double-call is a no-op', () =>
     if (originalValue !== undefined) {
       process.env.WHATSAPP_ENABLED = originalValue;
     }
+  });
+});
+
+describe('whatsappService — disconnect() when client is null', () => {
+  it('resolves without throwing when client is null', async () => {
+    assert.equal(getClient(), null, 'precondition: client must be null');
+    await assert.doesNotReject(
+      () => disconnect(),
+      'disconnect() should not throw when client is null'
+    );
+  });
+
+  it('status remains disconnected after disconnect() with no client', async () => {
+    await disconnect();
+    assert.equal(getStatus(), 'disconnected');
+    assert.deepEqual(getCachedGroups(), []);
   });
 });
 

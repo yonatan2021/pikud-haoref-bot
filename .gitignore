@@ -19,3 +19,5 @@ CLAUDE.md
 .claude/rules/*
 .claude/skills/*
 .claude/
+.wwebjs_cache/
+.wwebjs_auth/

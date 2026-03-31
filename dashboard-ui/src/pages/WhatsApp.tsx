@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { RefreshCw, Loader2 } from 'lucide-react';
+import { RefreshCw, Loader2, Unplug } from 'lucide-react';
 import QRCode from 'qrcode';
 import { api } from '../api/client';
 import { GlassCard } from '../components/ui/GlassCard';
@@ -224,7 +224,8 @@ export function WhatsApp() {
     queryKey: ['whatsapp-status'],
     queryFn: () => api.get('/api/whatsapp/status'),
     refetchInterval: (query) => {
-      if (query.state.data?.status === 'ready') return false;
+      const s = query.state.data?.status;
+      if (s === 'ready' || s === 'disconnected') return false;
       if (query.state.errorUpdateCount >= 5) return false;
       return 3000;
     },
@@ -240,10 +241,23 @@ export function WhatsApp() {
     onSuccess: () => {
       toast.success('בקשת חיבור נשלחה');
       queryClient.invalidateQueries({ queryKey: ['whatsapp-status'] });
+      queryClient.invalidateQueries({ queryKey: ['whatsapp-groups'] });
       setShowReconnectConfirm(false);
     },
     onError: () => {
       toast.error('שגיאה בחיבור מחדש');
+    },
+  });
+
+  const disconnectMutation = useMutation({
+    mutationFn: () => api.post('/api/whatsapp/disconnect', {}),
+    onSuccess: () => {
+      toast.success('WhatsApp נותק');
+      queryClient.invalidateQueries({ queryKey: ['whatsapp-status'] });
+      queryClient.invalidateQueries({ queryKey: ['whatsapp-groups'] });
+    },
+    onError: () => {
+      toast.error('שגיאה בניתוק');
     },
   });
 
@@ -337,18 +351,34 @@ export function WhatsApp() {
                 </p>
               )}
 
-              <button
-                onClick={() => status === 'ready' ? setShowReconnectConfirm(true) : reconnectMutation.mutate()}
-                disabled={reconnectMutation.isPending}
-                className="flex items-center gap-2 px-4 py-2 bg-surface border border-border hover:bg-base text-text-secondary text-sm rounded-lg transition-colors disabled:opacity-40 w-fit"
-              >
-                {reconnectMutation.isPending ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <RefreshCw size={14} />
+              <div className="flex gap-2">
+                {status === 'ready' && (
+                  <button
+                    onClick={() => disconnectMutation.mutate()}
+                    disabled={disconnectMutation.isPending}
+                    className="flex items-center gap-2 px-4 py-2 bg-red/10 border border-red/30 hover:bg-red/20 text-red text-sm rounded-lg transition-colors disabled:opacity-40 w-fit"
+                  >
+                    {disconnectMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Unplug size={14} />
+                    )}
+                    נתק
+                  </button>
                 )}
-                {status === 'ready' ? 'חבר מחדש' : 'התחבר'}
-              </button>
+                <button
+                  onClick={() => status === 'ready' ? setShowReconnectConfirm(true) : reconnectMutation.mutate()}
+                  disabled={reconnectMutation.isPending}
+                  className="flex items-center gap-2 px-4 py-2 bg-surface border border-border hover:bg-base text-text-secondary text-sm rounded-lg transition-colors disabled:opacity-40 w-fit"
+                >
+                  {reconnectMutation.isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <RefreshCw size={14} />
+                  )}
+                  {status === 'ready' ? 'חבר מחדש' : 'התחבר'}
+                </button>
+              </div>
             </div>
           </div>
         </GlassCard>
@@ -370,7 +400,9 @@ export function WhatsApp() {
             </div>
           ) : !groups || groups.length === 0 ? (
             <div className="py-10 text-center text-text-muted text-sm">
-              אין קבוצות — סרוק את קוד ה-QR כדי להתחבר
+              {status === 'ready'
+                ? 'מחובר אך לא נמצאו קבוצות — נסה לחבר מחדש'
+                : 'אין קבוצות — סרוק את קוד ה-QR כדי להתחבר'}
             </div>
           ) : (
             <div>
