@@ -13,8 +13,9 @@ coverage/
 docs/superpowers/
 .worktrees/
 .worktree/
-CLAUDE.md
-.claude.local.md
-.claude
 logo.jpg
 package-lock.json
+CLAUDE.md
+.claude/rules/*
+.claude/skills/*
+.claude/
