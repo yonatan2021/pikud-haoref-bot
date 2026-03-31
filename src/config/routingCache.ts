@@ -12,6 +12,7 @@ const CATEGORY_SETTING_KEY: Readonly<Record<AlertCategory, string>> = {
   environmental: 'topic_id_environmental',
   drills: 'topic_id_drills',
   general: 'topic_id_general',
+  whatsapp: 'topic_id_whatsapp',
 };
 
 const ALL_CATEGORIES: ReadonlyArray<AlertCategory> = [
@@ -20,6 +21,7 @@ const ALL_CATEGORIES: ReadonlyArray<AlertCategory> = [
   'environmental',
   'drills',
   'general',
+  'whatsapp',
 ];
 
 type CategoryCache = Record<AlertCategory, number | undefined>;
@@ -30,6 +32,7 @@ let _cache: Readonly<CategoryCache> = Object.freeze({
   environmental: undefined,
   drills: undefined,
   general: undefined,
+  whatsapp: undefined,
 });
 
 let _whatsappTopicId: number | undefined = undefined;
@@ -50,6 +53,7 @@ export function loadRoutingCache(db: Database.Database): void {
     environmental: undefined,
     drills: undefined,
     general: undefined,
+    whatsapp: undefined,
   };
 
   for (const category of ALL_CATEGORIES) {

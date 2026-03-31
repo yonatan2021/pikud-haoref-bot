@@ -209,8 +209,8 @@ describe('PATCH /api/whatsapp/groups/:id', () => {
   });
 
   it('returns 400 when alertTypes array length exceeds ALL_ALERT_TYPES.length', async () => {
-    // ALL_ALERT_TYPES has 18 entries; send 19 to exceed the limit
-    const tooMany = Array.from({ length: 19 }, () => 'missiles');
+    // ALL_ALERT_TYPES has 19 entries; send 20 to exceed the limit
+    const tooMany = Array.from({ length: 20 }, () => 'missiles');
     const res = await request(app)
       .patch('/api/whatsapp/groups/111%40g.us')
       .send({ enabled: true, alertTypes: tooMany });

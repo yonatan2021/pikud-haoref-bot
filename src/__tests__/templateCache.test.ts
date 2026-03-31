@@ -65,9 +65,9 @@ describe('templateCache defaults (before DB load)', () => {
     assert.ok(Object.isFrozen(cache));
   });
 
-  it('getAllCached() contains all 18 known alert types', () => {
+  it('getAllCached() contains all known alert types', () => {
     const cache = getAllCached();
-    assert.equal(ALL_ALERT_TYPES.length, 18);
+    assert.equal(ALL_ALERT_TYPES.length, 19);
     for (const alertType of ALL_ALERT_TYPES) {
       assert.ok(alertType in cache, `missing alert type: ${alertType}`);
     }

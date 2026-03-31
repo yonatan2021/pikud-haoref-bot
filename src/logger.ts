@@ -146,6 +146,7 @@ const CATEGORY_COLOR: Record<AlertCategory, chalk.Chalk> = {
   environmental: chalk.yellow,
   drills:        chalk.gray,
   general:       chalk.cyan,
+  whatsapp:      chalk.green,
 };
 
 export function logAlert(params: {

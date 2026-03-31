@@ -1,4 +1,4 @@
-export type AlertCategory = 'security' | 'nature' | 'environmental' | 'drills' | 'general';
+export type AlertCategory = 'security' | 'nature' | 'environmental' | 'drills' | 'general' | 'whatsapp';
 
 export interface CategoryMeta {
   labelHe: string;
@@ -12,9 +12,10 @@ export const CATEGORY_META: Record<AlertCategory, CategoryMeta> = {
   environmental: { labelHe: 'סביבתי',     emoji: '☢️', glowVariant: 'amber' },
   drills:        { labelHe: 'תרגילים',    emoji: '🔵', glowVariant: 'none'  },
   general:       { labelHe: 'כללי',       emoji: '📢', glowVariant: 'none'  },
+  whatsapp:      { labelHe: 'WhatsApp',   emoji: '📲', glowVariant: 'green' },
 };
 
-// Mirror of topicRouter.ts ALERT_TYPE_CATEGORY — keep in sync
+// Mirror of alertCategories.ts ALERT_TYPE_CATEGORY — keep in sync
 export const ALERT_TYPE_CATEGORY: Record<string, AlertCategory> = {
   missiles: 'security',
   hostileAircraftIntrusion: 'security',
@@ -34,6 +35,7 @@ export const ALERT_TYPE_CATEGORY: Record<string, AlertCategory> = {
   newsFlash: 'general',
   general: 'general',
   unknown: 'general',
+  whatsappForward: 'whatsapp',
 };
 
-export const ORDERED_CATEGORIES: AlertCategory[] = ['security', 'nature', 'environmental', 'drills', 'general'];
+export const ORDERED_CATEGORIES: AlertCategory[] = ['security', 'nature', 'environmental', 'drills', 'general', 'whatsapp'];

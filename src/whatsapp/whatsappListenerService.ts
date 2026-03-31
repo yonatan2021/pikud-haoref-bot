@@ -1,6 +1,9 @@
 import type Database from 'better-sqlite3';
+import type { Chat } from 'whatsapp-web.js';
 import { getActiveListenersForChannel } from '../db/whatsappListenerRepository.js';
+import { getEnabledGroupsForAlertType } from '../db/whatsappGroupRepository.js';
 import { isRoutingCacheLoaded, getWhatsAppTopicIdCached } from '../config/routingCache.js';
+import { getStatus, getClient } from './whatsappService.js';
 import { log } from '../logger.js';
 import { truncateToCaptionLimit } from '../telegramBot.js';
 
@@ -58,10 +61,57 @@ function formatTimestampIsrael(unixSeconds: number): string {
   return `${get('day')}.${get('month')} · ${get('hour')}:${get('minute')}`;
 }
 
+export interface ListenerBroadcastDeps {
+  getStatusFn: () => string;
+  getClientFn: () => { getChatById: (id: string) => Promise<Chat> } | null;
+  getEnabledGroupsFn: (db: Database.Database, alertType: string) => string[];
+}
+
+const defaultBroadcastDeps: ListenerBroadcastDeps = {
+  getStatusFn: getStatus,
+  getClientFn: getClient as () => { getChatById: (id: string) => Promise<Chat> } | null,
+  getEnabledGroupsFn: getEnabledGroupsForAlertType,
+};
+
+async function broadcastToWhatsAppGroups(
+  db: Database.Database,
+  text: string,
+  sourceGroupId: string,
+  deps: ListenerBroadcastDeps
+): Promise<void> {
+  if (deps.getStatusFn() !== 'ready') return;
+
+  const groupIds = deps.getEnabledGroupsFn(db, 'whatsappForward');
+  // Exclude the source group to avoid echoing the message back
+  const targets = groupIds.filter(id => id !== sourceGroupId);
+  if (targets.length === 0) return;
+
+  const client = deps.getClientFn();
+  if (!client) return;
+
+  let sent = 0;
+  await Promise.all(
+    targets.map(async (groupId) => {
+      try {
+        const chat = await client.getChatById(groupId);
+        await chat.sendMessage(text);
+        sent++;
+      } catch (err: unknown) {
+        log('error', 'WA→WA', `שגיאה בשליחה לקבוצה ${groupId}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    })
+  );
+
+  if (sent > 0) {
+    log('info', 'WA→WA', `הועבר ל-${sent} קבוצות WhatsApp (whatsappForward)`);
+  }
+}
+
 export function createMessageHandler(
   db: Database.Database,
   sendMessageFn: SendMessageFn,
-  sendMediaFn?: SendMediaFn
+  sendMediaFn?: SendMediaFn,
+  broadcastDeps: ListenerBroadcastDeps = defaultBroadcastDeps
 ): (msg: IncomingWhatsAppMsg) => void {
   return function handleIncomingMessage(msg: IncomingWhatsAppMsg): void {
     void (async () => {
@@ -77,6 +127,7 @@ export function createMessageHandler(
           : msg.body;
 
       const timeStr = formatTimestampIsrael(msg.timestamp);
+      let anyForwarded = false;
 
       for (const listener of listeners) {
         const shouldForward =
@@ -85,6 +136,7 @@ export function createMessageHandler(
 
         if (!shouldForward) continue;
 
+        anyForwarded = true;
         const headerLine = `📲 <b>${escapeHtml(listener.channelName)}</b>\n🕐 ${timeStr}`;
         const bodyLine = truncatedBody ? `\n\n${escapeHtml(truncatedBody)}` : '';
         const caption = `${headerLine}${bodyLine}`;
@@ -116,6 +168,16 @@ export function createMessageHandler(
             'WhatsApp→TG',
             `שגיאה בהעברת הודעה מ-${msg.from}: ${err instanceof Error ? err.message : String(err)}`
           );
+        });
+      }
+
+      // Broadcast matched messages to WhatsApp groups subscribed to whatsappForward
+      if (anyForwarded) {
+        const plainHeader = `📲 ${listeners[0]?.channelName ?? ''}\n🕐 ${timeStr}`;
+        const plainBody = truncatedBody ? `\n\n${truncatedBody}` : '';
+        const plainText = `${plainHeader}${plainBody}`;
+        broadcastToWhatsAppGroups(db, plainText, msg.from, broadcastDeps).catch((err: unknown) => {
+          log('error', 'WA→WA', `שגיאה בשידור: ${String(err)}`);
         });
       }
     })().catch((err: unknown) => {

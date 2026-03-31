@@ -1,4 +1,4 @@
-export type AlertCategory = 'security' | 'nature' | 'environmental' | 'drills' | 'general';
+export type AlertCategory = 'security' | 'nature' | 'environmental' | 'drills' | 'general' | 'whatsapp';
 
 export const ALERT_TYPE_CATEGORY: Readonly<Record<string, AlertCategory>> = {
   missiles: 'security',
@@ -23,6 +23,8 @@ export const ALERT_TYPE_CATEGORY: Readonly<Record<string, AlertCategory>> = {
   newsFlash: 'general',
   general: 'general',
   unknown: 'general',
+
+  whatsappForward: 'whatsapp',
 };
 
 export const CATEGORY_ENV_VAR: Readonly<Record<AlertCategory, string>> = {
@@ -31,4 +33,5 @@ export const CATEGORY_ENV_VAR: Readonly<Record<AlertCategory, string>> = {
   environmental: 'TELEGRAM_TOPIC_ID_ENVIRONMENTAL',
   drills: 'TELEGRAM_TOPIC_ID_DRILLS',
   general: 'TELEGRAM_TOPIC_ID_GENERAL',
+  whatsapp: 'TELEGRAM_TOPIC_ID_WHATSAPP',
 };

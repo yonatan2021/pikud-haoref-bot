@@ -17,6 +17,7 @@ export const DEFAULT_ALERT_TYPE_HE: Readonly<Record<string, string>> = {
   radiologicalEventDrill: 'תרגיל — אירוע רדיולוגי',
   generalDrill: 'תרגיל כללי',
   unknown: 'התרעה',
+  whatsappForward: 'הודעה מ-WhatsApp',
 };
 
 export const DEFAULT_ALERT_TYPE_EMOJI: Readonly<Record<string, string>> = {
@@ -38,6 +39,7 @@ export const DEFAULT_ALERT_TYPE_EMOJI: Readonly<Record<string, string>> = {
   terroristInfiltrationDrill: '🔵',
   radiologicalEventDrill: '🔵',
   generalDrill: '🔵',
+  whatsappForward: '📲',
 };
 
 export const DEFAULT_INSTRUCTIONS_PREFIX: Readonly<Record<string, string>> = {

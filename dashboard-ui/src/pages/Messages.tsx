@@ -36,7 +36,7 @@ export default function Messages() {
 
   // Group templates by category
   const groupedEntries: Record<AlertCategory, TemplateEntry[]> = {
-    security: [], nature: [], environmental: [], drills: [], general: [],
+    security: [], nature: [], environmental: [], drills: [], general: [], whatsapp: [],
   };
   for (const entry of templates) {
     const cat = ALERT_TYPE_CATEGORY[entry.alertType] ?? 'general';
