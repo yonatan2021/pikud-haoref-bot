@@ -12,7 +12,7 @@ const Subscribers      = lazy(() => import('./pages/Subscribers').then(m => ({ d
 const Operations       = lazy(() => import('./pages/Operations').then(m => ({ default: m.Operations })));
 const Settings         = lazy(() => import('./pages/Settings').then(m => ({ default: m.Settings })));
 const LandingPage      = lazy(() => import('./pages/LandingPage').then(m => ({ default: m.LandingPage })));
-const Messages         = lazy(() => import('./pages/Messages').then(m => ({ default: m.Messages })));
+const Messages         = lazy(() => import('./pages/Messages'));
 const WhatsApp         = lazy(() => import('./pages/WhatsApp').then(m => ({ default: m.WhatsApp })));
 const WhatsAppListeners = lazy(() => import('./pages/WhatsAppListeners').then(m => ({ default: m.WhatsAppListeners })));
 
