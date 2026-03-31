@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { Root } from './layout/Root';
 import { Skeleton } from './components/Skeleton';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 const Login            = lazy(() => import('./pages/Login').then(m => ({ default: m.Login })));
 const Overview         = lazy(() => import('./pages/Overview').then(m => ({ default: m.Overview })));
@@ -24,6 +25,7 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <ErrorBoundary>
         <Suspense fallback={<PageFallback />}>
           <Routes>
             <Route path="/login" element={<Login />} />
@@ -41,6 +43,7 @@ export function App() {
             </Route>
           </Routes>
         </Suspense>
+        </ErrorBoundary>
       </BrowserRouter>
       <Toaster
         position="bottom-left"
