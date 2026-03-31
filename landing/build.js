@@ -251,13 +251,16 @@ ${featuresHtml}
 }
 
 const { paths: parsedPaths, sectionTitle: pathsSectionTitle } = parsePaths(readme);
+// Override path links from env vars (env takes precedence over README)
+const whatsappPath = parsedPaths.find(p => p.style === 'whatsapp');
+if (whatsappPath && process.env.WHATSAPP_INVITE_LINK) {
+  whatsappPath.link = process.env.WHATSAPP_INVITE_LINK;
+}
+const whatsappLink = process.env.WHATSAPP_INVITE_LINK || (whatsappPath ? whatsappPath.link : '');
+
 const pathsHtml = parsedPaths.length > 0
   ? buildPathsHtml(parsedPaths)
   : '<!-- paths section not found in README -->';
-
-// Extract WhatsApp link from paths for hero + CTA injection
-const whatsappPath = parsedPaths.find(p => p.style === 'whatsapp');
-const whatsappLink = whatsappPath ? whatsappPath.link : '';
 
 // Step 3c: Parse README.md stats table (## 📊 עובדות)
 function parseStats(readmeContent) {
