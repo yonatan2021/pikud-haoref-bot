@@ -26,17 +26,44 @@
 
 <div dir="rtl">
 
+</div>
+
+---
+
+## [0.4.0] — 2026-03-31
+
+<div dir="rtl">
+
 ### ✨ תכונות חדשות
 
-- **קבוצת WhatsApp** — אפשרות להצטרף לקבוצת WhatsApp לקבלת התראות פיקוד העורף, לצד ערוץ הטלגרם הקיים
+- **WhatsApp Broadcast לקבוצות** — קבוצות WhatsApp יכולות לקבל התראות פיקוד העורף עם מפות, edit-window dedup, ו-channel store fallback
 - **קטגוריה 6 — WhatsApp Forward** — קבוצות WhatsApp יכולות להירשם לקבלת הודעות מועברות מ-WhatsApp Listener (נושא שישי בדשבורד)
 - **שידור Listener לקבוצות WA** — הודעות מתאימות מ-WhatsApp Listener מועברות גם לקבוצות WhatsApp מנויות (בנוסף לטלגרם)
+- **דשבורד WhatsApp — שדרוג משמעותי** — עמודי WhatsApp ו-WhatsApp Listeners עם סלקטורים חיפושיים, תיקון קטגוריות, fallback ל-topics, ותמיכה בערוצים לצד קבוצות
+- **WhatsApp Channels** — `getChannels()` חדש לסריקת ערוצי WhatsApp; tab filter ב-SourceSelector; disconnect + reconnect משופרים
 - **עמוד נחיתה — שלוש דרכים** — עמוד הנחיתה מציג כעת שלוש אפשרויות: Telegram, WhatsApp, ו-Self-host — עם כרטיסי מידע שנוצרים אוטומטית מה-README
-- **עמוד נחיתה — auto-generation** — סקשן "דרכים להשתמש" נוצר אוטומטית מסקשן `## 🛣️ דרכים להשתמש` ב-README; שינוי ב-README מעדכן את האתר
+- **עמוד נחיתה — WHATSAPP_INVITE_LINK** — תמיכה במשתנה סביבה חדש להצגת קישור הזמנה ל-WhatsApp בדף הנחיתה
+- **Wizard: פרופיל הגדרות** — שלושה פרופילים (מינימלי / מומלץ ⭐ / מלא) שמכסים את כל 27 משתני הסביבה עם ברירות מחדל חכמות; מחליף את ה-flow הישן של required + optional
+- **Wizard: שכפול משופר** — `git clone --depth 1` מהיר יותר, שינוי remote ל-`upstream` לעדכונים, הצעת Fork אוטומטית דרך `gh` CLI
+- **Wizard: --profile flag** — `--profile=minimal|recommended|full` ו-`--full` כקיצור ל-`--profile=full`
 
 ### 🐛 תיקוני באגים
 
 - **שעון uptime בדשבורד** — תוקן תצוגת "0d 0h" קבועה; כעת מציג דקות עבור uptime קצר (`3m`, `1h 22m`)
+- **WhatsApp disconnect/reconnect** — שיפור יציבות חיבור WhatsApp עם disconnect handler ו-reconnect endpoint
+
+### 🧪 בדיקות
+
+- **+19 בדיקות wizard** — 13 בדיקות profile חדשות, 6 בדיקות deployment חדשות (remote setup, spawnQuiet, fork flow)
+- **+12 בדיקות WhatsApp** — כיסוי חדש ל-whatsappBroadcaster, whatsappService, dashboard routes
+- **167 בדיקות wizard** | **סה"כ ~700 בדיקות**
+
+### 🔧 תחזוקה
+
+- **wizard: מחיקת optional.ts ו-required.ts** — הוחלפו במערכת profiles מאוחדת (`profile.ts`)
+- **WHATSAPP_INVITE_LINK** — נוסף ל-ENV_TEMPLATE של ה-wizard
+- **landing/build.js** — תמיכה בסקשן "דרכים להשתמש" שנוצר אוטומטית מה-README
+- **עדכון .gitignore** — הוספת Claude configuration ו-package-lock.json
 
 </div>
 
@@ -701,7 +728,8 @@
 
 <div dir="rtl">
 
-[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.3.3...HEAD
+[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.3.3...v0.4.0
 [0.3.3]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.3.0...v0.3.1
