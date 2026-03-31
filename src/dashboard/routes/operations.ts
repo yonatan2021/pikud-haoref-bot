@@ -87,5 +87,40 @@ export function createOperationsRouter(db: Database.Database, bot: Bot): Router 
     }
   });
 
+  router.post('/test-alert-all', testAlertLimiter, async (req, res) => {
+    const { chatId } = req.body as { chatId?: number };
+    if (!chatId || !Number.isInteger(chatId)) {
+      res.status(400).json({ error: 'chatId חסר או לא תקין' });
+      return;
+    }
+
+    const TEST_TYPES: Array<{ type: string; emoji: string; label: string }> = [
+      { type: 'missiles',               emoji: '🚀', label: 'טילים' },
+      { type: 'earthQuake',             emoji: '🌍', label: 'רעידת אדמה' },
+      { type: 'tsunami',                emoji: '🌊', label: 'צונאמי' },
+      { type: 'hazardousMaterials',     emoji: '☢️', label: 'חומרים מסוכנים' },
+      { type: 'terroristInfiltration',  emoji: '⚠️', label: 'חדירת מחבלים' },
+      { type: 'radiologicalEvent',      emoji: '☣️', label: 'אירוע רדיולוגי' },
+    ];
+
+    res.json({ ok: true, total: TEST_TYPES.length });
+
+    // Send in background with delay between messages to avoid Telegram rate limits
+    void (async () => {
+      for (const { emoji, label, type } of TEST_TYPES) {
+        try {
+          await bot.api.sendMessage(
+            chatId,
+            `🧪 <b>בדיקת קטגוריה: ${emoji} ${label}</b>\n<code>${type}</code>`,
+            { parse_mode: 'HTML' }
+          );
+        } catch (err) {
+          log('warn', 'Dashboard', `test-alert-all failed for type ${type}: ${String(err)}`);
+        }
+        await new Promise<void>(resolve => setTimeout(resolve, 300));
+      }
+    })();
+  });
+
   return router;
 }
