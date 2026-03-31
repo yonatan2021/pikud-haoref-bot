@@ -1,16 +1,19 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Rocket, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Rocket, Loader2, CheckCircle, AlertCircle, ExternalLink } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '../api/client';
 import { GlassCard } from '../components/ui/GlassCard';
 import { PageTransition } from '../components/ui/PageTransition';
+import { LiveDot } from '../components/ui/LiveDot';
 
 interface LandingConfig {
   ga4MeasurementId: string;
   lastDeploy: string | null;
   siteUrl: string;
+  githubRepo: string;
+  deployStatus: 'deployed' | 'never';
 }
 
 function relTime(iso: string): string {
@@ -84,6 +87,18 @@ export function LandingPage() {
       <div className="space-y-6">
         <h1 className="text-2xl font-bold text-text-primary">אתר נחיתה</h1>
 
+        {/* Info callout */}
+        <div className="bg-[var(--color-glow-blue)] border border-blue/20 rounded-xl p-4 flex gap-3">
+          <span className="text-2xl flex-shrink-0">💡</span>
+          <div>
+            <h3 className="text-text-primary text-sm font-semibold mb-1">מה זה אתר נחיתה?</h3>
+            <p className="text-text-muted text-xs leading-relaxed">
+              אתר נחיתה הוא דף ציבורי המציג מידע על הבוט ומאפשר למשתמשים חדשים להצטרף.
+              האתר מתארח ב-GitHub Pages ומתעדכן דרך GitHub Actions בכל פרסום.
+            </p>
+          </div>
+        </div>
+
         {/* GA4 + Form fields */}
         <GlassCard className="p-6">
           <div className="space-y-4">
@@ -96,8 +111,11 @@ export function LandingPage() {
                 onChange={e => { setGa4Id(e.target.value); setDirty(true); }}
                 placeholder="G-XXXXXXXXXX"
                 className="w-full max-w-xs bg-base border border-border rounded-lg px-4 py-2.5 text-sm text-text-primary outline-none focus:border-amber"
+                dir="ltr"
               />
-              <p className="text-text-muted text-xs mt-1">יוזרק לאתר בdeploy הבא</p>
+              <p className="text-text-muted text-xs mt-1">
+                מזהה הנכס ב-Google Analytics 4. נמצא ב: Admin &rarr; Property Settings &rarr; Measurement ID. פורמט: G-XXXXXXXXXX
+              </p>
             </div>
 
             <div>
@@ -108,7 +126,20 @@ export function LandingPage() {
                 onChange={e => { setSiteUrl(e.target.value); setDirty(true); }}
                 placeholder="https://example.github.io/..."
                 className="w-full max-w-md bg-base border border-border rounded-lg px-4 py-2.5 text-sm text-text-primary outline-none focus:border-amber"
+                dir="ltr"
               />
+              <p className="text-text-muted text-xs mt-1">כתובת GitHub Pages לאחר פרסום ראשון</p>
+              {siteUrl ? (
+                <span className="inline-flex items-center gap-1.5 text-xs text-green mt-1.5">
+                  <LiveDot color="green" />
+                  האתר פעיל
+                  <a href={siteUrl} target="_blank" rel="noopener noreferrer" className="text-blue hover:underline inline-flex items-center gap-0.5">
+                    פתח <ExternalLink className="w-3 h-3" />
+                  </a>
+                </span>
+              ) : (
+                <span className="text-text-muted text-xs mt-1.5 block">הכנס כתובת לאחר פרסום ראשון</span>
+              )}
             </div>
 
             <button
@@ -131,16 +162,28 @@ export function LandingPage() {
                 {config?.lastDeploy ? relTime(config.lastDeploy) : 'לא בוצע deploy'}
               </p>
             </div>
-            {siteUrl && (
-              <a
-                href={siteUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue text-sm hover:underline"
-              >
-                🔗 פתח אתר ↗
-              </a>
-            )}
+            <div className="flex items-center gap-4">
+              {config?.githubRepo && (
+                <a
+                  href={`https://github.com/${config.githubRepo}/actions`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-text-muted text-xs hover:text-blue flex items-center gap-1"
+                >
+                  GitHub Actions <ExternalLink className="w-3 h-3" />
+                </a>
+              )}
+              {siteUrl && (
+                <a
+                  href={siteUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue text-sm hover:underline"
+                >
+                  🔗 פתח אתר ↗
+                </a>
+              )}
+            </div>
           </div>
 
           {!deployConfirm ? (
@@ -212,7 +255,11 @@ export function LandingPage() {
             </button>
           ) : (
             <div className="flex items-center gap-3 bg-base border border-amber/30 rounded-xl p-4">
-              <p className="text-text-secondary text-sm flex-1">האם להפעיל GitHub Actions deploy?</p>
+              <p className="text-text-secondary text-sm flex-1">
+                הפעלת deploy תטריגר workflow <code className="bg-white/10 px-1 rounded text-xs">deploy-landing.yml</code>
+                {config?.githubRepo && <> ב-<span className="text-amber" dir="ltr">{config.githubRepo}</span></>}.
+                {' '}הפרסום ייקח בדרך כלל 1–3 דקות.
+              </p>
               <button
                 disabled={deployMutation.isPending}
                 onClick={() => deployMutation.mutate()}
