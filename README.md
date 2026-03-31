@@ -17,7 +17,7 @@
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://hub.docker.com)
 [![CI](https://img.shields.io/badge/CI/CD-GitHub_Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/yonatan2021/pikud-haoref-bot/actions)
 [![Telegram](https://img.shields.io/badge/ערוץ_טלגרם-הצטרף-26A5E4?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/phalaret)
-[![WhatsApp](https://img.shields.io/badge/קבוצת_WhatsApp-הצטרף-25D366?style=for-the-badge&logo=whatsapp&logoColor=white)](https://whatsapp.com/channel/0029VbCb5Cy6rsQk6Qr8690I)
+[![WhatsApp](https://img.shields.io/badge/קבוצת_WhatsApp-הצטרף-25D366?style=for-the-badge&logo=whatsapp&logoColor=white)](https://chat.whatsapp.com/LtCl4F8fwacCUdvMRlhK2i?mode=gi_t)
 [![Sponsor](https://img.shields.io/github/sponsors/yonatan2021?style=for-the-badge&logo=githubsponsors&color=EA4AAA&label=Sponsor)](https://github.com/sponsors/yonatan2021)
 
 <br/>
