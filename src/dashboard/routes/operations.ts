@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type Database from 'better-sqlite3';
 import type { Bot } from 'grammy';
 import { getQueueStats } from '../../services/dmQueue.js';
+import { getTopicId } from '../../topicRouter.js';
 import { log } from '../../logger.js';
 import { createRateLimitMiddleware } from '../rateLimiter.js';
 
@@ -95,12 +96,11 @@ export function createOperationsRouter(db: Database.Database, bot: Bot): Router 
     }
 
     const TEST_TYPES: Array<{ type: string; emoji: string; label: string }> = [
-      { type: 'missiles',               emoji: '🚀', label: 'טילים' },
-      { type: 'earthQuake',             emoji: '🌍', label: 'רעידת אדמה' },
-      { type: 'tsunami',                emoji: '🌊', label: 'צונאמי' },
-      { type: 'hazardousMaterials',     emoji: '☢️', label: 'חומרים מסוכנים' },
-      { type: 'terroristInfiltration',  emoji: '⚠️', label: 'חדירת מחבלים' },
-      { type: 'radiologicalEvent',      emoji: '☣️', label: 'אירוע רדיולוגי' },
+      { type: 'missiles',           emoji: '🚀', label: 'טילים' },
+      { type: 'earthQuake',         emoji: '🌍', label: 'רעידת אדמה' },
+      { type: 'hazardousMaterials', emoji: '☢️', label: 'חומרים מסוכנים' },
+      { type: 'missilesDrill',      emoji: '🔵', label: 'תרגיל טילים' },
+      { type: 'newsFlash',          emoji: '📢', label: 'הודעה כללית' },
     ];
 
     res.json({ ok: true, total: TEST_TYPES.length });
@@ -109,10 +109,12 @@ export function createOperationsRouter(db: Database.Database, bot: Bot): Router 
     void (async () => {
       for (const { emoji, label, type } of TEST_TYPES) {
         try {
+          const topicId = getTopicId(type);
+          const threadOpts = topicId ? { message_thread_id: topicId } : {};
           await bot.api.sendMessage(
             chatId,
             `🧪 <b>בדיקת קטגוריה: ${emoji} ${label}</b>\n<code>${type}</code>`,
-            { parse_mode: 'HTML' }
+            { parse_mode: 'HTML', ...threadOpts }
           );
         } catch (err) {
           log('warn', 'Dashboard', `test-alert-all failed for type ${type}: ${String(err)}`);
