@@ -1,6 +1,7 @@
 import type { Alert } from '../types.js';
 import type Database from 'better-sqlite3';
-import type { Chat } from 'whatsapp-web.js';
+import type { Chat, Message } from 'whatsapp-web.js';
+import { MessageMedia } from 'whatsapp-web.js';
 import { getEnabledGroupsForAlertType } from '../db/whatsappGroupRepository.js';
 import { getStatus, getClient } from './whatsappService.js';
 import { formatAlertForWhatsApp } from './whatsappFormatter.js';
@@ -20,13 +21,54 @@ const defaultDeps: BroadcasterDeps = {
   formatFn: formatAlertForWhatsApp,
 };
 
+// ─── Edit-window tracking ────────────────────────────────────────────────────
+// Tracks sent messages per group per alert type so we can edit instead of
+// sending duplicates within the time window (same logic as Telegram's
+// alertWindowTracker).
+
+interface TrackedWhatsAppMessage {
+  message: Message;
+  sentAt: number;
+}
+
+// Key: `${groupId}:${alertType}`
+const activeMessages = new Map<string, TrackedWhatsAppMessage>();
+
+function windowMs(): number {
+  const raw = process.env.ALERT_UPDATE_WINDOW_SECONDS;
+  const parsed = parseInt(raw ?? '', 10);
+  return (isNaN(parsed) || parsed <= 0 ? 120 : parsed) * 1000;
+}
+
+function getTracked(groupId: string, alertType: string): TrackedWhatsAppMessage | null {
+  const key = `${groupId}:${alertType}`;
+  const tracked = activeMessages.get(key);
+  if (!tracked) return null;
+  if (Date.now() - tracked.sentAt > windowMs()) {
+    activeMessages.delete(key);
+    return null;
+  }
+  return tracked;
+}
+
+function track(groupId: string, alertType: string, message: Message): void {
+  activeMessages.set(`${groupId}:${alertType}`, { message, sentAt: Date.now() });
+}
+
+// Exported for test isolation
+export function clearTrackedMessages(): void {
+  activeMessages.clear();
+}
+
+// ─── Broadcaster factory ─────────────────────────────────────────────────────
+
 export function createBroadcaster(
   db: Database.Database,
   deps: BroadcasterDeps = defaultDeps
-): (alert: Alert) => Promise<void> {
+): (alert: Alert, imageBuffer?: Buffer | null) => Promise<void> {
   const { getStatusFn, getClientFn, getEnabledGroupsFn, formatFn } = deps;
 
-  return async function broadcastToWhatsApp(alert: Alert): Promise<void> {
+  return async function broadcastToWhatsApp(alert: Alert, imageBuffer?: Buffer | null): Promise<void> {
     if (getStatusFn() !== 'ready') {
       log('warn', 'WhatsApp', `לא מחובר — דילוג על שידור (type=${alert.type})`);
       return;
@@ -56,12 +98,56 @@ export function createBroadcaster(
       return;
     }
 
+    // Build media object from image buffer (if available)
+    const media = imageBuffer
+      ? new MessageMedia('image/png', imageBuffer.toString('base64'), 'alert-map.png')
+      : null;
+
+    let sendCount = 0;
+    let editCount = 0;
     let failCount = 0;
+
     await Promise.all(
       groupIds.map(async (groupId) => {
         try {
-          const chat = await whatsappClient.getChatById(groupId);
-          await chat.sendMessage(text);
+          const tracked = getTracked(groupId, alert.type);
+
+          if (tracked) {
+            // Edit path — update existing message within the window.
+            // WhatsApp msg.edit() only supports text edits, not media replacement.
+            // Edit the caption/text; the original image stays.
+            try {
+              const edited = await tracked.message.edit(text);
+              if (edited) {
+                track(groupId, alert.type, edited);
+                editCount++;
+              } else {
+                // edit returned null (message too old or deleted) — send fresh
+                const chat = await whatsappClient.getChatById(groupId);
+                const sent = media
+                  ? await chat.sendMessage(media, { caption: text })
+                  : await chat.sendMessage(text);
+                track(groupId, alert.type, sent);
+                sendCount++;
+              }
+            } catch {
+              // Edit failed — send fresh message as fallback
+              const chat = await whatsappClient.getChatById(groupId);
+              const sent = media
+                ? await chat.sendMessage(media, { caption: text })
+                : await chat.sendMessage(text);
+              track(groupId, alert.type, sent);
+              sendCount++;
+            }
+          } else {
+            // Fresh send — no active message in window
+            const chat = await whatsappClient.getChatById(groupId);
+            const sent = media
+              ? await chat.sendMessage(media, { caption: text })
+              : await chat.sendMessage(text);
+            track(groupId, alert.type, sent);
+            sendCount++;
+          }
         } catch (err: unknown) {
           failCount++;
           log(
@@ -73,13 +159,14 @@ export function createBroadcaster(
       })
     );
 
-    const successCount = groupIds.length - failCount;
+    const totalSuccess = sendCount + editCount;
+    const totalGroups = groupIds.length;
     if (failCount === 0) {
-      log('info', 'WhatsApp', `שודר לוואטסאפ: ${successCount} קבוצות · type=${alert.type}`);
-    } else if (successCount > 0) {
-      log('warn', 'WhatsApp', `שודר חלקית: ${successCount}/${groupIds.length} קבוצות · type=${alert.type}`);
+      log('info', 'WhatsApp', `שודר לוואטסאפ: ${totalSuccess} קבוצות (${sendCount} חדש, ${editCount} עריכה) · type=${alert.type}`);
+    } else if (totalSuccess > 0) {
+      log('warn', 'WhatsApp', `שודר חלקית: ${totalSuccess}/${totalGroups} קבוצות (${sendCount} חדש, ${editCount} עריכה) · type=${alert.type}`);
     } else {
-      log('error', 'WhatsApp', `שידור נכשל לכל הקבוצות (${groupIds.length}) · type=${alert.type}`);
+      log('error', 'WhatsApp', `שידור נכשל לכל הקבוצות (${totalGroups}) · type=${alert.type}`);
     }
   };
 }

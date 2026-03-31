@@ -23,7 +23,7 @@ export interface AlertHandlerDeps {
   shouldSkipMap: (alertType: string) => boolean;
   getTopicId: (alertType: string) => number | undefined;
   insertAlertHistory: (alert: Alert) => void;
-  broadcastToWhatsApp?: (alert: Alert) => Promise<void>;
+  broadcastToWhatsApp?: (alert: Alert, imageBuffer?: Buffer | null) => Promise<void>;
 }
 
 export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Promise<void> {
@@ -52,6 +52,8 @@ export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Prom
   // Cities to dispatch to DM subscribers — only NEW cities on the edit path,
   // full list on the fresh send path.
   let dmCities = alert.cities;
+  // Map image buffer — captured for reuse by WhatsApp broadcast
+  let lastImageBuffer: Buffer | null = null;
 
   // Channel broadcast
   try {
@@ -76,6 +78,7 @@ export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Prom
           log('error', 'AlertHandler', `כישלון ביצירת מפה (עריכה) — שולח טקסט בלבד: ${mapErr}`);
         }
       }
+      lastImageBuffer = imageBuffer;
 
       let editHandled = false;
       try {
@@ -128,6 +131,7 @@ export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Prom
           log('error', 'AlertHandler', `כישלון ביצירת מפה — שולח טקסט בלבד: ${mapErr}`);
         }
       }
+      lastImageBuffer = imageBuffer;
       const sent = await sendAlert(alert, imageBuffer, topicId);
       trackMessage(alert.type, {
         messageId: sent.messageId,
@@ -170,7 +174,7 @@ export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Prom
 
   if (broadcastToWhatsApp) {
     try {
-      await broadcastToWhatsApp(finalAlert);
+      await broadcastToWhatsApp(finalAlert, lastImageBuffer);
     } catch (err) {
       log('error', 'AlertHandler', `כישלון בשידור לוואטסאפ type=${alert.type} cities=${finalAlert.cities.length}: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
     }

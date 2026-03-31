@@ -11,6 +11,39 @@ export interface WhatsAppGroup {
   name: string;
 }
 
+// ─── Browser-context helper (runs inside Puppeteer via pupPage.evaluate) ─────
+// This function is serialized and sent to the browser — it has no access to
+// Node.js scope. `window.Store` is injected by whatsapp-web.js.
+async function scanWhatsAppStoresForChannels(): Promise<Array<{ id: string; name: string }>> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const w = globalThis as any;
+  const results: Array<{ id: string; name: string }> = [];
+
+  // Strategy 1: WAWebNewsletterMetadataCollection
+  const nlCollection = w.Store?.WAWebNewsletterMetadataCollection;
+  if (nlCollection) {
+    const models = nlCollection.getModelsArray?.() ?? [];
+    for (const m of models) {
+      const id = m.id?._serialized;
+      const name = m.name || m.channelMetadata?.name;
+      if (id && name) results.push({ id, name });
+    }
+  }
+
+  // Strategy 2: scan Store.Chat for @newsletter entries
+  if (results.length === 0) {
+    const chatModels = w.Store?.Chat?.getModelsArray?.() ?? [];
+    for (const chat of chatModels) {
+      const id = chat.id?._serialized;
+      if (id?.endsWith?.('@newsletter') && chat.name) {
+        results.push({ id, name: chat.name });
+      }
+    }
+  }
+
+  return results;
+}
+
 // ─── Module-level state ───────────────────────────────────────────────────────
 
 let client: Client | null = null;
@@ -54,6 +87,7 @@ export async function refreshGroups(): Promise<void> {
   let groupEntries: WhatsAppGroup[] = [];
   let channelEntries: WhatsAppGroup[] = [];
 
+  // ── Groups: from getChats(), filter for isGroup ────────────────────────────
   try {
     const chats = await client.getChats();
     groupEntries = chats
@@ -63,13 +97,37 @@ export async function refreshGroups(): Promise<void> {
     log('error', 'WhatsApp', `שגיאה בטעינת קבוצות: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
   }
 
+  // ── Channels: try getChannels() first, fall back to Store.Chat scan ────────
   try {
     const channels = await client.getChannels();
     channelEntries = channels
       .filter((ch) => ch.name?.trim())
       .map((ch) => ({ id: ch.id._serialized, name: ch.name }));
   } catch (err: unknown) {
-    log('warn', 'WhatsApp', `שגיאה בטעינת ערוצים: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
+    log('warn', 'WhatsApp', `getChannels() נכשל: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  // Fallback: scan internal WhatsApp Web stores for @newsletter entries.
+  // getChannels() reads from WAWebNewsletterMetadataCollection which may be
+  // empty in headless sessions. Scan Store.Chat as a secondary source.
+  if (channelEntries.length === 0) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const pupPage = (client as any).pupPage as { evaluate: (fn: () => Promise<Array<{ id: string; name: string }>>) => Promise<Array<{ id: string; name: string }>> };
+      const chatNewsletters: WhatsAppGroup[] = await pupPage.evaluate(scanWhatsAppStoresForChannels);
+      channelEntries = chatNewsletters.filter((ch) => ch.name?.trim());
+      if (channelEntries.length > 0) {
+        log('info', 'WhatsApp', `נטענו ${channelEntries.length} ערוצים דרך fallback`);
+      }
+    } catch (err: unknown) {
+      log('warn', 'WhatsApp', `שגיאה בטעינת ערוצים (fallback): ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  if (channelEntries.length === 0) {
+    log('info', 'WhatsApp', 'לא נמצאו ערוצים — ייתכן שה-store לא נטען עדיין');
+  } else {
+    log('info', 'WhatsApp', `נטענו ${channelEntries.length} ערוצים`);
   }
 
   cachedGroups = [...groupEntries, ...channelEntries];

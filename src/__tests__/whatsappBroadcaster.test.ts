@@ -15,7 +15,7 @@ afterEach(() => {
   stdoutSpy.mock.restore();
 });
 
-import { createBroadcaster } from '../whatsapp/whatsappBroadcaster';
+import { createBroadcaster, clearTrackedMessages } from '../whatsapp/whatsappBroadcaster';
 import Database from 'better-sqlite3';
 import { initSchema } from '../db/schema';
 import { upsertGroup, getEnabledGroupsForAlertType } from '../db/whatsappGroupRepository';
@@ -26,12 +26,19 @@ function makeDb(): Database.Database {
   return db;
 }
 
+// Mock WhatsApp Message object with edit support
+function makeMockMessage(editResult: unknown = null) {
+  const editFn = mock.fn(async () => editResult);
+  return { edit: editFn, fromMe: true, id: { _serialized: 'msg_' + Math.random() } };
+}
+
 type SendMessageFn = ReturnType<typeof mock.fn>;
 
 function makeDeps(overrides: Partial<BroadcasterDeps> = {}): BroadcasterDeps & {
   sendMessage: SendMessageFn;
 } {
-  const sendMessage = mock.fn(async () => {});
+  const msgObj = makeMockMessage();
+  const sendMessage = mock.fn(async () => msgObj);
   const getChatById = mock.fn(async () => ({ sendMessage }));
 
   return {
@@ -47,6 +54,8 @@ function makeDeps(overrides: Partial<BroadcasterDeps> = {}): BroadcasterDeps & {
 const BASE_ALERT: Alert = { type: 'missiles', cities: ['תל אביב'] };
 
 describe('whatsappBroadcaster — disconnected status', () => {
+  beforeEach(() => clearTrackedMessages());
+
   it('returns early without calling getClient when status is disconnected', async () => {
     const db = makeDb();
     const getClientFn = mock.fn(() => null);
@@ -85,9 +94,12 @@ describe('whatsappBroadcaster — disconnected status', () => {
 });
 
 describe('whatsappBroadcaster — ready status with groups', () => {
+  beforeEach(() => clearTrackedMessages());
+
   it('calls sendMessage for each enabled group when status is ready', async () => {
     const db = makeDb();
-    const sendMessage = mock.fn(async () => {});
+    const msgObj = makeMockMessage();
+    const sendMessage = mock.fn(async () => msgObj);
     const getChatById = mock.fn(async () => ({ sendMessage }));
     const getClientFn = mock.fn(() => ({ getChatById }));
     const deps = makeDeps({
@@ -123,13 +135,116 @@ describe('whatsappBroadcaster — ready status with groups', () => {
   });
 });
 
+describe('whatsappBroadcaster — edit window', () => {
+  beforeEach(() => clearTrackedMessages());
+
+  it('edits existing message on second broadcast within window', async () => {
+    const db = makeDb();
+    const editedMsg = makeMockMessage();
+    const firstMsg = makeMockMessage(editedMsg);
+    const sendMessage = mock.fn(async () => firstMsg);
+    const getChatById = mock.fn(async () => ({ sendMessage }));
+    const getClientFn = mock.fn(() => ({ getChatById }));
+    const deps = makeDeps({
+      getEnabledGroupsFn: mock.fn(() => ['group1']) as unknown as BroadcasterDeps['getEnabledGroupsFn'],
+      getClientFn: getClientFn as unknown as BroadcasterDeps['getClientFn'],
+    });
+
+    const broadcast = createBroadcaster(db, deps);
+
+    // First broadcast — should send fresh
+    await broadcast(BASE_ALERT);
+    assert.equal(
+      (sendMessage as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
+      1,
+      'first broadcast should send'
+    );
+
+    // Second broadcast — should edit, not send again
+    const updatedAlert: Alert = { type: 'missiles', cities: ['תל אביב', 'חיפה'] };
+    await broadcast(updatedAlert);
+
+    assert.equal(
+      (sendMessage as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
+      1,
+      'second broadcast should not call sendMessage again'
+    );
+    assert.equal(
+      (firstMsg.edit as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
+      1,
+      'edit should be called on the tracked message'
+    );
+  });
+
+  it('sends fresh message when edit returns null (message deleted)', async () => {
+    const db = makeDb();
+    const firstMsg = makeMockMessage(null); // edit returns null
+    const secondMsg = makeMockMessage();
+    let sendCount = 0;
+    const sendMessage = mock.fn(async () => {
+      sendCount++;
+      return sendCount === 1 ? firstMsg : secondMsg;
+    });
+    const getChatById = mock.fn(async () => ({ sendMessage }));
+    const getClientFn = mock.fn(() => ({ getChatById }));
+    const deps = makeDeps({
+      getEnabledGroupsFn: mock.fn(() => ['group1']) as unknown as BroadcasterDeps['getEnabledGroupsFn'],
+      getClientFn: getClientFn as unknown as BroadcasterDeps['getClientFn'],
+    });
+
+    const broadcast = createBroadcaster(db, deps);
+
+    await broadcast(BASE_ALERT);
+    await broadcast({ type: 'missiles', cities: ['חיפה'] });
+
+    // edit returned null → should have sent a fresh message
+    assert.equal(
+      (sendMessage as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
+      2,
+      'should send fresh message when edit returns null'
+    );
+  });
+
+  it('sends fresh message when edit throws', async () => {
+    const db = makeDb();
+    const badEditFn = mock.fn(async () => { throw new Error('edit failed'); });
+    const firstMsg = { edit: badEditFn, fromMe: true, id: { _serialized: 'msg1' } };
+    const secondMsg = makeMockMessage();
+    let sendCount = 0;
+    const sendMessage = mock.fn(async () => {
+      sendCount++;
+      return sendCount === 1 ? firstMsg : secondMsg;
+    });
+    const getChatById = mock.fn(async () => ({ sendMessage }));
+    const getClientFn = mock.fn(() => ({ getChatById }));
+    const deps = makeDeps({
+      getEnabledGroupsFn: mock.fn(() => ['group1']) as unknown as BroadcasterDeps['getEnabledGroupsFn'],
+      getClientFn: getClientFn as unknown as BroadcasterDeps['getClientFn'],
+    });
+
+    const broadcast = createBroadcaster(db, deps);
+
+    await broadcast(BASE_ALERT);
+    await broadcast({ type: 'missiles', cities: ['חיפה'] });
+
+    assert.equal(
+      (sendMessage as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
+      2,
+      'should send fresh when edit throws'
+    );
+  });
+});
+
 describe('whatsappBroadcaster — partial failure', () => {
+  beforeEach(() => clearTrackedMessages());
+
   it('continues sending to other groups when one group fails', async () => {
     const db = makeDb();
     let callCount = 0;
     const sendMessage = mock.fn(async () => {
       callCount++;
       if (callCount === 1) throw new Error('send failed for group1');
+      return makeMockMessage();
     });
     const getChatById = mock.fn(async () => ({ sendMessage }));
     const getClientFn = mock.fn(() => ({ getChatById }));
@@ -150,9 +265,11 @@ describe('whatsappBroadcaster — partial failure', () => {
 });
 
 describe('whatsappBroadcaster — null client despite ready', () => {
+  beforeEach(() => clearTrackedMessages());
+
   it('skips broadcast when getClientFn returns null even with ready status and groups', async () => {
     const db = makeDb();
-    const sendMessage = mock.fn(async () => {});
+    const sendMessage = mock.fn(async () => makeMockMessage());
     const getChatById = mock.fn(async () => ({ sendMessage }));
     const deps = makeDeps({
       getStatusFn: mock.fn(() => 'ready') as unknown as () => string,
@@ -176,7 +293,7 @@ describe('whatsappBroadcaster — null client despite ready', () => {
 
   it('returns early without sending when formatFn throws', async () => {
     const db = makeDb();
-    const sendMessage = mock.fn(async () => {});
+    const sendMessage = mock.fn(async () => makeMockMessage());
     const getChatById = mock.fn(async () => ({ sendMessage }));
     const deps = makeDeps({
       getStatusFn: mock.fn(() => 'ready') as unknown as () => string,
@@ -200,6 +317,8 @@ describe('whatsappBroadcaster — null client despite ready', () => {
 });
 
 describe('whatsappBroadcaster — no enabled groups', () => {
+  beforeEach(() => clearTrackedMessages());
+
   it('does not call getClient when no groups are enabled for alert type', async () => {
     const db = makeDb();
     const getClientFn = mock.fn(() => null);
@@ -224,7 +343,6 @@ describe('whatsappBroadcaster — no enabled groups', () => {
     upsertGroup(db, 'group-eq', 'Earthquake Group', true, ['earthQuake']);
 
     const getClientFn = mock.fn(() => null);
-    const sendMessage = mock.fn(async () => {});
 
     const realDeps: BroadcasterDeps = {
       getStatusFn: () => 'ready',
