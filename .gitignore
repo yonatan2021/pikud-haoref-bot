@@ -21,3 +21,4 @@ CLAUDE.md
 .claude/
 .wwebjs_cache/
 .wwebjs_auth/
+package-lock.json
