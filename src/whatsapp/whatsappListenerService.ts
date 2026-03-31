@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3';
 import { getActiveListenersForChannel } from '../db/whatsappListenerRepository.js';
+import { isRoutingCacheLoaded, getWhatsAppTopicIdCached } from '../config/routingCache.js';
 import { log } from '../logger.js';
 import { truncateToCaptionLimit } from '../telegramBot.js';
 
@@ -28,6 +29,7 @@ export type SendMediaFn = (
 ) => Promise<void>;
 
 function getWhatsAppDefaultTopicId(): number | undefined {
+  if (isRoutingCacheLoaded()) return getWhatsAppTopicIdCached();
   const raw = process.env['TELEGRAM_TOPIC_ID_WHATSAPP'];
   if (!raw) return undefined;
   const parsed = parseInt(raw, 10);

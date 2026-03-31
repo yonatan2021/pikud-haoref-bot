@@ -14,6 +14,8 @@ const ROUTING_KEYS: Record<AlertCategory, string> = {
   general: 'topic_id_general',
 };
 
+const WHATSAPP_KEY = 'topic_id_whatsapp';
+
 export function RoutingSection() {
   const queryClient = useQueryClient();
   const [values, setValues] = useState<Record<AlertCategory, string>>({
@@ -23,6 +25,7 @@ export function RoutingSection() {
     drills: '',
     general: '',
   });
+  const [whatsappValue, setWhatsappValue] = useState('');
   const [dirty, setDirty] = useState(false);
 
   const { data: settings } = useQuery<Record<string, string>>({
@@ -39,6 +42,7 @@ export function RoutingSection() {
       next[cat] = settings[key] ?? '';
     }
     setValues(next);
+    setWhatsappValue(settings[WHATSAPP_KEY] ?? '');
     setDirty(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings]);
@@ -51,6 +55,7 @@ export function RoutingSection() {
         const val = values[cat].trim();
         patch[key] = val;
       }
+      patch[WHATSAPP_KEY] = whatsappValue.trim();
       return api.patch('/api/settings', patch);
     },
     onSuccess: () => {
@@ -105,6 +110,20 @@ export function RoutingSection() {
             </div>
           );
         })}
+        <div className="flex items-center gap-3 pt-1 border-t border-border/50">
+          <span className="text-sm w-6 text-center">📲</span>
+          <span className="text-sm text-text-primary w-20">WhatsApp</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={whatsappValue}
+            onChange={(e) => { setWhatsappValue(e.target.value); setDirty(true); }}
+            placeholder="TELEGRAM_TOPIC_ID_WHATSAPP"
+            className="flex-1 bg-base border border-border rounded-lg px-3 py-1.5
+                       text-sm text-text-primary placeholder:text-text-muted text-center
+                       focus:outline-none focus:border-amber/50"
+          />
+        </div>
       </div>
 
       <p className="text-[10px] text-text-muted mt-2">

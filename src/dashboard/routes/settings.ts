@@ -25,7 +25,7 @@ const ALLOWED_KEYS = new Set([
   'alert_window_seconds', 'mapbox_monthly_limit', 'mapbox_skip_drills',
   'quiet_hours_global', 'ga4_measurement_id', 'github_repo', 'landing_url',
   'topic_id_security', 'topic_id_nature', 'topic_id_environmental',
-  'topic_id_drills', 'topic_id_general',
+  'topic_id_drills', 'topic_id_general', 'topic_id_whatsapp',
   'telegram_invite_link', 'mapbox_image_cache_size', 'whatsapp_enabled',
 ]);
 
