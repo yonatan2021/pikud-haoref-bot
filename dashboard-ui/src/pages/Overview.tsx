@@ -105,7 +105,10 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
     <div className="bg-[var(--color-glass)] backdrop-blur-md border border-[var(--color-border)] rounded-lg px-3 py-2 text-xs">
       {label && <div className="text-text-primary mb-1 font-medium">{label}</div>}
       {payload.map(p => (
-        <div key={p.name} style={{ color: p.color ?? p.fill ?? '#94a3b8' }}>{p.name}: {p.value}</div>
+        <div key={p.name} className="flex items-center justify-between gap-4" style={{ color: p.color ?? p.fill ?? '#94a3b8' }}>
+          <span>{p.name}</span>
+          <span className="font-medium" style={{ direction: 'ltr' }}>{p.value}</span>
+        </div>
       ))}
     </div>
   );
@@ -120,7 +123,7 @@ function HebrewYAxisTick({ x, y, payload }: { x?: number; y?: number; payload?: 
         x={0}
         y={0}
         dy={4}
-        textAnchor="start"
+        textAnchor="end"
         fill="#8b949e"
         fontSize={11}
         direction="rtl"
@@ -277,7 +280,7 @@ export function Overview() {
               <EmptyState icon="📍" message="אין נתונים" />
             ) : (
               <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={topCities} layout="vertical" margin={{ right: 8, left: 16 }}>
+                <BarChart data={topCities} layout="vertical" margin={{ right: 170, left: 8 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#21262d" horizontal={false} />
                   <XAxis type="number" tick={{ fill: '#8b949e', fontSize: 11 }} />
                   <YAxis
@@ -309,10 +312,17 @@ export function Overview() {
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={chartData} margin={{ right: 16, bottom: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#21262d" vertical={false} />
-                <XAxis dataKey="day" tick={{ fill: '#8b949e', fontSize: 11 }} />
+                <XAxis
+                  dataKey="day"
+                  tick={{ fill: '#8b949e', fontSize: 11 }}
+                  tickFormatter={(val: string) => {
+                    const d = new Date(val);
+                    return d.toLocaleDateString('he-IL', { month: 'numeric', day: 'numeric' });
+                  }}
+                />
                 <YAxis tick={{ fill: '#8b949e', fontSize: 11 }} />
                 <Tooltip content={<ChartTooltip />} />
-                <Legend wrapperStyle={{ fontSize: 11, color: '#8b949e', direction: 'rtl', paddingTop: 8 }} />
+                <Legend wrapperStyle={{ fontSize: 11, color: '#8b949e', direction: 'rtl', textAlign: 'right', paddingTop: 8 }} />
                 {categoryTypes.map(type => (
                   <Bar
                     key={type}

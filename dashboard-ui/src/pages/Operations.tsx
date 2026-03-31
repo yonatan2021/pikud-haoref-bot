@@ -107,6 +107,12 @@ export function Operations() {
     onError: () => toast.error('שגיאה בשליחת בדיקה'),
   });
 
+  const testAllMutation = useMutation({
+    mutationFn: () => api.post('/api/operations/test-alert-all', { chatId: parseInt(testChatId, 10) }),
+    onSuccess: () => toast.success('שולח 6 הודעות בדיקה...'),
+    onError: () => toast.error('שגיאה בשליחת בדיקה'),
+  });
+
   const parsedCities = (row: AlertWindowRow): string[] => {
     try { return JSON.parse(row.cities) as string[]; }
     catch (e) { console.error(`Failed to parse cities for alert window row ${row.id}:`, e); return []; }
@@ -122,9 +128,12 @@ export function Operations() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Broadcast */}
           <GlassCard className="p-4">
-            <h2 className="font-semibold text-text-primary mb-4 flex items-center gap-2">
+            <h2 className="font-semibold text-text-primary mb-1 flex items-center gap-2">
               📢 שליחת Broadcast
             </h2>
+            <p className="text-text-muted text-xs mb-4">
+              שולח הודעת HTML לכל המנויים הפעילים בבוט. תומך בתגיות: &lt;b&gt;, &lt;i&gt;, &lt;a href&gt;, &lt;code&gt;
+            </p>
             <div className="space-y-3">
               <textarea
                 value={broadcastText}
@@ -134,8 +143,8 @@ export function Operations() {
                 className="w-full bg-base border border-border rounded-lg px-4 py-3 text-sm text-text-primary outline-none focus:border-amber resize-none"
               />
               <div className="flex items-center justify-between">
-                <span className="text-text-muted text-xs">
-                  ישלח ל-<strong className="text-text-secondary">{overview?.totalSubscribers ?? '...'}</strong> מנויים
+                <span className="text-text-secondary text-sm">
+                  ישלח ל-<strong className="text-text-primary font-bold">{overview?.totalSubscribers ?? '...'}</strong> מנויים
                 </span>
                 <button
                   disabled={!broadcastText.trim() || broadcastMutation.isPending}
@@ -192,9 +201,12 @@ export function Operations() {
 
           {/* DM Queue */}
           <GlassCard glow="amber" className="p-4">
-            <h2 className="font-semibold text-text-primary mb-4 flex items-center gap-2">
+            <h2 className="font-semibold text-text-primary mb-1 flex items-center gap-2">
               📬 תור הודעות DM
             </h2>
+            <p className="text-text-muted text-xs mb-4">
+              התור מאגר הודעות בעת rate limiting של Telegram API. כשהבוט נחסם זמנית, ההודעות ממתינות כאן ונשלחות אוטומטית בהמשך — מתעדכן כל 3 שניות.
+            </p>
             {queueError ? (
               <p className="text-red-400 text-sm">שגיאה בטעינת תור — רענן</p>
             ) : queue ? (
@@ -220,7 +232,6 @@ export function Operations() {
                     {queue.rateLimited ? '⚠️ Rate Limited' : '✓ תקין'}
                   </span>
                 </div>
-                <p className="text-text-muted text-xs">מתעדכן כל 3 שניות</p>
               </div>
             ) : (
               <p className="text-text-muted text-sm">טוען...</p>
@@ -230,7 +241,7 @@ export function Operations() {
 
         {/* Alert Window */}
         <GlassCard className="p-4">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-start justify-between mb-1">
             <h2 className="font-semibold text-text-primary flex items-center gap-2">
               🪟 חלון ההתראות הפעיל
             </h2>
@@ -243,6 +254,9 @@ export function Operations() {
               </button>
             )}
           </div>
+          <p className="text-text-muted text-xs mb-4">
+            חלון כפילויות — התראה שנשלחה נשארת &quot;פתוחה&quot; לעדכונים. עדכון פיקוד העורף באותו סוג+ערים יעדכן את ההודעה ולא ישלח חדשה. ניקוי ידני מאפשר קבלת התראה מחדש.
+          </p>
           {alertWindow.length === 0 ? (
             <EmptyState icon="🪟" message="חלון ההתראות ריק" />
           ) : (
@@ -291,7 +305,10 @@ export function Operations() {
 
         {/* Test Alert */}
         <GlassCard className="p-4">
-          <h2 className="font-semibold text-text-primary mb-4">🧪 שליחת הודעת בדיקה</h2>
+          <h2 className="font-semibold text-text-primary mb-1">🧪 שליחת הודעת בדיקה</h2>
+          <p className="text-text-muted text-xs mb-4">
+            שולח הודעה ל-Chat ID ספציפי. למצוא את ה-Chat ID שלך: שלח <code className="bg-white/10 px-1 rounded text-xs">/start</code> לבוט <span className="text-amber">@userinfobot</span> בטלגרם.
+          </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="text-text-muted text-xs block mb-1">Chat ID</label>
@@ -302,6 +319,7 @@ export function Operations() {
                 placeholder="123456789"
                 className="w-full bg-base border border-border rounded-lg px-4 py-2.5 text-sm text-text-primary outline-none focus:border-amber"
               />
+              <p className="text-text-muted text-xs mt-1">מספר ה-ID האישי שלך בטלגרם</p>
             </div>
             <div>
               <label className="text-text-muted text-xs block mb-1">תוכן הבדיקה</label>
@@ -314,13 +332,22 @@ export function Operations() {
               />
             </div>
           </div>
-          <button
-            disabled={!testChatId || !testText || testAlertMutation.isPending}
-            onClick={() => testAlertMutation.mutate()}
-            className="mt-4 px-6 py-2 bg-surface border border-border hover:bg-base text-text-secondary text-sm rounded-lg disabled:opacity-40"
-          >
-            {testAlertMutation.isPending ? 'שולח...' : 'שלח בדיקה'}
-          </button>
+          <div className="flex flex-wrap gap-3 mt-4">
+            <button
+              disabled={!testChatId || !testText || testAlertMutation.isPending}
+              onClick={() => testAlertMutation.mutate()}
+              className="px-6 py-2 bg-surface border border-border hover:bg-base text-text-secondary text-sm rounded-lg disabled:opacity-40"
+            >
+              {testAlertMutation.isPending ? 'שולח...' : 'שלח בדיקה'}
+            </button>
+            <button
+              disabled={!testChatId || testAllMutation.isPending}
+              onClick={() => testAllMutation.mutate()}
+              className="px-6 py-2 bg-surface border border-amber/30 hover:bg-base text-amber text-sm rounded-lg disabled:opacity-40"
+            >
+              {testAllMutation.isPending ? 'שולח...' : 'שלח לכל 6 הקטגוריות'}
+            </button>
+          </div>
         </GlassCard>
 
         {/* Modals */}

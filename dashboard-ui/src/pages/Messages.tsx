@@ -1,239 +1,295 @@
-import { useState, useRef, useEffect } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useCallback, useRef } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Save, RotateCcw, Loader2, CheckCircle2 } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { PageTransition } from '../components/ui';
+import { ConfirmModal } from '../components/ConfirmModal';
+import { StatusOverviewBar } from '../components/messages/StatusOverviewBar';
+import { CategorySection } from '../components/messages/CategorySection';
+import { SimulationPanel } from '../components/messages/SimulationPanel';
+import { RoutingSection } from '../components/messages/RoutingSection';
+import type { TemplateEntry, TemplateEdit } from '../components/messages/TemplateRow';
+import { ORDERED_CATEGORIES, ALERT_TYPE_CATEGORY } from '../utils/categoryConfig';
+import type { AlertCategory } from '../utils/categoryConfig';
 import { api } from '../api/client';
-import { GlassCard } from '../components/ui/GlassCard';
-import { PageTransition } from '../components/ui/PageTransition';
-import { Skeleton } from '../components/Skeleton';
 
-interface TemplateDefaults {
-  emoji: string;
-  titleHe: string;
-  instructionsPrefix: string;
-}
-
-interface TemplateEntry {
+interface ImportRow {
   alertType: string;
   emoji: string;
   titleHe: string;
   instructionsPrefix: string;
-  isCustomized: boolean;
-  defaults: TemplateDefaults;
 }
 
-interface TemplateRowProps {
-  entry: TemplateEntry;
-  localEdits: Partial<TemplateEntry>;
-  onFieldChange: (alertType: string, field: keyof TemplateEntry, value: string) => void;
-  onReset: (alertType: string) => void;
-}
-
-function TemplateRow({ entry, localEdits, onFieldChange, onReset }: TemplateRowProps) {
-  const merged = { ...entry, ...localEdits };
-  const inputClass =
-    'bg-base border border-border rounded-lg px-3 py-2 text-sm text-text-primary outline-none focus:border-amber transition-colors';
-
-  return (
-    <div className="flex flex-col sm:flex-row sm:items-center gap-3 py-3 border-b border-border last:border-0">
-      <div className="flex items-center gap-2 min-w-[180px]">
-        <span className="text-sm font-medium text-text-primary">{merged.titleHe}</span>
-        {entry.isCustomized && (
-          <span className="text-xs px-1.5 py-0.5 rounded bg-[var(--color-glow-amber)] text-amber border border-amber/30">
-            מותאם
-          </span>
-        )}
-      </div>
-
-      <div className="flex flex-1 items-center gap-2 flex-wrap">
-        <input
-          type="text"
-          value={merged.emoji}
-          onChange={e => onFieldChange(entry.alertType, 'emoji', e.target.value)}
-          placeholder="אמוג'י"
-          className={`${inputClass} w-16 text-center`}
-          maxLength={4}
-        />
-        <input
-          type="text"
-          value={merged.titleHe}
-          onChange={e => onFieldChange(entry.alertType, 'titleHe', e.target.value)}
-          placeholder="כותרת בעברית"
-          className={`${inputClass} flex-1 min-w-[140px]`}
-        />
-        <input
-          type="text"
-          value={merged.instructionsPrefix}
-          onChange={e => onFieldChange(entry.alertType, 'instructionsPrefix', e.target.value)}
-          placeholder="קידומת הוראות"
-          className={`${inputClass} flex-1 min-w-[200px]`}
-        />
-      </div>
-
-      {entry.isCustomized && (
-        <button
-          onClick={() => onReset(entry.alertType)}
-          className="flex items-center gap-1 text-xs text-text-muted hover:text-text-secondary transition-colors whitespace-nowrap px-2 py-1 rounded hover:bg-white/5"
-          title="אפס לברירת מחדל"
-        >
-          <RotateCcw size={12} />
-          אפס
-        </button>
-      )}
-    </div>
-  );
-}
-
-export function Messages() {
+export default function Messages() {
   const queryClient = useQueryClient();
-  const [edits, setEdits] = useState<Record<string, Partial<TemplateEntry>>>({});
-  const [saveState, setSaveState] = useState<'idle' | 'loading' | 'success'>('idle');
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [edits, setEdits] = useState<Record<string, Partial<TemplateEdit>>>({});
+  const [simulationTarget, setSimulationTarget] = useState<TemplateEntry | null>(null);
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [pendingImport, setPendingImport] = useState<ImportRow[] | null>(null);
 
-  useEffect(() => () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); }, []);
-
-  const { data: templates, isLoading, isError } = useQuery<TemplateEntry[]>({
+  // Fetch all template entries
+  const { data: templates = [] } = useQuery<TemplateEntry[]>({
     queryKey: ['messages'],
-    queryFn: () => api.get('/api/messages'),
+    queryFn: () => api.get<TemplateEntry[]>('/api/messages'),
   });
 
-  const dirty = Object.keys(edits).length > 0;
-
-  const updateField = (alertType: string, field: keyof TemplateEntry, value: string) => {
-    setEdits(prev => ({
-      ...prev,
-      [alertType]: { ...prev[alertType], [field]: value },
-    }));
+  // Group templates by category
+  const groupedEntries: Record<AlertCategory, TemplateEntry[]> = {
+    security: [], nature: [], environmental: [], drills: [], general: [],
   };
+  for (const entry of templates) {
+    const cat = ALERT_TYPE_CATEGORY[entry.alertType] ?? 'general';
+    groupedEntries[cat].push(entry);
+  }
 
-  const handleSave = async () => {
-    setSaveState('loading');
-    try {
+  // Save mutations
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const entries = Object.entries(edits);
+      if (entries.length === 0) return;
       await Promise.all(
-        Object.entries(edits).map(([alertType, changes]) =>
-          api.patch(`/api/messages/${alertType}`, changes)
-        )
+        entries.map(([alertType, fields]) =>
+          api.patch(`/api/messages/${alertType}`, fields),
+        ),
       );
-      await queryClient.invalidateQueries({ queryKey: ['messages'] });
+    },
+    onSuccess: () => {
       setEdits({});
-      setSaveState('success');
+      queryClient.invalidateQueries({ queryKey: ['messages'] });
       toast.success('תבניות נשמרו');
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-      saveTimerRef.current = setTimeout(() => setSaveState('idle'), 2000);
-    } catch {
-      toast.error('שגיאה בשמירה');
-      setSaveState('idle');
-    }
-  };
+    },
+    onError: (err) => toast.error(`שגיאה: ${String(err)}`),
+  });
 
-  const handleReset = async (alertType: string) => {
-    try {
-      await api.delete(`/api/messages/${alertType}`);
-      await queryClient.invalidateQueries({ queryKey: ['messages'] });
-      setEdits(prev => {
+  // Reset single type
+  const resetMutation = useMutation({
+    mutationFn: (alertType: string) => api.delete(`/api/messages/${alertType}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['messages'] }),
+  });
+
+  // Reset all customized
+  const resetAllMutation = useMutation({
+    mutationFn: async () => {
+      const customized = templates.filter((t) => t.isCustomized);
+      await Promise.all(customized.map((t) => api.delete(`/api/messages/${t.alertType}`)));
+    },
+    onSuccess: () => {
+      setEdits({});
+      queryClient.invalidateQueries({ queryKey: ['messages'] });
+      toast.success('כל התבניות אופסו');
+    },
+  });
+
+  // Import mutation
+  const importMutation = useMutation({
+    mutationFn: (rows: ImportRow[]) =>
+      api.post<{ ok: boolean; count: number }>('/api/messages/import', { templates: rows }),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['messages'] });
+      setPendingImport(null);
+      setImportModalOpen(false);
+      toast.success(`יובאו ${data.count} תבניות`);
+    },
+    onError: (err) => toast.error(`שגיאה בייבוא: ${String(err)}`),
+  });
+
+  // Field change handler
+  const handleFieldChange = useCallback(
+    (alertType: string, field: keyof TemplateEdit, value: string) => {
+      setEdits((prev) => ({
+        ...prev,
+        [alertType]: { ...prev[alertType], [field]: value },
+      }));
+    },
+    [],
+  );
+
+  // Reset single template
+  const handleReset = useCallback(
+    (alertType: string) => {
+      setEdits((prev) => {
+        const { [alertType]: _, ...rest } = prev;
+        return rest;
+      });
+      resetMutation.mutate(alertType);
+    },
+    [resetMutation],
+  );
+
+  // Reset all templates in a category
+  const handleResetCategory = useCallback(
+    (category: AlertCategory) => {
+      const typesInCategory = groupedEntries[category]
+        .filter((e) => e.isCustomized)
+        .map((e) => e.alertType);
+      for (const t of typesInCategory) {
+        resetMutation.mutate(t);
+      }
+      setEdits((prev) => {
         const next = { ...prev };
-        delete next[alertType];
+        for (const t of groupedEntries[category].map((e) => e.alertType)) {
+          delete next[t];
+        }
         return next;
       });
-      toast.success('תבנית אופסה');
-    } catch {
-      toast.error('שגיאה באיפוס');
+    },
+    [groupedEntries, resetMutation],
+  );
+
+  // Simulate — set target for SimulationPanel
+  const handleSimulate = useCallback(
+    (alertType: string) => {
+      const entry = templates.find((t) => t.alertType === alertType);
+      if (entry) setSimulationTarget(entry);
+    },
+    [templates],
+  );
+
+  // Export templates
+  const handleExport = useCallback(async () => {
+    try {
+      const data = await api.get<{ templates: ImportRow[] }>('/api/messages/export');
+      const blob = new Blob([JSON.stringify(data.templates, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'templates-export.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('ייצוא הושלם');
+    } catch (err) {
+      toast.error(`שגיאה בייצוא: ${String(err)}`);
     }
-  };
+  }, []);
 
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-14" />)}
-      </div>
-    );
-  }
+  // Import — file select handler
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result as string);
+        const rows = Array.isArray(parsed) ? parsed : parsed.templates;
+        if (!Array.isArray(rows)) {
+          toast.error('קובץ לא תקין — צפוי מערך תבניות');
+          return;
+        }
+        setPendingImport(rows);
+        setImportModalOpen(true);
+      } catch {
+        toast.error('קובץ JSON לא תקין');
+      }
+    };
+    reader.readAsText(file);
+    // Reset input so the same file can be re-selected
+    e.target.value = '';
+  }, []);
 
-  if (isError) {
-    return (
-      <div className="p-8 text-center text-text-muted text-sm">
-        שגיאה בטעינת התבניות — רענן את הדף
-      </div>
-    );
-  }
+  const hasEdits = Object.keys(edits).length > 0;
 
   return (
     <PageTransition>
-      <div className="space-y-6">
+      <div className="space-y-4">
+        {/* Page header */}
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-text-primary">תבניות הודעות</h1>
-          <button
-            disabled={!dirty || saveState === 'loading'}
-            onClick={handleSave}
-            className={`px-6 py-2 text-sm font-bold rounded-lg disabled:opacity-40 transition-colors flex items-center gap-2 min-w-[140px] justify-center ${
-              saveState === 'success'
-                ? 'bg-green text-white'
-                : 'bg-amber hover:bg-amber-dark text-black'
-            }`}
-          >
+          <h1 className="text-2xl font-bold text-text-primary">ניהול תבניות</h1>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleExport}
+              className="text-xs px-3 py-1.5 rounded-lg border border-border
+                         text-text-muted hover:text-text-primary hover:border-border
+                         transition-colors"
+            >
+              ⬇ ייצוא
+            </button>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="text-xs px-3 py-1.5 rounded-lg border border-border
+                         text-text-muted hover:text-text-primary hover:border-border
+                         transition-colors"
+            >
+              ⬆ ייבוא
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+
+            {/* Save button */}
             <AnimatePresence mode="wait">
-              {saveState === 'idle' && (
-                <motion.span
-                  key="idle"
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.15 }}
-                  className="flex items-center gap-2"
-                >
-                  <Save size={14} />
-                  שמור שינויים
-                </motion.span>
-              )}
-              {saveState === 'loading' && (
-                <motion.span
-                  key="loading"
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.15 }}
-                  className="flex items-center gap-2"
-                >
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  שומר...
-                </motion.span>
-              )}
-              {saveState === 'success' && (
-                <motion.span
-                  key="success"
-                  initial={{ opacity: 0, scale: 0.8 }}
+              {hasEdits && (
+                <motion.button
+                  initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  transition={{ duration: 0.15 }}
-                  className="flex items-center gap-2"
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  type="button"
+                  onClick={() => saveMutation.mutate()}
+                  disabled={saveMutation.isPending}
+                  className="text-sm px-4 py-1.5 rounded-lg bg-amber text-base font-medium
+                             hover:bg-amber-dark transition-colors disabled:opacity-50"
                 >
-                  <CheckCircle2 className="w-4 h-4" />
-                  נשמר!
-                </motion.span>
+                  {saveMutation.isPending ? 'שומר...' : 'שמור שינויים'}
+                </motion.button>
               )}
             </AnimatePresence>
-          </button>
+          </div>
         </div>
 
-        <GlassCard className="overflow-hidden p-4">
-          <div className="mb-3 pb-3 border-b border-border">
-            <h2 className="font-semibold text-text-primary">סוגי התראות</h2>
-            <p className="text-text-muted text-xs mt-1">עריכת אמוג'י, כותרת וקידומת הוראות לכל סוג התראה</p>
-          </div>
-          <div>
-            {(templates ?? []).map(entry => (
-              <TemplateRow
-                key={entry.alertType}
-                entry={entry}
-                localEdits={edits[entry.alertType] ?? {}}
-                onFieldChange={updateField}
+        {/* Status overview */}
+        <StatusOverviewBar
+          templates={templates}
+          edits={edits}
+          onResetAll={() => resetAllMutation.mutate()}
+        />
+
+        {/* Split layout: categories + simulation */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-4">
+          {/* Left column: category sections + routing */}
+          <div className="space-y-4">
+            {ORDERED_CATEGORIES.map((category) => (
+              <CategorySection
+                key={category}
+                category={category}
+                entries={groupedEntries[category]}
+                edits={edits}
+                onFieldChange={handleFieldChange}
                 onReset={handleReset}
+                onResetCategory={handleResetCategory}
+                onSimulate={handleSimulate}
               />
             ))}
+            <RoutingSection />
           </div>
-        </GlassCard>
+
+          {/* Right column: simulation panel (sticky) */}
+          <div className="lg:sticky lg:top-6 lg:self-start">
+            <SimulationPanel
+              targetEntry={
+                simulationTarget
+                  ? { ...simulationTarget, localEdits: edits[simulationTarget.alertType] }
+                  : null
+              }
+              allEntries={templates}
+            />
+          </div>
+        </div>
       </div>
+
+      {/* Import confirm modal */}
+      <ConfirmModal
+        open={importModalOpen}
+        onCancel={() => { setImportModalOpen(false); setPendingImport(null); }}
+        onConfirm={() => { if (pendingImport) importMutation.mutate(pendingImport); }}
+        title="ייבוא תבניות"
+        description={`האם לייבא ${pendingImport?.length ?? 0} תבניות? תבניות קיימות יידרסו.`}
+      />
     </PageTransition>
   );
 }

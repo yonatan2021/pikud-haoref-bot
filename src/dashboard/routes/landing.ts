@@ -14,10 +14,13 @@ export function createLandingRouter(db: Database.Database): Router {
   const router = Router();
 
   router.get('/config', (_req, res) => {
+    const lastDeploy = getSetting(db, 'last_landing_deploy') ?? null;
     res.json({
       ga4MeasurementId: getSetting(db, 'ga4_measurement_id') ?? process.env.GA4_MEASUREMENT_ID ?? '',
-      lastDeploy: getSetting(db, 'last_landing_deploy') ?? null,
+      lastDeploy,
       siteUrl: getSetting(db, 'landing_url') ?? '',
+      githubRepo: getSetting(db, 'github_repo') ?? process.env.GITHUB_REPO ?? '',
+      deployStatus: lastDeploy ? 'deployed' : 'never',
     });
   });
 

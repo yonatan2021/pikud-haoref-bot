@@ -19,6 +19,8 @@ import { getDb } from './db/schema.js';
 import { log, logStartupHeader, logSectionDivider } from './logger.js';
 import { toVisualRtl } from './loggerUtils.js';
 import { loadTemplateCache } from './config/templateCache.js';
+import { loadRoutingCache } from './config/routingCache.js';
+import { setMenuHandlerDb } from './bot/menuHandler.js';
 import { initialize as initWhatsApp, setMessageCallback } from './whatsapp/whatsappService.js';
 import { createBroadcaster } from './whatsapp/whatsappBroadcaster.js';
 import { createMessageHandler } from './whatsapp/whatsappListenerService.js';
@@ -50,6 +52,8 @@ for (const envVar of REQUIRED_ENV_VARS) {
     initializeCache();
     loadActiveMessages();
     loadTemplateCache();
+    loadRoutingCache(getDb());
+    setMenuHandlerDb(getDb());
     alertsToday = countAlertsToday();
   } catch (err) {
     log('error', 'Init', `כישלון אתחול מסד נתונים — הבוט לא יכול להתחיל: ${err}`);

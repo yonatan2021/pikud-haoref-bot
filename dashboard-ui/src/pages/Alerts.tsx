@@ -1,5 +1,4 @@
 import { useQuery } from '@tanstack/react-query';
-import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useSearchParams } from 'react-router-dom';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -8,6 +7,7 @@ import { EmptyState } from '../components/EmptyState';
 import { Skeleton } from '../components/Skeleton';
 import { GlassCard } from '../components/ui/GlassCard';
 import { PageTransition } from '../components/ui/PageTransition';
+import { AlertCategoryStats } from '../components/AlertCategoryStats';
 
 interface Alert {
   id: number;
@@ -128,20 +128,27 @@ export function Alerts() {
     queryFn: () => api.get('/api/stats/alerts/by-category'),
   });
 
-  // Aggregate for pie chart
-  const pieData = Object.values(
-    byCategory.reduce<Record<string, { name: string; value: number; fill: string }>>((acc, row) => {
+  // Aggregate by-category into sorted stat rows with percentage
+  const aggregated = Object.values(
+    byCategory.reduce<Record<string, { type: string; name: string; count: number; color: string }>>((acc, row) => {
       if (!acc[row.type]) {
         acc[row.type] = {
+          type: row.type,
           name: CATEGORY_LABELS[row.type] ?? row.type,
-          value: 0,
-          fill: CATEGORY_COLORS[row.type] ?? '#64748b',
+          count: 0,
+          color: CATEGORY_COLORS[row.type] ?? '#64748b',
         };
       }
-      acc[row.type].value += row.count;
+      acc[row.type].count += row.count;
       return acc;
     }, {})
-  );
+  ).sort((a, b) => b.count - a.count);
+
+  const statsTotal = aggregated.reduce((sum, r) => sum + r.count, 0);
+  const statsData = aggregated.map(r => ({
+    ...r,
+    pct: statsTotal > 0 ? Math.round((r.count / statsTotal) * 100) : 0,
+  }));
 
   const isFiltered = category !== '' || city !== '';
 
@@ -340,38 +347,8 @@ export function Alerts() {
             )}
           </GlassCard>
 
-          {/* Pie chart */}
-          <GlassCard className="p-5">
-            <h2 className="font-semibold text-text-primary mb-4">התפלגות לפי סוג</h2>
-            {pieData.length === 0 ? (
-              <EmptyState icon="📊" message="אין נתונים" />
-            ) : (
-              <ResponsiveContainer width="100%" height={280}>
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="45%"
-                    outerRadius={90}
-                    dataKey="value"
-                    label={({ name, percent }: { name?: string; percent?: number }) =>
-                      `${name ?? ''} ${((percent ?? 0) * 100).toFixed(0)}%`
-                    }
-                    labelLine={false}
-                  >
-                    {pieData.map((entry, i) => (
-                      <Cell key={i} fill={entry.fill} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{ background: '#161b22', border: '1px solid #21262d', borderRadius: 8 }}
-                    formatter={(value) => [`${value} התראות`]}
-                  />
-                  <Legend wrapperStyle={{ fontSize: 11, color: '#8b949e', direction: 'rtl' }} />
-                </PieChart>
-              </ResponsiveContainer>
-            )}
-          </GlassCard>
+          {/* Category stats panel */}
+          <AlertCategoryStats data={statsData} total={statsTotal} />
         </div>
       </div>
     </PageTransition>

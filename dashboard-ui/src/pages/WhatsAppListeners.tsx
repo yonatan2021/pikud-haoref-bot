@@ -1,12 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Pencil, Trash2 } from 'lucide-react';
-import { motion } from 'framer-motion';
 import { api } from '../api/client';
 import { GlassCard } from '../components/ui/GlassCard';
 import { PageTransition } from '../components/ui/PageTransition';
+import { ToggleSwitch } from '../components/ui/ToggleSwitch';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { EmptyState } from '../components/EmptyState';
+import { ListenersBanner } from './whatsapp-listeners/ListenersBanner';
+import { KeywordHelp } from './whatsapp-listeners/KeywordHelp';
+import { RuleCard } from './whatsapp-listeners/RuleCard';
+import { SourceSelector } from './whatsapp-listeners/SourceSelector';
 
 interface WhatsAppChat {
   id: string;
@@ -29,31 +33,6 @@ interface ListenerRule {
   telegramTopicName: string | null;
   isActive: boolean;
   createdAt: string;
-}
-
-interface ToggleSwitchProps {
-  value: boolean;
-  onChange: (v: boolean) => void;
-  disabled?: boolean;
-}
-
-function ToggleSwitch({ value, onChange, disabled = false }: ToggleSwitchProps) {
-  return (
-    <button
-      onClick={() => !disabled && onChange(!value)}
-      disabled={disabled}
-      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-40 ${value ? 'bg-[var(--color-amber)]' : 'bg-white/10'}`}
-      role="switch"
-      aria-checked={value}
-    >
-      <motion.span
-        className="absolute h-4 w-4 rounded-full bg-white shadow"
-        style={{ top: 4, left: 0 }}
-        animate={{ x: value ? 24 : 4 }}
-        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-      />
-    </button>
-  );
 }
 
 interface KeywordInputProps {
@@ -234,12 +213,13 @@ export function WhatsAppListeners() {
 
   const deleteTarget = deleteConfirmId != null ? rules?.find(r => r.id === deleteConfirmId) : null;
   const isSaving = createMutation.isPending || updateMutation.isPending;
-  const chatsEmpty = !chats || chats.length === 0;
 
   return (
     <PageTransition>
       <div className="space-y-6">
         <h1 className="text-2xl font-bold text-text-primary">כללי האזנה — WhatsApp</h1>
+
+        <ListenersBanner />
 
         {/* Rules List */}
         <GlassCard className="p-6">
@@ -255,63 +235,21 @@ export function WhatsAppListeners() {
               ))}
             </div>
           ) : !rules || rules.length === 0 ? (
-            <div className="py-10 text-center text-text-muted text-sm">
-              אין כללי האזנה — הוסף כלל למטה
+            <div className="py-6">
+              <EmptyState icon="📡" message="אין כללי האזנה עדיין" />
+              <p className="text-center text-text-muted text-xs -mt-2">מלא את הטופס למטה כדי להוסיף כלל ראשון</p>
             </div>
           ) : (
             <div>
               {rules.map(rule => (
-                <div key={rule.id} className="flex items-center justify-between gap-3 py-4 border-b border-border last:border-0">
-                  <div className="flex flex-col gap-1.5 flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-text-primary text-sm">{rule.channelName}</span>
-                      <span className="px-1.5 py-0.5 text-xs rounded bg-[var(--color-glow-amber)] border border-amber/30 text-amber">
-                        {rule.channelType === 'newsletter' ? 'ערוץ' : 'קבוצה'}
-                      </span>
-                      {rule.telegramTopicId != null && rule.telegramTopicName && (
-                        <span className="px-1.5 py-0.5 text-xs rounded bg-white/5 border border-border text-text-muted">
-                          {rule.telegramTopicName}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {rule.keywords.length === 0 ? (
-                        <span className="text-text-muted text-xs">כל הודעה</span>
-                      ) : (
-                        rule.keywords.map(kw => (
-                          <span
-                            key={kw}
-                            className="bg-[var(--color-glow-amber)] border border-amber/30 text-amber text-xs px-2 py-0.5 rounded-full"
-                          >
-                            {kw}
-                          </span>
-                        ))
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3 shrink-0">
-                    <ToggleSwitch
-                      value={rule.isActive}
-                      onChange={() => handleToggleActive(rule)}
-                      disabled={updateMutation.isPending}
-                    />
-                    <button
-                      onClick={() => handleEdit(rule)}
-                      className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors"
-                      title="ערוך"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                    <button
-                      onClick={() => setDeleteConfirmId(rule.id)}
-                      className="p-1.5 rounded-lg text-text-muted hover:text-red-400 hover:bg-white/5 transition-colors"
-                      title="מחק"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
+                <RuleCard
+                  key={rule.id}
+                  rule={rule}
+                  onEdit={handleEdit}
+                  onDelete={setDeleteConfirmId}
+                  onToggle={handleToggleActive}
+                  disabled={updateMutation.isPending}
+                />
               ))}
             </div>
           )}
@@ -328,32 +266,16 @@ export function WhatsAppListeners() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Source chat */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm text-text-secondary">מקור (צ'אט WhatsApp)</label>
-              <select
-                value={form.channelId}
-                onChange={e => setForm(prev => ({ ...prev, channelId: e.target.value }))}
-                disabled={editingId != null}
-                className="bg-base border border-border rounded-lg px-3 py-2 text-sm text-text-primary disabled:opacity-50 outline-none focus:border-amber/50 transition-colors"
-              >
-                <option value="">בחר מקור...</option>
-                {chats?.map(chat => (
-                  <option key={chat.id} value={chat.id}>
-                    {chat.name} ({chat.type === 'group' ? 'קבוצה' : 'ערוץ'})
-                  </option>
-                ))}
-              </select>
-              {chatsEmpty && (
-                <p className="text-text-muted text-xs">
-                  אין צ'אטים זמינים —{' '}
-                  <a href="/whatsapp" className="text-amber hover:underline">חבר תחילה את WhatsApp</a>
-                </p>
-              )}
-            </div>
+            <SourceSelector
+              chats={chats}
+              value={form.channelId}
+              onChange={channelId => setForm(prev => ({ ...prev, channelId }))}
+              disabled={editingId != null}
+            />
 
             {/* Channel name */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm text-text-secondary">שם ערוץ</label>
+              <label className="text-sm text-text-secondary">שם תצוגה</label>
               <input
                 type="text"
                 value={form.channelName}
@@ -361,6 +283,7 @@ export function WhatsAppListeners() {
                 placeholder="שם ערוץ..."
                 className="bg-base border border-border rounded-lg px-3 py-2 text-sm text-text-primary outline-none focus:border-amber/50 transition-colors placeholder:text-text-muted"
               />
+              <p className="text-text-muted text-xs">ממולא אוטומטית מבחירת המקור — ניתן לשנות</p>
             </div>
 
             {/* Keywords */}
@@ -370,6 +293,7 @@ export function WhatsAppListeners() {
                 keywords={form.keywords}
                 onChange={keywords => setForm(prev => ({ ...prev, keywords }))}
               />
+              <KeywordHelp />
             </div>
 
             {/* Telegram topic */}
