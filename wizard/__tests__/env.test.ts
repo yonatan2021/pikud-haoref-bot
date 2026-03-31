@@ -185,6 +185,36 @@ describe('writeFullEnvFile', () => {
     const content = fs.readFileSync(tmpFile, 'utf8')
     assert.ok(content.startsWith('#'))
   })
+
+  it('values with # are quoted (prevents comment truncation)', () => {
+    writeFullEnvFile(tmpFile, { DASHBOARD_SECRET: 'my#pass' })
+    const content = fs.readFileSync(tmpFile, 'utf8')
+    assert.ok(/^DASHBOARD_SECRET="my#pass"$/m.test(content))
+  })
+
+  it('values with $ are quoted and escaped', () => {
+    writeFullEnvFile(tmpFile, { DASHBOARD_SECRET: 'pa$$word' })
+    const content = fs.readFileSync(tmpFile, 'utf8')
+    assert.ok(content.includes('DASHBOARD_SECRET="pa\\$\\$word"'))
+  })
+
+  it('values with double quotes are escaped', () => {
+    writeFullEnvFile(tmpFile, { DASHBOARD_SECRET: 'say"hello"' })
+    const content = fs.readFileSync(tmpFile, 'utf8')
+    assert.ok(content.includes('DASHBOARD_SECRET="say\\"hello\\""'))
+  })
+
+  it('round-trip: special chars survive write → read', () => {
+    writeFullEnvFile(tmpFile, {
+      TELEGRAM_BOT_TOKEN: 'tok:abc#123',
+      DASHBOARD_SECRET: 'pa$$word',
+      PROXY_URL: 'http://u:p@host',
+    })
+    const result = readEnvFile(tmpFile)
+    assert.equal(result['TELEGRAM_BOT_TOKEN'], 'tok:abc#123')
+    assert.equal(result['DASHBOARD_SECRET'], 'pa$$word')
+    assert.equal(result['PROXY_URL'], 'http://u:p@host')
+  })
 })
 
 describe('maskValue', () => {

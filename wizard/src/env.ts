@@ -18,7 +18,9 @@ export function readEnvFile(filePath: string): Record<string, string> {
     if (eq === -1) continue
     const key = trimmed.slice(0, eq).trim()
     const rawVal = trimmed.slice(eq + 1).trim()
-    const val = rawVal.startsWith('"') && rawVal.endsWith('"') ? rawVal.slice(1, -1) : rawVal
+    const isQuoted = rawVal.startsWith('"') && rawVal.endsWith('"')
+    const stripped = isQuoted ? rawVal.slice(1, -1) : rawVal
+    const val = isQuoted ? stripped.replace(/\\(.)/g, '$1') : stripped
     if (key) result[key] = val
   }
   return result
@@ -36,7 +38,8 @@ export function writeEnvFile(
   ]
   for (const [key, value] of Object.entries(vars)) {
     if (value == null || value === '') continue
-    const safe = String(value).includes(' ') ? `"${value}"` : String(value)
+    const sv = String(value)
+    const safe = /[ #$"\\`!]/.test(sv) ? `"${sv.replace(/[\\"$`]/g, c => `\\${c}`)}"` : sv
     lines.push(`${key}=${safe}`)
   }
   lines.push('')
@@ -161,7 +164,13 @@ export function writeFullEnvFile(
   filePath: string,
   vars: Record<string, string | null | undefined>,
 ): void {
-  const quoteIfNeeded = (v: string) => v.includes(' ') ? `"${v}"` : v
+  const quoteIfNeeded = (v: string): string => {
+    if (/[ #$"\\`!]/.test(v)) {
+      const escaped = v.replace(/[\\"$`]/g, c => `\\${c}`)
+      return `"${escaped}"`
+    }
+    return v
+  }
 
   const sectionLines = ENV_TEMPLATE.flatMap(section => [
     '',
