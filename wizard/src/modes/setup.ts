@@ -1,10 +1,11 @@
+import fs from 'node:fs'
 import path from 'node:path'
 import * as p from '@clack/prompts'
 import { c, msg, printProgressBar, printCompletionCard, type CompletionSummary } from '../ui/theme.js'
-import { writeEnvFile } from '../env.js'
+import { writeFullEnvFile } from '../env.js'
 import { promptRequired } from '../steps/required.js'
 import { promptOptional } from '../steps/optional.js'
-import { promptDeploymentMode, printDockerInstructions, printNodeInstructions, runNodeSetup } from '../steps/deployment.js'
+import { promptDeploymentMode, printDockerInstructions, printNodeInstructions, runNodeSetup, resolveTargetPath } from '../steps/deployment.js'
 import { toVisualRtl } from '../ui/rtl.js'
 import { promptPlatform, needsWhatsApp, needsTelegram, needsMapbox } from '../steps/platform.js'
 import type { Flags } from '../args.js'
@@ -45,7 +46,16 @@ export async function runSetup(flags: Flags): Promise<void> {
     ...(optional.TELEGRAM_TOPIC_ID_GENERAL       ? { TELEGRAM_TOPIC_ID_GENERAL:       optional.TELEGRAM_TOPIC_ID_GENERAL }       : {}),
   }
 
-  writeEnvFile(outputPath, vars)
+  writeFullEnvFile(outputPath, vars)
+
+  // For node mode, the .env's final resting place is inside the cloned repo,
+  // not CWD. Compute that path now so the completion card shows the right location.
+  let cardEnvPath = outputPath
+  if (mode === 'node') {
+    try {
+      cardEnvPath = path.join(resolveTargetPath(flags['install-dir']), '.env')
+    } catch { /* non-ASCII install path — keep CWD path in card */ }
+  }
 
   // Print completion card with summary
   const summary: CompletionSummary = {
@@ -56,16 +66,20 @@ export async function runSetup(flags: Flags): Promise<void> {
     inviteLink: !!optional.TELEGRAM_INVITE_LINK,
     proxy:      !!optional.PROXY_URL,
   }
-  printCompletionCard(summary, outputPath, mode)
+  printCompletionCard(summary, cardEnvPath, mode)
 
   if (mode === 'docker') {
     printDockerInstructions(outputPath, platform)
   } else {
     try {
-      await runNodeSetup(outputPath, platform)
+      await runNodeSetup(outputPath, platform, undefined, flags['install-dir'])
+      // Remove the temporary CWD copy now that the .env lives inside the cloned repo.
+      if (path.resolve(outputPath) !== path.resolve(cardEnvPath)) {
+        try { fs.unlinkSync(outputPath) } catch { /* best-effort; leave it if deletion fails */ }
+      }
     } catch (err) {
       p.log.error((err as Error).message)
-      printNodeInstructions(platform)
+      printNodeInstructions(platform, flags['install-dir'])
       p.outro(c.warning(toVisualRtl('ההגדרה הושלמה חלקית — קובץ ה-.env נכתב, אך ההתקנה האוטומטית נכשלה')))
       return
     }

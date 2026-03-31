@@ -1,6 +1,8 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { buildWhatsAppNote, runNodeSetup, type SpawnFn } from '../src/steps/deployment.js'
+import path from 'node:path'
+import os from 'node:os'
+import { buildWhatsAppNote, runNodeSetup, resolveTargetPath, type SpawnFn } from '../src/steps/deployment.js'
 
 // ── Fake spawn factory ────────────────────────────────────────────────────────
 //
@@ -307,6 +309,95 @@ describe('runNodeSetup — rm failure does not shadow clone error', () => {
         assert.ok(!err.message.includes('EPERM'), `rm error should not surface: ${err.message}`)
         return true
       },
+    )
+  })
+})
+
+// ── makeMultiFakeSpawn — sequential spawns with per-call exit codes ────────────
+//
+// Each spawn call gets a fresh child process that auto-closes with the next
+// code from the provided array. Closes are scheduled via setImmediate inside
+// the .on('close') registration so handlers are always in place before firing.
+//
+function makeMultiFakeSpawn(closeCodes: number[]) {
+  let callIndex = 0
+  const spawnFn: SpawnFn = (_cmd, _args, _opts) => {
+    const code = closeCodes[callIndex++] ?? 0
+    const handlers: Record<string, Handler[]> = {}
+    const fakeChild = {
+      on(event: string, handler: Handler) {
+        handlers[event] ??= []
+        handlers[event].push(handler)
+        if (event === 'close') setImmediate(() => handlers['close']?.forEach(h => h(code, null)))
+        return fakeChild
+      },
+    }
+    return fakeChild as unknown as ReturnType<SpawnFn>
+  }
+  return { spawnFn }
+}
+
+// ── resolveTargetPath — unit tests ────────────────────────────────────────────
+
+describe('resolveTargetPath', () => {
+  it('defaults to ~/pikud-haoref-bot when no installDir provided', () => {
+    const result = resolveTargetPath()
+    assert.equal(result, path.join(os.homedir(), 'pikud-haoref-bot'))
+  })
+
+  it('returns absolute path when installDir is already absolute', () => {
+    const result = resolveTargetPath('/opt/bots/haoref')
+    assert.equal(result, '/opt/bots/haoref')
+  })
+
+  it('accepts an ASCII absolute installDir as-is', () => {
+    const result = resolveTargetPath('/tmp/pikud-bot')
+    assert.equal(result, '/tmp/pikud-bot')
+    assert.ok(path.isAbsolute(result))
+  })
+
+  it('throws when resolved path contains non-ASCII characters', () => {
+    assert.throws(
+      () => resolveTargetPath('/opt/\u05D1\u05D5\u05D8/haoref'),
+      /\u05EA\u05D5\u05D5\u05D9\u05DD \u05E9\u05D0\u05D9\u05E0\u05DD ASCII/,
+    )
+  })
+
+  it('throws for Hebrew path via --install-dir', () => {
+    assert.throws(
+      () => resolveTargetPath('/Users/user/\u05E4\u05E8\u05D5\u05D9\u05D9\u05E7\u05D8\u05D9\u05DD/bot'),
+      /\u05EA\u05D5\u05D5\u05D9\u05DD \u05E9\u05D0\u05D9\u05E0\u05DD ASCII/,
+    )
+  })
+})
+
+// ── runNodeSetup — git clone uses absolute targetPath ─────────────────────────
+
+describe('runNodeSetup — git clone uses absolute targetPath', () => {
+  it('passes absolute path (not relative "pikud-haoref-bot") to git clone', async () => {
+    let cloneArgs: string[] | undefined
+    const { spawnFn } = makeMultiFakeSpawn([0, 0])  // clone succeeds, npm install succeeds
+
+    const capturingSpawn: SpawnFn = (cmd, args, opts) => {
+      if (cmd === 'git') cloneArgs = [...args]
+      return spawnFn(cmd, args, opts)
+    }
+
+    await runNodeSetup('/fake/.env', 'telegram', {
+      spawn: capturingSpawn,
+      copyFile: noopCopyFile,
+      access: missingAccess,
+      rm: noopRm,
+    })
+
+    assert.ok(cloneArgs !== undefined, 'git clone should have been called')
+    assert.ok(
+      path.isAbsolute(cloneArgs[2] ?? ''),
+      `clone target must be absolute, got: ${cloneArgs[2]}`,
+    )
+    assert.ok(
+      (cloneArgs[2] ?? '').includes('pikud-haoref-bot'),
+      `clone target must include "pikud-haoref-bot", got: ${cloneArgs[2]}`,
     )
   })
 })

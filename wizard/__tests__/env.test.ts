@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { readEnvFile, writeEnvFile, mergeEnvVars, maskValue } from '../src/env.js'
+import { readEnvFile, writeEnvFile, writeFullEnvFile, mergeEnvVars, maskValue, ENV_TEMPLATE } from '../src/env.js'
 
 let tmpDir: string
 let tmpFile: string
@@ -113,6 +113,77 @@ describe('mergeEnvVars', () => {
     const result   = mergeEnvVars(existing, updates)
     // B should remain from existing since update is null
     assert.equal(result.B, '2')
+  })
+})
+
+describe('writeFullEnvFile', () => {
+  it('all template keys appear in output', () => {
+    writeFullEnvFile(tmpFile, {})
+    const content = fs.readFileSync(tmpFile, 'utf8')
+    const allKeys = ENV_TEMPLATE.flatMap(s => s.entries.map(e => e.key))
+    for (const key of allKeys) {
+      assert.ok(content.includes(key), `Expected key "${key}" to appear in output`)
+    }
+  })
+
+  it('set values are written as active (uncommented) lines', () => {
+    writeFullEnvFile(tmpFile, { TELEGRAM_BOT_TOKEN: 'mytoken123' })
+    const content = fs.readFileSync(tmpFile, 'utf8')
+    // Must match a line that starts with the key (no leading #)
+    assert.ok(/^TELEGRAM_BOT_TOKEN=mytoken123$/m.test(content))
+  })
+
+  it('unset values are written as commented lines', () => {
+    writeFullEnvFile(tmpFile, { TELEGRAM_BOT_TOKEN: 'tok' })
+    const content = fs.readFileSync(tmpFile, 'utf8')
+    // PROXY_URL not in vars — must only appear commented
+    assert.ok(!(/^PROXY_URL=/m.test(content)), 'PROXY_URL must not appear as active line')
+    assert.ok(content.includes('# PROXY_URL='))
+  })
+
+  it('defaults appear in commented lines', () => {
+    writeFullEnvFile(tmpFile, {})
+    const content = fs.readFileSync(tmpFile, 'utf8')
+    assert.ok(content.includes('# MAPBOX_IMAGE_CACHE_SIZE=20'))
+    assert.ok(content.includes('# HEALTH_PORT=3000'))
+    assert.ok(content.includes('# ALERT_UPDATE_WINDOW_SECONDS=120'))
+    assert.ok(content.includes('# MAPBOX_SKIP_DRILLS=false'))
+  })
+
+  it('section headers appear in output', () => {
+    writeFullEnvFile(tmpFile, {})
+    const content = fs.readFileSync(tmpFile, 'utf8')
+    assert.ok(content.includes('# --- חובה ---'))
+    assert.ok(content.includes('# --- WhatsApp ---'))
+    assert.ok(content.includes('# --- לוח הבקרה ---'))
+  })
+
+  it('values with spaces are quoted', () => {
+    writeFullEnvFile(tmpFile, { DASHBOARD_SECRET: 'my secret pass' })
+    const content = fs.readFileSync(tmpFile, 'utf8')
+    assert.ok(content.includes('DASHBOARD_SECRET="my secret pass"'))
+  })
+
+  it('round-trip: readEnvFile returns only active keys', () => {
+    writeFullEnvFile(tmpFile, { TELEGRAM_BOT_TOKEN: 'tok123', TELEGRAM_CHAT_ID: '-100123' })
+    const result = readEnvFile(tmpFile)
+    assert.equal(result['TELEGRAM_BOT_TOKEN'], 'tok123')
+    assert.equal(result['TELEGRAM_CHAT_ID'], '-100123')
+    assert.equal(result['PROXY_URL'], undefined)
+    assert.equal(result['HEALTH_PORT'], undefined)
+  })
+
+  it('empty value is treated as unset (commented)', () => {
+    writeFullEnvFile(tmpFile, { PROXY_URL: '' })
+    const content = fs.readFileSync(tmpFile, 'utf8')
+    assert.ok(!(/^PROXY_URL=/m.test(content)), 'Empty PROXY_URL must not appear as active line')
+    assert.ok(content.includes('# PROXY_URL='))
+  })
+
+  it('includes a header comment', () => {
+    writeFullEnvFile(tmpFile, {})
+    const content = fs.readFileSync(tmpFile, 'utf8')
+    assert.ok(content.startsWith('#'))
   })
 })
 

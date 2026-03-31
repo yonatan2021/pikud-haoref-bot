@@ -1,5 +1,6 @@
 import { Client, LocalAuth } from 'whatsapp-web.js';
 import path from 'path';
+import QRCode from 'qrcode';
 import { log } from '../logger.js';
 import type { IncomingWhatsAppMsg } from './whatsappListenerService.js';
 
@@ -88,6 +89,9 @@ export function initialize(): void {
       'WhatsApp',
       isRefresh ? 'קוד QR התחדש — יש לסרוק שוב' : 'קוד QR התקבל — יש לסרוק עם הטלפון'
     );
+    QRCode.toString(qr, { type: 'terminal', small: true })
+      .then((qrText) => { process.stdout.write('\n' + qrText + '\n'); })
+      .catch(() => { /* terminal rendering failed — text log above is sufficient */ });
   });
 
   client.on('authenticated', () => {

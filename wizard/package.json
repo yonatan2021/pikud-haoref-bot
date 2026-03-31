@@ -33,7 +33,7 @@
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc --watch",
-    "test": "npm run build && node --test 'dist/__tests__/*.test.js'",
-    "test:watch": "node --watch --test 'dist/__tests__/*.test.js'"
+    "test": "npm run build && node --test --test-concurrency=1 'dist/__tests__/*.test.js'",
+    "test:watch": "node --watch --test --test-concurrency=1 'dist/__tests__/*.test.js'"
   }
 }
