@@ -1,3 +1,6 @@
+// NOTE: Parallel backend implementation in src/dashboard/routes/messages.ts (formatWithTemplate).
+// Changes to the format must be applied to both files.
+
 export interface CityData {
   name: string;
   zone?: string;

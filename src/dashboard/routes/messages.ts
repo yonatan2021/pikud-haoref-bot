@@ -35,6 +35,8 @@ import { log } from '../../logger.js';
 import type { Alert } from '../../types.js';
 
 // ─── Local formatter — never mutates global template cache ─────────────────
+// NOTE: Parallel frontend implementation in dashboard-ui/src/utils/alertFormatter.ts.
+// Changes to the format must be applied to both files.
 
 function formatWithTemplate(
   alertType: string,
@@ -271,6 +273,13 @@ export function createMessagesRouter(db: Database.Database, bot: Bot): Router {
     // Build the formatted message using local formatter
     const formattedMessage = formatWithTemplate(alertType, cities, instructions, template);
 
+    // Truncate to stay within Telegram's 4096-char text message limit
+    const TEST_PREFIX = '🧪 <b>בדיקת תבנית</b>\n\n';
+    const maxBody = 4096 - TEST_PREFIX.length;
+    const truncatedMessage = formattedMessage.length > maxBody
+      ? formattedMessage.slice(0, formattedMessage.lastIndexOf('\n\n', maxBody)) + '\n\n<i>…קוצר</i>'
+      : formattedMessage;
+
     // Send as text-only (no map) via bot.api directly
     const chatId = process.env.TELEGRAM_CHAT_ID;
     if (!chatId) {
@@ -282,7 +291,7 @@ export function createMessagesRouter(db: Database.Database, bot: Bot): Router {
       const threadOptions = topicId ? { message_thread_id: topicId } : {};
       const sent = await bot.api.sendMessage(
         chatId,
-        `🧪 <b>בדיקת תבנית</b>\n\n${formattedMessage}`,
+        `${TEST_PREFIX}${truncatedMessage}`,
         { parse_mode: 'HTML', ...threadOptions },
       );
       log('info', 'Messages', `Test-fire: ${alertType} → message ${sent.message_id}`);
