@@ -66,11 +66,14 @@ export function printNodeInstructions(platform: Platform = 'telegram', installDi
     ? path.resolve(installDir)
     : path.join(os.homedir(), TARGET_DIR)
   printResultBox('הוראות הרצה עם Node.js:', [
-    `  ${c.primary('git clone')} https://github.com/yonatan2021/pikud-haoref-bot.git ${c.accent(displayPath)}`,
+    `  ${c.primary('git clone')} --depth 1 https://github.com/yonatan2021/pikud-haoref-bot.git ${c.accent(displayPath)}`,
     `  ${c.primary('cd')} ${displayPath}`,
+    `  ${c.primary('git remote rename')} origin upstream`,
     `  ${c.primary('npm install')}`,
     `  ${c.dim('# ' + toVisualRtl('העבר את קובץ ה-.env שנוצר לתיקיית הפרויקט'))}`,
     `  ${c.primary('npm start')}`,
+    '',
+    `  ${c.dim(toVisualRtl('לעדכון מהמקור:'))} ${c.primary('git pull upstream main')}`,
     ...buildWhatsAppNote(platform),
   ])
 }
@@ -127,7 +130,7 @@ async function dirExists(accessFn: NodeSetupDeps['access'], targetPath: string):
 }
 
 /**
- * Clones the repo, copies the generated .env, and runs npm install.
+ * Clones the repo, sets up remotes, copies the generated .env, and runs npm install.
  * Used by setup mode (Node.js path) to make the bot immediately runnable.
  * Streams all subprocess output live via stdio: 'inherit'.
  */
@@ -150,7 +153,7 @@ export async function runNodeSetup(
   } else {
     p.log.step(c.primary(toVisualRtl('מוריד את קוד המקור...')))
     try {
-      await spawnStep(deps.spawn, 'git', ['clone', REPO_URL, targetPath])
+      await spawnStep(deps.spawn, 'git', ['clone', '--depth', '1', REPO_URL, targetPath])
     } catch (err) {
       await deps.rm(targetPath, { recursive: true, force: true }).catch((rmErr: unknown) => {
         const e = rmErr as NodeJS.ErrnoException
@@ -159,6 +162,9 @@ export async function runNodeSetup(
       })
       throw err
     }
+
+    // Set up remotes: origin → upstream (for pulling updates from the source repo)
+    await setupRemotes(deps, targetPath)
   }
 
   try {
@@ -184,9 +190,90 @@ export async function runNodeSetup(
 
   p.log.success(toVisualRtl('ההתקנה הושלמה!'))
   p.log.info(`  ${c.primary('npm start')}  ${c.dim('# ' + toVisualRtl(`הרץ מתוך תיקיית ${targetPath}/`))}`)
+  p.log.info(`  ${c.dim(toVisualRtl('לעדכון מהמקור:'))} ${c.primary('git pull upstream main')}`)
   buildWhatsAppNote(platform)
     .filter(line => line.trim() !== '')
     .forEach(line => p.log.info(line))
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Remote setup: rename origin → upstream, optionally create gh fork
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Renames origin to upstream and optionally creates a GitHub fork.
+ * Non-fatal: failures warn but do not abort setup.
+ */
+async function setupRemotes(deps: NodeSetupDeps, targetPath: string): Promise<void> {
+  // Rename origin → upstream so user can pull updates
+  try {
+    await spawnStep(deps.spawn, 'git', ['remote', 'rename', 'origin', 'upstream'], { cwd: targetPath })
+  } catch {
+    p.log.warn(c.warning(toVisualRtl('אזהרה: לא ניתן לשנות remote ל-upstream — ניתן לעשות זאת ידנית')))
+    return
+  }
+
+  // Check if gh CLI is available and authenticated
+  const ghReady = await isGhReady(deps.spawn)
+  if (!ghReady) {
+    printForkInstructions()
+    return
+  }
+
+  // Offer to fork
+  const wantFork = await p.confirm({
+    message: c.primary(toVisualRtl('נמצא gh CLI מחובר — ליצור Fork אישי ב-GitHub?')),
+    initialValue: true,
+  })
+  if (p.isCancel(wantFork) || !wantFork) {
+    printForkInstructions()
+    return
+  }
+
+  try {
+    await spawnStep(deps.spawn, 'gh', [
+      'repo', 'fork', 'yonatan2021/pikud-haoref-bot',
+      '--remote-name', 'origin',
+    ], { cwd: targetPath })
+    p.log.success(toVisualRtl('Fork נוצר בהצלחה — origin מצביע ל-Fork שלך'))
+  } catch {
+    p.log.warn(c.warning(toVisualRtl('יצירת Fork נכשלה — ניתן ליצור ידנית מאוחר יותר')))
+    printForkInstructions()
+  }
+}
+
+/** Prints manual fork instructions for users without gh CLI. */
+function printForkInstructions(): void {
+  p.log.info(c.dim(toVisualRtl('ליצירת Fork ידנית:')))
+  p.log.info(`  1. ${c.primary('gh repo fork yonatan2021/pikud-haoref-bot --remote-name origin')}`)
+  p.log.info(c.dim(toVisualRtl('   או צור Fork ב-GitHub ואז:')))
+  p.log.info(`  2. ${c.primary('git remote add origin https://github.com/<YOUR-USER>/pikud-haoref-bot.git')}`)
+}
+
+/**
+ * Checks if gh CLI is installed AND authenticated.
+ * Returns true only if both conditions are met.
+ */
+async function isGhReady(spawnFn: SpawnFn): Promise<boolean> {
+  const ghInstalled = await spawnQuiet(spawnFn, 'gh', ['--version'])
+  if (!ghInstalled) return false
+  return spawnQuiet(spawnFn, 'gh', ['auth', 'status'])
+}
+
+/**
+ * Spawns a command silently (no terminal output). Resolves to true on exit 0, false otherwise.
+ * Used for detection (e.g. checking if gh CLI is installed).
+ */
+export function spawnQuiet(spawnFn: SpawnFn, cmd: string, args: string[]): Promise<boolean> {
+  return new Promise((resolve) => {
+    try {
+      const child = spawnFn(cmd, args, { stdio: 'ignore' })
+      child.on('close', (code) => resolve(code === 0))
+      child.on('error', () => resolve(false))
+    } catch {
+      resolve(false)
+    }
+  })
 }
 
 /** Spawns a command with live output (stdio: inherit). Rejects on non-zero exit or signal. */

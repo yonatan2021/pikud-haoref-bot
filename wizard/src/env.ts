@@ -132,6 +132,7 @@ export const ENV_TEMPLATE: EnvSection[] = [
     title: 'WhatsApp',
     entries: [
       { key: 'WHATSAPP_ENABLED',            comment: 'הפעל לקוח whatsapp-web.js — סריקת QR נדרשת בהפעלה הראשונה; session נשמר ב-.wwebjs_auth/', default: 'false' },
+      { key: 'WHATSAPP_INVITE_LINK',        comment: 'קישור הזמנה לקבוצת WhatsApp — מוצג בדף הנחיתה לצד קישור הטלגרם' },
       { key: 'TELEGRAM_FORWARD_GROUP_ID',   comment: 'מזהה קבוצה/ערוץ טלגרם לקבלת הודעות מה-WhatsApp Listener — fallback ל-TELEGRAM_CHAT_ID' },
       { key: 'PUPPETEER_EXECUTABLE_PATH',   comment: 'נתיב Chromium בסביבות Docker (Puppeteer)' },
     ],

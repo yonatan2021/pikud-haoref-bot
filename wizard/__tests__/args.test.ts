@@ -98,4 +98,20 @@ describe('parseArgs', () => {
   it('does not set whatsapp without the flag', () => {
     assert.equal(parseArgs(['--token=abc']).whatsapp, undefined)
   })
+
+  it('parses --profile=minimal', () => {
+    assert.equal(parseArgs(['--profile=minimal']).profile, 'minimal')
+  })
+
+  it('parses --profile=recommended', () => {
+    assert.equal(parseArgs(['--profile=recommended']).profile, 'recommended')
+  })
+
+  it('parses --profile=full', () => {
+    assert.equal(parseArgs(['--profile=full']).profile, 'full')
+  })
+
+  it('parses --profile value (space-separated)', () => {
+    assert.equal(parseArgs(['--profile', 'recommended']).profile, 'recommended')
+  })
 })

@@ -2,7 +2,7 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import path from 'node:path'
 import os from 'node:os'
-import { buildWhatsAppNote, runNodeSetup, resolveTargetPath, type SpawnFn } from '../src/steps/deployment.js'
+import { buildWhatsAppNote, runNodeSetup, resolveTargetPath, spawnQuiet, type SpawnFn } from '../src/steps/deployment.js'
 
 // ── Fake spawn factory ────────────────────────────────────────────────────────
 //
@@ -50,6 +50,39 @@ const noopRm        = () => Promise.resolve()
 const noopAccess    = () => Promise.resolve()  // dir exists
 const missingAccess = () =>                    // dir does not exist (ENOENT)
   Promise.reject(Object.assign(new Error('ENOENT: no such file or directory'), { code: 'ENOENT' }))
+
+// ── makeMultiFakeSpawn — sequential spawns with per-call exit codes ────────────
+//
+// Each spawn call gets a fresh child process that auto-closes with the next
+// code from the provided array. Closes are scheduled via setImmediate inside
+// the .on('close') registration so handlers are always in place before firing.
+//
+// IMPORTANT: After a successful clone, runNodeSetup calls setupRemotes() which
+// spawns `gh --version` via spawnQuiet. Use code 1 at that index to skip the
+// fork prompt (which would hang in tests without interactive input).
+//
+// Typical fresh-clone sequence: [clone=0, remote-rename=0, gh-check=1, npm-install=0]
+//
+function makeMultiFakeSpawn(closeCodes: number[]) {
+  let callIndex = 0
+  const calls: Array<{ cmd: string; args: string[]; cwd?: string }> = []
+
+  const spawnFn: SpawnFn = (cmd, args, opts) => {
+    const code = closeCodes[callIndex++] ?? 0
+    calls.push({ cmd, args: [...args], cwd: (opts as { cwd?: string } | undefined)?.cwd })
+    const handlers: Record<string, Handler[]> = {}
+    const fakeChild = {
+      on(event: string, handler: Handler) {
+        handlers[event] ??= []
+        handlers[event].push(handler)
+        if (event === 'close') setImmediate(() => handlers['close']?.forEach(h => h(code, null)))
+        return fakeChild
+      },
+    }
+    return fakeChild as unknown as ReturnType<SpawnFn>
+  }
+  return { spawnFn, getCalls: () => calls }
+}
 
 // ── Existing tests ────────────────────────────────────────────────────────────
 
@@ -191,8 +224,8 @@ describe('runNodeSetup — clone failure', () => {
 
 describe('runNodeSetup — copyFile failure', () => {
   it('rejects with manual recovery hint including cp command', async () => {
-    const { spawnFn, trigger } = makeFakeSpawn()
-    setImmediate(() => trigger.close(0))  // git clone succeeds
+    // clone(0) + remote-rename(0) + gh-check(1=not installed) → skip fork prompt
+    const { spawnFn } = makeMultiFakeSpawn([0, 0, 1])
 
     await assert.rejects(
       runNodeSetup('/fake/.env', 'telegram', {
@@ -313,30 +346,6 @@ describe('runNodeSetup — rm failure does not shadow clone error', () => {
   })
 })
 
-// ── makeMultiFakeSpawn — sequential spawns with per-call exit codes ────────────
-//
-// Each spawn call gets a fresh child process that auto-closes with the next
-// code from the provided array. Closes are scheduled via setImmediate inside
-// the .on('close') registration so handlers are always in place before firing.
-//
-function makeMultiFakeSpawn(closeCodes: number[]) {
-  let callIndex = 0
-  const spawnFn: SpawnFn = (_cmd, _args, _opts) => {
-    const code = closeCodes[callIndex++] ?? 0
-    const handlers: Record<string, Handler[]> = {}
-    const fakeChild = {
-      on(event: string, handler: Handler) {
-        handlers[event] ??= []
-        handlers[event].push(handler)
-        if (event === 'close') setImmediate(() => handlers['close']?.forEach(h => h(code, null)))
-        return fakeChild
-      },
-    }
-    return fakeChild as unknown as ReturnType<SpawnFn>
-  }
-  return { spawnFn }
-}
-
 // ── resolveTargetPath — unit tests ────────────────────────────────────────────
 
 describe('resolveTargetPath', () => {
@@ -371,33 +380,113 @@ describe('resolveTargetPath', () => {
   })
 })
 
-// ── runNodeSetup — git clone uses absolute targetPath ─────────────────────────
+// ── runNodeSetup — git clone uses --depth 1 and absolute targetPath ──────────
 
-describe('runNodeSetup — git clone uses absolute targetPath', () => {
-  it('passes absolute path (not relative "pikud-haoref-bot") to git clone', async () => {
-    let cloneArgs: string[] | undefined
-    const { spawnFn } = makeMultiFakeSpawn([0, 0])  // clone succeeds, npm install succeeds
-
-    const capturingSpawn: SpawnFn = (cmd, args, opts) => {
-      if (cmd === 'git') cloneArgs = [...args]
-      return spawnFn(cmd, args, opts)
-    }
+describe('runNodeSetup — git clone uses --depth 1 and absolute targetPath', () => {
+  it('passes --depth 1 and absolute path to git clone', async () => {
+    // clone(0) + remote-rename(0) + gh-check(1=not installed) + npm-install(0)
+    const { spawnFn, getCalls } = makeMultiFakeSpawn([0, 0, 1, 0])
 
     await runNodeSetup('/fake/.env', 'telegram', {
-      spawn: capturingSpawn,
+      spawn: spawnFn,
       copyFile: noopCopyFile,
       access: missingAccess,
       rm: noopRm,
     })
 
-    assert.ok(cloneArgs !== undefined, 'git clone should have been called')
+    const cloneCall = getCalls().find(c => c.cmd === 'git' && c.args[0] === 'clone')
+    assert.ok(cloneCall !== undefined, 'git clone should have been called')
+    assert.ok(cloneCall.args.includes('--depth'), 'clone should include --depth flag')
+    assert.ok(cloneCall.args.includes('1'), 'clone should include depth value 1')
+
+    const targetArg = cloneCall.args[cloneCall.args.length - 1]
     assert.ok(
-      path.isAbsolute(cloneArgs[2] ?? ''),
-      `clone target must be absolute, got: ${cloneArgs[2]}`,
+      path.isAbsolute(targetArg),
+      `clone target must be absolute, got: ${targetArg}`,
     )
     assert.ok(
-      (cloneArgs[2] ?? '').includes('pikud-haoref-bot'),
-      `clone target must include "pikud-haoref-bot", got: ${cloneArgs[2]}`,
+      targetArg.includes('pikud-haoref-bot'),
+      `clone target must include "pikud-haoref-bot", got: ${targetArg}`,
     )
+  })
+})
+
+// ── runNodeSetup — remote rename after clone ─────────────────────────────────
+
+describe('runNodeSetup — remote setup after clone', () => {
+  it('renames origin to upstream after successful clone', async () => {
+    // clone(0) + remote-rename(0) + gh-check(1=not installed) + npm-install(0)
+    const { spawnFn, getCalls } = makeMultiFakeSpawn([0, 0, 1, 0])
+
+    await runNodeSetup('/fake/.env', 'telegram', {
+      spawn: spawnFn,
+      copyFile: noopCopyFile,
+      access: missingAccess,
+      rm: noopRm,
+    })
+
+    const calls = getCalls()
+    const renameCall = calls.find(c =>
+      c.cmd === 'git' && c.args[0] === 'remote' && c.args[1] === 'rename',
+    )
+    assert.ok(renameCall !== undefined, 'git remote rename should have been called')
+    assert.deepEqual(
+      renameCall.args,
+      ['remote', 'rename', 'origin', 'upstream'],
+      'should rename origin to upstream',
+    )
+  })
+
+  it('remote rename failure warns but does not abort setup', async () => {
+    // clone(0), remote-rename(1=fail) → setupRemotes returns early (no gh check)
+    // npm-install(0)
+    const { spawnFn } = makeMultiFakeSpawn([0, 1, 0])
+
+    // Should NOT reject — the setup should complete despite remote rename failure
+    await runNodeSetup('/fake/.env', 'telegram', {
+      spawn: spawnFn,
+      copyFile: noopCopyFile,
+      access: missingAccess,
+      rm: noopRm,
+    })
+    // If we reach here, the test passes (no rejection thrown)
+  })
+
+  it('skips remote setup when directory already exists', async () => {
+    // Only npm-install(0) since dir exists
+    const { spawnFn, getCalls } = makeMultiFakeSpawn([0])
+
+    await runNodeSetup('/fake/.env', 'telegram', {
+      spawn: spawnFn,
+      copyFile: noopCopyFile,
+      access: noopAccess,  // dir exists → no clone, no remote setup
+      rm: noopRm,
+    })
+
+    const calls = getCalls()
+    const renameCall = calls.find(c => c.cmd === 'git' && c.args[0] === 'remote')
+    assert.equal(renameCall, undefined, 'remote rename should not be called when dir exists')
+  })
+})
+
+// ── spawnQuiet — unit tests ──────────────────────────────────────────────────
+
+describe('spawnQuiet', () => {
+  it('resolves true on exit code 0', async () => {
+    const { spawnFn } = makeMultiFakeSpawn([0])
+    const result = await spawnQuiet(spawnFn, 'gh', ['--version'])
+    assert.equal(result, true)
+  })
+
+  it('resolves false on non-zero exit code', async () => {
+    const { spawnFn } = makeMultiFakeSpawn([1])
+    const result = await spawnQuiet(spawnFn, 'gh', ['auth', 'status'])
+    assert.equal(result, false)
+  })
+
+  it('resolves false when spawn throws', async () => {
+    const throwingSpawn: SpawnFn = () => { throw new Error('command not found') }
+    const result = await spawnQuiet(throwingSpawn, 'nonexistent', [])
+    assert.equal(result, false)
   })
 })

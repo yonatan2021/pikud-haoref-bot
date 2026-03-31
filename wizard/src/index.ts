@@ -9,7 +9,7 @@ import { runSetup }  from './modes/setup.js'
 import { runUpdate } from './modes/update.js'
 import { runVerify } from './modes/verify.js'
 
-const VERSION = '0.3.3'
+const VERSION = '0.4.0'
 
 async function main(): Promise<void> {
   const flags = parseArgs(process.argv.slice(2))
@@ -69,7 +69,8 @@ function printHelp(): void {
     --dashboard <val>    DASHBOARD_SECRET    ${c.muted(`(${h('מפעיל לוח בקרה')})`)}
     --proxy <val>        PROXY_URL           ${c.muted(`(${h('נדרש מחוץ לישראל')})`)}
     --invite-link <val>  TELEGRAM_INVITE_LINK
-    --full               ${c.muted(h('הצג את כל ההגדרות האופציונליות'))}
+    --profile <name>     ${c.muted(h('פרופיל הגדרות: minimal | recommended | full'))}
+    --full               ${c.muted(h('קיצור ל---profile=full'))}
     --output <path>      ${c.muted(h('נתיב לקובץ .env (ברירת מחדל: ./.env)'))}
     --install-dir <path> ${c.muted(h('תיקיית התקנה עבור git clone (ברירת מחדל: ~/pikud-haoref-bot)'))}
     --update             ${c.muted(h('עדכן .env קיים'))}
@@ -82,7 +83,8 @@ function printHelp(): void {
     ${c.dim(h('שתי הפלטפורמות:'))} npx pikud-haoref-bot --whatsapp --token=xxx --chat-id=-123456 --mapbox=pk.yyy
 
   ${c.primary(h('דוגמאות נוספות:'))}
-    npx pikud-haoref-bot --full --output=/home/user/bot/.env
+    npx pikud-haoref-bot --profile=recommended
+    npx pikud-haoref-bot --profile=full --output=/home/user/bot/.env
     npx pikud-haoref-bot --verify
     npx pikud-haoref-bot --update
   `)

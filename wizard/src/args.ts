@@ -12,6 +12,7 @@ export interface Flags {
   dashboard?: string
   proxy?: string
   'invite-link'?: string
+  profile?: string
   [key: string]: string | boolean | undefined
 }
 

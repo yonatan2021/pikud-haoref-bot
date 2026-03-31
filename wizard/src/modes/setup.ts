@@ -3,14 +3,13 @@ import path from 'node:path'
 import * as p from '@clack/prompts'
 import { c, msg, printProgressBar, printCompletionCard, type CompletionSummary } from '../ui/theme.js'
 import { writeFullEnvFile } from '../env.js'
-import { promptRequired } from '../steps/required.js'
-import { promptOptional } from '../steps/optional.js'
+import { promptProfile, promptProfileFields, fieldsForProfile } from '../steps/profile.js'
 import { promptDeploymentMode, printDockerInstructions, printNodeInstructions, runNodeSetup, resolveTargetPath } from '../steps/deployment.js'
 import { toVisualRtl } from '../ui/rtl.js'
 import { promptPlatform, needsWhatsApp, needsTelegram, needsMapbox } from '../steps/platform.js'
 import type { Flags } from '../args.js'
 
-/** Fresh setup flow: platform → required → optional → deployment → write .env → completion card. */
+/** Fresh setup flow: platform → profile → fields → deployment → write .env → completion card. */
 export async function runSetup(flags: Flags): Promise<void> {
   const outputPath = path.resolve(String(flags.output ?? '.env'))
 
@@ -18,33 +17,23 @@ export async function runSetup(flags: Flags): Promise<void> {
   const platform = await promptPlatform(flags)
   if (!platform) { p.outro(msg.cancelled); return }
 
-  printProgressBar(2, 4, 'הגדרות חובה')
-  const required = await promptRequired(platform, flags)
-  if (!required) { p.outro(msg.cancelled); return }
+  printProgressBar(2, 4, 'בחירת פרופיל')
+  const profile = await promptProfile(flags)
+  if (!profile) { p.outro(msg.cancelled); return }
 
-  printProgressBar(3, 4, 'הגדרות אופציונליות')
-  const optional = await promptOptional(flags, !!flags.full, platform)
-  if (!optional) { p.outro(msg.cancelled); return }
+  printProgressBar(3, 4, 'הגדרת משתנים')
+  const fields = fieldsForProfile(profile, platform)
+  const vars = await promptProfileFields(fields, flags)
+  if (!vars) { p.outro(msg.cancelled); return }
+
+  // Auto-set WHATSAPP_ENABLED for WhatsApp platforms when not already set
+  if (needsWhatsApp(platform) && !vars.WHATSAPP_ENABLED) {
+    vars.WHATSAPP_ENABLED = 'true'
+  }
 
   printProgressBar(4, 4, 'שיטת פריסה')
   const mode = await promptDeploymentMode()
   if (!mode) { p.outro(msg.cancelled); return }
-
-  // Build env vars object (immutable construction)
-  const vars: Record<string, string> = {
-    ...(required.token  ? { TELEGRAM_BOT_TOKEN:  required.token }  : {}),
-    ...(required.chatId ? { TELEGRAM_CHAT_ID:    required.chatId } : {}),
-    ...(required.mapbox ? { MAPBOX_ACCESS_TOKEN: required.mapbox } : {}),
-    ...(needsWhatsApp(platform) ? { WHATSAPP_ENABLED: 'true' } : {}),
-    ...(optional.DASHBOARD_SECRET      ? { DASHBOARD_SECRET:              optional.DASHBOARD_SECRET }      : {}),
-    ...(optional.PROXY_URL             ? { PROXY_URL:                     optional.PROXY_URL }             : {}),
-    ...(optional.TELEGRAM_INVITE_LINK  ? { TELEGRAM_INVITE_LINK:          optional.TELEGRAM_INVITE_LINK }  : {}),
-    ...(optional.TELEGRAM_TOPIC_ID_SECURITY      ? { TELEGRAM_TOPIC_ID_SECURITY:      optional.TELEGRAM_TOPIC_ID_SECURITY }      : {}),
-    ...(optional.TELEGRAM_TOPIC_ID_NATURE        ? { TELEGRAM_TOPIC_ID_NATURE:        optional.TELEGRAM_TOPIC_ID_NATURE }        : {}),
-    ...(optional.TELEGRAM_TOPIC_ID_ENVIRONMENTAL ? { TELEGRAM_TOPIC_ID_ENVIRONMENTAL: optional.TELEGRAM_TOPIC_ID_ENVIRONMENTAL } : {}),
-    ...(optional.TELEGRAM_TOPIC_ID_DRILLS        ? { TELEGRAM_TOPIC_ID_DRILLS:        optional.TELEGRAM_TOPIC_ID_DRILLS }        : {}),
-    ...(optional.TELEGRAM_TOPIC_ID_GENERAL       ? { TELEGRAM_TOPIC_ID_GENERAL:       optional.TELEGRAM_TOPIC_ID_GENERAL }       : {}),
-  }
 
   writeFullEnvFile(outputPath, vars)
 
@@ -59,12 +48,12 @@ export async function runSetup(flags: Flags): Promise<void> {
 
   // Print completion card with summary
   const summary: CompletionSummary = {
-    telegram:   needsTelegram(platform) && !!required.token,
-    mapbox:     needsMapbox(platform)   && !!required.mapbox,
+    telegram:   needsTelegram(platform) && !!vars.TELEGRAM_BOT_TOKEN,
+    mapbox:     needsMapbox(platform)   && !!vars.MAPBOX_ACCESS_TOKEN,
     whatsapp:   needsWhatsApp(platform),
-    dashboard:  !!optional.DASHBOARD_SECRET,
-    inviteLink: !!optional.TELEGRAM_INVITE_LINK,
-    proxy:      !!optional.PROXY_URL,
+    dashboard:  !!vars.DASHBOARD_SECRET,
+    inviteLink: !!vars.TELEGRAM_INVITE_LINK,
+    proxy:      !!vars.PROXY_URL,
   }
   printCompletionCard(summary, cardEnvPath, mode)
 
