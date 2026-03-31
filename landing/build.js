@@ -157,12 +157,14 @@ if (!whatsNewHtml.trim()) {
 
 // Step 3b: Parse README.md stats table (## 📊 עובדות)
 function parseStats(readmeContent) {
-  const marker = '## 📊 עובדות';
-  const start = readmeContent.indexOf(marker);
-  if (start === -1) {
+  // Match the header at the start of a line (not inside backtick-quoted references)
+  const markerPattern = /^## 📊 עובדות$/m;
+  const headerMatch = readmeContent.match(markerPattern);
+  if (!headerMatch) {
     console.warn('[landing/build.js] parseStats: "## 📊 עובדות" section not found in README.md — using hardcoded fallback values');
     return {};
   }
+  const start = headerMatch.index;
 
   const end = readmeContent.indexOf('\n---', start);
   const section = end !== -1 ? readmeContent.slice(start, end) : readmeContent.slice(start, start + 600);
@@ -179,8 +181,8 @@ function parseStats(readmeContent) {
 
 const DEFAULT_STAT_CITIES = '1400';
 const DEFAULT_STAT_ZONES  = '28';
-const DEFAULT_STAT_CATS   = '5';
-const DEFAULT_STAT_TESTS  = '391';
+const DEFAULT_STAT_CATS   = '6';
+const DEFAULT_STAT_TESTS  = '672';
 
 const stats = parseStats(readme);
 const EXPECTED_STAT_KEYS = ['עיירות מכוסות', 'אזורים', 'קטגוריות', 'בדיקות אוטומטיות'];

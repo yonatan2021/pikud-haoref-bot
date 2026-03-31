@@ -77,7 +77,7 @@
 - **9** tests ל-messageTemplateHistoryRepository
 - **11** tests ל-routingCache
 - **4** tests לquoting חדש ב-wizard env
-- **567 tests** — 0 regressions
+- **672 tests** — 0 regressions
 
 </div>
 
