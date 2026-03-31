@@ -30,6 +30,59 @@
 
 ---
 
+## [0.3.3] — 2026-03-31
+
+<div dir="rtl">
+
+### ✨ תכונות חדשות
+
+- **מערכת ניהול תבניות (Messages)** — עורך מקובץ לפי קטגוריה (5 סקשנים) עם Emoji picker ויזואלי, טולטיפים בעברית, סטטוס בר, ואיפוס לפי קטגוריה
+- **Simulation Engine + Telegram Preview** — בחירת ערים (autocomplete, עד 50), תצוגה מקדימה חיה בתוך phone-frame mockup, character count bar, ו-test-fire לשליחת הודעת בדיקה אמיתית לטלגרם
+- **Versioning + Rollback** — כל עריכת תבנית יוצרת snapshot (עד 10 לסוג), פאנל היסטוריה עם diff ו-rollback בלחיצה
+- **Historical Replay** — בחירת התראה היסטורית ורינדור מחדש עם התבנית הנוכחית/override
+- **Import/Export תבניות** — ייצוא כ-JSON וייבוא עם אימות all-or-nothing
+- **ניהול Topic IDs מהדשבורד** — ניתוב נושאי פורום (כולל WhatsApp) ישירות מלוח הבקרה עם hot-reload מיידי ללא restart
+- **Code Splitting** — `React.lazy` + `Suspense` לכל 10 דפים + Vite `manualChunks` לvendor chunks; הchunk הגדול ביותר ירד מ-945KB ל-364KB
+- **ErrorBoundary** — עמוד שגיאה בעברית עם כפתור "טען מחדש" כשchunk נכשל בטעינה
+- **QR Code בטרמינל** — קוד QR של WhatsApp מוצג ישירות בטרמינל בהפעלה הראשונה
+- **Wizard: קובץ .env מלא** — `writeFullEnvFile` יוצר .env עם כל 22 משתני הסביבה ב-9 סקשנים עם הערות בעברית
+- **שדות חדשים בהגדרות** — `telegram_invite_link`, `mapbox_image_cache_size`, `whatsapp_enabled` + מידע מערכת (גרסה, גודל DB)
+- **דשבורד: Operations** — כפתור "בדוק את כל הקטגוריות" (5 הודעות לnoshim המתאימים) + טקסט הסבר לכל סקשן
+- **דשבורד: Landing** — הסבר מהו דף הנחיתה, סטטוס אתר עם LiveDot, קישור GitHub Actions
+- **דשבורד: WhatsApp Listeners** — 4 תת-קומפוננטות (ListenersBanner, KeywordHelp, RuleCard, SourceSelector)
+
+### 🐛 תיקוני באגים
+
+- **wizard: קריסת npm install בנתיב עברי** — `resolveTargetPath()` ברירת מחדל ל-`~/pikud-haoref-bot` (ASCII-safe) במקום CWD שעלול לכלול עברית/רווחים
+- **wizard: .env זבל ב-CWD** — קובץ .env זמני נמחק אחרי node-mode setup; כרטיס סיום מציג את הנתיב הסופי
+- **wizard: escaping ל-.env** — `quoteIfNeeded` תומך ב-`#`, `$`, `"`, `\` עם round-trip נכון
+- **Sidebar RTL** — מחוון פעיל ל-border-right, כיוון hover תוקן
+- **Overview RTL** — anchor ציר Y, שמות ערים בעברית, tooltip מסודר
+- **Alerts** — תרשים עוגה שנחתך הוחלף בפאנל מספרי (AlertCategoryStats)
+- **test-alert-all** — מכסה כעת את כל 5 הקטגוריות עם topic routing
+- **test-fire truncation** — הודעות ארוכות נחתכות ל-4096 תווים לפני שליחה
+
+### ⚡ שיפורי ביצועים
+
+- **Code splitting** — כל דף נטען רק בגישה ראשונה; vendor chunks מופרדים לcaching עצמאי
+
+### 🔧 תחזוקה
+
+- **alertCategories.ts** — חילוץ `ALERT_TYPE_CATEGORY` ו-`CATEGORY_ENV_VAR` לקובץ משותף; מבטל כפילות בין `topicRouter.ts` ל-`routingCache.ts`
+- **`--test-concurrency=1`** — מונע race condition ב-Node.js v25 בtest runner של wizard
+
+### 🧪 בדיקות
+
+- **28** tests חדשים לendpoints של Messages (cities, export, import, replay, test-fire, history, rollback)
+- **9** tests ל-messageTemplateHistoryRepository
+- **11** tests ל-routingCache
+- **4** tests לquoting חדש ב-wizard env
+- **567 tests** — 0 regressions
+
+</div>
+
+---
+
 ## [0.3.2] — 2026-03-30
 
 <div dir="rtl">
@@ -636,7 +689,8 @@
 
 <div dir="rtl">
 
-[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.3.2...HEAD
+[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.3.3...HEAD
+[0.3.3]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.2.3...v0.3.0

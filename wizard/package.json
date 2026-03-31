@@ -1,6 +1,6 @@
 {
   "name": "@haoref-boti/pikud-haoref-bot",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "אשף הגדרה אינטרקטיבי לבוט התראות פיקוד העורף",
   "type": "module",
   "bin": {
