@@ -1,17 +1,26 @@
 import { Bot, InlineKeyboard } from 'grammy';
 import type { Context } from 'grammy';
+import type Database from 'better-sqlite3';
 import { getSubscriptionCount } from '../db/subscriptionRepository.js';
 import { upsertUser } from '../db/userRepository.js';
 import { getRecentAlerts } from '../db/alertHistoryRepository.js';
+import { getSetting } from '../dashboard/settingsRepository.js';
 import { ALERT_TYPE_EMOJI, ALERT_TYPE_HE } from '../telegramBot.js';
 import { formatRelativeHe } from './historyHandler.js';
 import type { AlertHistoryRow } from '../db/alertHistoryRepository.js';
+
+let _db: Database.Database | null = null;
+
+/** Call once at startup (after initDb) to enable runtime invite-link overrides from the dashboard. */
+export function setMenuHandlerDb(db: Database.Database): void {
+  _db = db;
+}
 
 export function buildMainMenu(
   cityCount: number,
   lastAlert?: Pick<AlertHistoryRow, 'type' | 'fired_at'>
 ): { text: string; keyboard: InlineKeyboard } {
-  const inviteLink = process.env.TELEGRAM_INVITE_LINK;
+  const inviteLink = (_db && getSetting(_db, 'telegram_invite_link')) || process.env.TELEGRAM_INVITE_LINK;
   const keyboard = new InlineKeyboard();
 
   if (inviteLink) {

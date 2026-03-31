@@ -1,13 +1,12 @@
 import { Router } from 'express';
 import type Database from 'better-sqlite3';
 import path from 'path';
-import { statSync } from 'fs';
-import { readFileSync } from 'fs';
+import { statSync, readFileSync } from 'fs';
 import { getAllSettings, setSetting } from '../settingsRepository.js';
 import { createRateLimitMiddleware } from '../rateLimiter.js';
 import { loadRoutingCache } from '../../config/routingCache.js';
 
-const pkgPath = new URL('../../../../package.json', import.meta.url);
+const pkgPath = path.resolve(__dirname, '..', '..', '..', 'package.json');
 const pkgVersion: string = (JSON.parse(readFileSync(pkgPath, 'utf8')) as { version: string }).version;
 
 const backupLimiter = createRateLimitMiddleware({
