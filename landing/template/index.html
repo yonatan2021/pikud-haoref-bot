@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="בוט טלגרם לקבלת התראות פיקוד העורף בזמן אמת — עם מפות, ניתוב נושאים ו-DM אישי לפי ערים. קוד פתוח, Apache 2.0." />
+  <meta name="description" content="התראות פיקוד העורף בזמן אמת — ישירות לטלגרם ול-WhatsApp, עם מפות, ניתוב נושאים ו-DM אישי לפי ערים. קוד פתוח, Apache 2.0." />
   <title>בוט התראות פיקוד העורף</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -43,7 +43,7 @@
       <h1 class="hero-title">בוט התראות פיקוד העורף</h1>
 
       <p class="hero-subtitle-wrap">
-        <span class="typing-text">התראות IDF בזמן אמת — ישירות לטלגרם, עם מפות ו-DM אישי</span><span class="typing-cursor" aria-hidden="true"></span>
+        <span class="typing-text">התראות IDF בזמן אמת — ישירות לטלגרם ולוואטסאפ, עם מפות ו-DM אישי</span><span class="typing-cursor" aria-hidden="true"></span>
       </p>
 
       <div class="cta-group">
@@ -53,7 +53,15 @@
           target="_blank"
           rel="noopener noreferrer"
         >
-          🔔 הצטרף לערוץ
+          🔔 הצטרף בטלגרם
+        </a>
+        <a
+          href="{{WHATSAPP_LINK}}"
+          class="btn btn-whatsapp btn--large"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          💬 הצטרף בוואטסאפ
         </a>
         <a
           href="#paths"
@@ -216,74 +224,14 @@
     </div>
   </section>
 
-  <!-- ⑤ Two Paths ----------------------------------------------------------- -->
+  <!-- ⑤ Paths (auto-generated from README) ---------------------------------- -->
   <section class="paths section" id="paths">
     <div class="container">
-      <h2 class="section-title reveal">🛣️ שתי דרכים להשתמש</h2>
+      <h2 class="section-title reveal">{{PATHS_SECTION_TITLE}}</h2>
       <p class="section-subtitle">בחר מה מתאים לך — אפשר גם וגם</p>
 
       <div class="paths-grid">
-
-        <div class="path-card path-card--join glass-card reveal">
-          <div class="path-icon" aria-hidden="true">📡</div>
-          <h3 class="path-title">הצטרף לערוץ הקיים</h3>
-          <p class="path-desc">
-            הכי מהיר — ללא התקנה, ללא שרת, ללא קוד.
-            הערוץ רץ 24/7 ומכסה את כל ישראל.
-          </p>
-          <ul class="path-features">
-            <li>✅ מיידי — לחיצה אחת</li>
-            <li>✅ DM אישי לפי הערים שלך</li>
-            <li>✅ 6 נושאים מסווגים בערוץ</li>
-            <li>✅ אפס תחזוקה מצדך</li>
-          </ul>
-          <a
-            href="https://t.me/phalaret"
-            class="btn btn-primary btn--path"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            🔔 הצטרף עכשיו
-          </a>
-        </div>
-
-        <div class="path-card path-card--selfhost glass-card reveal" style="--reveal-delay: 0.15s">
-          <div class="path-icon" aria-hidden="true">🖥️</div>
-          <h3 class="path-title">הקם instance משלך</h3>
-          <p class="path-desc">
-            שליטה מלאה — ערוץ פרטי, הגדרות משלך, הנתונים אצלך.
-            wizard אינטראקטיבי מגדיר הכל בפקודה אחת.
-          </p>
-          <ul class="path-features">
-            <li>✅ ערוץ/קבוצה פרטית</li>
-            <li>✅ קונפיגורציה מלאה</li>
-            <li>✅ נתונים רק אצלך (SQLite)</li>
-            <li>✅ Docker / Node.js — לבחירתך</li>
-          </ul>
-          <div class="path-code">
-            <code>npx @haoref-boti/pikud-haoref-bot</code>
-            <button
-              class="copy-btn"
-              data-copy="npx @haoref-boti/pikud-haoref-bot"
-              aria-label="העתק פקודה"
-            >
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-                <rect x="5.5" y="1.5" width="9" height="11" rx="1.5"/>
-                <rect x="1.5" y="4.5" width="7" height="9" rx="1.5"/>
-              </svg>
-              <span class="copy-feedback" aria-live="polite">הועתק!</span>
-            </button>
-          </div>
-          <a
-            href="https://github.com/yonatan2021/pikud-haoref-bot"
-            class="btn btn-secondary btn--path"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            📖 תיעוד מלא
-          </a>
-        </div>
-
+{{PATHS_HTML}}
       </div>
     </div>
   </section>
@@ -420,7 +368,7 @@
   <section class="cta-section section section--alt" id="join">
     <div class="container">
       <h2 class="reveal">מוכן להצטרף?</h2>
-      <p class="reveal" style="--reveal-delay: 0.1s">קבל התראות ישירות לטלגרם — או הרץ instance פרטי משלך</p>
+      <p class="reveal" style="--reveal-delay: 0.1s">קבל התראות ישירות לטלגרם או ל-WhatsApp — או הרץ instance פרטי משלך</p>
       <div class="cta-buttons reveal" style="--reveal-delay: 0.2s">
         <a
           href="https://t.me/phalaret"
@@ -428,7 +376,15 @@
           target="_blank"
           rel="noopener noreferrer"
         >
-          🔔 הצטרף לערוץ
+          🔔 הצטרף בטלגרם
+        </a>
+        <a
+          href="{{WHATSAPP_LINK}}"
+          class="btn btn-whatsapp btn--large"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          💬 הצטרף בוואטסאפ
         </a>
         <a
           href="#paths"

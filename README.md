@@ -4,7 +4,7 @@
 
 # 🚨 בוט התראות פיקוד העורף
 
-**התראות IDF Home Front Command בזמן אמת — ישירות לטלגרם**
+**התראות IDF Home Front Command בזמן אמת — ישירות לטלגרם ולוואטסאפ**
 
 </div>
 
@@ -17,17 +17,18 @@
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://hub.docker.com)
 [![CI](https://img.shields.io/badge/CI/CD-GitHub_Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/yonatan2021/pikud-haoref-bot/actions)
 [![Telegram](https://img.shields.io/badge/ערוץ_טלגרם-הצטרף-26A5E4?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/phalaret)
+[![WhatsApp](https://img.shields.io/badge/קבוצת_WhatsApp-הצטרף-25D366?style=for-the-badge&logo=whatsapp&logoColor=white)](https://chat.whatsapp.com/LtCl4F8fwacCUdvMRlhK2i?mode=gi_t)
 [![Sponsor](https://img.shields.io/github/sponsors/yonatan2021?style=for-the-badge&logo=githubsponsors&color=EA4AAA&label=Sponsor)](https://github.com/sponsors/yonatan2021)
 
 <br/>
 
-[![הצטרף לערוץ ההתראות](https://img.shields.io/badge/🔔_הצטרף_לערוץ_ההתראות-26A5E4?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/phalaret)&nbsp;&nbsp;[![הרץ instance משלך](https://img.shields.io/badge/🚀_הרץ_instance_משלך-2ea44f?style=for-the-badge)](https://github.com/yonatan2021/pikud-haoref-bot#התקנה-מהירה)
+[![הצטרף לערוץ ההתראות](https://img.shields.io/badge/🔔_הצטרף_לערוץ_ההתראות-26A5E4?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/phalaret)&nbsp;&nbsp;[![הצטרף לקבוצת WhatsApp](https://img.shields.io/badge/💬_הצטרף_לקבוצת_WhatsApp-25D366?style=for-the-badge&logo=whatsapp&logoColor=white)](https://chat.whatsapp.com/LtCl4F8fwacCUdvMRlhK2i?mode=gi_t)&nbsp;&nbsp;[![הרץ instance משלך](https://img.shields.io/badge/🚀_הרץ_instance_משלך-2ea44f?style=for-the-badge)](https://github.com/yonatan2021/pikud-haoref-bot#התקנה-מהירה)
 
 <br/>
 
 <div dir="rtl">
 
-סוקר את ה-API של פיקוד העורף כל **2 שניות** ושולח התראות לערוץ טלגרם עם **מפת Mapbox** של האזורים המוכרזים — ותומך בהתראות DM אישיות לפי ערים.
+סוקר את ה-API של פיקוד העורף כל **2 שניות** ושולח התראות לערוץ טלגרם ולקבוצות WhatsApp עם **מפת Mapbox** של האזורים המוכרזים — ותומך בהתראות DM אישיות לפי ערים.
 
 </div>
 
@@ -97,6 +98,7 @@
 | 🔍 **חיפוש עיר** | חיפוש חופשי לפי שם — תוצאות מיידיות |
 | 😴 **השתקה זמנית** | להשתיק DMs לפרק זמן — התראות ביטחוניות תמיד עוברות |
 | 🔕 **שעות שקט** | ביטול DMs בשעות הלילה (23:00–06:00), בלי לפספס התראות קריטיות |
+| 💬 **קבוצת WhatsApp** | קבלת התראות פיקוד העורף גם ישירות ב-WhatsApp — ללא בוט, ללא הגדרות |
 | 📊 **/stats** | סטטיסטיקת 24 שעות אחרונות לפי קטגוריה + ספירה אישית כמה התראות נגעו לאזוריך |
 | 📜 **היסטוריית התראות** | צפייה ב-10 התראות אחרונות — לאזורך, לעיר ספציפית, או כלל-ארצי |
 | 👤 **DM מותאם אישית** | כל מנוי מקבל רק את הערים שלו — לא הצפה מהכל |
@@ -118,10 +120,46 @@
 | 🐳 **Docker** | multi-stage build, non-root user, volume לנתונים |
 | 🚀 **CI/CD** | GitHub Actions: 4 jobs מקבילים — test, dashboard-build, docker-build, wizard-check |
 | 🌐 **Proxy** | תמיכה בהרצה מחוץ לישראל |
-| 📱 **WhatsApp Listener** | האזנה לקבוצות/ערוצים WhatsApp, סינון לפי מילות מפתח, העברה לטלגרם (WHATSAPP_ENABLED=true) |
+| 📱 **WhatsApp Listener** | האזנה לקבוצות/ערוצים WhatsApp, סינון לפי מילות מפתח, העברה לטלגרם ולקבוצות WhatsApp מנויות (WHATSAPP_ENABLED=true) |
 | 🔒 **Rate Limiting** | הגנה על endpoints בדשבורד (broadcast, deploy, export), bot callbacks, ו-brute-force פרסיסטנטי ב-SQLite |
 | ⚡ **Caching O(1)** | cityLookup Maps, subscription cache in-memory, TTL stats cache, Mapbox usage cache — אפס DB hits בנתיב ההתראות |
 | 📨 **שיפורי הודעות** | חותמת זמן יציבה (Asia/Jerusalem), ספירת ערים בכותרת, מיון אלפבתי, `▸ ערים נוספות` לערים ללא polygon; תוכן ההודעה מופיע לפני רשימת הערים |
+
+</div>
+
+---
+
+<div dir="rtl">
+
+## 🛣️ דרכים להשתמש
+
+### path:telegram
+- title: הצטרף לערוץ Telegram
+- link: https://t.me/phalaret
+- icon: 📡
+- style: join
+- desc: הכי מהיר — ללא התקנה, ללא שרת, ללא קוד. הערוץ רץ 24/7 ומכסה את כל ישראל.
+- features: מיידי — לחיצה אחת, DM אישי לפי הערים שלך, 6 נושאים מסווגים בערוץ, אפס תחזוקה מצדך
+- btn: 🔔 הצטרף עכשיו
+
+### path:whatsapp
+- title: הצטרף לקבוצת WhatsApp
+- link: https://chat.whatsapp.com/LtCl4F8fwacCUdvMRlhK2i?mode=gi_t
+- icon: 💬
+- style: whatsapp
+- desc: קבל התראות ישירות ל-WhatsApp — ללא בוט, ללא הגדרות. קבוצה פעילה 24/7.
+- features: הודעות מיידיות, התראות מפיקוד העורף, סיכומי חדשות מערוצי WhatsApp, אפס תחזוקה מצדך
+- btn: 💬 הצטרף לקבוצה
+
+### path:selfhost
+- title: הקם instance משלך
+- link: https://github.com/yonatan2021/pikud-haoref-bot
+- icon: 🖥️
+- style: selfhost
+- desc: שליטה מלאה — ערוץ פרטי, הגדרות משלך, הנתונים אצלך. wizard אינטראקטיבי מגדיר הכל בפקודה אחת.
+- features: ערוץ/קבוצה פרטית, קונפיגורציה מלאה, נתונים רק אצלך (SQLite), Docker / Node.js — לבחירתך
+- command: npx @haoref-boti/pikud-haoref-bot
+- btn: 📖 תיעוד מלא
 
 </div>
 

@@ -155,7 +155,111 @@ if (!whatsNewHtml.trim()) {
   throw new Error('{{WHATS_NEW_HTML}} would be empty — check CHANGELOG.md format');
 }
 
-// Step 3b: Parse README.md stats table (## 📊 עובדות)
+// Step 3b: Parse README.md paths section (## 🛣️ דרכים להשתמש)
+function parsePaths(readmeContent) {
+  const markerPattern = /^## 🛣️ דרכים להשתמש$/m;
+  const headerMatch = readmeContent.match(markerPattern);
+  if (!headerMatch) {
+    console.warn('[landing/build.js] parsePaths: "## 🛣️ דרכים להשתמש" section not found — using empty paths');
+    return { paths: [], sectionTitle: 'שלוש דרכים להשתמש' };
+  }
+
+  const start = headerMatch.index;
+  const sectionEnd = readmeContent.indexOf('\n---', start);
+  const section = sectionEnd !== -1
+    ? readmeContent.slice(start, sectionEnd)
+    : readmeContent.slice(start, start + 3000);
+
+  const paths = [];
+  const pathHeaders = [...section.matchAll(/^### path:(\w+)$/gm)];
+
+  for (let i = 0; i < pathHeaders.length; i++) {
+    const blockStart = pathHeaders[i].index;
+    const blockEnd = i + 1 < pathHeaders.length ? pathHeaders[i + 1].index : section.length;
+    const block = section.slice(blockStart, blockEnd);
+
+    const get = (key) => {
+      const m = block.match(new RegExp(`^- ${key}:\\s*(.+)$`, 'm'));
+      return m ? m[1].trim() : '';
+    };
+
+    const pathId = pathHeaders[i][1];
+    const title = get('title');
+    const link = get('link');
+    const icon = get('icon');
+    const style = get('style') || pathId;
+    const desc = get('desc');
+    const featuresRaw = get('features');
+    const command = get('command');
+    const btn = get('btn');
+    const features = featuresRaw ? featuresRaw.split(',').map(f => f.trim()).filter(Boolean) : [];
+
+    if (!title || !link) {
+      console.warn(`[landing/build.js] parsePaths: path "${pathId}" missing title or link — skipping`);
+      continue;
+    }
+
+    paths.push({ pathId, title, link, icon, style, desc, features, command, btn });
+  }
+
+  const count = paths.length;
+  const countWord = count === 2 ? 'שתי' : count === 3 ? 'שלוש' : String(count);
+  const sectionTitle = `🛣️ ${countWord} דרכים להשתמש`;
+
+  return { paths, sectionTitle };
+}
+
+function buildPathsHtml(paths) {
+  return paths.map((p, i) => {
+    const delay = i > 0 ? ` style="--reveal-delay: ${(i * 0.15).toFixed(2)}s"` : '';
+    const featuresHtml = p.features.map(f => `            <li>✅ ${escapeHtml(f)}</li>`).join('\n');
+
+    const commandHtml = p.command ? `
+          <div class="path-code">
+            <code>${escapeHtml(p.command)}</code>
+            <button
+              class="copy-btn"
+              data-copy="${escapeHtml(p.command)}"
+              aria-label="העתק פקודה"
+            >
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                <rect x="5.5" y="1.5" width="9" height="11" rx="1.5"/>
+                <rect x="1.5" y="4.5" width="7" height="9" rx="1.5"/>
+              </svg>
+              <span class="copy-feedback" aria-live="polite">הועתק!</span>
+            </button>
+          </div>` : '';
+
+    return `
+        <div class="path-card path-card--${escapeHtml(p.style)} glass-card reveal"${delay}>
+          <div class="path-icon" aria-hidden="true">${p.icon}</div>
+          <h3 class="path-title">${escapeHtml(p.title)}</h3>
+          <p class="path-desc">${escapeHtml(p.desc)}</p>
+          <ul class="path-features">
+${featuresHtml}
+          </ul>${commandHtml}
+          <a
+            href="${escapeHtml(p.link)}"
+            class="btn ${p.style === 'join' ? 'btn-primary' : p.style === 'whatsapp' ? 'btn-whatsapp' : 'btn-secondary'} btn--path"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            ${escapeHtml(p.btn || p.title)}
+          </a>
+        </div>`;
+  }).join('\n');
+}
+
+const { paths: parsedPaths, sectionTitle: pathsSectionTitle } = parsePaths(readme);
+const pathsHtml = parsedPaths.length > 0
+  ? buildPathsHtml(parsedPaths)
+  : '<!-- paths section not found in README -->';
+
+// Extract WhatsApp link from paths for hero + CTA injection
+const whatsappPath = parsedPaths.find(p => p.style === 'whatsapp');
+const whatsappLink = whatsappPath ? whatsappPath.link : '';
+
+// Step 3c: Parse README.md stats table (## 📊 עובדות)
 function parseStats(readmeContent) {
   // Match the header at the start of a line (not inside backtick-quoted references)
   const markerPattern = /^## 📊 עובדות$/m;
@@ -215,7 +319,10 @@ let output = template
   .replaceAll('{{STAT_CITIES}}', escapeHtml(statCities))
   .replaceAll('{{STAT_ZONES}}',  escapeHtml(statZones))
   .replaceAll('{{STAT_CATS}}',   escapeHtml(statCats))
-  .replaceAll('{{STAT_TESTS}}',  escapeHtml(statTests));
+  .replaceAll('{{STAT_TESTS}}',  escapeHtml(statTests))
+  .replaceAll('{{PATHS_HTML}}', pathsHtml)
+  .replaceAll('{{PATHS_SECTION_TITLE}}', escapeHtml(pathsSectionTitle))
+  .replaceAll('{{WHATSAPP_LINK}}', escapeHtml(whatsappLink));
 
 // Inject GA4 tracking script if measurement ID is configured
 const GA4_PATTERN = /^G-[A-Z0-9]{4,12}$/;

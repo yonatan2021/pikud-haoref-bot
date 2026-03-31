@@ -232,6 +232,16 @@ img {
   color: #fff;
 }
 
+.btn-whatsapp {
+  background: #25D366;
+  color: #fff;
+}
+.btn-whatsapp:hover {
+  background: #1ebe5d;
+  box-shadow: 0 6px 24px rgba(37, 211, 102, 0.15);
+  color: #fff;
+}
+
 .btn-secondary {
   background: rgba(255, 255, 255, 0.07);
   color: var(--text-primary);
@@ -742,7 +752,7 @@ img {
 
 .paths-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 1.25rem;
   align-items: stretch;
 }
@@ -768,6 +778,14 @@ img {
 .path-card--join:hover {
   border-color: rgba(34, 158, 217, 0.5);
   box-shadow: 0 6px 28px var(--accent-glow);
+}
+
+.path-card--whatsapp {
+  border-color: rgba(37, 211, 102, 0.3);
+}
+.path-card--whatsapp:hover {
+  border-color: rgba(37, 211, 102, 0.5);
+  box-shadow: 0 6px 28px rgba(37, 211, 102, 0.1);
 }
 
 .path-card--selfhost {
