@@ -59,16 +59,18 @@ export function createWhatsAppRouter(
       const liveById = new Map(liveGroups.map((g) => [g.id, g]));
       const dbGroupIds = new Set(dbGroups.map((g) => g.groupId));
 
-      // DB rows enriched with inClient flag
+      // DB rows enriched with inClient flag + type
       const merged: Array<{
         groupId: string;
         name: string;
         enabled: boolean;
         alertTypes: string[];
         inClient: boolean;
+        type: 'group' | 'newsletter';
       }> = dbGroups.map((g) => ({
         ...g,
         inClient: liveById.has(g.groupId),
+        type: g.groupId.endsWith('@newsletter') ? 'newsletter' as const : 'group' as const,
       }));
 
       // Live groups not in DB — add as unconfigured entries
@@ -80,6 +82,7 @@ export function createWhatsAppRouter(
             enabled: false,
             alertTypes: [],
             inClient: true,
+            type: liveGroup.id.endsWith('@newsletter') ? 'newsletter' : 'group',
           });
         }
       }

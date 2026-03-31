@@ -119,15 +119,47 @@ describe('DELETE /api/whatsapp/listeners/:id', () => {
 });
 
 describe('GET /api/whatsapp/listeners/telegram-topics', () => {
-  it('returns empty array when bot returns no topics', async () => {
-    process.env['TELEGRAM_CHAT_ID'] = '-100123';
+  const savedEnv: Record<string, string | undefined> = {};
+  const TOPIC_ENV_KEYS = [
+    'TELEGRAM_CHAT_ID', 'TELEGRAM_FORWARD_GROUP_ID',
+    'TELEGRAM_TOPIC_ID_SECURITY', 'TELEGRAM_TOPIC_ID_NATURE',
+    'TELEGRAM_TOPIC_ID_ENVIRONMENTAL', 'TELEGRAM_TOPIC_ID_DRILLS',
+    'TELEGRAM_TOPIC_ID_GENERAL', 'TELEGRAM_TOPIC_ID_WHATSAPP',
+  ];
+
+  before(() => { for (const k of TOPIC_ENV_KEYS) savedEnv[k] = process.env[k]; });
+  after(() => { for (const k of TOPIC_ENV_KEYS) { if (savedEnv[k] !== undefined) process.env[k] = savedEnv[k]; else delete process.env[k]; } });
+  beforeEach(() => { for (const k of TOPIC_ENV_KEYS) delete process.env[k]; });
+
+  it('returns empty array when no chat ID and no env topics', async () => {
     const res = await request(app).get('/api/whatsapp/listeners/telegram-topics');
     assert.equal(res.status, 200);
     assert.deepEqual(res.body, []);
   });
 
-  it('returns empty array when bot throws (group is not a forum)', async () => {
+  it('returns env-configured topics when bot returns no live topics', async () => {
     process.env['TELEGRAM_CHAT_ID'] = '-100123';
+    process.env['TELEGRAM_TOPIC_ID_SECURITY'] = '42';
+    const res = await request(app).get('/api/whatsapp/listeners/telegram-topics');
+    assert.equal(res.status, 200);
+    assert.ok(res.body.length >= 1);
+    const secTopic = res.body.find((t: { id: number }) => t.id === 42);
+    assert.ok(secTopic, 'should include env-configured security topic');
+    assert.ok(secTopic.name.includes('ביטחוני'), 'name should be Hebrew label');
+  });
+
+  it('skips topic ID 1 (invalid in Telegram)', async () => {
+    process.env['TELEGRAM_CHAT_ID'] = '-100123';
+    process.env['TELEGRAM_TOPIC_ID_SECURITY'] = '1';
+    const res = await request(app).get('/api/whatsapp/listeners/telegram-topics');
+    assert.equal(res.status, 200);
+    const bad = res.body.find((t: { id: number }) => t.id === 1);
+    assert.equal(bad, undefined, 'topic ID 1 should be filtered out');
+  });
+
+  it('returns env topics when bot throws (group is not a forum)', async () => {
+    process.env['TELEGRAM_CHAT_ID'] = '-100123';
+    process.env['TELEGRAM_TOPIC_ID_DRILLS'] = '99';
     const throwingBot = {
       api: { raw: { getForumTopics: async () => { throw new Error('FORUM_CHAT_NOT_FOUND'); } } },
     };
@@ -136,6 +168,24 @@ describe('GET /api/whatsapp/listeners/telegram-topics', () => {
     throwingApp.use('/api/whatsapp/listeners', createListenersRouter(db, throwingBot as any));
     const res = await request(throwingApp).get('/api/whatsapp/listeners/telegram-topics');
     assert.equal(res.status, 200);
-    assert.deepEqual(res.body, []);
+    assert.ok(res.body.length >= 1);
+    assert.ok(res.body.find((t: { id: number }) => t.id === 99));
+  });
+
+  it('does not duplicate topics already present from live API', async () => {
+    process.env['TELEGRAM_CHAT_ID'] = '-100123';
+    process.env['TELEGRAM_TOPIC_ID_SECURITY'] = '42';
+    // Mock bot returns topic with same ID 42
+    const liveBot = {
+      api: { raw: { getForumTopics: async () => ({ topics: [{ message_thread_id: 42, name: 'Live Security' }] }) } },
+    };
+    const liveApp = express();
+    liveApp.use(express.json());
+    liveApp.use('/api/whatsapp/listeners', createListenersRouter(db, liveBot as any));
+    const res = await request(liveApp).get('/api/whatsapp/listeners/telegram-topics');
+    assert.equal(res.status, 200);
+    const matching = res.body.filter((t: { id: number }) => t.id === 42);
+    assert.equal(matching.length, 1, 'should not duplicate topic ID 42');
+    assert.equal(matching[0].name, 'Live Security', 'live API name should take precedence');
   });
 });

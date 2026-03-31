@@ -110,7 +110,7 @@ describe('GET /api/whatsapp/groups', () => {
     assert.equal(res.body.length, 0);
   });
 
-  it('returns DB groups with inClient: false when not in live cache', async () => {
+  it('returns DB groups with inClient: false and type field when not in live cache', async () => {
     upsertGroup(db, '111@g.us', 'קבוצה א', true, ['missiles']);
     // mockCachedGroups is empty — group is not in live client
     const res = await request(app).get('/api/whatsapp/groups');
@@ -121,6 +121,7 @@ describe('GET /api/whatsapp/groups', () => {
     assert.equal(res.body[0].enabled, true);
     assert.deepEqual(res.body[0].alertTypes, ['missiles']);
     assert.equal(res.body[0].inClient, false);
+    assert.equal(res.body[0].type, 'group');
   });
 
   it('marks DB groups with inClient: true when present in live cache', async () => {
@@ -132,7 +133,7 @@ describe('GET /api/whatsapp/groups', () => {
     assert.equal(res.body[0].inClient, true);
   });
 
-  it('includes live-only groups (not in DB) with enabled: false', async () => {
+  it('includes live-only groups (not in DB) with enabled: false and type', async () => {
     mockCachedGroups = [{ id: '222@g.us', name: 'קבוצה ב' }];
     const res = await request(app).get('/api/whatsapp/groups');
     assert.equal(res.status, 200);
@@ -141,6 +142,15 @@ describe('GET /api/whatsapp/groups', () => {
     assert.equal(res.body[0].enabled, false);
     assert.deepEqual(res.body[0].alertTypes, []);
     assert.equal(res.body[0].inClient, true);
+    assert.equal(res.body[0].type, 'group');
+  });
+
+  it('returns type "newsletter" for channel entries', async () => {
+    mockCachedGroups = [{ id: '120363001@newsletter', name: 'ערוץ א' }];
+    const res = await request(app).get('/api/whatsapp/groups');
+    assert.equal(res.status, 200);
+    assert.equal(res.body.length, 1);
+    assert.equal(res.body[0].type, 'newsletter');
   });
 });
 

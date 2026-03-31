@@ -1,14 +1,16 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { RefreshCw, Loader2, Unplug } from 'lucide-react';
+import { RefreshCw, Loader2, Unplug, Search, MessageSquare, Rss } from 'lucide-react';
 import QRCode from 'qrcode';
 import { api } from '../api/client';
 import { GlassCard } from '../components/ui/GlassCard';
 import { PageTransition } from '../components/ui/PageTransition';
 import { LiveDot } from '../components/ui/LiveDot';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { ORDERED_CATEGORIES, CATEGORY_META, ALERT_TYPE_CATEGORY } from '../utils/categoryConfig';
+import type { AlertCategory } from '../utils/categoryConfig';
 
 interface WhatsAppStatus {
   status: 'disconnected' | 'qr' | 'connecting' | 'ready';
@@ -23,38 +25,18 @@ interface WhatsAppGroup {
   enabled: boolean;
   alertTypes: string[];
   inClient: boolean;
+  type: 'group' | 'newsletter';
 }
 
-const CATEGORIES = [
-  {
-    label: 'ביטחוני 🔴',
-    types: [
-      'missiles',
-      'hostileAircraftIntrusion',
-      'terroristInfiltration',
-      'missilesDrill',
-      'hostileAircraftIntrusionDrill',
-      'terroristInfiltrationDrill',
-    ],
-  },
-  {
-    label: 'טבע 🌍',
-    types: ['earthQuake', 'tsunami', 'earthQuakeDrill', 'tsunamiDrill'],
-  },
-  {
-    label: 'סביבתי ☢️',
-    types: [
-      'hazardousMaterials',
-      'radiologicalEvent',
-      'hazardousMaterialsDrill',
-      'radiologicalEventDrill',
-    ],
-  },
-  {
-    label: 'כללי 📢',
-    types: ['newsFlash', 'general'],
-  },
-];
+// Build categories from shared config — collect alert types per category
+const CATEGORIES: ReadonlyArray<{ key: AlertCategory; label: string; types: string[] }> =
+  ORDERED_CATEGORIES.map(cat => {
+    const meta = CATEGORY_META[cat];
+    const types = Object.entries(ALERT_TYPE_CATEGORY)
+      .filter(([, c]) => c === cat)
+      .map(([t]) => t);
+    return { key: cat, label: `${meta.labelHe} ${meta.emoji}`, types };
+  });
 
 function isCategoryEnabled(alertTypes: string[], categoryTypes: string[]): boolean {
   return categoryTypes.length > 0 && categoryTypes.every(t => alertTypes.includes(t));
@@ -198,7 +180,7 @@ function GroupRow({ group, onUpdate }: { group: WhatsAppGroup; onUpdate: (groupI
           const enabled = isCategoryEnabled(group.alertTypes, cat.types);
           return (
             <button
-              key={cat.label}
+              key={cat.key}
               onClick={() => handleToggleCategory(cat.types, !enabled)}
               className={`px-3 py-1 text-xs rounded-full border transition-colors ${
                 enabled
@@ -293,6 +275,16 @@ export function WhatsApp() {
   }, [queryClient]);
 
   const status = statusData?.status ?? 'disconnected';
+  const [groupSearch, setGroupSearch] = useState('');
+
+  const { filteredGroups, filteredChannels } = useMemo(() => {
+    const term = groupSearch.toLowerCase();
+    const filtered = (groups ?? []).filter(g => g.name.toLowerCase().includes(term));
+    return {
+      filteredGroups: filtered.filter(g => g.type === 'group'),
+      filteredChannels: filtered.filter(g => g.type === 'newsletter'),
+    };
+  }, [groups, groupSearch]);
 
   return (
     <PageTransition>
@@ -383,11 +375,11 @@ export function WhatsApp() {
           </div>
         </GlassCard>
 
-        {/* Groups Panel */}
+        {/* Groups & Channels Panel */}
         <GlassCard className="p-6">
           <div className="mb-4 pb-3 border-b border-border">
-            <h2 className="font-semibold text-text-primary">קבוצות WhatsApp</h2>
-            <p className="text-text-muted text-xs mt-1">בחר אילו קבוצות יקבלו התראות ואילו קטגוריות</p>
+            <h2 className="font-semibold text-text-primary">קבוצות וערוצי WhatsApp</h2>
+            <p className="text-text-muted text-xs mt-1">בחר אילו קבוצות וערוצים יקבלו התראות ואילו קטגוריות</p>
           </div>
 
           {groupsError ? (
@@ -401,18 +393,55 @@ export function WhatsApp() {
           ) : !groups || groups.length === 0 ? (
             <div className="py-10 text-center text-text-muted text-sm">
               {status === 'ready'
-                ? 'מחובר אך לא נמצאו קבוצות — נסה לחבר מחדש'
+                ? 'מחובר אך לא נמצאו קבוצות או ערוצים — נסה לחבר מחדש'
                 : 'אין קבוצות — סרוק את קוד ה-QR כדי להתחבר'}
             </div>
           ) : (
             <div>
-              {groups.map(group => (
-                <GroupRow
-                  key={group.groupId}
-                  group={group}
-                  onUpdate={handleGroupUpdate}
-                />
-              ))}
+              {/* Search */}
+              {groups.length > 5 && (
+                <div className="flex items-center gap-2 mb-4 bg-base border border-border rounded-lg px-3 py-2">
+                  <Search size={14} className="text-text-muted shrink-0" />
+                  <input
+                    type="text"
+                    value={groupSearch}
+                    onChange={e => setGroupSearch(e.target.value)}
+                    placeholder="חפש קבוצה או ערוץ..."
+                    className="flex-1 bg-transparent text-sm text-text-primary outline-none placeholder:text-text-muted"
+                  />
+                </div>
+              )}
+
+              {/* Groups section */}
+              {filteredGroups.length > 0 && (
+                <>
+                  <div className="flex items-center gap-1.5 py-2 text-xs font-medium text-text-muted">
+                    <MessageSquare size={12} />
+                    קבוצות ({filteredGroups.length})
+                  </div>
+                  {filteredGroups.map(group => (
+                    <GroupRow key={group.groupId} group={group} onUpdate={handleGroupUpdate} />
+                  ))}
+                </>
+              )}
+
+              {/* Channels section */}
+              {filteredChannels.length > 0 && (
+                <>
+                  <div className="flex items-center gap-1.5 py-2 mt-4 text-xs font-medium text-text-muted border-t border-border pt-4">
+                    <Rss size={12} />
+                    ערוצים ({filteredChannels.length})
+                  </div>
+                  {filteredChannels.map(group => (
+                    <GroupRow key={group.groupId} group={group} onUpdate={handleGroupUpdate} />
+                  ))}
+                </>
+              )}
+
+              {/* No search results */}
+              {filteredGroups.length === 0 && filteredChannels.length === 0 && groupSearch && (
+                <p className="py-6 text-center text-text-muted text-sm">לא נמצאו תוצאות</p>
+              )}
             </div>
           )}
         </GlassCard>

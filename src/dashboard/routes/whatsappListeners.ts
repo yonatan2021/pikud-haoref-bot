@@ -8,33 +8,56 @@ import {
   updateListener,
   deleteListener,
 } from '../../db/whatsappListenerRepository.js';
+import { getSetting } from '../../dashboard/settingsRepository.js';
 import { log } from '../../logger.js';
 
 const VALID_CHANNEL_TYPES = new Set(['group', 'newsletter']);
+
+// Topic env vars + Hebrew labels for fallback when Telegram API is unreachable
+const TOPIC_SOURCES: ReadonlyArray<{ settingKey: string; envVar: string; name: string }> = [
+  { settingKey: 'topic_id_security',      envVar: 'TELEGRAM_TOPIC_ID_SECURITY',      name: 'ביטחוני 🔴' },
+  { settingKey: 'topic_id_nature',        envVar: 'TELEGRAM_TOPIC_ID_NATURE',        name: 'אסונות טבע 🌍' },
+  { settingKey: 'topic_id_environmental', envVar: 'TELEGRAM_TOPIC_ID_ENVIRONMENTAL', name: 'סביבתי ☢️' },
+  { settingKey: 'topic_id_drills',        envVar: 'TELEGRAM_TOPIC_ID_DRILLS',        name: 'תרגילים 🔵' },
+  { settingKey: 'topic_id_general',       envVar: 'TELEGRAM_TOPIC_ID_GENERAL',       name: 'הודעות כלליות 📢' },
+  { settingKey: 'topic_id_whatsapp',      envVar: 'TELEGRAM_TOPIC_ID_WHATSAPP',      name: 'WhatsApp 📲' },
+];
 
 export function createListenersRouter(db: Database.Database, bot: Bot): Router {
   const router = Router();
 
   // CRITICAL: static path MUST come before param routes
-  // GET /telegram-topics — fetch Telegram forum topics for the configured chat
+  // GET /telegram-topics — fetch Telegram forum topics + merge env-configured fallbacks
   router.get('/telegram-topics', async (_req: Request, res: Response) => {
+    // 1. Try live Telegram API
+    let liveTopics: Array<{ id: number; name: string }> = [];
     const chatId = process.env['TELEGRAM_FORWARD_GROUP_ID'] ?? process.env['TELEGRAM_CHAT_ID'];
-    if (!chatId) {
-      res.json([]);
-      return;
+    if (chatId) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const result = await (bot.api.raw as any).getForumTopics({ chat_id: chatId });
+        liveTopics = (result.topics ?? []).map((t: { message_thread_id: number; name: string }) => ({
+          id: t.message_thread_id,
+          name: t.name,
+        }));
+      } catch {
+        // group is not a forum group or API unreachable — continue to fallback
+      }
     }
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const result = await (bot.api.raw as any).getForumTopics({ chat_id: chatId });
-      const topics = (result.topics ?? []).map((t: { message_thread_id: number; name: string }) => ({
-        id: t.message_thread_id,
-        name: t.name,
-      }));
-      res.json(topics);
-    } catch {
-      // group is not a forum group — return empty gracefully
-      res.json([]);
+
+    // 2. Merge env/settings-configured topics (settings DB first, then env var)
+    const liveIds = new Set(liveTopics.map((t) => t.id));
+    for (const source of TOPIC_SOURCES) {
+      const raw = getSetting(db, source.settingKey) ?? process.env[source.envVar];
+      if (!raw) continue;
+      const parsed = parseInt(raw, 10);
+      if (isNaN(parsed) || parsed === 1) continue;       // topic ID 1 is invalid in Telegram
+      if (liveIds.has(parsed)) continue;                  // already present from API
+      liveTopics.push({ id: parsed, name: source.name });
+      liveIds.add(parsed);
     }
+
+    res.json(liveTopics);
   });
 
   // GET / — return all listeners
