@@ -18,7 +18,7 @@ export function createApiRouter(db: Database.Database, bot: Bot): Router {
   router.use('/operations', createOperationsRouter(db, bot));
   router.use('/settings', createSettingsRouter(db));
   router.use('/landing', createLandingRouter(db));
-  router.use('/messages', createMessagesRouter(db));
+  router.use('/messages', createMessagesRouter(db, bot));
   router.use('/whatsapp/listeners', createListenersRouter(db, bot));
   router.use('/whatsapp', createWhatsAppRouter(db, whatsappService));
   return router;

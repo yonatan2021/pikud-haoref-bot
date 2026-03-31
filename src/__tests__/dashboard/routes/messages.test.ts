@@ -10,6 +10,7 @@ import { ALL_ALERT_TYPES, DEFAULT_ALERT_TYPE_EMOJI } from '../../../config/alert
 
 let db: Database.Database;
 let app: express.Express;
+const mockBot = { api: { sendMessage: async () => ({ message_id: 1 }) } };
 
 before(() => {
   // Test-local DB for the router under test
@@ -22,7 +23,7 @@ before(() => {
 
   app = express();
   app.use(express.json());
-  app.use('/api/messages', createMessagesRouter(db));
+  app.use('/api/messages', createMessagesRouter(db, mockBot as any));
 });
 
 after(() => db.close());
