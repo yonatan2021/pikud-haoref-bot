@@ -50,14 +50,29 @@ export function setMessageCallback(
 
 export async function refreshGroups(): Promise<void> {
   if (!client) return;
+
+  let groupEntries: WhatsAppGroup[] = [];
+  let channelEntries: WhatsAppGroup[] = [];
+
   try {
     const chats = await client.getChats();
-    cachedGroups = chats
-      .filter((chat) => chat.isGroup || chat.id._serialized.endsWith('@newsletter'))
+    groupEntries = chats
+      .filter((chat) => chat.isGroup)
       .map((chat) => ({ id: chat.id._serialized, name: chat.name }));
   } catch (err: unknown) {
     log('error', 'WhatsApp', `שגיאה בטעינת קבוצות: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
   }
+
+  try {
+    const channels = await client.getChannels();
+    channelEntries = channels
+      .filter((ch) => ch.name?.trim())
+      .map((ch) => ({ id: ch.id._serialized, name: ch.name }));
+  } catch (err: unknown) {
+    log('warn', 'WhatsApp', `שגיאה בטעינת ערוצים: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
+  }
+
+  cachedGroups = [...groupEntries, ...channelEntries];
 }
 
 export async function disconnect(): Promise<void> {
