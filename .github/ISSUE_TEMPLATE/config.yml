@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: "\U0001F512 דיווח אבטחה — Security Report"
+    url: https://github.com/yonatan2021/pikud-haoref-bot/security/advisories/new
+    about: "חולשת אבטחה? דווח באופן פרטי דרך GitHub Security Advisories — אל תפתח issue ציבורי."
+  - name: "\u2753 שאלה כללית — General Question"
+    url: https://github.com/yonatan2021/pikud-haoref-bot/discussions
+    about: "שאלות שימוש, הגדרה, או דיון כללי — פתח שרשור ב-Discussions."
+  - name: "\U0001F5FA\uFE0F מפת דרכים — Roadmap"
+    url: https://github.com/yonatan2021/pikud-haoref-bot/blob/main/ROADMAP.md
+    about: "רוצה לדעת מה מתוכנן? בדוק את מפת הדרכים."

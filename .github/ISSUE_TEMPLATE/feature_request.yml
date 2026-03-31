@@ -1,0 +1,94 @@
+name: "\u2728 Feature Request — בקשת פיצ'ר"
+description: "הצע תכונה חדשה או שיפור"
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## תודה על הרעיון!
+        לפני שתפתח בקשה, בדוק את [מפת הדרכים (ROADMAP.md)](https://github.com/yonatan2021/pikud-haoref-bot/blob/main/ROADMAP.md) — אולי הפיצ'ר כבר מתוכנן.
+
+  - type: dropdown
+    id: roadmap_check
+    attributes:
+      label: "\U0001F5FA\uFE0F קשר ל-Roadmap"
+      description: "האם בדקת את ה-ROADMAP?"
+      options:
+        - "לא קשור לפיצ'ר קיים ב-roadmap"
+        - "קשור לפיצ'ר מתוכנן — רוצה להציע שיפור/שינוי"
+        - "מרחיב פיצ'ר מתוכנן — פרטים נוספים"
+        - "לא בדקתי"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: "\U0001F4A1 הבעיה או הצורך"
+      description: "תאר את הבעיה שהפיצ'ר פותר, או את הצורך שהוא ממלא."
+      placeholder: "כמשתמש, אני רוצה לדעת שהמשפחה שלי בסדר אחרי אזעקה, אבל אין לי דרך לעשות את זה דרך הבוט..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: "\U0001F680 הפתרון המוצע"
+      description: "תאר את הפתרון שאתה מדמיין. איך זה אמור לעבוד מנקודת המבט של המשתמש?"
+      placeholder: |
+        1. אחרי אזעקה בעיר שלי, הבוט שואל "האם אתה בסדר?"
+        2. אני לוחץ ✅
+        3. המשפחה שלי רואה שאני בסדר
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: "\U0001F504 אלטרנטיבות שנשקלו"
+      description: "האם חשבת על פתרונות אחרים? למה הפתרון המוצע עדיף?"
+      placeholder: "אפשר גם להשתמש בקבוצת טלגרם רגילה, אבל אין בה פרטיות..."
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: "\U0001F3AF רכיב רלוונטי"
+      description: "באיזה חלק של המערכת הפיצ'ר נמצא?"
+      options:
+        - "Telegram Bot — פקודות DM"
+        - "Telegram Bot — ערוץ"
+        - "Dashboard — ממשק ניהול"
+        - "WhatsApp"
+        - "Maps — מפות"
+        - "Wizard — npx setup"
+        - "Landing Page"
+        - "חוצה רכיבים / ארכיטקטורה"
+        - "אחר"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: impact
+    attributes:
+      label: "\U0001F4CA רמת השפעה"
+      description: "כמה משתמשים ייהנו מהפיצ'ר?"
+      options:
+        - "קריטי — כל המשתמשים נזקקים לזה"
+        - "גבוה — רוב המשתמשים ייהנו"
+        - "בינוני — קבוצת משתמשים ספציפית"
+        - "נמוך — nice-to-have"
+    validations:
+      required: true
+
+  - type: textarea
+    id: mockups
+    attributes:
+      label: "\U0001F3A8 דוגמאות / mockups"
+      description: "אם יש לך — screenshots, דוגמאות ממערכות אחרות, wireframes"
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: "\U0001F91D תרומה"
+      options:
+        - label: "אני מוכן לתרום PR למימוש הפיצ'ר הזה"

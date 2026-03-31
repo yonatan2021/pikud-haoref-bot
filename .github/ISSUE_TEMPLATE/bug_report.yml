@@ -1,0 +1,127 @@
+name: "\U0001F41B Bug Report — דיווח באג"
+description: "דווח על בעיה או התנהגות לא צפויה"
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## תודה על הדיווח!
+        מלא את הפרטים הבאים כדי שנוכל לשחזר ולתקן את הבעיה מהר ככל האפשר.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: "\U0001F4DD תיאור הבעיה"
+      description: "מה קרה? תאר את הבעיה בבירור."
+      placeholder: "כשאני שולח /stats, הבוט לא מגיב ובלוג מופיעה שגיאה..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: "\U0001F504 שלבים לשחזור"
+      description: "איך אפשר לשחזר את הבעיה?"
+      placeholder: |
+        1. שלח /start לבוט
+        2. לחץ על "ניהול התראות"
+        3. חפש עיר "תל אביב"
+        4. הבוט לא מגיב
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: "\u2705 התנהגות צפויה"
+      description: "מה ציפית שיקרה?"
+      placeholder: "הבוט היה אמור להציג תוצאות חיפוש עם רשימת ערים"
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: "\u274C התנהגות בפועל"
+      description: "מה קרה בפועל?"
+      placeholder: "הבוט שלח הודעה ריקה ובלוג מופיעה TypeError: Cannot read property..."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: "\U0001F3AF רכיב מושפע"
+      description: "באיזה חלק של המערכת הבעיה?"
+      options:
+        - "Telegram Bot — פקודות DM"
+        - "Telegram Bot — התראות ערוץ"
+        - "Dashboard — ממשק ניהול"
+        - "WhatsApp — שליחה/קבלה"
+        - "WhatsApp Listener — האזנה והעברה"
+        - "Maps — מפות Mapbox"
+        - "Wizard — npx setup"
+        - "Landing Page — דף נחיתה"
+        - "Docker — בנייה/הפעלה"
+        - "CI/CD — GitHub Actions"
+        - "אחר"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: "\U0001F4E6 סביבת הפעלה"
+      description: "איך אתה מריץ את הבוט?"
+      options:
+        - "Docker (ghcr.io / Docker Hub)"
+        - "Docker (build מקומי)"
+        - "Node.js ישיר (npm start / npm run dev)"
+        - "אחר"
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: "\U0001F3F7\uFE0F גרסה"
+      description: "איזו גרסה של הבוט? (ראה בלוג startup או package.json)"
+      placeholder: "0.4.0"
+    validations:
+      required: true
+
+  - type: input
+    id: node_version
+    attributes:
+      label: "Node.js version"
+      description: "הפלט של `node --version` (אם רלוונטי)"
+      placeholder: "v22.0.0"
+
+  - type: input
+    id: os
+    attributes:
+      label: "\U0001F4BB מערכת הפעלה"
+      placeholder: "macOS 15.3 / Ubuntu 24.04 / Windows 11"
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: "\U0001F4C4 לוגים / הודעות שגיאה"
+      description: "הדבק לוגים רלוונטיים (ודא שאין טוקנים!)"
+      render: shell
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: "\U0001F4F8 צילומי מסך"
+      description: "אם רלוונטי — גרור לכאן screenshots"
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: "Checklist"
+      options:
+        - label: "חיפשתי ב-Issues הקיימים ולא מצאתי דיווח דומה"
+          required: true
+        - label: "ניקיתי מהלוגים כל מידע רגיש (טוקנים, chat IDs)"
+          required: true
