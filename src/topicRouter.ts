@@ -1,39 +1,10 @@
 import { isRoutingCacheLoaded, getTopicIdCached } from './config/routingCache.js';
+import { ALERT_TYPE_CATEGORY, CATEGORY_ENV_VAR } from './config/alertCategories.js';
+import type { AlertCategory } from './config/alertCategories.js';
 
-export type AlertCategory = 'security' | 'nature' | 'environmental' | 'drills' | 'general';
-
-export const ALERT_TYPE_CATEGORY: Readonly<Record<string, AlertCategory>> = {
-  missiles: 'security',
-  hostileAircraftIntrusion: 'security',
-  terroristInfiltration: 'security',
-
-  earthQuake: 'nature',
-  tsunami: 'nature',
-
-  hazardousMaterials: 'environmental',
-  radiologicalEvent: 'environmental',
-
-  missilesDrill: 'drills',
-  earthQuakeDrill: 'drills',
-  tsunamiDrill: 'drills',
-  hostileAircraftIntrusionDrill: 'drills',
-  hazardousMaterialsDrill: 'drills',
-  terroristInfiltrationDrill: 'drills',
-  radiologicalEventDrill: 'drills',
-  generalDrill: 'drills',
-
-  newsFlash: 'general',
-  general: 'general',
-  unknown: 'general',
-};
-
-const CATEGORY_ENV_VAR: Record<AlertCategory, string> = {
-  security: 'TELEGRAM_TOPIC_ID_SECURITY',
-  nature: 'TELEGRAM_TOPIC_ID_NATURE',
-  environmental: 'TELEGRAM_TOPIC_ID_ENVIRONMENTAL',
-  drills: 'TELEGRAM_TOPIC_ID_DRILLS',
-  general: 'TELEGRAM_TOPIC_ID_GENERAL',
-};
+// Re-export for backward compatibility — consumers that import from topicRouter continue to work.
+export { ALERT_TYPE_CATEGORY, CATEGORY_ENV_VAR };
+export type { AlertCategory };
 
 /**
  * Returns the Telegram message_thread_id for the given alert type,

@@ -1,45 +1,10 @@
 import Database from 'better-sqlite3';
 import { getSetting } from '../dashboard/settingsRepository.js';
 import { log } from '../logger.js';
+import { ALERT_TYPE_CATEGORY, CATEGORY_ENV_VAR } from './alertCategories.js';
+import type { AlertCategory } from './alertCategories.js';
 
-export type AlertCategory = 'security' | 'nature' | 'environmental' | 'drills' | 'general';
-
-// Duplicated from topicRouter.ts to avoid circular imports.
-// Keep in sync with ALERT_TYPE_CATEGORY in topicRouter.ts.
-const ALERT_TYPE_CATEGORY: Readonly<Record<string, AlertCategory>> = {
-  missiles: 'security',
-  hostileAircraftIntrusion: 'security',
-  terroristInfiltration: 'security',
-
-  earthQuake: 'nature',
-  tsunami: 'nature',
-
-  hazardousMaterials: 'environmental',
-  radiologicalEvent: 'environmental',
-
-  missilesDrill: 'drills',
-  earthQuakeDrill: 'drills',
-  tsunamiDrill: 'drills',
-  hostileAircraftIntrusionDrill: 'drills',
-  hazardousMaterialsDrill: 'drills',
-  terroristInfiltrationDrill: 'drills',
-  radiologicalEventDrill: 'drills',
-  generalDrill: 'drills',
-
-  newsFlash: 'general',
-  general: 'general',
-  unknown: 'general',
-};
-
-// Duplicated from topicRouter.ts to avoid circular imports.
-// Keep in sync with CATEGORY_ENV_VAR in topicRouter.ts.
-const CATEGORY_ENV_VAR: Readonly<Record<AlertCategory, string>> = {
-  security: 'TELEGRAM_TOPIC_ID_SECURITY',
-  nature: 'TELEGRAM_TOPIC_ID_NATURE',
-  environmental: 'TELEGRAM_TOPIC_ID_ENVIRONMENTAL',
-  drills: 'TELEGRAM_TOPIC_ID_DRILLS',
-  general: 'TELEGRAM_TOPIC_ID_GENERAL',
-};
+export type { AlertCategory };
 
 const CATEGORY_SETTING_KEY: Readonly<Record<AlertCategory, string>> = {
   security: 'topic_id_security',
@@ -66,6 +31,8 @@ let _cache: Readonly<CategoryCache> = Object.freeze({
   drills: undefined,
   general: undefined,
 });
+
+let _whatsappTopicId: number | undefined = undefined;
 
 let _loaded = false;
 
@@ -101,6 +68,12 @@ export function loadRoutingCache(db: Database.Database): void {
   }
 
   _cache = Object.freeze(next);
+
+  // WhatsApp default topic — separate from alert categories
+  const whatsappSetting = getSetting(db, 'topic_id_whatsapp');
+  _whatsappTopicId = parseTopicId(whatsappSetting)
+    ?? parseTopicId(process.env['TELEGRAM_TOPIC_ID_WHATSAPP']);
+
   _loaded = true;
   log('info', 'Routing', 'מטמון ניתוב נטען');
 }
@@ -108,6 +81,10 @@ export function loadRoutingCache(db: Database.Database): void {
 export function getTopicIdCached(alertType: string): number | undefined {
   const category = ALERT_TYPE_CATEGORY[alertType] ?? 'general';
   return _cache[category];
+}
+
+export function getWhatsAppTopicIdCached(): number | undefined {
+  return _whatsappTopicId;
 }
 
 export function isRoutingCacheLoaded(): boolean {
