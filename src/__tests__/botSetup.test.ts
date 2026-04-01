@@ -37,12 +37,18 @@ describe('setupBotHandlers', () => {
     await setupBotHandlers(bot as unknown as Bot);
 
     const expected = ['start', 'add', 'zones', 'mycities', 'settings', 'stats', 'history'];
+    assert.equal(bot._registeredCommands.length, expected.length, 'should register exactly 7 commands');
     for (const cmd of expected) {
       assert.ok(
         bot._registeredCommands.includes(cmd),
         `Expected command /${cmd} to be registered`,
       );
     }
+    assert.equal(
+      bot._registeredCommands.filter((cmd: string) => cmd === 'start').length,
+      1,
+      'Expected exactly one /start handler registration',
+    );
   });
 
   it('registers a noop callback handler', async () => {

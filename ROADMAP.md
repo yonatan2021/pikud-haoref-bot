@@ -58,14 +58,9 @@
       <td align="right">בחלק `מה הושלם`.</td>
     </tr>
     <tr>
-      <td align="right">🟡 בתהליך</td>
-      <td align="right">גרסה שנמצאת בפיתוח פעיל ועשויה להשתנות.</td>
-      <td align="right">כשהפיתוח כבר התחיל, אבל עדיין לא שוחרר.</td>
-    </tr>
-    <tr>
       <td align="right">⚪ מתוכנן</td>
       <td align="right">כיוון עתידי שעדיין לא נכנס לביצוע.</td>
-      <td align="right">ברוב גרסאות ה-roadmap אחרי `v0.4.0`.</td>
+      <td align="right">כל גרסה אחרי `v0.4.0` במסמך הזה.</td>
     </tr>
   </tbody>
 </table>
@@ -74,10 +69,13 @@
 
 ```mermaid
 flowchart RL
-  classDef done fill:#dcfce7,stroke:#16a34a,color:#14532d,stroke-width:1px;
-  classDef active fill:#fef3c7,stroke:#d97706,color:#78350f,stroke-width:1px;
-  classDef next fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:1px;
-  classDef future fill:#ede9fe,stroke:#7c3aed,color:#4c1d95,stroke-width:1px;
+  classDef stage1 fill:#eff6ff,stroke:#3b82f6,color:#1e3a8a,stroke-width:1px;
+  classDef stage2 fill:#f0f9ff,stroke:#0ea5e9,color:#0c4a6e,stroke-width:1px;
+  classDef stage3 fill:#ecfeff,stroke:#06b6d4,color:#155e75,stroke-width:1px;
+  classDef stage4 fill:#f5f3ff,stroke:#8b5cf6,color:#4c1d95,stroke-width:1px;
+  classDef stage5 fill:#fefce8,stroke:#eab308,color:#713f12,stroke-width:1px;
+  classDef stage6 fill:#fdf2f8,stroke:#ec4899,color:#831843,stroke-width:1px;
+  classDef stage7 fill:#f1f5f9,stroke:#64748b,color:#0f172a,stroke-width:1px;
   classDef release fill:#f3e8ff,stroke:#9333ea,color:#581c87,stroke-width:2px;
 
   subgraph S1["שלב 1 - תשתית חברתית"]
@@ -118,21 +116,21 @@ flowchart RL
   F1 --> G1
   G1 --> H1
 
-  class A1,A2,A3 done
-  class B1,B2 active
-  class C1,C2,C3 active
-  class D1,D2 next
-  class E1,E2,E3,E4,E5,E6 next
-  class F1,F2,F3 next
-  class G1,G2,G3 future
+  class A1,A2,A3 stage1
+  class B1,B2 stage2
+  class C1,C2,C3 stage3
+  class D1,D2 stage4
+  class E1,E2,E3,E4,E5,E6 stage5
+  class F1,F2,F3 stage6
+  class G1,G2,G3 stage7
 ```
 
 <details>
 <summary>איך לקרוא את המפה</summary>
 
-- הקריאה היא מימין לשמאל, מהשחרור הבא אל השחרור הסופי.
-- כל שלב מייצג שכבת ערך אחת שמכינה את הקרקע לשלב הבא.
-- הצבעים מסמנים מצב: `✅` הושלם, `🟡` במיקוד קרוב, `⚪` בהמשך.
+- הקריאה היא מימין לשמאל, מהמצב הנוכחי אל `v1.0.0`.
+- כל שלב מייצג שכבת ערך אחת במסלול המתוכנן.
+- הצבעים מחלקים לשלבים בלבד, לא מסמנים ביצוע בפועל.
 
 </details>
 
@@ -327,19 +325,19 @@ git tag wizard-vX.Y.Z && git push origin wizard-vX.Y.Z
       <td align="right"><code>v0.4.1</code></td>
       <td align="right">Onboarding ופרופיל</td>
       <td align="right">משתמש חדש נכנס למערכת עם פרופיל ברור ומסודר.</td>
-      <td align="right">✅ הושלם</td>
+      <td align="right">⚪ מתוכנן</td>
     </tr>
     <tr>
       <td align="right"><code>v0.4.2</code></td>
       <td align="right">מערכת אנשי קשר</td>
       <td align="right">חיבור בין אנשים עם קוד, אישור, רשימה וניהול קשרים.</td>
-      <td align="right">✅ הושלם</td>
+      <td align="right">⚪ מתוכנן</td>
     </tr>
     <tr>
       <td align="right"><code>v0.4.3</code></td>
       <td align="right">פרטיות פר-קשר</td>
       <td align="right">שליטה מדויקת במה כל איש קשר רואה.</td>
-      <td align="right">✅ הושלם</td>
+      <td align="right">⚪ מתוכנן</td>
     </tr>
     <tr>
       <td align="right"><code>v0.4.4</code></td>

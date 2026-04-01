@@ -46,6 +46,7 @@ export function buildMainMenu(
 }
 
 export function registerMenuHandler(bot: Bot): void {
+  // Single source of truth for /start: private chat opens the main menu.
   bot.command('start', async (ctx: Context) => {
     if (ctx.chat?.type !== 'private') return;
     const chatId = ctx.chat.id;
