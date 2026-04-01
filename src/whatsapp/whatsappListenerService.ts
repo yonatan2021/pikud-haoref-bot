@@ -1,5 +1,5 @@
 import type Database from 'better-sqlite3';
-import type { Chat } from 'whatsapp-web.js';
+import { MessageMedia, type Chat } from 'whatsapp-web.js';
 import { getActiveListenersForChannel } from '../db/whatsappListenerRepository.js';
 import { getEnabledGroupsForAlertType } from '../db/whatsappGroupRepository.js';
 import { isRoutingCacheLoaded, getWhatsAppTopicIdCached } from '../config/routingCache.js';
@@ -77,7 +77,8 @@ async function broadcastToWhatsAppGroups(
   db: Database.Database,
   text: string,
   sourceGroupId: string,
-  deps: ListenerBroadcastDeps
+  deps: ListenerBroadcastDeps,
+  mediaData?: { data: string; mimetype: string; filename?: string } | null
 ): Promise<void> {
   if (deps.getStatusFn() !== 'ready') return;
 
@@ -89,12 +90,21 @@ async function broadcastToWhatsAppGroups(
   const client = deps.getClientFn();
   if (!client) return;
 
+  let media: MessageMedia | undefined;
+  if (mediaData?.data) {
+    media = new MessageMedia(mediaData.mimetype, mediaData.data, mediaData.filename);
+  }
+
   let sent = 0;
   await Promise.all(
     targets.map(async (groupId) => {
       try {
         const chat = await client.getChatById(groupId);
-        await chat.sendMessage(text);
+        if (media) {
+          await chat.sendMessage(media, { caption: text });
+        } else {
+          await chat.sendMessage(text);
+        }
         sent++;
       } catch (err: unknown) {
         log('error', 'WA→WA', `שגיאה בשליחה לקבוצה ${groupId}: ${err instanceof Error ? err.message : String(err)}`);
@@ -128,6 +138,8 @@ export function createMessageHandler(
 
       const timeStr = formatTimestampIsrael(msg.timestamp);
       let anyForwarded = false;
+      let downloadedMedia: { data: string; mimetype: string; filename?: string } | null = null;
+      let triedDownload = false;
 
       for (const listener of listeners) {
         const shouldForward =
@@ -144,20 +156,24 @@ export function createMessageHandler(
 
         // Attempt media forward first
         if (msg.hasMedia && sendMediaFn) {
-          try {
-            const media = await msg.downloadMedia();
-            if (media?.data) {
-              const buffer = Buffer.from(media.data, 'base64');
-              const mediaCaption = truncateToCaptionLimit(caption);
-              await sendMediaFn(targetChatId, buffer, media.mimetype, mediaCaption, topicId);
-              continue;
+          if (!triedDownload) {
+            triedDownload = true;
+            try {
+              downloadedMedia = await msg.downloadMedia();
+            } catch (mediaErr) {
+              log('warn', 'WhatsApp→TG', `מדיה נכשלה בהורדה: ${mediaErr instanceof Error ? mediaErr.message : String(mediaErr)}`);
             }
-          } catch (mediaErr) {
-            log(
-              'warn',
-              'WhatsApp→TG',
-              `מדיה נכשלה — שולח טקסט: ${mediaErr instanceof Error ? mediaErr.message : String(mediaErr)}`
-            );
+          }
+
+          if (downloadedMedia?.data) {
+            try {
+              const buffer = Buffer.from(downloadedMedia.data, 'base64');
+              const mediaCaption = truncateToCaptionLimit(caption);
+              await sendMediaFn(targetChatId, buffer, downloadedMedia.mimetype, mediaCaption, topicId);
+              continue;
+            } catch (tgMediaErr) {
+                log('warn', 'WhatsApp→TG', `שילוח מדיה לטלגרם נכשל — שולח טקסט: ${tgMediaErr instanceof Error ? tgMediaErr.message : String(tgMediaErr)}`);
+            }
           }
         }
 
@@ -176,7 +192,7 @@ export function createMessageHandler(
         const plainHeader = `📲 ${listeners[0]?.channelName ?? ''}\n🕐 ${timeStr}`;
         const plainBody = truncatedBody ? `\n\n${truncatedBody}` : '';
         const plainText = `${plainHeader}${plainBody}`;
-        broadcastToWhatsAppGroups(db, plainText, msg.from, broadcastDeps).catch((err: unknown) => {
+        broadcastToWhatsAppGroups(db, plainText, msg.from, broadcastDeps, downloadedMedia).catch((err: unknown) => {
           log('error', 'WA→WA', `שגיאה בשידור: ${String(err)}`);
         });
       }

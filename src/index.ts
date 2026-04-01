@@ -101,6 +101,12 @@ for (const envVar of REQUIRED_ENV_VARS) {
         parse_mode: 'HTML',
         ...threadOpts,
       });
+    } else if (mimetype.startsWith('video/')) {
+      await bot.api.sendVideo(chatId, new InputFile(buffer, 'media.mp4'), {
+        caption,
+        parse_mode: 'HTML',
+        ...threadOpts,
+      });
     } else {
       await bot.api.sendDocument(chatId, new InputFile(buffer, 'media'), {
         caption,
