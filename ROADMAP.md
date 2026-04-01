@@ -59,13 +59,13 @@
     </tr>
     <tr>
       <td align="right">🟡 בתהליך</td>
-      <td align="right">גרסה שנמצאת במיקוד הנוכחי או בביצוע קרוב.</td>
-      <td align="right">במפת הדרכים של v0.4.x–v0.5.x.</td>
+      <td align="right">גרסה שנמצאת בפיתוח פעיל ועשויה להשתנות.</td>
+      <td align="right">כשהפיתוח כבר התחיל, אבל עדיין לא שוחרר.</td>
     </tr>
     <tr>
       <td align="right">⚪ מתוכנן</td>
       <td align="right">כיוון עתידי שעדיין לא נכנס לביצוע.</td>
-      <td align="right">בגרסאות v0.6.x ומעלה ובחזון v2.0.</td>
+      <td align="right">ברוב גרסאות ה-roadmap אחרי `v0.4.0`.</td>
     </tr>
   </tbody>
 </table>
@@ -237,6 +237,7 @@ git tag wizard-vX.Y.Z && git push origin wizard-vX.Y.Z
 
 ## 🔮 מפת דרכים — v0.4.1 עד v1.0.0
 
+
 <details open>
 <summary>לפתוח את המסלול מ-v0.4.1 ועד v1.0.0</summary>
 
@@ -278,19 +279,19 @@ git tag wizard-vX.Y.Z && git push origin wizard-vX.Y.Z
       <td align="right"><code>v0.4.4</code></td>
       <td align="right">ויזואליזציית zones ונגישות קוגנטיבית</td>
       <td align="right">הבנה מהירה יותר של ההתרעה, כולל מפות פוליגון והנחיה ראשונה ברורה.</td>
-      <td align="right">🟡 בתהליך</td>
+      <td align="right">⚪ מתוכנן</td>
     </tr>
     <tr>
       <td align="right"><code>v0.4.5</code></td>
       <td align="right">All-clear ומסגור אירועים</td>
       <td align="right">סגירת מעגל ותחושת הקשר על מה קרה היום.</td>
-      <td align="right">🟡 בתהליך</td>
+      <td align="right">⚪ מתוכנן</td>
     </tr>
     <tr>
       <td align="right"><code>v0.5.0</code></td>
       <td align="right">Safety Check MVP</td>
       <td align="right">בדיקת מצב מהירה אחרי אזעקה.</td>
-      <td align="right">🟡 בתהליך</td>
+      <td align="right">⚪ מתוכנן</td>
     </tr>
     <tr>
       <td align="right"><code>v0.5.1</code></td>
@@ -307,7 +308,9 @@ git tag wizard-vX.Y.Z && git push origin wizard-vX.Y.Z
   </tbody>
 </table>
 
-### v0.4.1 — תשתית Onboarding ופרופיל
+<details>
+<summary>v0.4.1 — תשתית Onboarding ופרופיל</summary>
+
 <table dir="rtl">
   <thead>
     <tr>
@@ -324,12 +327,39 @@ git tag wizard-vX.Y.Z && git push origin wizard-vX.Y.Z
     </tr>
   </tbody>
 </table>
-- **Onboarding אינטראקטיבי**: wizard פנים-בוט ב-`/start` ראשון — "איפה אתה גר?" → בחירת עיר → הרשמה אוטומטית → שם תצוגה
-- **פרופיל משתמש**: שם תצוגה, עיר מגורים, שפה (הכנה ל-i18n)
-- **`/profile`**: צפייה ועריכה של פרטי הפרופיל
-- הרחבת טבלת `users`: `display_name`, `home_city`, `locale`, `onboarding_completed`
 
-### v0.4.2 — מערכת אנשי קשר
+<table dir="rtl">
+  <thead>
+    <tr>
+      <th align="right">יכולת</th>
+      <th align="right">פירוט</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td align="right">Onboarding אינטראקטיבי</td>
+      <td align="right">wizard ב־`/start` שמוביל משלב זיהוי לעיר ולשם תצוגה.</td>
+    </tr>
+    <tr>
+      <td align="right">פרופיל משתמש</td>
+      <td align="right">שם תצוגה, עיר מגורים, ושפה כבר בשלב ההגדרה.</td>
+    </tr>
+    <tr>
+      <td align="right">`/profile`</td>
+      <td align="right">צפייה ועריכה של פרטי הפרופיל במקום אחד.</td>
+    </tr>
+    <tr>
+      <td align="right">הרחבת טבלת `users`</td>
+      <td align="right"><code>display_name</code>, <code>home_city</code>, <code>locale</code>, <code>onboarding_completed</code>.</td>
+    </tr>
+  </tbody>
+</table>
+
+</details>
+
+<details>
+<summary>v0.4.2 — מערכת אנשי קשר</summary>
+
 <table dir="rtl">
   <thead>
     <tr>
@@ -346,13 +376,43 @@ git tag wizard-vX.Y.Z && git push origin wizard-vX.Y.Z
     </tr>
   </tbody>
 </table>
-- **קוד חיבור**: קוד ייחודי 6 ספרות לכל משתמש
-- **`/connect [code]`**: שליחת בקשת קשר הדדית (אישור/דחייה דרך inline keyboard)
-- **`/contacts`**: רשימת אנשי קשר עם סטטוס, הסרה, pagination
-- **אנטי-ספאם**: מקסימום 10 בקשות ממתינות, פקיעה אחרי 7 ימים
-- טבלאות חדשות: `contacts`, `contact_permissions`
 
-### v0.4.3 — הגדרות פרטיות לכל איש קשר
+<table dir="rtl">
+  <thead>
+    <tr>
+      <th align="right">יכולת</th>
+      <th align="right">פירוט</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td align="right">קוד חיבור</td>
+      <td align="right">קוד ייחודי בן 6 ספרות לכל משתמש.</td>
+    </tr>
+    <tr>
+      <td align="right">`/connect [code]`</td>
+      <td align="right">בקשת קשר הדדית עם אישור או דחייה דרך inline keyboard.</td>
+    </tr>
+    <tr>
+      <td align="right">`/contacts`</td>
+      <td align="right">רשימת אנשי קשר עם סטטוס, הסרה, ו־pagination.</td>
+    </tr>
+    <tr>
+      <td align="right">אנטי-ספאם</td>
+      <td align="right">עד 10 בקשות ממתינות עם פקיעה אחרי 7 ימים.</td>
+    </tr>
+    <tr>
+      <td align="right">טבלאות חדשות</td>
+      <td align="right"><code>contacts</code>, <code>contact_permissions</code>.</td>
+    </tr>
+  </tbody>
+</table>
+
+</details>
+
+<details>
+<summary>v0.4.3 — הגדרות פרטיות לכל איש קשר</summary>
+
 <table dir="rtl">
   <thead>
     <tr>
@@ -369,11 +429,35 @@ git tag wizard-vX.Y.Z && git push origin wizard-vX.Y.Z
     </tr>
   </tbody>
 </table>
-- **הרשאות per-contact**: סטטוס בטיחות (✅ ברירת מחדל) / עיר מגורים / זמן עדכון
-- **תבנית ברירת מחדל**: `/privacy` — הגדרת ברירות מחדל לאנשי קשר חדשים
-- **תצוגת איש קשר**: מה הוא משתף איתך (קריאה) + מה אתה משתף איתו (עריכה)
 
-### v0.4.4 — ויזואליזציית אזורים חכמה ונגישות קוגניטיבית ⭐
+<table dir="rtl">
+  <thead>
+    <tr>
+      <th align="right">יכולת</th>
+      <th align="right">פירוט</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td align="right">הרשאות per-contact</td>
+      <td align="right">סטטוס בטיחות, עיר מגורים, וזמן עדכון לכל איש קשר.</td>
+    </tr>
+    <tr>
+      <td align="right">תבנית ברירת מחדל</td>
+      <td align="right">`/privacy` מגדיר ברירות מחדל לאנשי קשר חדשים.</td>
+    </tr>
+    <tr>
+      <td align="right">תצוגת איש קשר</td>
+      <td align="right">מה הוא משתף איתך ומה אתה משתף איתו.</td>
+    </tr>
+  </tbody>
+</table>
+
+</details>
+
+<details>
+<summary>v0.4.4 — ויזואליזציית אזורים חכמה ונגישות קוגניטיבית ⭐</summary>
+
 <table dir="rtl">
   <thead>
     <tr>
@@ -390,21 +474,75 @@ git tag wizard-vX.Y.Z && git push origin wizard-vX.Y.Z
     </tr>
   </tbody>
 </table>
-- **Action Card — "מה עושים עכשיו?"**: שורה ראשונה תמיד = פעולה ("🏃 היכנס למרחב מוגן — 15 שניות"), לא מידע
-- **Personal Relevance Indicator (DM)**: "⚡ זה באזור שלך" / "📍 קרוב אליך (12 ק"מ)" / "ℹ️ לא באזור שלך" — תשובה לשאלה "האם אני צריך לרוץ?" תוך שנייה
-- **צבע ייחודי ל-28 zones**: כל zone בצבע קבוע ועקבי — על המפה (Mapbox פוליגונים) ובטקסט (אימוג'י super-region)
-- **מפת התראות מקדימות לפי zones**: להודעות כמו "בדקות הקרובות עלולות להתקבל אזעקות באזורך" נשלחת מפת פוליגון לפי אזורי התרעה מוגדרים מראש, לא לפי ערים
-- **אימוג'י דחיפות לפי countdown**: 🔴 0-15 שניות (מיידי), 🟠 15-30 (דחוף), 🟡 30-60 (מהיר), 🟢 60-90 (מתון), 🔵 90+ (רחוק)
-- **Countdown ויזואלי**: `⏱ 🟥🟥🟥⬜⬜ 15 שניות (מיידי)` — progress bar טקסטואלי, נקלט מהר יותר ממספר
-- **מיון לפי דחיפות**: zones ממוינים מה-countdown הנמוך ביותר (הכי דחוף) למעלה
-- **Summary line מובנה**: "3 אזורים · 12 ערים · ⏱ 15-90 שניות" — סיכום שנקלט ברפרוף
-- **Zone headers מועשרים**: `🟠 עוטף עזה (4) · ⏱ 15 שניות` — צבע + שם + ספירה + countdown
-- **Consistent Layout**: כל הודעה תמיד באותו מבנה (פעולה → סיכום → פרטי zones → זמן + מספר סידורי)
-- **Icon-First Design**: כל מידע קריטי מיוצג באייקון — 🏃 פעולה, ⏱ זמן, 📍 מיקום, 👥 חברתי, ✅ סטטוס
-- **מפה — צבעים + legend + גבולות**: 28 צבעי zone, מקרא צבעים, קווי הפרדה בין zones
-- חל על **ערוץ + DM + WhatsApp**
 
-### v0.4.5 — all-clear ומעקב אירועים
+<table dir="rtl">
+  <thead>
+    <tr>
+      <th align="right">יכולת</th>
+      <th align="right">פירוט</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td align="right">Action Card</td>
+      <td align="right">שורה ראשונה תמיד פעולה ברורה.</td>
+    </tr>
+    <tr>
+      <td align="right">Personal Relevance Indicator</td>
+      <td align="right">מציין אם ההתרעה רלוונטית אליך מיד.</td>
+    </tr>
+    <tr>
+      <td align="right">צבע קבוע ל־28 zones</td>
+      <td align="right">אותו צבע בכל ערוץ ובמפה.</td>
+    </tr>
+    <tr>
+      <td align="right">מפת התראות מקדימות לפי zones</td>
+      <td align="right">הודעות מוקדמות מציגות פוליגונים לפי אזורי התרעה, לא לפי ערים.</td>
+    </tr>
+    <tr>
+      <td align="right">אימוג'י דחיפות לפי countdown</td>
+      <td align="right">סימון חזותי לפי טווחי זמן קצרים.</td>
+    </tr>
+    <tr>
+      <td align="right">Countdown ויזואלי</td>
+      <td align="right">פס טקסטואלי קצר שנקלט מהר יותר ממספר חשוף.</td>
+    </tr>
+    <tr>
+      <td align="right">מיון לפי דחיפות</td>
+      <td align="right">האזורים הדחופים מופיעים ראשונים.</td>
+    </tr>
+    <tr>
+      <td align="right">Summary line</td>
+      <td align="right">סיכום קצר של מספר אזורים, ערים וזמן משוער.</td>
+    </tr>
+    <tr>
+      <td align="right">Zone headers</td>
+      <td align="right">כותרת מועשרת עם צבע, שם, ספירה וזמן.</td>
+    </tr>
+    <tr>
+      <td align="right">Consistent Layout</td>
+      <td align="right">אותו מבנה קבוע בכל הודעה.</td>
+    </tr>
+    <tr>
+      <td align="right">Icon-First Design</td>
+      <td align="right">כל מידע קריטי מקבל סימון חזותי מהיר.</td>
+    </tr>
+    <tr>
+      <td align="right">מפה + legend + גבולות</td>
+      <td align="right">מקרא צבעים וקווי הפרדה ברורים בין zones.</td>
+    </tr>
+    <tr>
+      <td align="right">ערוצי הפצה</td>
+      <td align="right">חל על ערוץ, DM, ו־WhatsApp.</td>
+    </tr>
+  </tbody>
+</table>
+
+</details>
+
+<details>
+<summary>v0.4.5 — all-clear ומעקב אירועים</summary>
+
 <table dir="rtl">
   <thead>
     <tr>
@@ -421,12 +559,39 @@ git tag wizard-vX.Y.Z && git push origin wizard-vX.Y.Z
     </tr>
   </tbody>
 </table>
-- **הודעת "שקט חזר"**: כשאין אזעקות חדשות ב-zone ל-10 דקות → "✅ שקט חזר — [אזור] — אחרי X דקות" — closure לאנשים עם OCD/חרדה
-- **`/today` — Status Tracker**: mini-dashboard של כל אזעקות היום עם סטטוס (פעיל/נגמר) לכל אירוע
-- **מספור אירועים**: "#3 היום" בתחתית כל הודעה — הקשר מספרי
-- **Alert Density Indicator**: "📊 רגיל — 2 אזעקות היום (ממוצע: 3)" / "⚠️ חריג — 15 (ממוצע: 3)" — מפחית חרדה כשרגיל, נותן הקשר כשחריג
 
-### v0.5.0 — MVP של בדיקת בטיחות ⭐
+<table dir="rtl">
+  <thead>
+    <tr>
+      <th align="right">יכולת</th>
+      <th align="right">פירוט</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td align="right">הודעת "שקט חזר"</td>
+      <td align="right">הודעת closure אחרי 10 דקות בלי אזעקות חדשות באזור.</td>
+    </tr>
+    <tr>
+      <td align="right">`/today`</td>
+      <td align="right">מיני־דשבורד של כל אזעקות היום עם סטטוס לכל אירוע.</td>
+    </tr>
+    <tr>
+      <td align="right">מספור אירועים</td>
+      <td align="right">מספר רציף שמוסיף הקשר לכל הודעה.</td>
+    </tr>
+    <tr>
+      <td align="right">Alert Density Indicator</td>
+      <td align="right">הצגת עומס יומי ביחס לממוצע כדי לייצר הקשר ולהפחית חרדה.</td>
+    </tr>
+  </tbody>
+</table>
+
+</details>
+
+<details>
+<summary>v0.5.0 — MVP של בדיקת בטיחות ⭐</summary>
+
 <table dir="rtl">
   <thead>
     <tr>
@@ -443,14 +608,47 @@ git tag wizard-vX.Y.Z && git push origin wizard-vX.Y.Z
     </tr>
   </tbody>
 </table>
-- **"אני בסדר"**: אחרי אזעקה בעיר המגורים → הבוט שולח "האם אתה בסדר?" עם 3 כפתורים (✅/⚠️/🔇)
-- **`/status`**: עדכון ידני + צפייה בסטטוס אנשי קשר (לפי הרשאות)
-- **התראות סטטוס**: כשאיש קשר מעדכן → הודעה לכל מי שמורשה
-- **dedup**: prompt אחד לכל אירוע (לפי fingerprint)
-- **auto-reset**: סטטוס מתאפס אחרי 24 שעות
-- טבלאות חדשות: `safety_status`, `safety_prompts`
 
-### v0.5.1 — קבוצות (משפחה / חברים / עבודה)
+<table dir="rtl">
+  <thead>
+    <tr>
+      <th align="right">יכולת</th>
+      <th align="right">פירוט</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td align="right">"אני בסדר"</td>
+      <td align="right">prompt מהיר אחרי אזעקה עם שלוש תשובות קבועות.</td>
+    </tr>
+    <tr>
+      <td align="right">`/status`</td>
+      <td align="right">עדכון ידני וצפייה בסטטוס אנשי קשר לפי הרשאות.</td>
+    </tr>
+    <tr>
+      <td align="right">התראות סטטוס</td>
+      <td align="right">עדכון אוטומטי לכל מי שמורשה לראות את המצב.</td>
+    </tr>
+    <tr>
+      <td align="right">dedup</td>
+      <td align="right">אחד לכל אירוע, לפי fingerprint.</td>
+    </tr>
+    <tr>
+      <td align="right">auto-reset</td>
+      <td align="right">איפוס אוטומטי אחרי 24 שעות.</td>
+    </tr>
+    <tr>
+      <td align="right">טבלאות חדשות</td>
+      <td align="right"><code>safety_status</code>, <code>safety_prompts</code>.</td>
+    </tr>
+  </tbody>
+</table>
+
+</details>
+
+<details>
+<summary>v0.5.1 — קבוצות (משפחה / חברים / עבודה)</summary>
+
 <table dir="rtl">
   <thead>
     <tr>
@@ -467,13 +665,43 @@ git tag wizard-vX.Y.Z && git push origin wizard-vX.Y.Z
     </tr>
   </tbody>
 </table>
-- **`/group create [name]`**: קבוצה עם קוד הזמנה (עד 20 חברים, עד 5 קבוצות)
-- **`/group join [code]`**: הצטרפות = אישור אוטומטי לשיתוף סטטוס עם חברי הקבוצה
-- **מסך סטטוס קבוצתי**: שם + סטטוס + עיר (אם משותפת) לכל חבר, "📊 X/Y בסדר"
-- **התראות קבוצתיות**: אזעקה באזור של חבר → כל הקבוצה מקבלת עדכון
-- טבלאות חדשות: `groups`, `group_members`
 
-### v0.5.2 — דשבורד Safety Check וליטוש
+<table dir="rtl">
+  <thead>
+    <tr>
+      <th align="right">יכולת</th>
+      <th align="right">פירוט</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td align="right">`/group create [name]`</td>
+      <td align="right">יצירת קבוצה עם קוד הזמנה, עד 20 חברים ועד 5 קבוצות.</td>
+    </tr>
+    <tr>
+      <td align="right">`/group join [code]`</td>
+      <td align="right">הצטרפות שמאשרת שיתוף סטטוס עם חברי הקבוצה.</td>
+    </tr>
+    <tr>
+      <td align="right">מסך סטטוס קבוצתי</td>
+      <td align="right">שם, סטטוס, עיר, וסיכום X/Y בסדר.</td>
+    </tr>
+    <tr>
+      <td align="right">התראות קבוצתיות</td>
+      <td align="right">אזעקה של חבר מפיצה עדכון לכל הקבוצה.</td>
+    </tr>
+    <tr>
+      <td align="right">טבלאות חדשות</td>
+      <td align="right"><code>groups</code>, <code>group_members</code>.</td>
+    </tr>
+  </tbody>
+</table>
+
+</details>
+
+<details>
+<summary>v0.5.2 — דשבורד Safety Check וליטוש</summary>
+
 <table dir="rtl">
   <thead>
     <tr>
@@ -490,13 +718,43 @@ git tag wizard-vX.Y.Z && git push origin wizard-vX.Y.Z
     </tr>
   </tbody>
 </table>
-- **דשבורד — לשונית Safety Check**: KPIs, response rate, breakdown (pie chart), מגמה 7 ימים
-- **"הכל בסדר" מהיר**: שליחת הודעה מותאמת לכל אנשי הקשר
-- **תזכורת עדינה**: באנר ב-menu אם יש אזעקה באזור ולא עדכנת
-- **העדפות חברתיות**: toggles להתראות סטטוס, אזעקות באזור אנשי קשר
-- **ספירת אנשי קשר ב-DM**: "👥 X אנשי קשר באזור" בהודעת אזעקה
 
-### v0.5.3 — תכונות קהילתיות
+<table dir="rtl">
+  <thead>
+    <tr>
+      <th align="right">יכולת</th>
+      <th align="right">פירוט</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td align="right">לשונית Safety Check</td>
+      <td align="right">KPIs, response rate, breakdown, ומגמה 7 ימים.</td>
+    </tr>
+    <tr>
+      <td align="right">"הכל בסדר" מהיר</td>
+      <td align="right">שליחת הודעה מותאמת לכל אנשי הקשר בלחיצה אחת.</td>
+    </tr>
+    <tr>
+      <td align="right">תזכורת עדינה</td>
+      <td align="right">באנר ב־menu אם יש אזעקה באזור ולא עדכנת.</td>
+    </tr>
+    <tr>
+      <td align="right">העדפות חברתיות</td>
+      <td align="right">טוגלים להתראות סטטוס ואזעקות באזור אנשי קשר.</td>
+    </tr>
+    <tr>
+      <td align="right">ספירת אנשי קשר ב־DM</td>
+      <td align="right">הצגת מספר אנשי הקשר באזור בהודעת האזעקה.</td>
+    </tr>
+  </tbody>
+</table>
+
+</details>
+
+<details>
+<summary>v0.5.3 — תכונות קהילתיות</summary>
+
 
 <table dir="rtl">
   <thead>
@@ -515,12 +773,38 @@ git tag wizard-vX.Y.Z && git push origin wizard-vX.Y.Z
   </tbody>
 </table>
 
-- **Community Pulse — "איך הקהילה מרגישה"**: סקר אנונימי אחרי גל אזעקות (😌 רגוע / 😰 חרד / 😤 כועס / 😔 עצוב) עם תוצאות מצטברות — "45% רגועים · 30% חרדים"
-- **"סיפורים מהמקלט" (Shelter Stories)**: ערוץ opt-in להודעות קצרות (200 תווים) אחרי אזעקה — אישור admin למניעת תוכן פוגעני, בונה חוסן קהילתי
-- **Skills Sharing — "אני יכול לעזור"**: סימון יכולות בפרופיל (🏥 עזרה ראשונה / 🚗 הסעה / 🏠 מקלט פרטי פתוח / 🐕 טיפול בחיות) — מי שסימן "⚠️ צריך עזרה" רואה מתנדבים קרובים
-- **"שכן עוזר" (Neighbor Check)**: אחרי אזעקה → "🏠 רוצה לבדוק שכן?" — רשימת אנשים באותה עיר שנרשמו כ"פתוח לבדיקה" (לקשישים, אנשים עם מוגבלות, גרים לבד)
+<table dir="rtl">
+  <thead>
+    <tr>
+      <th align="right">יכולת</th>
+      <th align="right">פירוט</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td align="right">Community Pulse</td>
+      <td align="right">סקר אנונימי אחרי גל אזעקות עם תוצאות מצטברות.</td>
+    </tr>
+    <tr>
+      <td align="right">Shelter Stories</td>
+      <td align="right">ערוץ opt-in להודעות קצרות אחרי אזעקה עם אישור admin.</td>
+    </tr>
+    <tr>
+      <td align="right">Skills Sharing</td>
+      <td align="right">סימון יכולות בפרופיל כדי לחבר בין מי שצריך עזרה למתנדבים קרובים.</td>
+    </tr>
+    <tr>
+      <td align="right">Neighbor Check</td>
+      <td align="right">הצעה יזומה לבדוק שכנים שפתוחים לבדיקה.</td>
+    </tr>
+  </tbody>
+</table>
 
-### v0.5.4 — מעגל חוסן (Buddy System)
+</details>
+
+<details>
+<summary>v0.5.4 — מעגל חוסן (Buddy System)</summary>
+
 
 <table dir="rtl">
   <thead>
@@ -539,12 +823,38 @@ git tag wizard-vX.Y.Z && git push origin wizard-vX.Y.Z
   </tbody>
 </table>
 
-- **קבוצת חוסן**: 5-8 אנשים (שכנים/חברים) שמתחייבים לבדוק אחד את השני
-- **Buddy System**: כל חבר מקבל buddy ספציפי שהוא אחראי לבדוק — שרשרת אחריות (כל אחד בודק אחד = כולם נבדקים)
-- **"✅ בדקת את [שם]?"**: prompt אוטומטי אחרי אזעקה → כפתור "בדקתי — בסדר" / "לא עונה"
-- **Shelter Buddy — "ללכת ביחד למקלט"**: סימון "🤝 אשמח ללוויה למקלט" → אנשים קרובים שמסומנים כ"מלווים" מקבלים notification
+<table dir="rtl">
+  <thead>
+    <tr>
+      <th align="right">יכולת</th>
+      <th align="right">פירוט</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td align="right">קבוצת חוסן</td>
+      <td align="right">5-8 אנשים שמתחייבים לבדוק אחד את השני.</td>
+    </tr>
+    <tr>
+      <td align="right">Buddy System</td>
+      <td align="right">לכל חבר מוקצה buddy קבוע עם שרשרת אחריות ברורה.</td>
+    </tr>
+    <tr>
+      <td align="right">"בדקת את [שם]?"</td>
+      <td align="right">prompt אוטומטי עם כפתורי תגובה פשוטים אחרי אזעקה.</td>
+    </tr>
+    <tr>
+      <td align="right">Shelter Buddy</td>
+      <td align="right">התאמה בין אנשים שמחפשים ליווי למקלט לבין מלווים קרובים.</td>
+    </tr>
+  </tbody>
+</table>
 
-### v0.6.0 — איתור מקלטים (אינטגרציית GovMap)
+</details>
+
+<details>
+<summary>v0.6.0 — איתור מקלטים (אינטגרציית GovMap)</summary>
+
 
 <table dir="rtl">
   <thead>
@@ -569,7 +879,11 @@ git tag wizard-vX.Y.Z && git push origin wizard-vX.Y.Z
 - **GPS**: שליחת מיקום לתוצאות מדויקות יותר
 - טבלה חדשה: `shelters`
 
-### v0.6.1 — מקלטים בתוך הקשר ההתרעה
+</details>
+
+<details>
+<summary>v0.6.1 — מקלטים בתוך הקשר ההתרעה</summary>
+
 
 <table dir="rtl">
   <thead>
@@ -592,7 +906,11 @@ git tag wizard-vX.Y.Z && git push origin wizard-vX.Y.Z
 - **`/sheltermap`**: מפת Mapbox עם סימון 3 מקלטים קרובים
 - **דשבורד**: סטטיסטיקות מקלטים, כפתור "רענן עכשיו"
 
-### v0.6.2 — ניווט וחוויית מקלט מתקדמת
+</details>
+
+<details>
+<summary>v0.6.2 — ניווט וחוויית מקלט מתקדמת</summary>
+
 
 <table dir="rtl">
   <thead>
@@ -615,7 +933,11 @@ git tag wizard-vX.Y.Z && git push origin wizard-vX.Y.Z
 - **מקלט מועדף**: שמירת מקלט מועדף → מופיע ראשון
 - **מקלט בקבוצה**: בסטטוס קבוצתי — "✅ [שם] בסדר — מקלט: [שם] (200מ')"
 
-### v0.7.0 — מפת חום ואנליטיקה חזותית
+</details>
+
+<details>
+<summary>v0.7.0 — מפת חום ואנליטיקה חזותית</summary>
+
 
 <table dir="rtl">
   <thead>
@@ -638,7 +960,11 @@ git tag wizard-vX.Y.Z && git push origin wizard-vX.Y.Z
 - **דשבורד — אנליטיקס מורחב**: heatmap אינטראקטיבי, Top 10 ערים, alerts לפי שעה/יום, breakdown לפי קטגוריה
 - **ייצוא CSV**: הורדת נתוני אזעקות מהדשבורד
 
-### v0.7.1 — דוח שבועי והתראות מגמה
+</details>
+
+<details>
+<summary>v0.7.1 — דוח שבועי והתראות מגמה</summary>
+
 
 <table dir="rtl">
   <thead>
@@ -661,7 +987,11 @@ git tag wizard-vX.Y.Z && git push origin wizard-vX.Y.Z
 - **התראת מגמה** (opt-in): עלייה של 50%+ → הודעה פרואקטיבית (פעם ביום, 08:00–20:00)
 - **Scheduler**: מנגנון תזמון חדש לדוחות ובדיקת מגמות
 
-### v0.7.2 — מפה אישית והנתונים שלי
+</details>
+
+<details>
+<summary>v0.7.2 — מפה אישית והנתונים שלי</summary>
+
 
 <table dir="rtl">
   <thead>
@@ -683,7 +1013,11 @@ git tag wizard-vX.Y.Z && git push origin wizard-vX.Y.Z
 - **`/mymap`**: מפה עם כל הערים המנויות (🔵), עיר מגורים (🟡), אזעקות פעילות (🔴)
 - **`/mystats`**: סטטיסטיקות אישיות — סה"כ אזעקות, עיר הכי מותקפת, רצף שקט, response rate
 
-### v0.8.0 — תשתית i18n וערבית
+</details>
+
+<details>
+<summary>v0.8.0 — תשתית i18n וערבית</summary>
+
 
 <table dir="rtl">
   <thead>
@@ -707,7 +1041,11 @@ git tag wizard-vX.Y.Z && git push origin wizard-vX.Y.Z
 - **תרגום ערבי מלא**: כל UI הבוט — תפריטים, כפתורים, הודעות מערכת, Safety Check
 - ההתראות עצמן נשארות בעברית (מ-API של פיקוד העורף)
 
-### v0.8.1 — תרגום לרוסית
+</details>
+
+<details>
+<summary>v0.8.1 — תרגום לרוסית</summary>
+
 
 <table dir="rtl">
   <thead>
@@ -729,7 +1067,11 @@ git tag wizard-vX.Y.Z && git push origin wizard-vX.Y.Z
 - **`src/i18n/ru.ts`**: תרגום רוסי מלא
 - **LTR**: וידוא שכל ה-inline keyboards תקינות ברוסית
 
-### v0.8.2 — מצב נגישות ומצב רוגע
+</details>
+
+<details>
+<summary>v0.8.2 — מצב נגישות ומצב רוגע</summary>
+
 
 <table dir="rtl">
   <thead>
@@ -752,7 +1094,11 @@ git tag wizard-vX.Y.Z && git push origin wizard-vX.Y.Z
 - **ניווט מקלדת**: `/1`, `/2`, `/3` ל-Safety Check; `/help` עם רשימת פקודות
 - **Calm Mode — "רגע של נשימה"** (opt-in): אחרי כל אזעקה, הודעת follow-up אחרי 2 דקות — "🫁 נשום עמוק. שאף 4 שניות, עצור 4, נשוף 4. האזעקה הסתיימה / עדיין פעילה." — מיועד לאנשים עם PTSD/חרדה
 
-### v0.9.0 — מצב מסע ומיקום מתקדם
+</details>
+
+<details>
+<summary>v0.9.0 — מצב מסע ומיקום מתקדם</summary>
+
 
 <table dir="rtl">
   <thead>
@@ -775,7 +1121,11 @@ git tag wizard-vX.Y.Z && git push origin wizard-vX.Y.Z
 - **Safety Check + מסע**: prompt גם לערי מסע, סטטוס "✅ בסדר (נמצא ב[עיר])"
 - **מיקום GPS**: שליחת live location → אזעקות לפי העיר הקרובה
 
-### v0.9.1 — תרגום בדשבורד וניהול מקלטים
+</details>
+
+<details>
+<summary>v0.9.1 — תרגום בדשבורד וניהול מקלטים</summary>
+
 
 <table dir="rtl">
   <thead>
@@ -798,7 +1148,11 @@ git tag wizard-vX.Y.Z && git push origin wizard-vX.Y.Z
 - **דשבורד — עמוד מקלטים**: מפה, ספירה לפי עיר, רענון, הוספה ידנית
 - **שיפורי Safety Check בדשבורד**: סטטיסטיקות קבוצות, timeline אירועים
 
-### v0.9.2 — ליטוש לפני v1.0
+</details>
+
+<details>
+<summary>v0.9.2 — ליטוש לפני v1.0</summary>
+
 
 <table dir="rtl">
   <thead>
@@ -822,7 +1176,11 @@ git tag wizard-vX.Y.Z && git push origin wizard-vX.Y.Z
 - **כיסוי בדיקות**: 90%+ על כל המודולים החדשים
 - **תיעוד**: עדכון CLAUDE.md, README, CHANGELOG, .env.example
 
-### v1.0.0 — גרסה יציבה ⭐
+</details>
+
+<details>
+<summary>v1.0.0 — גרסה יציבה ⭐</summary>
+
 
 <table dir="rtl">
   <thead>
@@ -848,60 +1206,9 @@ git tag wizard-vX.Y.Z && git push origin wizard-vX.Y.Z
 - דף נחיתה v2: סקשן "רשת בטיחות", מאתר מקלטים, תמיכה רב-שפתית
 - Security audit + performance benchmarks
 
----
+<details>
+<summary>תמונת יעד עבור v1.0</summary>
 
-## 🛣️ המסלול עד v1.0
-
-<table dir="rtl">
-  <thead>
-    <tr>
-      <th align="right">שלב</th>
-      <th align="right">גרסאות</th>
-      <th align="right">מיקוד מרכזי</th>
-      <th align="right">תוצר למשתמש</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td align="right"><strong>1</strong></td>
-      <td align="right"><code>v0.4.1</code>–<code>v0.4.3</code></td>
-      <td align="right">תשתית חברתית ופרטיות</td>
-      <td align="right">פרופיל, אנשי קשר, והרשאות שמגדירים את הרשת האישית.</td>
-    </tr>
-    <tr>
-      <td align="right"><strong>2</strong></td>
-      <td align="right"><code>v0.4.4</code>–<code>v0.4.5</code></td>
-      <td align="right">נראות, אזורים, וסגירת מעגל</td>
-      <td align="right">הבנה מהירה של ההתרעה, כולל מפות zones, all-clear, ומסגור יומי.</td>
-    </tr>
-    <tr>
-      <td align="right"><strong>3</strong></td>
-      <td align="right"><code>v0.5.0</code>–<code>v0.5.4</code></td>
-      <td align="right">Safety Check וקבוצות</td>
-      <td align="right">בדיקת מצב מהירה אחרי אזעקה ושיתוף בטיחות עם אנשים קרובים.</td>
-    </tr>
-    <tr>
-      <td align="right"><strong>4</strong></td>
-      <td align="right"><code>v0.6.0</code>–<code>v0.7.2</code></td>
-      <td align="right">מקלטים, מפות, וסטטיסטיקות</td>
-      <td align="right">איתור מקלטים, heatmap, ודוחות שמוסיפים הקשר ותחושת שליטה.</td>
-    </tr>
-    <tr>
-      <td align="right"><strong>5</strong></td>
-      <td align="right"><code>v0.8.0</code>–<code>v0.9.2</code></td>
-      <td align="right">שפות, נגישות, וניידות</td>
-      <td align="right">מערכת רב-לשונית, מצב נגישות, ו־travel mode למשתמשים בתנועה.</td>
-    </tr>
-    <tr>
-      <td align="right"><strong>6</strong></td>
-      <td align="right"><code>v1.0.0</code></td>
-      <td align="right">יציבות ותיעוד מלא</td>
-      <td align="right">גרסה יציבה, מוכנה לפרודקשן, עם תיעוד, בדיקות ואבטחה.</td>
-    </tr>
-  </tbody>
-</table>
-
-### תמונת יעד עבור v1.0
 
 <table dir="rtl">
   <thead>
@@ -934,9 +1241,106 @@ git tag wizard-vX.Y.Z && git push origin wizard-vX.Y.Z
   </tbody>
 </table>
 
+</details>
+
+## 🗺️ מפת גרסאות ויזואלית
+
+```mermaid
+flowchart TB
+  classDef done fill:#dcfce7,stroke:#16a34a,color:#14532d,stroke-width:1px;
+  classDef active fill:#fef3c7,stroke:#d97706,color:#78350f,stroke-width:1px;
+  classDef next fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:1px;
+  classDef future fill:#ede9fe,stroke:#7c3aed,color:#4c1d95,stroke-width:1px;
+  classDef release fill:#f3e8ff,stroke:#9333ea,color:#581c87,stroke-width:2px;
+
+  subgraph P1["שלב 1 - תשתית חברתית"]
+    A1["v0.4.1<br/>Onboarding + פרופיל"]
+    A2["v0.4.2<br/>אנשי קשר"]
+    A3["v0.4.3<br/>פרטיות"]
+    A1 --> A2 --> A3
+  end
+
+  subgraph P2["שלב 2 - נראות וסגירת מעגל"]
+    B1["v0.4.4<br/>מפות zones"]
+    B2["v0.4.5<br/>all-clear + מספור"]
+    B1 --> B2
+  end
+
+  subgraph P3["שלב 3 - Safety Check וקבוצות"]
+    C1["v0.5.0<br/>Safety Check"]
+    C2["v0.5.1<br/>קבוצות"]
+    C3["v0.5.2<br/>דשבורד + ליטוש"]
+    C1 --> C2 --> C3
+  end
+
+  subgraph P4["שלב 4 - חוסן קהילתי"]
+    D1["v0.5.3<br/>קהילה"]
+    D2["v0.5.4<br/>Buddy System"]
+    D1 --> D2
+  end
+
+  subgraph P5["שלב 5 - מקלטים ומפות"]
+    E1["v0.6.0<br/>איתור מקלטים"]
+    E2["v0.6.1<br/>מקלט בהתרעה"]
+    E3["v0.6.2<br/>חוויית מקלט"]
+    E4["v0.7.0<br/>heatmap"]
+    E5["v0.7.1<br/>דוחות שבועיים"]
+    E6["v0.7.2<br/>מפה אישית"]
+    E1 --> E2 --> E3 --> E4 --> E5 --> E6
+  end
+
+  subgraph P6["שלב 6 - שפות ונגישות"]
+    F1["v0.8.0<br/>ערבית + i18n"]
+    F2["v0.8.1<br/>רוסית"]
+    F3["v0.8.2<br/>נגישות + רוגע"]
+    F1 --> F2 --> F3
+  end
+
+  subgraph P7["שלב 7 - ניידות וליטוש"]
+    G1["v0.9.0<br/>Travel Mode"]
+    G2["v0.9.1<br/>דשבורד רב-לשוני"]
+    G3["v0.9.2<br/>ליטוש לפני v1.0"]
+    G1 --> G2 --> G3
+  end
+
+  H1["v1.0.0<br/>גרסה יציבה"]:::release
+
+  A3 --> B1
+  B2 --> C1
+  C3 --> D1
+  D2 --> E1
+  E6 --> F1
+  F3 --> G1
+  G3 --> H1
+
+  class A1,A2,A3 done
+  class B1,B2 active
+  class C1,C2,C3 active
+  class D1,D2 next
+  class E1,E2,E3,E4,E5,E6 next
+  class F1,F2,F3 next
+  class G1,G2,G3 future
+```
+
+<details>
+<summary>למה כל שלב קיים</summary>
+
+- **שלב 1** בונה זהות, קשרים, ופרטיות לפני כל שכבה אחרת.
+- **שלב 2** הופך את ההתרעה לברורה יותר ונסגרת נכון.
+- **שלב 3** מוסיף בדיקת בטיחות וקבוצות סביב המשבר.
+- **שלב 4** מחזק תמיכה הדדית ושרשרת אחריות אנושית.
+- **שלב 5** מוסיף מקלטים, heatmap, ודוחות תובנות.
+- **שלב 6** מרחיב שפות ומוריד חיכוך דרך נגישות.
+- **שלב 7** מכין את המוצר לשימוש רחב, נייד, ויציב.
+
+</details>
+
 ---
 
+</details>
+
 ## 🚀 חזון v2.0 — עתידי
+
 
 <details>
 <summary>לפתוח רעיונות עתידיים אחרי v1.0</summary>
