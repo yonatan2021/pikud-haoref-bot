@@ -70,6 +70,72 @@
   </tbody>
 </table>
 
+## 🗺️ מפת גרסאות ויזואלית
+
+```mermaid
+flowchart RL
+  classDef done fill:#dcfce7,stroke:#16a34a,color:#14532d,stroke-width:1px;
+  classDef active fill:#fef3c7,stroke:#d97706,color:#78350f,stroke-width:1px;
+  classDef next fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:1px;
+  classDef future fill:#ede9fe,stroke:#7c3aed,color:#4c1d95,stroke-width:1px;
+  classDef release fill:#f3e8ff,stroke:#9333ea,color:#581c87,stroke-width:2px;
+
+  subgraph S1["שלב 1 - תשתית חברתית"]
+    A3["v0.4.3<br/>פרטיות"] --> A2["v0.4.2<br/>אנשי קשר"] --> A1["v0.4.1<br/>Onboarding + פרופיל"]
+  end
+
+  subgraph S2["שלב 2 - נראות וסגירת מעגל"]
+    B2["v0.4.5<br/>all-clear + מספור"] --> B1["v0.4.4<br/>מפות zones"]
+  end
+
+  subgraph S3["שלב 3 - Safety Check וקבוצות"]
+    C3["v0.5.2<br/>דשבורד + ליטוש"] --> C2["v0.5.1<br/>קבוצות"] --> C1["v0.5.0<br/>Safety Check"]
+  end
+
+  subgraph S4["שלב 4 - חוסן קהילתי"]
+    D2["v0.5.4<br/>Buddy System"] --> D1["v0.5.3<br/>קהילה"]
+  end
+
+  subgraph S5["שלב 5 - מקלטים ומפות"]
+    E6["v0.7.2<br/>מפה אישית"] --> E5["v0.7.1<br/>דוחות שבועיים"] --> E4["v0.7.0<br/>heatmap"] --> E3["v0.6.2<br/>חוויית מקלט"] --> E2["v0.6.1<br/>מקלט בהתרעה"] --> E1["v0.6.0<br/>איתור מקלטים"]
+  end
+
+  subgraph S6["שלב 6 - שפות ונגישות"]
+    F3["v0.8.2<br/>נגישות + רוגע"] --> F2["v0.8.1<br/>רוסית"] --> F1["v0.8.0<br/>ערבית + i18n"]
+  end
+
+  subgraph S7["שלב 7 - ניידות וליטוש"]
+    G3["v0.9.2<br/>ליטוש לפני v1.0"] --> G2["v0.9.1<br/>דשבורד רב-לשוני"] --> G1["v0.9.0<br/>Travel Mode"]
+  end
+
+  H1["v1.0.0<br/>גרסה יציבה"]:::release
+
+  A1 --> B1
+  B1 --> C1
+  C1 --> D1
+  D1 --> E1
+  E1 --> F1
+  F1 --> G1
+  G1 --> H1
+
+  class A1,A2,A3 done
+  class B1,B2 active
+  class C1,C2,C3 active
+  class D1,D2 next
+  class E1,E2,E3,E4,E5,E6 next
+  class F1,F2,F3 next
+  class G1,G2,G3 future
+```
+
+<details>
+<summary>איך לקרוא את המפה</summary>
+
+- הקריאה היא מימין לשמאל, מהשחרור הבא אל השחרור הסופי.
+- כל שלב מייצג שכבת ערך אחת שמכינה את הקרקע לשלב הבא.
+- הצבעים מסמנים מצב: `✅` הושלם, `🟡` במיקוד קרוב, `⚪` בהמשך.
+
+</details>
+
 ---
 
 ## 📐 כללי ניהול גרסאות
@@ -1240,98 +1306,6 @@ git tag wizard-vX.Y.Z && git push origin wizard-vX.Y.Z
     </tr>
   </tbody>
 </table>
-
-</details>
-
-## 🗺️ מפת גרסאות ויזואלית
-
-```mermaid
-flowchart TB
-  classDef done fill:#dcfce7,stroke:#16a34a,color:#14532d,stroke-width:1px;
-  classDef active fill:#fef3c7,stroke:#d97706,color:#78350f,stroke-width:1px;
-  classDef next fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:1px;
-  classDef future fill:#ede9fe,stroke:#7c3aed,color:#4c1d95,stroke-width:1px;
-  classDef release fill:#f3e8ff,stroke:#9333ea,color:#581c87,stroke-width:2px;
-
-  subgraph P1["שלב 1 - תשתית חברתית"]
-    A1["v0.4.1<br/>Onboarding + פרופיל"]
-    A2["v0.4.2<br/>אנשי קשר"]
-    A3["v0.4.3<br/>פרטיות"]
-    A1 --> A2 --> A3
-  end
-
-  subgraph P2["שלב 2 - נראות וסגירת מעגל"]
-    B1["v0.4.4<br/>מפות zones"]
-    B2["v0.4.5<br/>all-clear + מספור"]
-    B1 --> B2
-  end
-
-  subgraph P3["שלב 3 - Safety Check וקבוצות"]
-    C1["v0.5.0<br/>Safety Check"]
-    C2["v0.5.1<br/>קבוצות"]
-    C3["v0.5.2<br/>דשבורד + ליטוש"]
-    C1 --> C2 --> C3
-  end
-
-  subgraph P4["שלב 4 - חוסן קהילתי"]
-    D1["v0.5.3<br/>קהילה"]
-    D2["v0.5.4<br/>Buddy System"]
-    D1 --> D2
-  end
-
-  subgraph P5["שלב 5 - מקלטים ומפות"]
-    E1["v0.6.0<br/>איתור מקלטים"]
-    E2["v0.6.1<br/>מקלט בהתרעה"]
-    E3["v0.6.2<br/>חוויית מקלט"]
-    E4["v0.7.0<br/>heatmap"]
-    E5["v0.7.1<br/>דוחות שבועיים"]
-    E6["v0.7.2<br/>מפה אישית"]
-    E1 --> E2 --> E3 --> E4 --> E5 --> E6
-  end
-
-  subgraph P6["שלב 6 - שפות ונגישות"]
-    F1["v0.8.0<br/>ערבית + i18n"]
-    F2["v0.8.1<br/>רוסית"]
-    F3["v0.8.2<br/>נגישות + רוגע"]
-    F1 --> F2 --> F3
-  end
-
-  subgraph P7["שלב 7 - ניידות וליטוש"]
-    G1["v0.9.0<br/>Travel Mode"]
-    G2["v0.9.1<br/>דשבורד רב-לשוני"]
-    G3["v0.9.2<br/>ליטוש לפני v1.0"]
-    G1 --> G2 --> G3
-  end
-
-  H1["v1.0.0<br/>גרסה יציבה"]:::release
-
-  A3 --> B1
-  B2 --> C1
-  C3 --> D1
-  D2 --> E1
-  E6 --> F1
-  F3 --> G1
-  G3 --> H1
-
-  class A1,A2,A3 done
-  class B1,B2 active
-  class C1,C2,C3 active
-  class D1,D2 next
-  class E1,E2,E3,E4,E5,E6 next
-  class F1,F2,F3 next
-  class G1,G2,G3 future
-```
-
-<details>
-<summary>למה כל שלב קיים</summary>
-
-- **שלב 1** בונה זהות, קשרים, ופרטיות לפני כל שכבה אחרת.
-- **שלב 2** הופך את ההתרעה לברורה יותר ונסגרת נכון.
-- **שלב 3** מוסיף בדיקת בטיחות וקבוצות סביב המשבר.
-- **שלב 4** מחזק תמיכה הדדית ושרשרת אחריות אנושית.
-- **שלב 5** מוסיף מקלטים, heatmap, ודוחות תובנות.
-- **שלב 6** מרחיב שפות ומוריד חיכוך דרך נגישות.
-- **שלב 7** מכין את המוצר לשימוש רחב, נייד, ויציב.
 
 </details>
 
