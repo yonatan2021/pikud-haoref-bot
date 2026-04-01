@@ -31,3 +31,24 @@ test-alert.ts
 
 # macOS metadata
 .DS_Store
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# WhatsApp Sessions and Cache (CRITICAL: Prevents leaking session into Docker image)
+.wwebjs_auth/
+.wwebjs_cache/
+
+# Local databases (should be in data/ but just in case)
+*.db
+*.db-shm
+*.db-wal
+
+# Build artifacts and tools
+coverage/
+*.tsbuildinfo
+.worktrees/
+.worktree/
+.superpowers/
