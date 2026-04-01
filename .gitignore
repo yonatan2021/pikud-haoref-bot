@@ -23,3 +23,5 @@ CLAUDE.md
 .wwebjs_auth/
 package-lock.json
 .superpowers/*
+AGENTS.md
+.agents/*
