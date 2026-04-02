@@ -36,7 +36,6 @@ interface TrackedWhatsAppState {
   textMessage: Message;
   sentAt: number;
   debounceTimer?: ReturnType<typeof setTimeout>;
-  latestText: string;
   latestImageBuffer?: Buffer;
 }
 
@@ -111,7 +110,7 @@ async function sendDebouncedMap(
       state.latestImageBuffer.toString('base64'),
       'alert-map.png',
     );
-    await chat.sendMessage(media, { caption: state.latestText });
+    await chat.sendMessage(media);
     state.latestImageBuffer = undefined;
     state.debounceTimer = undefined;
   } catch (err: unknown) {
@@ -201,7 +200,7 @@ export function createBroadcaster(
               textMessage: updatedMessage,
               sentAt: tracked.sentAt,
               debounceTimer: newTimer,
-              latestText: text,
+
               latestImageBuffer: imageBuffer ?? tracked.latestImageBuffer,
             });
             if (newTimer) mapScheduledCount++;
@@ -218,7 +217,7 @@ export function createBroadcaster(
               textMessage: sent,
               sentAt: Date.now(),
               debounceTimer: timer,
-              latestText: text,
+
               latestImageBuffer: imageBuffer ?? undefined,
             });
             if (timer) mapScheduledCount++;
