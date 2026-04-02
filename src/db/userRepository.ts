@@ -118,6 +118,7 @@ export function getProfile(chatId: number): Pick<User, 'display_name' | 'home_ci
 }
 
 export function updateProfile(chatId: number, patch: ProfilePatch): void {
+  upsertUser(chatId);
   const setClauses: string[] = [];
   const values: unknown[] = [];
 
@@ -143,12 +144,14 @@ export function updateProfile(chatId: number, patch: ProfilePatch): void {
 }
 
 export function setOnboardingStep(chatId: number, step: OnboardingStep | null): void {
+  upsertUser(chatId);
   getDb()
     .prepare('UPDATE users SET onboarding_step = ? WHERE chat_id = ?')
     .run(step, chatId);
 }
 
 export function completeOnboarding(chatId: number): void {
+  upsertUser(chatId);
   getDb()
     .prepare('UPDATE users SET onboarding_completed = 1, onboarding_step = NULL WHERE chat_id = ?')
     .run(chatId);
