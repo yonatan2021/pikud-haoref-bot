@@ -6,19 +6,18 @@ import type { BroadcasterDeps } from '../whatsapp/whatsappBroadcaster';
 // Use in-memory DB
 process.env['DB_PATH'] = ':memory:';
 
-// Suppress logger stdout
-let stdoutSpy: ReturnType<typeof mock.method>;
-beforeEach(() => {
-  stdoutSpy = mock.method(process.stdout, 'write', () => true);
-});
-afterEach(() => {
-  stdoutSpy.mock.restore();
-});
-
 import { createBroadcaster, clearTrackedMessages } from '../whatsapp/whatsappBroadcaster';
 import Database from 'better-sqlite3';
 import { initSchema } from '../db/schema';
 import { upsertGroup, getEnabledGroupsForAlertType } from '../db/whatsappGroupRepository';
+import { setSetting } from '../dashboard/settingsRepository';
+
+// Clean up debounce timers after each test to prevent leaked handles.
+// NOTE: stdout spy removed — mocking process.stdout.write interferes with
+// node:test's TAP output, causing tests to appear missing in reports.
+afterEach(() => {
+  clearTrackedMessages();
+});
 
 function makeDb(): Database.Database {
   const db = new Database(':memory:');
@@ -33,6 +32,41 @@ function makeMockMessage(editResult: unknown = null) {
 }
 
 type SendMessageFn = ReturnType<typeof mock.fn>;
+
+// Captures debounce callbacks for synchronous testing
+function makeScheduler() {
+  const captured: Array<{ callback: () => void; delayMs: number }> = [];
+  let nextId = 1;
+  const timers = new Map<number, { callback: () => void; delayMs: number }>();
+
+  const scheduleFn = mock.fn((callback: () => void, delayMs: number) => {
+    const id = nextId++;
+    const entry = { callback, delayMs };
+    captured.push(entry);
+    timers.set(id, entry);
+    return id as unknown as ReturnType<typeof setTimeout>;
+  });
+
+  const cancelScheduleFn = mock.fn((timer: ReturnType<typeof setTimeout>) => {
+    timers.delete(timer as unknown as number);
+  });
+
+  return {
+    scheduleFn: scheduleFn as unknown as BroadcasterDeps['scheduleFn'],
+    cancelScheduleFn: cancelScheduleFn as unknown as BroadcasterDeps['cancelScheduleFn'],
+    captured,
+    timers,
+    scheduleMock: scheduleFn,
+    cancelMock: cancelScheduleFn,
+    fireLatest: () => {
+      const last = captured[captured.length - 1];
+      if (last) last.callback();
+    },
+    fireAll: () => {
+      for (const entry of captured) entry.callback();
+    },
+  };
+}
 
 function makeDeps(overrides: Partial<BroadcasterDeps> = {}): BroadcasterDeps & {
   sendMessage: SendMessageFn;
@@ -53,6 +87,9 @@ function makeDeps(overrides: Partial<BroadcasterDeps> = {}): BroadcasterDeps & {
 
 const BASE_ALERT: Alert = { type: 'missiles', cities: ['תל אביב'] };
 
+// Wrap all suites in a sequential top-level describe to prevent node:test
+// from running them concurrently — concurrent describes share the module-level
+// activeMessages Map and the stdout spy, causing silent test drops.
 describe('whatsappBroadcaster — disconnected status', () => {
   beforeEach(() => clearTrackedMessages());
 
@@ -152,7 +189,7 @@ describe('whatsappBroadcaster — edit window', () => {
 
     const broadcast = createBroadcaster(db, deps);
 
-    // First broadcast — should send fresh
+    // First broadcast — should send fresh text
     await broadcast(BASE_ALERT);
     assert.equal(
       (sendMessage as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
@@ -235,122 +272,269 @@ describe('whatsappBroadcaster — edit window', () => {
   });
 });
 
-describe('whatsappBroadcaster — edit window with image', () => {
+describe('whatsappBroadcaster — debounced map', () => {
   beforeEach(() => clearTrackedMessages());
 
-  it('sends fresh message instead of editing when imageBuffer is provided on second broadcast', async () => {
+  it('sends text-only on first broadcast and schedules map via debounce', async () => {
     const db = makeDb();
-    const firstMsg = makeMockMessage();
-    const secondMsg = makeMockMessage();
-    let sendCount = 0;
-    const sendMessage = mock.fn(async () => {
-      sendCount++;
-      return sendCount === 1 ? firstMsg : secondMsg;
-    });
+    const msgObj = makeMockMessage();
+    const sendMessage = mock.fn(async () => msgObj);
     const getChatById = mock.fn(async () => ({ sendMessage }));
     const getClientFn = mock.fn(() => ({ getChatById }));
+    const scheduler = makeScheduler();
     const deps = makeDeps({
       getEnabledGroupsFn: mock.fn(() => ['group1']) as unknown as BroadcasterDeps['getEnabledGroupsFn'],
       getClientFn: getClientFn as unknown as BroadcasterDeps['getClientFn'],
+      scheduleFn: scheduler.scheduleFn,
+      cancelScheduleFn: scheduler.cancelScheduleFn,
     });
 
     const broadcast = createBroadcaster(db, deps);
+    const imageBuffer = Buffer.from('map-image');
 
-    // First broadcast — fresh send (no image)
-    await broadcast(BASE_ALERT);
+    // Broadcast with image — should send text only, schedule map
+    await broadcast(BASE_ALERT, imageBuffer);
+
     assert.equal(
       (sendMessage as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
       1,
-      'first broadcast should send'
+      'should send text-only message immediately'
     );
 
-    // Second broadcast WITH image — should send fresh, not edit
-    const imageBuffer = Buffer.from('updated-map-image');
-    const updatedAlert: Alert = { type: 'missiles', cities: ['תל אביב', 'חיפה'] };
-    await broadcast(updatedAlert, imageBuffer);
+    // First sendMessage call should be text (no MessageMedia)
+    const firstCallArgs = (sendMessage as unknown as ReturnType<typeof mock.fn>).mock.calls[0].arguments;
+    assert.equal(typeof firstCallArgs[0], 'string', 'first send should be text, not media');
+
+    assert.equal(scheduler.captured.length, 1, 'should schedule one debounce timer');
+    assert.equal(scheduler.captured[0].delayMs, 15_000, 'debounce delay should be 15s default');
+  });
+
+  it('fires debounce callback and sends map image', async () => {
+    const db = makeDb();
+    const textMsg = makeMockMessage();
+    const mapMsg = makeMockMessage();
+    let callCount = 0;
+    const sendMessage = mock.fn(async () => {
+      callCount++;
+      return callCount === 1 ? textMsg : mapMsg;
+    });
+    const getChatById = mock.fn(async () => ({ sendMessage }));
+    const getClientFn = mock.fn(() => ({ getChatById }));
+    const scheduler = makeScheduler();
+    const deps = makeDeps({
+      getEnabledGroupsFn: mock.fn(() => ['group1']) as unknown as BroadcasterDeps['getEnabledGroupsFn'],
+      getClientFn: getClientFn as unknown as BroadcasterDeps['getClientFn'],
+      scheduleFn: scheduler.scheduleFn,
+      cancelScheduleFn: scheduler.cancelScheduleFn,
+    });
+
+    const broadcast = createBroadcaster(db, deps);
+    await broadcast(BASE_ALERT, Buffer.from('map-image'));
+
+    assert.equal(
+      (sendMessage as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
+      1,
+      'before debounce: only text sent'
+    );
+
+    // Fire the debounce callback
+    scheduler.fireLatest();
+    // Give the async sendDebouncedMap a tick to complete
+    await new Promise(resolve => setTimeout(resolve, 10));
 
     assert.equal(
       (sendMessage as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
       2,
-      'second broadcast with image must send fresh message, not edit'
+      'after debounce: map image should be sent'
     );
-    assert.equal(
-      (firstMsg.edit as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
-      0,
-      'edit must NOT be called when imageBuffer is provided'
-    );
+
+    // Second call should include MessageMedia (not a plain string)
+    const secondCallArgs = (sendMessage as unknown as ReturnType<typeof mock.fn>).mock.calls[1].arguments;
+    assert.notEqual(typeof secondCallArgs[0], 'string', 'second send should be media, not text');
   });
 
-  it('still edits message when no imageBuffer is provided on second broadcast', async () => {
+  it('reschedules debounce on subsequent broadcasts', async () => {
     const db = makeDb();
     const editedMsg = makeMockMessage();
     const firstMsg = makeMockMessage(editedMsg);
     const sendMessage = mock.fn(async () => firstMsg);
     const getChatById = mock.fn(async () => ({ sendMessage }));
     const getClientFn = mock.fn(() => ({ getChatById }));
+    const scheduler = makeScheduler();
     const deps = makeDeps({
       getEnabledGroupsFn: mock.fn(() => ['group1']) as unknown as BroadcasterDeps['getEnabledGroupsFn'],
       getClientFn: getClientFn as unknown as BroadcasterDeps['getClientFn'],
+      scheduleFn: scheduler.scheduleFn,
+      cancelScheduleFn: scheduler.cancelScheduleFn,
     });
 
     const broadcast = createBroadcaster(db, deps);
 
-    // First broadcast — fresh send
-    await broadcast(BASE_ALERT);
+    // First broadcast with image
+    await broadcast(BASE_ALERT, Buffer.from('image1'));
+    assert.equal(scheduler.captured.length, 1, 'first debounce scheduled');
 
-    // Second broadcast WITHOUT image — should edit
-    const updatedAlert: Alert = { type: 'missiles', cities: ['תל אביב', 'חיפה'] };
-    await broadcast(updatedAlert, null);
+    // Second broadcast with updated image — should cancel first and reschedule
+    await broadcast({ type: 'missiles', cities: ['תל אביב', 'חיפה'] }, Buffer.from('image2'));
+    assert.equal(
+      (scheduler.cancelMock as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
+      1,
+      'first debounce timer should be cancelled'
+    );
+    assert.equal(scheduler.captured.length, 2, 'second debounce scheduled');
+  });
+
+  it('does not schedule debounce when no imageBuffer provided', async () => {
+    const db = makeDb();
+    const msgObj = makeMockMessage();
+    const sendMessage = mock.fn(async () => msgObj);
+    const getChatById = mock.fn(async () => ({ sendMessage }));
+    const getClientFn = mock.fn(() => ({ getChatById }));
+    const scheduler = makeScheduler();
+    const deps = makeDeps({
+      getEnabledGroupsFn: mock.fn(() => ['group1']) as unknown as BroadcasterDeps['getEnabledGroupsFn'],
+      getClientFn: getClientFn as unknown as BroadcasterDeps['getClientFn'],
+      scheduleFn: scheduler.scheduleFn,
+      cancelScheduleFn: scheduler.cancelScheduleFn,
+    });
+
+    const broadcast = createBroadcaster(db, deps);
+    await broadcast(BASE_ALERT); // no imageBuffer
+
+    assert.equal(scheduler.captured.length, 0, 'no debounce should be scheduled without image');
+  });
+
+  it('edits text and reschedules map on second broadcast within window', async () => {
+    const db = makeDb();
+    const editedMsg = makeMockMessage();
+    const firstMsg = makeMockMessage(editedMsg);
+    const sendMessage = mock.fn(async () => firstMsg);
+    const getChatById = mock.fn(async () => ({ sendMessage }));
+    const getClientFn = mock.fn(() => ({ getChatById }));
+    const scheduler = makeScheduler();
+    const deps = makeDeps({
+      getEnabledGroupsFn: mock.fn(() => ['group1']) as unknown as BroadcasterDeps['getEnabledGroupsFn'],
+      getClientFn: getClientFn as unknown as BroadcasterDeps['getClientFn'],
+      scheduleFn: scheduler.scheduleFn,
+      cancelScheduleFn: scheduler.cancelScheduleFn,
+    });
+
+    const broadcast = createBroadcaster(db, deps);
+
+    // 1st: fresh text + schedule map
+    await broadcast(BASE_ALERT, Buffer.from('img1'));
+    assert.equal(
+      (sendMessage as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
+      1,
+      'first: text sent'
+    );
+
+    // 2nd: edit text + reschedule map
+    await broadcast({ type: 'missiles', cities: ['תל אביב', 'חיפה'] }, Buffer.from('img2'));
+    assert.equal(
+      (sendMessage as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
+      1,
+      'second: no new sendMessage (edited instead)'
+    );
+    assert.equal(
+      (firstMsg.edit as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
+      1,
+      'text message was edited'
+    );
+    assert.equal(scheduler.captured.length, 2, 'debounce rescheduled');
+
+    // Fire latest debounce — should send image
+    scheduler.fireLatest();
+    await new Promise(resolve => setTimeout(resolve, 10));
+
+    assert.equal(
+      (sendMessage as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
+      2,
+      'map image sent after debounce'
+    );
+  });
+
+  it('reads debounce delay from DB setting', async () => {
+    const db = makeDb();
+    setSetting(db, 'whatsapp_map_debounce_seconds', '30');
+
+    const msgObj = makeMockMessage();
+    const sendMessage = mock.fn(async () => msgObj);
+    const getChatById = mock.fn(async () => ({ sendMessage }));
+    const getClientFn = mock.fn(() => ({ getChatById }));
+    const scheduler = makeScheduler();
+    const deps = makeDeps({
+      getEnabledGroupsFn: mock.fn(() => ['group1']) as unknown as BroadcasterDeps['getEnabledGroupsFn'],
+      getClientFn: getClientFn as unknown as BroadcasterDeps['getClientFn'],
+      scheduleFn: scheduler.scheduleFn,
+      cancelScheduleFn: scheduler.cancelScheduleFn,
+    });
+
+    const broadcast = createBroadcaster(db, deps);
+    await broadcast(BASE_ALERT, Buffer.from('img'));
+
+    assert.equal(scheduler.captured[0].delayMs, 30_000, 'should use DB setting (30s → 30000ms)');
+  });
+
+  it('falls back to env var when no DB setting', async () => {
+    const db = makeDb();
+    // No DB setting, set env var
+    const originalEnv = process.env.WHATSAPP_MAP_DEBOUNCE_SECONDS;
+    process.env.WHATSAPP_MAP_DEBOUNCE_SECONDS = '20';
+
+    try {
+      const msgObj = makeMockMessage();
+      const sendMessage = mock.fn(async () => msgObj);
+      const getChatById = mock.fn(async () => ({ sendMessage }));
+      const getClientFn = mock.fn(() => ({ getChatById }));
+      const scheduler = makeScheduler();
+      const deps = makeDeps({
+        getEnabledGroupsFn: mock.fn(() => ['group1']) as unknown as BroadcasterDeps['getEnabledGroupsFn'],
+        getClientFn: getClientFn as unknown as BroadcasterDeps['getClientFn'],
+        scheduleFn: scheduler.scheduleFn,
+        cancelScheduleFn: scheduler.cancelScheduleFn,
+      });
+
+      const broadcast = createBroadcaster(db, deps);
+      await broadcast(BASE_ALERT, Buffer.from('img'));
+
+      assert.equal(scheduler.captured[0].delayMs, 20_000, 'should use env var (20s → 20000ms)');
+    } finally {
+      if (originalEnv === undefined) delete process.env.WHATSAPP_MAP_DEBOUNCE_SECONDS;
+      else process.env.WHATSAPP_MAP_DEBOUNCE_SECONDS = originalEnv;
+    }
+  });
+
+  it('clears debounce timers on clearTrackedMessages', async () => {
+    const db = makeDb();
+    const msgObj = makeMockMessage();
+    const sendMessage = mock.fn(async () => msgObj);
+    const getChatById = mock.fn(async () => ({ sendMessage }));
+    const getClientFn = mock.fn(() => ({ getChatById }));
+    const scheduler = makeScheduler();
+    const deps = makeDeps({
+      getEnabledGroupsFn: mock.fn(() => ['group1']) as unknown as BroadcasterDeps['getEnabledGroupsFn'],
+      getClientFn: getClientFn as unknown as BroadcasterDeps['getClientFn'],
+      scheduleFn: scheduler.scheduleFn,
+      cancelScheduleFn: scheduler.cancelScheduleFn,
+    });
+
+    const broadcast = createBroadcaster(db, deps);
+    await broadcast(BASE_ALERT, Buffer.from('img'));
+
+    assert.equal(scheduler.captured.length, 1, 'debounce scheduled');
+
+    // Clear all tracked messages — should also clear timers
+    clearTrackedMessages();
+
+    // Fire the old callback — sendDebouncedMap should be a no-op (state cleared)
+    scheduler.fireLatest();
+    await new Promise(resolve => setTimeout(resolve, 10));
 
     assert.equal(
       (sendMessage as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
       1,
-      'second broadcast without image should not send fresh'
-    );
-    assert.equal(
-      (firstMsg.edit as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
-      1,
-      'edit should be called when no imageBuffer'
-    );
-  });
-
-  it('tracks the fresh message for subsequent updates when image forces fresh send', async () => {
-    const db = makeDb();
-    const firstMsg = makeMockMessage();
-    const secondMsg = makeMockMessage();
-    const thirdEditedMsg = makeMockMessage();
-    // Second message supports edit (returns thirdEditedMsg)
-    (secondMsg as { edit: ReturnType<typeof mock.fn> }).edit = mock.fn(async () => thirdEditedMsg);
-    let sendCount = 0;
-    const sendMessage = mock.fn(async () => {
-      sendCount++;
-      return sendCount === 1 ? firstMsg : secondMsg;
-    });
-    const getChatById = mock.fn(async () => ({ sendMessage }));
-    const getClientFn = mock.fn(() => ({ getChatById }));
-    const deps = makeDeps({
-      getEnabledGroupsFn: mock.fn(() => ['group1']) as unknown as BroadcasterDeps['getEnabledGroupsFn'],
-      getClientFn: getClientFn as unknown as BroadcasterDeps['getClientFn'],
-    });
-
-    const broadcast = createBroadcaster(db, deps);
-
-    // 1st broadcast — fresh send
-    await broadcast(BASE_ALERT);
-    // 2nd broadcast with image — fresh send (replaces tracked)
-    await broadcast({ type: 'missiles', cities: ['תל אביב', 'חיפה'] }, Buffer.from('img'));
-    // 3rd broadcast without image — should edit the SECOND message (not the first)
-    await broadcast({ type: 'missiles', cities: ['תל אביב', 'חיפה', 'ירושלים'] }, null);
-
-    assert.equal(
-      (firstMsg.edit as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
-      0,
-      'first message must not be edited after being replaced'
-    );
-    assert.equal(
-      (secondMsg.edit as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
-      1,
-      'second (fresh) message should be the one edited on third broadcast'
+      'map should not be sent after clearTrackedMessages'
     );
   });
 });
@@ -484,3 +668,4 @@ describe('whatsappBroadcaster — no enabled groups', () => {
     );
   });
 });
+
