@@ -3,16 +3,12 @@ import type { Context } from 'grammy';
 import { getProfile, updateProfile, upsertUser } from '../db/userRepository.js';
 import { searchCities, getCityData, getCityById } from '../cityLookup.js';
 import { log } from '../logger.js';
+import { stripHtml } from '../textUtils.js';
 
 const MAX_NAME_LENGTH = 50;
 
 /** Ephemeral edit state — acceptable to lose on restart (user just taps edit again) */
 const pendingEdits = new Map<number, 'name' | 'city'>();
-
-/** Strip HTML tags from user input */
-function stripHtml(text: string): string {
-  return text.replace(/<[^>]*>/g, '');
-}
 
 /** Build the profile summary message */
 export function buildProfileSummary(

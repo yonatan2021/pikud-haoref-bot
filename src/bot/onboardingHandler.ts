@@ -10,13 +10,9 @@ import {
 import { searchCities, getCityData, getCityById } from '../cityLookup.js';
 import { addSubscription } from '../db/subscriptionRepository.js';
 import { log } from '../logger.js';
+import { stripHtml } from '../textUtils.js';
 
 const MAX_NAME_LENGTH = 50;
-
-/** Strip HTML tags from user input */
-function stripHtml(text: string): string {
-  return text.replace(/<[^>]*>/g, '');
-}
 
 /** Build welcome message for the name step */
 export function buildNamePrompt(): { text: string; keyboard: InlineKeyboard } {
