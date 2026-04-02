@@ -84,16 +84,16 @@ export function SystemMessagePanel() {
 
       {/* Message textarea */}
       <div className="mb-3">
-        <label className="block text-sm text-text-secondary mb-1">טקסט ההודעה (HTML)</label>
+        <label className="block text-sm text-text-secondary mb-1">טקסט ההודעה</label>
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="<b>עדכון מערכת</b>\n\nהבוט עודכן לגרסה חדשה..."
+          placeholder={"עדכון מערכת\n\nהבוט עודכן לגרסה חדשה..."}
           rows={5}
           className="w-full bg-base border border-border rounded-lg px-3 py-2
                      text-sm text-text-primary placeholder:text-text-muted
                      focus:outline-none focus:border-blue/50 resize-y
-                     font-mono leading-relaxed"
+                     leading-relaxed"
         />
         <p className={`text-xs mt-1 ${text.length > 4096 ? 'text-red-500' : 'text-text-muted'}`}>
           {text.length} / 4096 תווים

@@ -470,7 +470,7 @@ describe('POST /api/messages/system-message', () => {
     try {
       const res = await request(app)
         .post('/api/messages/system-message')
-        .send({ text: '<b>test</b>', topicId: 123 });
+        .send({ text: 'עדכון מערכת — הבוט עודכן', topicId: 123 });
       assert.equal(res.status, 200);
       assert.equal(res.body.ok, true);
       assert.ok(typeof res.body.messageId === 'number');

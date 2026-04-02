@@ -352,7 +352,7 @@ export function createMessagesRouter(db: Database.Database, bot: Bot): Router {
     res.json({ topics });
   });
 
-  // POST /api/messages/system-message — send free-text HTML to a Telegram topic
+  // POST /api/messages/system-message — send plain-text message to a Telegram topic
   router.post('/system-message', systemMessageLimiter, async (req, res) => {
     const { text, topicId } = req.body as { text?: string; topicId?: number };
 
@@ -377,7 +377,6 @@ export function createMessagesRouter(db: Database.Database, bot: Bot): Router {
 
     try {
       const sent = await bot.api.sendMessage(chatId, text, {
-        parse_mode: 'HTML',
         message_thread_id: topicId,
       });
       log('info', 'Messages', `הודעת מערכת נשלחה לנושא ${topicId} → message ${sent.message_id}`);
