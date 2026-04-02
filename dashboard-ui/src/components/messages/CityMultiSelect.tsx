@@ -48,6 +48,100 @@ function useDebounce(value: string, delayMs: number): string {
   return debounced;
 }
 
+const CHIPS_COLLAPSE_THRESHOLD = 8;
+
+function SelectedChips({
+  selected,
+  onRemove,
+  onClearAll,
+}: {
+  selected: CityResult[];
+  onRemove: (name: string) => void;
+  onClearAll: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const isLarge = selected.length > CHIPS_COLLAPSE_THRESHOLD;
+
+  // Group by zone for compact summary
+  const zoneSummary = useMemo(() => {
+    const groups = new Map<string, string[]>();
+    for (const city of selected) {
+      const zone = city.zone ?? 'ללא אזור';
+      const list = groups.get(zone) ?? [];
+      list.push(city.name);
+      groups.set(zone, list);
+    }
+    return groups;
+  }, [selected]);
+
+  return (
+    <div className="mb-2">
+      {isLarge && !expanded ? (
+        /* Compact zone-grouped summary */
+        <div className="space-y-1">
+          {Array.from(zoneSummary.entries()).map(([zone, cities]) => (
+            <div
+              key={zone}
+              className="flex items-center gap-1.5 text-xs"
+            >
+              <span className="text-text-secondary font-medium">{zone}</span>
+              <span className="text-text-muted">({cities.length})</span>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => setExpanded(true)}
+            className="text-xs text-blue hover:text-blue/80 transition-colors"
+          >
+            הצג {selected.length} ערים ▾
+          </button>
+        </div>
+      ) : (
+        /* Full chips view */
+        <div>
+          <div className={`flex flex-wrap gap-1.5 ${isLarge ? 'max-h-[140px] overflow-y-auto' : ''}`}>
+            {selected.map((city) => (
+              <span
+                key={city.name}
+                className="inline-flex items-center gap-1 bg-surface border border-border
+                           rounded-full px-2.5 py-0.5 text-xs text-text-primary"
+              >
+                {city.name}
+                {city.countdown != null && city.countdown > 0 && (
+                  <span className="text-text-muted">⏱{city.countdown}שנ׳</span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => onRemove(city.name)}
+                  className="text-text-muted hover:text-red-400 transition-colors mr-0.5"
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+          {isLarge && (
+            <button
+              type="button"
+              onClick={() => setExpanded(false)}
+              className="text-xs text-blue hover:text-blue/80 transition-colors mt-1"
+            >
+              הסתר ▴
+            </button>
+          )}
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={onClearAll}
+        className="text-xs text-text-muted hover:text-red-400 transition-colors mt-1"
+      >
+        נקה הכל
+      </button>
+    </div>
+  );
+}
+
 export function CityMultiSelect({ selected, onChange, maxCities = 50 }: CityMultiSelectProps) {
   const [mode, setMode] = useState<'search' | 'zone'>('search');
   const [query, setQuery] = useState('');
@@ -223,36 +317,11 @@ export function CityMultiSelect({ selected, onChange, maxCities = 50 }: CityMult
 
       {/* Selected chips + bulk clear */}
       {selected.length > 0 && (
-        <div className="mb-2">
-          <div className="flex flex-wrap gap-1.5">
-            {selected.map((city) => (
-              <span
-                key={city.name}
-                className="inline-flex items-center gap-1 bg-surface border border-border
-                           rounded-full px-2.5 py-0.5 text-xs text-text-primary"
-              >
-                {city.name}
-                {city.countdown != null && city.countdown > 0 && (
-                  <span className="text-text-muted">⏱{city.countdown}שנ׳</span>
-                )}
-                <button
-                  type="button"
-                  onClick={() => handleRemove(city.name)}
-                  className="text-text-muted hover:text-red-400 transition-colors mr-0.5"
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-          </div>
-          <button
-            type="button"
-            onClick={handleClearAll}
-            className="text-xs text-text-muted hover:text-red-400 transition-colors mt-1"
-          >
-            נקה הכל
-          </button>
-        </div>
+        <SelectedChips
+          selected={selected}
+          onRemove={handleRemove}
+          onClearAll={handleClearAll}
+        />
       )}
 
       {/* Mode toggle */}
