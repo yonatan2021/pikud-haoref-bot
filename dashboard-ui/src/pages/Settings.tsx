@@ -17,6 +17,7 @@ interface Settings {
   mapbox_image_cache_size?: string;
   telegram_invite_link?: string;
   whatsapp_enabled?: string;
+  whatsapp_map_debounce_seconds?: string;
   health_port?: string;
   dashboard_port?: string;
   bot_version?: string;
@@ -61,6 +62,7 @@ export function Settings() {
         mapbox_image_cache_size: settings.mapbox_image_cache_size ?? '20',
         telegram_invite_link:    settings.telegram_invite_link ?? '',
         whatsapp_enabled:        settings.whatsapp_enabled ?? 'false',
+        whatsapp_map_debounce_seconds: settings.whatsapp_map_debounce_seconds ?? '15',
       });
       setDirty(false);
     }
@@ -76,6 +78,7 @@ export function Settings() {
         mapbox_image_cache_size: form.mapbox_image_cache_size ?? '20',
         telegram_invite_link:    form.telegram_invite_link ?? '',
         whatsapp_enabled:        form.whatsapp_enabled ?? 'false',
+        whatsapp_map_debounce_seconds: form.whatsapp_map_debounce_seconds ?? '15',
       };
       return api.patch('/api/settings', body);
     },
@@ -274,6 +277,21 @@ export function Settings() {
               value={form.whatsapp_enabled === 'true'}
               onChange={v => updateField('whatsapp_enabled', v ? 'true' : 'false')}
             />
+          </div>
+
+          <div>
+            <label className="text-text-secondary text-sm block mb-1">עיכוב שליחת מפה (שניות)</label>
+            <input
+              type="number"
+              min={5}
+              max={60}
+              value={form.whatsapp_map_debounce_seconds ?? '15'}
+              onChange={e => updateField('whatsapp_map_debounce_seconds', e.target.value)}
+              className="bg-base border border-border rounded-lg px-4 py-2.5 text-sm text-text-primary outline-none focus:border-amber w-48"
+            />
+            <p className="text-text-muted text-xs mt-1">
+              זמן המתנה לאחר העדכון האחרון לפני שליחת תמונת המפה לקבוצות WhatsApp. טקסט נשלח מיידית ונערך בזמן אמת.
+            </p>
           </div>
         </GlassCard>
 

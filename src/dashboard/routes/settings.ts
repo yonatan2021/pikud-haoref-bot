@@ -27,6 +27,7 @@ const ALLOWED_KEYS = new Set([
   'topic_id_security', 'topic_id_nature', 'topic_id_environmental',
   'topic_id_drills', 'topic_id_general', 'topic_id_whatsapp',
   'telegram_invite_link', 'mapbox_image_cache_size', 'whatsapp_enabled',
+  'whatsapp_map_debounce_seconds',
 ]);
 
 export function createSettingsRouter(db: Database.Database): Router {
@@ -47,6 +48,7 @@ export function createSettingsRouter(db: Database.Database): Router {
       telegram_invite_link:   process.env.TELEGRAM_INVITE_LINK ?? '',
       mapbox_image_cache_size: process.env.MAPBOX_IMAGE_CACHE_SIZE ?? '20',
       whatsapp_enabled:       process.env.WHATSAPP_ENABLED ?? 'false',
+      whatsapp_map_debounce_seconds: process.env.WHATSAPP_MAP_DEBOUNCE_SECONDS ?? '15',
     };
     res.json({ ...envDefaults, ...dbSettings, bot_version: pkgVersion, db_size_bytes: String(dbSizeBytes) });
   });
