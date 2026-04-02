@@ -149,8 +149,15 @@ export function registerOnboardingHandler(bot: Bot): void {
         if (profile?.home_city) {
           const cityData = getCityData(profile.home_city);
           if (cityData) {
-            addSubscription(chatId, cityData.name);
-            log('info', 'Onboarding', `Auto-subscribed ${chatId} to ${cityData.name}`);
+            try {
+              addSubscription(chatId, cityData.name);
+              log('info', 'Onboarding', `Auto-subscribed ${chatId} to ${cityData.name}`);
+            } catch (subErr) {
+              log('error', 'Onboarding', `Auto-subscription failed for ${chatId} to ${cityData.name}: ${subErr}`);
+              await ctx.reply(
+                '⚠️ ההרשמה הושלמה, אך לא הצלחנו לרשום אותך להתראות. נסה להוסיף ערים דרך התפריט.'
+              ).catch((e) => log('error', 'Onboarding', `Failed to send subscription warning: ${e}`));
+            }
           }
         }
         log('info', 'Onboarding', `User ${chatId} completed onboarding`);
