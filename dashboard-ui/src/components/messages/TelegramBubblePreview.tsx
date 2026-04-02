@@ -1,4 +1,6 @@
+import { useCallback } from 'react';
 import DOMPurify from 'dompurify';
+import toast from 'react-hot-toast';
 import { CharCountBar } from './CharCountBar';
 
 interface TelegramBubblePreviewProps {
@@ -7,6 +9,12 @@ interface TelegramBubblePreviewProps {
 }
 
 export function TelegramBubblePreview({ html, charCount }: TelegramBubblePreviewProps) {
+  const handleCopy = useCallback(() => {
+    navigator.clipboard.writeText(html).then(
+      () => toast.success('הועתק ללוח'),
+      () => toast.error('שגיאה בהעתקה'),
+    );
+  }, [html]);
   // Sanitize with DOMPurify — only Telegram-safe tags allowed, no attributes
   const safeHtml = DOMPurify.sanitize(html, {
     ALLOWED_TAGS: ['b', 'i', 'code', 's', 'u'],
@@ -30,7 +38,20 @@ export function TelegramBubblePreview({ html, charCount }: TelegramBubblePreview
         </div>
 
         {/* Chat area */}
-        <div className="bg-[#0d1117] rounded-2xl p-3 min-h-[140px] flex flex-col justify-end">
+        <div className="bg-[#0d1117] rounded-2xl p-3 min-h-[140px] flex flex-col justify-end relative">
+          {/* Copy button */}
+          {!isEmpty && (
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="absolute top-2 left-2 w-6 h-6 flex items-center justify-center
+                         rounded text-white/30 hover:text-white/70 hover:bg-white/10
+                         transition-colors text-xs"
+              title="העתק HTML"
+            >
+              📋
+            </button>
+          )}
           {isEmpty ? (
             <p className="text-text-muted text-sm text-center py-8">
               בחר סוג התראה וערים לתצוגה מקדימה

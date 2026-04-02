@@ -7,6 +7,7 @@ import { ConfirmModal } from '../components/ConfirmModal';
 import { StatusOverviewBar } from '../components/messages/StatusOverviewBar';
 import { CategorySection } from '../components/messages/CategorySection';
 import { SimulationPanel } from '../components/messages/SimulationPanel';
+import { SystemMessagePanel } from '../components/messages/SystemMessagePanel';
 import { RoutingSection } from '../components/messages/RoutingSection';
 import type { TemplateEntry, TemplateEdit } from '../components/messages/TemplateRow';
 import { ORDERED_CATEGORIES, ALERT_TYPE_CATEGORY } from '../utils/categoryConfig';
@@ -27,6 +28,7 @@ export default function Messages() {
   const [simulationTarget, setSimulationTarget] = useState<TemplateEntry | null>(null);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [pendingImport, setPendingImport] = useState<ImportRow[] | null>(null);
+  const [rightPanelTab, setRightPanelTab] = useState<'simulation' | 'system'>('simulation');
 
   // Fetch all template entries
   const { data: templates = [] } = useQuery<TemplateEntry[]>({
@@ -268,16 +270,51 @@ export default function Messages() {
             <RoutingSection />
           </div>
 
-          {/* Right column: simulation panel (sticky) */}
-          <div className="lg:sticky lg:top-6 lg:self-start">
-            <SimulationPanel
-              targetEntry={
-                simulationTarget
-                  ? { ...simulationTarget, localEdits: edits[simulationTarget.alertType] }
-                  : null
-              }
-              allEntries={templates}
-            />
+          {/* Right column: simulation / system message (sticky) */}
+          <div className="lg:sticky lg:top-6 lg:self-start space-y-3">
+            {/* Tab toggle */}
+            <div className="flex gap-1" role="tablist">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={rightPanelTab === 'simulation'}
+                onClick={() => setRightPanelTab('simulation')}
+                className={`px-4 py-1.5 text-sm rounded-full transition-colors ${
+                  rightPanelTab === 'simulation'
+                    ? 'bg-amber/15 text-amber font-medium'
+                    : 'text-text-muted hover:text-text-primary'
+                }`}
+              >
+                🔬 סימולציה
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={rightPanelTab === 'system'}
+                onClick={() => setRightPanelTab('system')}
+                className={`px-4 py-1.5 text-sm rounded-full transition-colors ${
+                  rightPanelTab === 'system'
+                    ? 'bg-amber/15 text-amber font-medium'
+                    : 'text-text-muted hover:text-text-primary'
+                }`}
+              >
+                📢 הודעת מערכת
+              </button>
+            </div>
+
+            {/* Active panel */}
+            {rightPanelTab === 'simulation' ? (
+              <SimulationPanel
+                targetEntry={
+                  simulationTarget
+                    ? { ...simulationTarget, localEdits: edits[simulationTarget.alertType] }
+                    : null
+                }
+                allEntries={templates}
+              />
+            ) : (
+              <SystemMessagePanel />
+            )}
           </div>
         </div>
       </div>

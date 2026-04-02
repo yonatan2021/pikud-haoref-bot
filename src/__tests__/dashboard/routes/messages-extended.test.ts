@@ -4,7 +4,7 @@ import Database from 'better-sqlite3';
 import express from 'express';
 import request from 'supertest';
 import { initSchema, getDb } from '../../../db/schema.js';
-import { createMessagesRouter, testFireLimiter, importLimiter } from '../../../dashboard/routes/messages.js';
+import { createMessagesRouter, testFireLimiter, importLimiter, systemMessageLimiter } from '../../../dashboard/routes/messages.js';
 import { upsertTemplate, getAllTemplates } from '../../../db/messageTemplateRepository.js';
 import { loadTemplateCache } from '../../../config/templateCache.js';
 
@@ -33,6 +33,7 @@ beforeEach(() => {
   loadTemplateCache();
   testFireLimiter.clearStore();
   importLimiter.clearStore();
+  systemMessageLimiter.clearStore();
 });
 
 // ── GET /api/messages/cities ───────────────────────────────────────────────
@@ -343,5 +344,138 @@ describe('POST /api/messages/replay-preview', () => {
     assert.ok(res2.body.html.includes('🧪'));
     // Original should NOT have 🧪
     assert.ok(!res1.body.html.includes('🧪'));
+  });
+});
+
+// ── GET /api/messages/zones ──────────────────────────────────────────────
+
+describe('GET /api/messages/zones', () => {
+  it('returns 200 with superRegions array', async () => {
+    const res = await request(app).get('/api/messages/zones');
+    assert.equal(res.status, 200);
+    assert.ok(Array.isArray(res.body.superRegions));
+    assert.ok(res.body.superRegions.length > 0);
+  });
+
+  it('each super-region has name and zones array', async () => {
+    const res = await request(app).get('/api/messages/zones');
+    for (const sr of res.body.superRegions) {
+      assert.ok(typeof sr.name === 'string');
+      assert.ok(Array.isArray(sr.zones));
+      assert.ok(sr.zones.length > 0);
+    }
+  });
+
+  it('each zone has name, cityCount, and cities array', async () => {
+    const res = await request(app).get('/api/messages/zones');
+    for (const sr of res.body.superRegions) {
+      for (const zone of sr.zones) {
+        assert.ok(typeof zone.name === 'string');
+        assert.ok(typeof zone.cityCount === 'number');
+        assert.ok(Array.isArray(zone.cities));
+        assert.equal(zone.cityCount, zone.cities.length);
+      }
+    }
+  });
+
+  it('each city has name, zone, and countdown', async () => {
+    const res = await request(app).get('/api/messages/zones');
+    const firstZone = res.body.superRegions[0].zones[0];
+    assert.ok(firstZone.cities.length > 0);
+    for (const city of firstZone.cities) {
+      assert.ok(typeof city.name === 'string');
+      assert.ok(typeof city.zone === 'string');
+      assert.ok(typeof city.countdown === 'number');
+    }
+  });
+});
+
+// ── GET /api/messages/topics ─────────────────────────────────────────────
+
+describe('GET /api/messages/topics', () => {
+  it('returns 200 with topics array', async () => {
+    const res = await request(app).get('/api/messages/topics');
+    assert.equal(res.status, 200);
+    assert.ok(Array.isArray(res.body.topics));
+  });
+
+  it('each topic has key, label, and topicId', async () => {
+    const res = await request(app).get('/api/messages/topics');
+    for (const topic of res.body.topics) {
+      assert.ok(typeof topic.key === 'string');
+      assert.ok(typeof topic.label === 'string');
+      // topicId is number or null
+      assert.ok(topic.topicId === null || typeof topic.topicId === 'number');
+    }
+  });
+
+  it('includes all expected categories', async () => {
+    const res = await request(app).get('/api/messages/topics');
+    const keys = res.body.topics.map((t: any) => t.key);
+    assert.ok(keys.includes('security'));
+    assert.ok(keys.includes('nature'));
+    assert.ok(keys.includes('environmental'));
+    assert.ok(keys.includes('drills'));
+    assert.ok(keys.includes('general'));
+    assert.ok(keys.includes('whatsapp'));
+  });
+});
+
+// ── POST /api/messages/system-message ────────────────────────────────────
+
+describe('POST /api/messages/system-message', () => {
+  it('returns 400 when text is empty', async () => {
+    const res = await request(app)
+      .post('/api/messages/system-message')
+      .send({ text: '', topicId: 123 });
+    assert.equal(res.status, 400);
+  });
+
+  it('returns 400 when text is missing', async () => {
+    const res = await request(app)
+      .post('/api/messages/system-message')
+      .send({ topicId: 123 });
+    assert.equal(res.status, 400);
+  });
+
+  it('returns 400 when topicId is missing', async () => {
+    const res = await request(app)
+      .post('/api/messages/system-message')
+      .send({ text: 'hello' });
+    assert.equal(res.status, 400);
+  });
+
+  it('returns 400 when text exceeds 4096 chars', async () => {
+    const res = await request(app)
+      .post('/api/messages/system-message')
+      .send({ text: 'x'.repeat(4097), topicId: 123 });
+    assert.equal(res.status, 400);
+  });
+
+  it('returns 500 when TELEGRAM_CHAT_ID is unset', async () => {
+    const orig = process.env.TELEGRAM_CHAT_ID;
+    delete process.env.TELEGRAM_CHAT_ID;
+    try {
+      const res = await request(app)
+        .post('/api/messages/system-message')
+        .send({ text: 'test', topicId: 123 });
+      assert.equal(res.status, 500);
+    } finally {
+      if (orig !== undefined) process.env.TELEGRAM_CHAT_ID = orig;
+    }
+  });
+
+  it('returns ok with messageId when TELEGRAM_CHAT_ID is set', async () => {
+    process.env.TELEGRAM_CHAT_ID = '-1001234567890';
+    try {
+      const res = await request(app)
+        .post('/api/messages/system-message')
+        .send({ text: '<b>test</b>', topicId: 123 });
+      assert.equal(res.status, 200);
+      assert.equal(res.body.ok, true);
+      assert.ok(typeof res.body.messageId === 'number');
+    } finally {
+      delete process.env.TELEGRAM_CHAT_ID;
+    }
   });
 });

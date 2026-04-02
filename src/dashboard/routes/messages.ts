@@ -22,8 +22,11 @@ import {
   DEFAULT_ALERT_TYPE_EMOJI,
   DEFAULT_INSTRUCTIONS_PREFIX,
 } from '../../config/alertTypeDefaults.js';
-import { getTopicIdCached } from '../../config/routingCache.js';
-import { searchCities, getCityData } from '../../cityLookup.js';
+import { getTopicIdCached, isRoutingCacheLoaded } from '../../config/routingCache.js';
+import { searchCities, getCityData, getCitiesByZone } from '../../cityLookup.js';
+import { SUPER_REGIONS } from '../../config/zones.js';
+import { ALERT_TYPE_CATEGORY } from '../../config/alertCategories.js';
+import type { AlertCategory } from '../../config/alertCategories.js';
 import {
   sendAlert,
   escapeHtml,
@@ -83,6 +86,12 @@ export const importLimiter = createRateLimitMiddleware({
   maxRequests: 5,
   windowMs: 60_000,
   message: 'יותר מדי ייבואים — נסה שוב בעוד דקה',
+});
+
+export const systemMessageLimiter = createRateLimitMiddleware({
+  maxRequests: 5,
+  windowMs: 60_000,
+  message: 'יותר מדי הודעות מערכת — נסה שוב בעוד דקה',
 });
 
 // ─── Router ────────────────────────────────────────────────────────────────
@@ -298,6 +307,83 @@ export function createMessagesRouter(db: Database.Database, bot: Bot): Router {
       res.json({ ok: true, messageId: sent.message_id });
     } catch (err) {
       log('error', 'Messages', `Test-fire failed: ${String(err)}`);
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  // GET /api/messages/zones — full super-region → zone → cities hierarchy
+  router.get('/zones', (_req, res) => {
+    const superRegions = SUPER_REGIONS.map((sr) => ({
+      name: sr.name,
+      zones: sr.zones.map((zoneName) => {
+        const cities = getCitiesByZone(zoneName).map((c) => ({
+          name: c.name,
+          zone: c.zone,
+          countdown: c.countdown,
+        }));
+        return { name: zoneName, cityCount: cities.length, cities };
+      }),
+    }));
+    res.json({ superRegions });
+  });
+
+  // GET /api/messages/topics — available Telegram topics with labels
+  const CATEGORY_LABEL_HE: Readonly<Record<AlertCategory, string>> = {
+    security: '🔴 ביטחון',
+    nature: '🌍 טבע',
+    environmental: '☢️ סביבתי',
+    drills: '🔵 תרגילים',
+    general: '📢 כללי',
+    whatsapp: '📲 WhatsApp',
+  };
+
+  router.get('/topics', (_req, res) => {
+    const topics = (Object.keys(CATEGORY_LABEL_HE) as AlertCategory[]).map((category) => {
+      // Find a representative alert type for this category to resolve topic ID
+      const representativeType = ALL_ALERT_TYPES.find(
+        (t) => ALERT_TYPE_CATEGORY[t] === category,
+      );
+      return {
+        key: category,
+        label: CATEGORY_LABEL_HE[category],
+        topicId: representativeType ? (getTopicIdCached(representativeType) ?? null) : null,
+      };
+    });
+    res.json({ topics });
+  });
+
+  // POST /api/messages/system-message — send free-text HTML to a Telegram topic
+  router.post('/system-message', systemMessageLimiter, async (req, res) => {
+    const { text, topicId } = req.body as { text?: string; topicId?: number };
+
+    if (!text || text.trim() === '') {
+      res.status(400).json({ error: 'טקסט ההודעה ריק' });
+      return;
+    }
+    if (text.length > 4096) {
+      res.status(400).json({ error: 'ההודעה חורגת ממגבלת 4096 תווים' });
+      return;
+    }
+    if (topicId === undefined || typeof topicId !== 'number') {
+      res.status(400).json({ error: 'topicId חסר' });
+      return;
+    }
+
+    const chatId = process.env.TELEGRAM_CHAT_ID;
+    if (!chatId) {
+      res.status(500).json({ error: 'TELEGRAM_CHAT_ID לא מוגדר' });
+      return;
+    }
+
+    try {
+      const sent = await bot.api.sendMessage(chatId, text, {
+        parse_mode: 'HTML',
+        message_thread_id: topicId,
+      });
+      log('info', 'Messages', `הודעת מערכת נשלחה לנושא ${topicId} → message ${sent.message_id}`);
+      res.json({ ok: true, messageId: sent.message_id });
+    } catch (err) {
+      log('error', 'Messages', `שליחת הודעת מערכת נכשלה: ${String(err)}`);
       res.status(500).json({ error: String(err) });
     }
   });
