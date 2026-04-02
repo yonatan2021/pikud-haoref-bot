@@ -3,7 +3,7 @@ import type { Context } from 'grammy';
 import { getProfile, updateProfile, upsertUser } from '../db/userRepository.js';
 import { searchCities, getCityData, getCityById } from '../cityLookup.js';
 import { log } from '../logger.js';
-import { stripHtml } from '../textUtils.js';
+import { stripHtml, escapeHtml } from '../textUtils.js';
 
 const MAX_NAME_LENGTH = 50;
 
@@ -187,7 +187,7 @@ export function registerProfileHandler(bot: Bot): void {
         const results = searchCities(query);
         if (results.length === 0) {
           await ctx.reply(
-            `🔍 לא נמצאו ערים עבור "<b>${query}</b>". נסה שוב:`,
+            `🔍 לא נמצאו ערים עבור "<b>${escapeHtml(query)}</b>". נסה שוב:`,
             { parse_mode: 'HTML' }
           );
           return;
