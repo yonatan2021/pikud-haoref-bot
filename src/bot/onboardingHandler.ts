@@ -117,7 +117,7 @@ export function isInOnboarding(chatId: number): boolean {
 export function registerOnboardingHandler(bot: Bot): void {
   // Handle all onboarding callback queries
   bot.callbackQuery(/^ob:/, async (ctx: Context) => {
-    await ctx.answerCallbackQuery();
+    await ctx.answerCallbackQuery().catch(() => {});
     const chatId = ctx.chat?.id;
     if (!chatId || ctx.chat?.type !== 'private') return;
 

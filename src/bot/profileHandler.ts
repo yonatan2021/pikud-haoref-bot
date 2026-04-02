@@ -69,7 +69,7 @@ export function registerProfileHandler(bot: Bot): void {
   });
 
   bot.callbackQuery('pf:edit_name', async (ctx: Context) => {
-    await ctx.answerCallbackQuery();
+    await ctx.answerCallbackQuery().catch(() => {});
     const chatId = ctx.chat?.id;
     if (!chatId || ctx.chat?.type !== 'private') return;
     try {
@@ -87,7 +87,7 @@ export function registerProfileHandler(bot: Bot): void {
   });
 
   bot.callbackQuery('pf:edit_city', async (ctx: Context) => {
-    await ctx.answerCallbackQuery();
+    await ctx.answerCallbackQuery().catch(() => {});
     const chatId = ctx.chat?.id;
     if (!chatId || ctx.chat?.type !== 'private') return;
     try {
@@ -105,7 +105,7 @@ export function registerProfileHandler(bot: Bot): void {
   });
 
   bot.callbackQuery('pf:cancel', async (ctx: Context) => {
-    await ctx.answerCallbackQuery();
+    await ctx.answerCallbackQuery().catch(() => {});
     const chatId = ctx.chat?.id;
     if (!chatId) return;
     try {
@@ -117,7 +117,7 @@ export function registerProfileHandler(bot: Bot): void {
   });
 
   bot.callbackQuery(/^pf:city:(\d+)$/, async (ctx: Context) => {
-    await ctx.answerCallbackQuery();
+    await ctx.answerCallbackQuery().catch(() => {});
     const chatId = ctx.chat?.id;
     if (!chatId) return;
     try {
