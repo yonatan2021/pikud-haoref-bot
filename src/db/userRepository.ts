@@ -22,29 +22,22 @@ export interface ProfilePatch {
   locale?: string;
 }
 
-export function upsertUser(chatId: number): void {
-  getDb()
-    .prepare('INSERT OR IGNORE INTO users (chat_id) VALUES (?)')
-    .run(chatId);
+/** Raw SQLite row shape before boolean conversion */
+interface RawUserRow {
+  chat_id: number;
+  format: NotificationFormat;
+  quiet_hours_enabled: number;
+  muted_until: string | null;
+  display_name: string | null;
+  home_city: string | null;
+  locale: string;
+  onboarding_completed: number;
+  connection_code: string | null;
+  onboarding_step: string | null;
+  created_at: string;
 }
 
-export function getUser(chatId: number): User | undefined {
-  const raw = getDb()
-    .prepare('SELECT * FROM users WHERE chat_id = ?')
-    .get(chatId) as {
-      chat_id: number;
-      format: NotificationFormat;
-      quiet_hours_enabled: number;
-      muted_until: string | null;
-      display_name: string | null;
-      home_city: string | null;
-      locale: string;
-      onboarding_completed: number;
-      connection_code: string | null;
-      onboarding_step: string | null;
-      created_at: string;
-    } | undefined;
-  if (!raw) return undefined;
+function mapRowToUser(raw: RawUserRow): User {
   return {
     ...raw,
     quiet_hours_enabled: raw.quiet_hours_enabled === 1,
@@ -55,6 +48,20 @@ export function getUser(chatId: number): User | undefined {
     connection_code: raw.connection_code ?? null,
     onboarding_step: raw.onboarding_step ?? null,
   };
+}
+
+export function upsertUser(chatId: number): void {
+  getDb()
+    .prepare('INSERT OR IGNORE INTO users (chat_id) VALUES (?)')
+    .run(chatId);
+}
+
+export function getUser(chatId: number): User | undefined {
+  const raw = getDb()
+    .prepare('SELECT * FROM users WHERE chat_id = ?')
+    .get(chatId) as RawUserRow | undefined;
+  if (!raw) return undefined;
+  return mapRowToUser(raw);
 }
 
 export function setFormat(chatId: number, format: NotificationFormat): void {
@@ -161,28 +168,7 @@ export function setConnectionCode(chatId: number, code: string): void {
 export function findUserByConnectionCode(code: string): User | undefined {
   const raw = getDb()
     .prepare('SELECT * FROM users WHERE connection_code = ?')
-    .get(code) as {
-      chat_id: number;
-      format: NotificationFormat;
-      quiet_hours_enabled: number;
-      muted_until: string | null;
-      display_name: string | null;
-      home_city: string | null;
-      locale: string;
-      onboarding_completed: number;
-      connection_code: string | null;
-      onboarding_step: string | null;
-      created_at: string;
-    } | undefined;
+    .get(code) as RawUserRow | undefined;
   if (!raw) return undefined;
-  return {
-    ...raw,
-    quiet_hours_enabled: raw.quiet_hours_enabled === 1,
-    onboarding_completed: raw.onboarding_completed === 1,
-    muted_until: raw.muted_until ?? null,
-    display_name: raw.display_name ?? null,
-    home_city: raw.home_city ?? null,
-    connection_code: raw.connection_code ?? null,
-    onboarding_step: raw.onboarding_step ?? null,
-  };
+  return mapRowToUser(raw);
 }
