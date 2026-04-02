@@ -7,6 +7,7 @@ import { registerSearchHandler } from './searchHandler.js';
 import { registerSettingsHandler } from './settingsHandler.js';
 import { registerStatsHandler } from './statsHandler.js';
 import { registerHistoryHandler } from './historyHandler.js';
+import { registerConnectHandler } from './connectHandler.js';
 import { log } from '../logger.js';
 
 export async function setupBotHandlers(bot: Bot): Promise<void> {
@@ -19,6 +20,7 @@ export async function setupBotHandlers(bot: Bot): Promise<void> {
   registerSettingsHandler(bot);
   registerStatsHandler(bot);
   registerHistoryHandler(bot);
+  registerConnectHandler(bot);
 
   bot.catch((err) => {
     log('error', 'Bot', `Unhandled error: ${String(err)}`);
@@ -33,5 +35,7 @@ export async function setupBotHandlers(bot: Bot): Promise<void> {
     { command: 'settings', description: 'הגדרות והעדפות' },
     { command: 'stats',    description: 'סטטיסטיקת 24 שעות אחרונות' },
     { command: 'history',  description: 'היסטוריית התראות לאזורך' },
+    { command: 'connect',  description: 'חיבור עם חברים' },
+    { command: 'contacts', description: 'אנשי הקשר שלי' },
   ]);
 }
