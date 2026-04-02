@@ -9,6 +9,7 @@ import { registerStatsHandler } from './statsHandler.js';
 import { registerHistoryHandler } from './historyHandler.js';
 import { registerConnectHandler } from './connectHandler.js';
 import { registerPrivacyHandler } from './privacyHandler.js';
+import { registerTodayHandler } from './todayHandler.js';
 import { log } from '../logger.js';
 
 export async function setupBotHandlers(bot: Bot): Promise<void> {
@@ -23,6 +24,7 @@ export async function setupBotHandlers(bot: Bot): Promise<void> {
   registerHistoryHandler(bot);
   registerConnectHandler(bot);
   registerPrivacyHandler(bot);
+  registerTodayHandler(bot);
 
   bot.catch((err) => {
     log('error', 'Bot', `Unhandled error: ${String(err)}`);
@@ -40,5 +42,6 @@ export async function setupBotHandlers(bot: Bot): Promise<void> {
     { command: 'connect',  description: 'חיבור עם חברים' },
     { command: 'contacts', description: 'אנשי הקשר שלי' },
     { command: 'privacy',  description: 'הגדרות פרטיות' },
+    { command: 'today',    description: 'סיכום יומי' },
   ]);
 }

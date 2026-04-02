@@ -59,6 +59,7 @@ for (const envVar of REQUIRED_ENV_VARS) {
     loadRoutingCache(getDb());
     setMenuHandlerDb(getDb());
     alertsToday = countAlertsToday();
+    initAlertSerial(alertsToday);
   } catch (err) {
     log('error', 'Init', `כישלון אתחול מסד נתונים — הבוט לא יכול להתחיל: ${err}`);
     process.exit(1);
@@ -176,6 +177,7 @@ for (const envVar of REQUIRED_ENV_VARS) {
       getTopicId,
       insertAlertHistory,
       broadcastToWhatsApp,
+      getNextSerial: getNextAlertSerial,
     });
   });
 
