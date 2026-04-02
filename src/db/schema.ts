@@ -124,6 +124,27 @@ export function initSchema(database: Database.Database): void {
       is_active           INTEGER NOT NULL DEFAULT 1,
       created_at          TEXT    NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS contacts (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id     INTEGER NOT NULL,
+      contact_id  INTEGER NOT NULL,
+      status      TEXT NOT NULL DEFAULT 'pending',
+      created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(user_id, contact_id),
+      FOREIGN KEY (user_id) REFERENCES users(chat_id) ON DELETE CASCADE,
+      FOREIGN KEY (contact_id) REFERENCES users(chat_id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_contacts_user ON contacts(user_id);
+    CREATE INDEX IF NOT EXISTS idx_contacts_contact ON contacts(contact_id);
+
+    CREATE TABLE IF NOT EXISTS contact_permissions (
+      contact_id    INTEGER PRIMARY KEY,
+      safety_status INTEGER NOT NULL DEFAULT 1,
+      home_city     INTEGER NOT NULL DEFAULT 0,
+      update_time   INTEGER NOT NULL DEFAULT 1,
+      FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE
+    );
   `);
 
   database.exec(
@@ -163,4 +184,6 @@ export function initDb(): void {
   database.exec(`DELETE FROM alert_history WHERE fired_at < datetime('now', '-7 days')`);
   // Prune expired login attempt records on startup
   database.exec('DELETE FROM login_attempts WHERE reset_at < (unixepoch() * 1000)');
+  // Prune expired pending contact requests on startup
+  database.exec(`DELETE FROM contacts WHERE status = 'pending' AND created_at < datetime('now', '-7 days')`);
 }
