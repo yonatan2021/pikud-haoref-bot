@@ -8,6 +8,7 @@ import { Alert, CityEntry } from './types';
 import { getCityData, getCityById, buildGeoJSON, expandGeoJSONBounds } from './cityLookup';
 import { isMonthlyLimitReached, incrementMonthlyCount } from './db/mapboxUsageRepository.js';
 import { loadCacheEntries, saveCacheEntry, deleteCacheEntry, pruneCacheEntries } from './db/mapboxCacheRepository.js';
+import { getZoneColor } from './config/zoneColors.js';
 import { log } from './logger.js';
 
 const MAPBOX_URL_MAX_LENGTH = 8000;
@@ -320,7 +321,7 @@ export async function generateMapImage(alert: Alert): Promise<Buffer | null> {
 
     const padding = getAdaptivePadding(cityIds.length);
     const color = getAlertColor(alert.type);
-    const rawGeojson = buildGeoJSON(cityIds, color);
+    const rawGeojson = buildGeoJSON(cityIds, color, getZoneColor);
 
     if (rawGeojson.features.length === 0) {
       // Strategy 0: cities are in cities.json but have no polygon shapes —

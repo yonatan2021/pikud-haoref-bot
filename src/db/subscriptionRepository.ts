@@ -8,6 +8,7 @@ export interface SubscriberInfo {
   format: NotificationFormat;
   quiet_hours_enabled: boolean;
   muted_until: string | null;
+  home_city: string | null;
   matchedCities: string[];
 }
 
@@ -23,6 +24,7 @@ export interface CachedSubscriberData {
   format: NotificationFormat;
   quiet_hours_enabled: boolean;
   muted_until: string | null;
+  home_city: string | null;
 }
 const subscriberData = new Map<number, CachedSubscriberData>(); // chatId → user data
 
@@ -32,7 +34,7 @@ export function initSubscriptionCache(): void {
 
   const rows = getDb()
     .prepare(
-      `SELECT s.chat_id, s.city_name, u.format, u.quiet_hours_enabled, u.muted_until
+      `SELECT s.chat_id, s.city_name, u.format, u.quiet_hours_enabled, u.muted_until, u.home_city
        FROM subscriptions s
        JOIN users u ON u.chat_id = s.chat_id`
     )
@@ -42,6 +44,7 @@ export function initSubscriptionCache(): void {
       format: NotificationFormat;
       quiet_hours_enabled: number;
       muted_until: string | null;
+      home_city: string | null;
     }[];
 
   for (const row of rows) {
@@ -55,6 +58,7 @@ export function initSubscriptionCache(): void {
         format: row.format,
         quiet_hours_enabled: row.quiet_hours_enabled === 1,
         muted_until: row.muted_until ?? null,
+        home_city: row.home_city ?? null,
       });
     }
   }
@@ -74,13 +78,14 @@ export function addSubscription(chatId: number, cityName: string): void {
     cityToSubscribers.get(cityName)!.add(chatId);
     if (!subscriberData.has(chatId)) {
       const user = getDb()
-        .prepare('SELECT format, quiet_hours_enabled, muted_until FROM users WHERE chat_id = ?')
-        .get(chatId) as { format: NotificationFormat; quiet_hours_enabled: number; muted_until: string | null } | undefined;
+        .prepare('SELECT format, quiet_hours_enabled, muted_until, home_city FROM users WHERE chat_id = ?')
+        .get(chatId) as { format: NotificationFormat; quiet_hours_enabled: number; muted_until: string | null; home_city: string | null } | undefined;
       if (user) {
         subscriberData.set(chatId, {
           format: user.format,
           quiet_hours_enabled: user.quiet_hours_enabled === 1,
           muted_until: user.muted_until ?? null,
+          home_city: user.home_city ?? null,
         });
       }
     }
@@ -125,7 +130,7 @@ function getUsersForCitiesDb(cityNames: string[]): SubscriberInfo[] {
   const placeholders = cityNames.map(() => '?').join(', ');
   const rawRows = getDb()
     .prepare(
-      `SELECT s.chat_id, u.format, u.quiet_hours_enabled, u.muted_until, s.city_name AS matched_city
+      `SELECT s.chat_id, u.format, u.quiet_hours_enabled, u.muted_until, u.home_city, s.city_name AS matched_city
        FROM subscriptions s
        JOIN users u ON u.chat_id = s.chat_id
        WHERE s.city_name IN (${placeholders})`
@@ -135,6 +140,7 @@ function getUsersForCitiesDb(cityNames: string[]): SubscriberInfo[] {
       format: NotificationFormat;
       quiet_hours_enabled: number;
       muted_until: string | null;
+      home_city: string | null;
       matched_city: string;
     }[];
 
@@ -152,6 +158,7 @@ function getUsersForCitiesDb(cityNames: string[]): SubscriberInfo[] {
         format: row.format,
         quiet_hours_enabled: row.quiet_hours_enabled === 1,
         muted_until: row.muted_until ?? null,
+        home_city: row.home_city ?? null,
         matchedCities: [row.matched_city],
       });
     }
@@ -180,6 +187,7 @@ export function getUsersForCities(cityNames: string[]): SubscriberInfo[] {
       format: data.format,
       quiet_hours_enabled: data.quiet_hours_enabled,
       muted_until: data.muted_until,
+      home_city: data.home_city,
       matchedCities: cityNames.filter((c) => cityToSubscribers.get(c)?.has(id)),
     };
   }).filter((x): x is SubscriberInfo => x !== null);

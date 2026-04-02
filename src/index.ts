@@ -27,6 +27,10 @@ import { createMessageHandler } from './whatsapp/whatsappListenerService.js';
 import { InputFile } from 'grammy';
 import { initSubscriptionCache } from './db/subscriptionRepository.js';
 import { initUsageCache } from './db/mapboxUsageRepository.js';
+import { createAllClearTracker } from './services/allClearTracker.js';
+import { formatAllClearMessage } from './telegramBot.js';
+import { getCityData } from './cityLookup.js';
+import { initAlertSerial, getNextAlertSerial } from './config/alertSerial.js';
 
 // Prevent broken-pipe errors from crashing the bot when a stdout consumer exits.
 process.stdout.on('error', (err: NodeJS.ErrnoException) => {
@@ -134,9 +138,32 @@ for (const envVar of REQUIRED_ENV_VARS) {
     ? createBroadcaster(getDb())
     : undefined;
 
+  const allClearChatId = process.env.TELEGRAM_CHAT_ID!;
+  const allClearTracker = createAllClearTracker({
+    onAllClear: (zones) => {
+      for (const zone of zones) {
+        const message = formatAllClearMessage(zone);
+        bot.api.sendMessage(allClearChatId, message, { parse_mode: 'HTML' }).catch((err) => {
+          log('error', 'AllClear', `Failed to send all-clear for zone "${zone}": ${String(err)}`);
+        });
+      }
+    },
+  });
+
   poller.on('newAlert', async (alert: Alert) => {
     updateLastAlertAt();
     const chatId = process.env.TELEGRAM_CHAT_ID!;
+
+    // Extract unique zones from the alert cities for all-clear tracking
+    const alertZones = [...new Set(
+      alert.cities
+        .map((city) => getCityData(city)?.zone)
+        .filter((z): z is string => z != null)
+    )];
+    if (alertZones.length > 0) {
+      allClearTracker.recordAlert(alertZones);
+    }
+
     await handleNewAlert(alert, {
       chatId,
       generateMapImage,

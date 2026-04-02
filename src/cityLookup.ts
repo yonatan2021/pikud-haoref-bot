@@ -64,13 +64,17 @@ export function getPolygonCoords(cityId: number): PolygonCoords | null {
 
 export function buildGeoJSON(
   cityIds: number[],
-  color: string = '#FF0000'
+  color: string = '#FF0000',
+  colorFn?: (zoneName: string) => string
 ): FeatureCollection<Polygon> {
   const features: Feature<Polygon>[] = [];
 
   for (const id of cityIds) {
     const coords = getPolygonCoords(id);
     if (!coords || coords.length < 3) continue;
+
+    const city = byId.get(id);
+    const fillColor = colorFn && city ? colorFn(city.zone) : color;
 
     // pikud-haoref stores [lat, lng]; GeoJSON requires [lng, lat]
     const ring: [number, number][] = coords.map(([lat, lng]) => [lng, lat]);
@@ -85,9 +89,9 @@ export function buildGeoJSON(
     features.push({
       type: 'Feature',
       properties: {
-        fill: color,
+        fill: fillColor,
         'fill-opacity': 0.5,
-        stroke: color,
+        stroke: fillColor,
         'stroke-width': 4,
         'stroke-opacity': 0.8,
       },
