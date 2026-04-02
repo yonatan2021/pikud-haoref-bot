@@ -7,6 +7,7 @@ import {
   completeOnboarding,
   upsertUser,
 } from '../db/userRepository.js';
+import type { OnboardingStep } from '../db/userRepository.js';
 import { searchCities, getCityData, getCityById } from '../cityLookup.js';
 import { addSubscription } from '../db/subscriptionRepository.js';
 import { log } from '../logger.js';
@@ -87,7 +88,7 @@ export function buildConfirmPrompt(
 /** Send the appropriate step message based on current onboarding state */
 export async function sendStepMessage(
   ctx: Context,
-  step: string | null,
+  step: OnboardingStep | null,
   chatId: number
 ): Promise<void> {
   if (step === 'name') {

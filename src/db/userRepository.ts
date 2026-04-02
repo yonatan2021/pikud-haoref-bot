@@ -2,6 +2,8 @@ import { getDb } from './schema.js';
 
 export type NotificationFormat = 'short' | 'detailed';
 
+export type OnboardingStep = 'name' | 'city' | 'confirm';
+
 export interface User {
   chat_id: number;
   format: NotificationFormat;
@@ -12,7 +14,7 @@ export interface User {
   locale: string;
   onboarding_completed: boolean;
   connection_code: string | null;
-  onboarding_step: string | null;
+  onboarding_step: OnboardingStep | null;
   created_at: string;
 }
 
@@ -46,7 +48,7 @@ function mapRowToUser(raw: RawUserRow): User {
     display_name: raw.display_name ?? null,
     home_city: raw.home_city ?? null,
     connection_code: raw.connection_code ?? null,
-    onboarding_step: raw.onboarding_step ?? null,
+    onboarding_step: (raw.onboarding_step as OnboardingStep | null) ?? null,
   };
 }
 
@@ -140,7 +142,7 @@ export function updateProfile(chatId: number, patch: ProfilePatch): void {
     .run(...values);
 }
 
-export function setOnboardingStep(chatId: number, step: string | null): void {
+export function setOnboardingStep(chatId: number, step: OnboardingStep | null): void {
   getDb()
     .prepare('UPDATE users SET onboarding_step = ? WHERE chat_id = ?')
     .run(step, chatId);
