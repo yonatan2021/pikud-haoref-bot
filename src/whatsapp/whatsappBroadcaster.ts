@@ -5,6 +5,7 @@ import { MessageMedia } from 'whatsapp-web.js';
 import { getEnabledGroupsForAlertType } from '../db/whatsappGroupRepository.js';
 import { getStatus, getClient } from './whatsappService.js';
 import { formatAlertForWhatsApp } from './whatsappFormatter.js';
+import { getSetting } from '../dashboard/settingsRepository.js';
 import { log } from '../logger.js';
 
 export interface BroadcasterDeps {
@@ -12,6 +13,8 @@ export interface BroadcasterDeps {
   getClientFn: () => { getChatById: (id: string) => Promise<Chat> } | null;
   getEnabledGroupsFn: (db: Database.Database, alertType: string) => string[];
   formatFn: (alert: Alert) => string;
+  scheduleFn?: (callback: () => void, delayMs: number) => ReturnType<typeof setTimeout>;
+  cancelScheduleFn?: (timer: ReturnType<typeof setTimeout>) => void;
 }
 
 const defaultDeps: BroadcasterDeps = {
@@ -19,20 +22,26 @@ const defaultDeps: BroadcasterDeps = {
   getClientFn: getClient as () => { getChatById: (id: string) => Promise<Chat> } | null,
   getEnabledGroupsFn: getEnabledGroupsForAlertType,
   formatFn: formatAlertForWhatsApp,
+  scheduleFn: (cb, ms) => setTimeout(cb, ms),
+  cancelScheduleFn: (t) => clearTimeout(t),
 };
 
 // ─── Edit-window tracking ────────────────────────────────────────────────────
-// Tracks sent messages per group per alert type so we can edit instead of
+// Tracks sent text messages per group per alert type so we can edit instead of
 // sending duplicates within the time window (same logic as Telegram's
-// alertWindowTracker).
+// alertWindowTracker). Map images are sent via a debounce timer after text edits
+// settle, so the map always shows the complete set of cities.
 
-interface TrackedWhatsAppMessage {
-  message: Message;
+interface TrackedWhatsAppState {
+  textMessage: Message;
   sentAt: number;
+  debounceTimer?: ReturnType<typeof setTimeout>;
+  latestText: string;
+  latestImageBuffer?: Buffer;
 }
 
 // Key: `${groupId}:${alertType}`
-const activeMessages = new Map<string, TrackedWhatsAppMessage>();
+const activeMessages = new Map<string, TrackedWhatsAppState>();
 
 function windowMs(): number {
   const raw = process.env.ALERT_UPDATE_WINDOW_SECONDS;
@@ -40,33 +49,85 @@ function windowMs(): number {
   return (isNaN(parsed) || parsed <= 0 ? 120 : parsed) * 1000;
 }
 
-function getTracked(groupId: string, alertType: string): TrackedWhatsAppMessage | null {
+function mapDebounceMs(db: Database.Database): number {
+  const dbVal = getSetting(db, 'whatsapp_map_debounce_seconds');
+  if (dbVal) {
+    const parsed = parseInt(dbVal, 10);
+    if (!isNaN(parsed) && parsed > 0) return parsed * 1000;
+  }
+  const envVal = parseInt(process.env.WHATSAPP_MAP_DEBOUNCE_SECONDS ?? '', 10);
+  return (isNaN(envVal) || envVal <= 0 ? 15 : envVal) * 1000;
+}
+
+function getTracked(groupId: string, alertType: string, cancelFn: (t: ReturnType<typeof setTimeout>) => void): TrackedWhatsAppState | null {
   const key = `${groupId}:${alertType}`;
   const tracked = activeMessages.get(key);
   if (!tracked) return null;
   if (Date.now() - tracked.sentAt > windowMs()) {
+    if (tracked.debounceTimer) cancelFn(tracked.debounceTimer);
     activeMessages.delete(key);
     return null;
   }
   return tracked;
 }
 
-function track(groupId: string, alertType: string, message: Message): void {
-  activeMessages.set(`${groupId}:${alertType}`, { message, sentAt: Date.now() });
+function track(groupId: string, alertType: string, state: TrackedWhatsAppState): void {
+  activeMessages.set(`${groupId}:${alertType}`, state);
 }
 
 // Exported for test isolation
 export function clearTrackedMessages(): void {
+  for (const state of activeMessages.values()) {
+    if (state.debounceTimer) clearTimeout(state.debounceTimer);
+  }
   activeMessages.clear();
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+async function sendFreshText(
+  chat: Chat,
+  text: string,
+): Promise<Message> {
+  return await chat.sendMessage(text);
+}
+
+async function sendDebouncedMap(
+  groupId: string,
+  alertType: string,
+  getClientFn: BroadcasterDeps['getClientFn'],
+): Promise<void> {
+  const key = `${groupId}:${alertType}`;
+  const state = activeMessages.get(key);
+  if (!state?.latestImageBuffer) return;
+
+  const client = getClientFn();
+  if (!client) return;
+
+  try {
+    const chat = await client.getChatById(groupId);
+    const media = new MessageMedia(
+      'image/png',
+      state.latestImageBuffer.toString('base64'),
+      'alert-map.png',
+    );
+    await chat.sendMessage(media, { caption: state.latestText });
+    state.latestImageBuffer = undefined;
+    state.debounceTimer = undefined;
+  } catch (err: unknown) {
+    log('error', 'WhatsApp', `שגיאה בשליחת מפה מושהית לקבוצה ${groupId}: ${err instanceof Error ? err.message : String(err)}`);
+  }
 }
 
 // ─── Broadcaster factory ─────────────────────────────────────────────────────
 
 export function createBroadcaster(
   db: Database.Database,
-  deps: BroadcasterDeps = defaultDeps
+  deps: BroadcasterDeps = defaultDeps,
 ): (alert: Alert, imageBuffer?: Buffer | null) => Promise<void> {
   const { getStatusFn, getClientFn, getEnabledGroupsFn, formatFn } = deps;
+  const schedule = deps.scheduleFn ?? ((cb: () => void, ms: number) => setTimeout(cb, ms));
+  const cancelSchedule = deps.cancelScheduleFn ?? ((t: ReturnType<typeof setTimeout>) => clearTimeout(t));
 
   return async function broadcastToWhatsApp(alert: Alert, imageBuffer?: Buffer | null): Promise<void> {
     if (getStatusFn() !== 'ready') {
@@ -87,7 +148,7 @@ export function createBroadcaster(
       log(
         'error',
         'WhatsApp',
-        `שגיאה בעיצוב הודעה · type=${alert.type}: ${err instanceof Error ? err.message : String(err)}`
+        `שגיאה בעיצוב הודעה · type=${alert.type}: ${err instanceof Error ? err.message : String(err)}`,
       );
       return;
     }
@@ -98,78 +159,88 @@ export function createBroadcaster(
       return;
     }
 
-    // Build media object from image buffer (if available)
-    const media = imageBuffer
-      ? new MessageMedia('image/png', imageBuffer.toString('base64'), 'alert-map.png')
-      : null;
+    const debounceDelay = mapDebounceMs(db);
 
     let sendCount = 0;
     let editCount = 0;
+    let mapScheduledCount = 0;
     let failCount = 0;
 
     await Promise.all(
       groupIds.map(async (groupId) => {
         try {
-          const tracked = getTracked(groupId, alert.type);
+          const chat = await whatsappClient.getChatById(groupId);
+          const tracked = getTracked(groupId, alert.type, cancelSchedule);
 
           if (tracked) {
-            // Edit path — update existing message within the window.
-            // WhatsApp msg.edit() only supports text edits, not media replacement.
-            // When a new map image is available, send fresh to show updated multi-city map.
-            if (media) {
-              // New image available — send fresh message so the updated map is visible
-              const chat = await whatsappClient.getChatById(groupId);
-              const sent = await chat.sendMessage(media, { caption: text });
-              track(groupId, alert.type, sent);
-              sendCount++;
-            } else {
-              // Text-only update — edit is fine
-              try {
-                const edited = await tracked.message.edit(text);
-                if (edited) {
-                  track(groupId, alert.type, edited);
-                  editCount++;
-                } else {
-                  // edit returned null (message too old or deleted) — send fresh
-                  const chat = await whatsappClient.getChatById(groupId);
-                  const sent = await chat.sendMessage(text);
-                  track(groupId, alert.type, sent);
-                  sendCount++;
-                }
-              } catch {
-                // Edit failed — send fresh message as fallback
-                const chat = await whatsappClient.getChatById(groupId);
-                const sent = await chat.sendMessage(text);
-                track(groupId, alert.type, sent);
+            // Edit path — update existing text message within the window
+            let updatedMessage = tracked.textMessage;
+            try {
+              const edited = await tracked.textMessage.edit(text);
+              if (edited) {
+                updatedMessage = edited;
+                editCount++;
+              } else {
+                // Edit returned null — send fresh text
+                updatedMessage = await sendFreshText(chat, text);
                 sendCount++;
               }
+            } catch {
+              // Edit failed — send fresh text as fallback
+              updatedMessage = await sendFreshText(chat, text);
+              sendCount++;
             }
+
+            // Cancel existing debounce and reschedule if image available
+            if (tracked.debounceTimer) cancelSchedule(tracked.debounceTimer);
+            const newTimer = imageBuffer
+              ? schedule(() => { sendDebouncedMap(groupId, alert.type, getClientFn); }, debounceDelay)
+              : undefined;
+
+            track(groupId, alert.type, {
+              textMessage: updatedMessage,
+              sentAt: tracked.sentAt,
+              debounceTimer: newTimer,
+              latestText: text,
+              latestImageBuffer: imageBuffer ?? tracked.latestImageBuffer,
+            });
+            if (newTimer) mapScheduledCount++;
           } else {
-            // Fresh send — no active message in window
-            const chat = await whatsappClient.getChatById(groupId);
-            const sent = media
-              ? await chat.sendMessage(media, { caption: text })
-              : await chat.sendMessage(text);
-            track(groupId, alert.type, sent);
+            // Fresh send — text only, schedule map via debounce
+            const sent = await sendFreshText(chat, text);
             sendCount++;
+
+            const timer = imageBuffer
+              ? schedule(() => { sendDebouncedMap(groupId, alert.type, getClientFn); }, debounceDelay)
+              : undefined;
+
+            track(groupId, alert.type, {
+              textMessage: sent,
+              sentAt: Date.now(),
+              debounceTimer: timer,
+              latestText: text,
+              latestImageBuffer: imageBuffer ?? undefined,
+            });
+            if (timer) mapScheduledCount++;
           }
         } catch (err: unknown) {
           failCount++;
           log(
             'error',
             'WhatsApp',
-            `שגיאה בשליחה לקבוצה ${groupId}: ${err instanceof Error ? err.message : String(err)}`
+            `שגיאה בשליחה לקבוצה ${groupId}: ${err instanceof Error ? err.message : String(err)}`,
           );
         }
-      })
+      }),
     );
 
     const totalSuccess = sendCount + editCount;
     const totalGroups = groupIds.length;
+    const mapNote = mapScheduledCount > 0 ? `, ${mapScheduledCount} מפות מתוזמנות` : '';
     if (failCount === 0) {
-      log('info', 'WhatsApp', `שודר לוואטסאפ: ${totalSuccess} קבוצות (${sendCount} חדש, ${editCount} עריכה) · type=${alert.type}`);
+      log('info', 'WhatsApp', `שודר לוואטסאפ: ${totalSuccess} קבוצות (${sendCount} חדש, ${editCount} עריכה${mapNote}) · type=${alert.type}`);
     } else if (totalSuccess > 0) {
-      log('warn', 'WhatsApp', `שודר חלקית: ${totalSuccess}/${totalGroups} קבוצות (${sendCount} חדש, ${editCount} עריכה) · type=${alert.type}`);
+      log('warn', 'WhatsApp', `שודר חלקית: ${totalSuccess}/${totalGroups} קבוצות (${sendCount} חדש, ${editCount} עריכה${mapNote}) · type=${alert.type}`);
     } else {
       log('error', 'WhatsApp', `שידור נכשל לכל הקבוצות (${totalGroups}) · type=${alert.type}`);
     }
