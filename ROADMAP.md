@@ -325,7 +325,7 @@ git tag wizard-vX.Y.Z && git push origin wizard-vX.Y.Z
       <td align="right"><code>v0.4.1</code></td>
       <td align="right">Onboarding ופרופיל</td>
       <td align="right">משתמש חדש נכנס למערכת עם פרופיל ברור ומסודר.</td>
-      <td align="right">⚪ מתוכנן</td>
+      <td align="right">✅ הושלם</td>
     </tr>
     <tr>
       <td align="right"><code>v0.4.2</code></td>

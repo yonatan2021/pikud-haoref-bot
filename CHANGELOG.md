@@ -28,17 +28,47 @@
 
 ### ✨ תכונות חדשות
 
-- **WhatsApp — טקסט מיידי + מפה מושהית** — בתוך חלון העדכון, הודעת טקסט נשלחת מיידית ונערכת בזמן אמת (`msg.edit`); תמונת המפה נשלחת פעם אחת אחרי debounce (ברירת מחדל: 15 שניות) עם כל הערים המעודכנות. מונע כפילויות ומחיקות בקבוצות WhatsApp.
-- **הגדרת עיכוב מפה בדשבורד** — `whatsapp_map_debounce_seconds` — ניתן לשנות מהדשבורד ללא הפעלה מחדש (hot-configurable); נתמך גם דרך משתנה סביבה `WHATSAPP_MAP_DEBOUNCE_SECONDS`
-
 ### 🐛 תיקוני באגים
-
-- **תמונת מפה בהתרעות מרובות ערים (#101)** — בטלגרם: תמונת המפה נשלחת תמיד כשהיא זמינה (כיתוב מקוצר במקום ביטול התמונה כשהטקסט ארוך); ב-WhatsApp: נשלחת הודעה חדשה עם מפה מעודכנת כשיש שינוי בערים (במקום עריכת טקסט בלבד שמשאירה מפה ישנה)
 
 ### 🧪 בדיקות
 
-- **+8 בדיקות WhatsApp debounce** — תזמון/ביטול debounce, קריאת הגדרות מ-DB/env, ניקוי טיימרים, עריכת טקסט + תזמון מפה
-- **+7 בדיקות** — 3 בדיקות `buildSendPayload` (מצב תמונה / טקסט, קיצור כיתוב), 3 בדיקות WhatsApp edit-with-image (שליחה חדשה / עריכה / מעקב), בדיקת אינטגרציה ב-alertHandler
+</div>
+
+---
+
+## [0.4.1] — 2026-04-02
+
+<div dir="rtl">
+
+### ✨ תכונות חדשות
+
+#### Onboarding
+- **Onboarding wizard ב-`/start`** — משתמש חדש נכנס לתהליך הגדרה מונחה: שם תצוגה → עיר מגורים → אישור. מצב נשמר ב-SQLite (`onboarding_step`) ושורד ריסטארט; אפשרות דילוג בכל שלב
+- **הרשמה אוטומטית לעיר מגורים** — בסיום ה-onboarding, המשתמש נרשם אוטומטית להתראות על עיר המגורים שבחר
+
+#### פרופיל
+- **פקודת `/profile`** — צפייה ועריכה של שם תצוגה, עיר מגורים ושפה במקום אחד; כפתורי עריכה inline עם ולידציית קלט
+- **בחירת שפה** — תמיכה ב-locale (כרגע עברית בלבד); מוכן ל-i18n עתידי
+
+#### תשתית
+- **הרחבת טבלת `users`** — 6 עמודות חדשות: `display_name`, `home_city`, `locale`, `onboarding_completed`, `connection_code`, `onboarding_step`; מיגרציה בטוחה עם `addColumnIfMissing`
+- **WhatsApp — טקסט מיידי + מפה מושהית** — בתוך חלון העדכון, הודעת טקסט נשלחת מיידית ונערכת בזמן אמת (`msg.edit`); תמונת המפה נשלחת פעם אחת אחרי debounce (ברירת מחדל: 15 שניות)
+- **הגדרת עיכוב מפה בדשבורד** — `whatsapp_map_debounce_seconds` — ניתן לשנות מהדשבורד ללא הפעלה מחדש
+
+### 🐛 תיקוני באגים
+
+- **תמונת מפה בהתרעות מרובות ערים (#101)** — בטלגרם: תמונת המפה נשלחת תמיד כשהיא זמינה; ב-WhatsApp: נשלחת הודעה חדשה עם מפה מעודכנת כשיש שינוי בערים
+
+### 🧪 בדיקות
+
+- **+48 בדיקות Onboarding + Profile** — 21 בדיקות userRepository (מיגרציה, פרופיל, onboarding, connection code), 16 בדיקות onboardingHandler (מעברי שלבים, דילוג, ולידציה), 11 בדיקות profileHandler (סיכום, עריכה, ברירות מחדל)
+- **+15 בדיקות WhatsApp** — 8 debounce, 7 buildSendPayload + edit-with-image
+
+### 🔧 תחזוקה
+
+- **`src/bot/onboardingHandler.ts`** — handler חדש ל-wizard onboarding
+- **`src/bot/profileHandler.ts`** — handler חדש לפקודת `/profile`
+- **הרחבת `userRepository.ts`** — `getProfile`, `updateProfile`, `completeOnboarding`, `isOnboardingCompleted`, `setOnboardingStep`, `setConnectionCode`, `findUserByConnectionCode`
 
 </div>
 
@@ -742,7 +772,8 @@
 
 <div dir="rtl">
 
-[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.3.3...v0.4.0
 [0.3.3]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.3.1...v0.3.2
