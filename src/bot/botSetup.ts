@@ -1,4 +1,6 @@
 import { Bot } from 'grammy';
+import { registerOnboardingHandler } from './onboardingHandler.js';
+import { registerProfileHandler } from './profileHandler.js';
 import { registerMenuHandler } from './menuHandler.js';
 import { registerZoneHandler } from './zoneHandler.js';
 import { registerSearchHandler } from './searchHandler.js';
@@ -8,6 +10,9 @@ import { registerHistoryHandler } from './historyHandler.js';
 import { log } from '../logger.js';
 
 export async function setupBotHandlers(bot: Bot): Promise<void> {
+  // Onboarding text handler must be registered BEFORE other text handlers
+  registerOnboardingHandler(bot);
+  registerProfileHandler(bot);
   registerMenuHandler(bot);
   registerZoneHandler(bot);
   registerSearchHandler(bot);
@@ -21,6 +26,7 @@ export async function setupBotHandlers(bot: Bot): Promise<void> {
 
   await bot.api.setMyCommands([
     { command: 'start',    description: 'פתח את התפריט הראשי' },
+    { command: 'profile',  description: 'הפרופיל שלי' },
     { command: 'add',      description: 'הוסף עיר להתראות' },
     { command: 'zones',    description: 'הוסף ערים לפי אזור' },
     { command: 'mycities', description: 'הערים שנרשמת אליהן' },
