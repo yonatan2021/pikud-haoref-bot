@@ -311,6 +311,26 @@ describe('handleNewAlert', () => {
       assert.deepEqual(calls[0].arguments[0], BASE_ALERT, 'broadcastToWhatsApp must be called with the original alert');
     });
 
+    it('passes regenerated imageBuffer to broadcastToWhatsApp on edit path', async () => {
+      const waFn = mock.fn(async () => {});
+      const mapBuffer = Buffer.from('merged-map-image');
+      const active = makeTracked({ alert: { type: 'missiles', cities: ['תל אביב'] } });
+      const deps = makeDeps({
+        getActiveMessage: mock.fn(() => active),
+        generateMapImage: mock.fn(async () => mapBuffer),
+        broadcastToWhatsApp: waFn,
+      });
+      await handleNewAlert({ type: 'missiles', cities: ['חיפה'] }, deps);
+
+      const calls = (waFn as unknown as ReturnType<typeof mock.fn>).mock.calls;
+      assert.equal(calls.length, 1, 'broadcastToWhatsApp must be called once');
+      assert.equal(
+        calls[0].arguments[1],
+        mapBuffer,
+        'broadcastToWhatsApp must receive the regenerated imageBuffer (not null)'
+      );
+    });
+
     it('no broadcastToWhatsApp in deps — no error, notifySubscribers still runs', async () => {
       const deps = makeDeps();
       // Explicitly omit broadcastToWhatsApp (it defaults to undefined in makeDeps)

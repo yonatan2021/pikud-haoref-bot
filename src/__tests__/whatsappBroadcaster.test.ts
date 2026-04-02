@@ -235,6 +235,126 @@ describe('whatsappBroadcaster — edit window', () => {
   });
 });
 
+describe('whatsappBroadcaster — edit window with image', () => {
+  beforeEach(() => clearTrackedMessages());
+
+  it('sends fresh message instead of editing when imageBuffer is provided on second broadcast', async () => {
+    const db = makeDb();
+    const firstMsg = makeMockMessage();
+    const secondMsg = makeMockMessage();
+    let sendCount = 0;
+    const sendMessage = mock.fn(async () => {
+      sendCount++;
+      return sendCount === 1 ? firstMsg : secondMsg;
+    });
+    const getChatById = mock.fn(async () => ({ sendMessage }));
+    const getClientFn = mock.fn(() => ({ getChatById }));
+    const deps = makeDeps({
+      getEnabledGroupsFn: mock.fn(() => ['group1']) as unknown as BroadcasterDeps['getEnabledGroupsFn'],
+      getClientFn: getClientFn as unknown as BroadcasterDeps['getClientFn'],
+    });
+
+    const broadcast = createBroadcaster(db, deps);
+
+    // First broadcast — fresh send (no image)
+    await broadcast(BASE_ALERT);
+    assert.equal(
+      (sendMessage as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
+      1,
+      'first broadcast should send'
+    );
+
+    // Second broadcast WITH image — should send fresh, not edit
+    const imageBuffer = Buffer.from('updated-map-image');
+    const updatedAlert: Alert = { type: 'missiles', cities: ['תל אביב', 'חיפה'] };
+    await broadcast(updatedAlert, imageBuffer);
+
+    assert.equal(
+      (sendMessage as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
+      2,
+      'second broadcast with image must send fresh message, not edit'
+    );
+    assert.equal(
+      (firstMsg.edit as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
+      0,
+      'edit must NOT be called when imageBuffer is provided'
+    );
+  });
+
+  it('still edits message when no imageBuffer is provided on second broadcast', async () => {
+    const db = makeDb();
+    const editedMsg = makeMockMessage();
+    const firstMsg = makeMockMessage(editedMsg);
+    const sendMessage = mock.fn(async () => firstMsg);
+    const getChatById = mock.fn(async () => ({ sendMessage }));
+    const getClientFn = mock.fn(() => ({ getChatById }));
+    const deps = makeDeps({
+      getEnabledGroupsFn: mock.fn(() => ['group1']) as unknown as BroadcasterDeps['getEnabledGroupsFn'],
+      getClientFn: getClientFn as unknown as BroadcasterDeps['getClientFn'],
+    });
+
+    const broadcast = createBroadcaster(db, deps);
+
+    // First broadcast — fresh send
+    await broadcast(BASE_ALERT);
+
+    // Second broadcast WITHOUT image — should edit
+    const updatedAlert: Alert = { type: 'missiles', cities: ['תל אביב', 'חיפה'] };
+    await broadcast(updatedAlert, null);
+
+    assert.equal(
+      (sendMessage as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
+      1,
+      'second broadcast without image should not send fresh'
+    );
+    assert.equal(
+      (firstMsg.edit as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
+      1,
+      'edit should be called when no imageBuffer'
+    );
+  });
+
+  it('tracks the fresh message for subsequent updates when image forces fresh send', async () => {
+    const db = makeDb();
+    const firstMsg = makeMockMessage();
+    const secondMsg = makeMockMessage();
+    const thirdEditedMsg = makeMockMessage();
+    // Second message supports edit (returns thirdEditedMsg)
+    (secondMsg as { edit: ReturnType<typeof mock.fn> }).edit = mock.fn(async () => thirdEditedMsg);
+    let sendCount = 0;
+    const sendMessage = mock.fn(async () => {
+      sendCount++;
+      return sendCount === 1 ? firstMsg : secondMsg;
+    });
+    const getChatById = mock.fn(async () => ({ sendMessage }));
+    const getClientFn = mock.fn(() => ({ getChatById }));
+    const deps = makeDeps({
+      getEnabledGroupsFn: mock.fn(() => ['group1']) as unknown as BroadcasterDeps['getEnabledGroupsFn'],
+      getClientFn: getClientFn as unknown as BroadcasterDeps['getClientFn'],
+    });
+
+    const broadcast = createBroadcaster(db, deps);
+
+    // 1st broadcast — fresh send
+    await broadcast(BASE_ALERT);
+    // 2nd broadcast with image — fresh send (replaces tracked)
+    await broadcast({ type: 'missiles', cities: ['תל אביב', 'חיפה'] }, Buffer.from('img'));
+    // 3rd broadcast without image — should edit the SECOND message (not the first)
+    await broadcast({ type: 'missiles', cities: ['תל אביב', 'חיפה', 'ירושלים'] }, null);
+
+    assert.equal(
+      (firstMsg.edit as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
+      0,
+      'first message must not be edited after being replaced'
+    );
+    assert.equal(
+      (secondMsg.edit as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
+      1,
+      'second (fresh) message should be the one edited on third broadcast'
+    );
+  });
+});
+
 describe('whatsappBroadcaster — partial failure', () => {
   beforeEach(() => clearTrackedMessages());
 

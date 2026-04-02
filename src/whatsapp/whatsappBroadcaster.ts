@@ -115,29 +115,34 @@ export function createBroadcaster(
           if (tracked) {
             // Edit path — update existing message within the window.
             // WhatsApp msg.edit() only supports text edits, not media replacement.
-            // Edit the caption/text; the original image stays.
-            try {
-              const edited = await tracked.message.edit(text);
-              if (edited) {
-                track(groupId, alert.type, edited);
-                editCount++;
-              } else {
-                // edit returned null (message too old or deleted) — send fresh
+            // When a new map image is available, send fresh to show updated multi-city map.
+            if (media) {
+              // New image available — send fresh message so the updated map is visible
+              const chat = await whatsappClient.getChatById(groupId);
+              const sent = await chat.sendMessage(media, { caption: text });
+              track(groupId, alert.type, sent);
+              sendCount++;
+            } else {
+              // Text-only update — edit is fine
+              try {
+                const edited = await tracked.message.edit(text);
+                if (edited) {
+                  track(groupId, alert.type, edited);
+                  editCount++;
+                } else {
+                  // edit returned null (message too old or deleted) — send fresh
+                  const chat = await whatsappClient.getChatById(groupId);
+                  const sent = await chat.sendMessage(text);
+                  track(groupId, alert.type, sent);
+                  sendCount++;
+                }
+              } catch {
+                // Edit failed — send fresh message as fallback
                 const chat = await whatsappClient.getChatById(groupId);
-                const sent = media
-                  ? await chat.sendMessage(media, { caption: text })
-                  : await chat.sendMessage(text);
+                const sent = await chat.sendMessage(text);
                 track(groupId, alert.type, sent);
                 sendCount++;
               }
-            } catch {
-              // Edit failed — send fresh message as fallback
-              const chat = await whatsappClient.getChatById(groupId);
-              const sent = media
-                ? await chat.sendMessage(media, { caption: text })
-                : await chat.sendMessage(text);
-              track(groupId, alert.type, sent);
-              sendCount++;
             }
           } else {
             // Fresh send — no active message in window

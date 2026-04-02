@@ -22,6 +22,17 @@ export function truncateToCaptionLimit(message: string): string {
   return message.slice(0, cutAt) + TRUNCATION_SUFFIX;
 }
 
+/** Determines send mode: photo (with truncated caption) when image available, text otherwise. */
+export function buildSendPayload(
+  message: string,
+  imageBuffer: Buffer | null
+): { mode: 'photo'; caption: string } | { mode: 'text'; text: string } {
+  if (imageBuffer) {
+    return { mode: 'photo', caption: truncateToCaptionLimit(message) };
+  }
+  return { mode: 'text', text: message };
+}
+
 export function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
@@ -137,21 +148,22 @@ export async function sendAlert(
   const message = formatAlertMessage(alert);
   const threadOptions = messageThreadId ? { message_thread_id: messageThreadId } : {};
   const topicStr = messageThreadId ? ` → topic ${messageThreadId}` : '';
+  const payload = buildSendPayload(message, imageBuffer);
 
   try {
-    if (imageBuffer && message.length <= TELEGRAM_CAPTION_MAX) {
-      const sent = await bot.api.sendPhoto(chatId, new InputFile(imageBuffer, 'map.png'), {
-        caption: message,
+    if (payload.mode === 'photo') {
+      if (payload.caption.length < message.length) {
+        log('warn', 'Bot', `Caption truncated (${message.length} → ${payload.caption.length} chars) — sending photo with shorter caption`);
+      }
+      const sent = await bot.api.sendPhoto(chatId, new InputFile(imageBuffer!, 'map.png'), {
+        caption: payload.caption,
         parse_mode: 'HTML',
         ...threadOptions,
       });
       log('info', 'Bot', `Sent ${alert.type} — ${alert.cities.length} cities + map${topicStr}`);
       return { messageId: sent.message_id, hasPhoto: true };
     } else {
-      if (imageBuffer) {
-        log('warn', 'Bot', `Caption too long (${message.length} chars) — sending as text-only`);
-      }
-      const sent = await bot.api.sendMessage(chatId, message, {
+      const sent = await bot.api.sendMessage(chatId, payload.text, {
         parse_mode: 'HTML',
         ...threadOptions,
       });

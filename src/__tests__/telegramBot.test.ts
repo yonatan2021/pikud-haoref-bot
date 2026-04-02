@@ -6,6 +6,7 @@ import {
   buildZonedCityList,
   selectEditMethod,
   truncateToCaptionLimit,
+  buildSendPayload,
   formatAlertMessage,
   TELEGRAM_CAPTION_MAX,
   isUnmodifiedError,
@@ -184,6 +185,35 @@ describe('truncateToCaptionLimit', () => {
 
     assert.ok(result.length <= TELEGRAM_CAPTION_MAX);
     assert.ok(result.endsWith('\n<i>…</i>'));
+  });
+});
+
+describe('buildSendPayload', () => {
+  it('returns photo mode with truncated caption when imageBuffer is provided', () => {
+    const longMessage = '📍 <b>אזור א</b>\n' + 'א'.repeat(400) + '\n\n' + '📍 <b>אזור ב</b>\n' + 'ב'.repeat(600);
+    assert.ok(longMessage.length > TELEGRAM_CAPTION_MAX, 'pre-condition: message must exceed limit');
+
+    const result = buildSendPayload(longMessage, Buffer.from('img'));
+    assert.equal(result.mode, 'photo');
+    assert.ok('caption' in result);
+    assert.ok(result.caption.length <= TELEGRAM_CAPTION_MAX, 'caption must fit within limit');
+    assert.ok(result.caption.endsWith('\n<i>…</i>'), 'truncated caption should end with marker');
+  });
+
+  it('returns photo mode with original message when it fits within caption limit', () => {
+    const shortMessage = 'שלום עולם';
+    const result = buildSendPayload(shortMessage, Buffer.from('img'));
+    assert.equal(result.mode, 'photo');
+    assert.ok('caption' in result);
+    assert.equal(result.caption, shortMessage);
+  });
+
+  it('returns text mode with full message when no imageBuffer', () => {
+    const message = 'א'.repeat(2000);
+    const result = buildSendPayload(message, null);
+    assert.equal(result.mode, 'text');
+    assert.ok('text' in result);
+    assert.equal(result.text, message, 'text mode should not truncate');
   });
 });
 
