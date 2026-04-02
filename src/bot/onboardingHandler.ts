@@ -104,6 +104,8 @@ export async function sendStepMessage(
       profile?.home_city ?? null
     );
     await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard });
+  } else {
+    log('warn', 'Onboarding', `Unrecognized onboarding step: ${step} for chat ${chatId}`);
   }
 }
 
