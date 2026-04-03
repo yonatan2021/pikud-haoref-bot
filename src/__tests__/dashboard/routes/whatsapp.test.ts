@@ -221,6 +221,9 @@ describe('PATCH /api/whatsapp/groups/:id', () => {
 });
 
 describe('POST /api/whatsapp/reconnect', () => {
+  before(() => { process.env['WHATSAPP_ENABLED'] = 'true'; });
+  after(() => { delete process.env['WHATSAPP_ENABLED']; });
+
   it('returns { ok: true }', async () => {
     const res = await request(app).post('/api/whatsapp/reconnect');
     assert.equal(res.status, 200);
