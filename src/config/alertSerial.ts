@@ -1,17 +1,22 @@
-/** Daily alert serial number — incremented per alert, resets at midnight UTC. */
+/** Daily alert serial number — incremented per alert, resets at Israel midnight. */
 
 let dailyCounter = 0;
 let lastCounterDate = '';
 
+/** Returns today's date in Israel timezone as YYYY-MM-DD. */
+function getTodayIsrael(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date());
+}
+
 /** Seeds the counter from DB on startup so numbering survives restarts. */
 export function initAlertSerial(todayCount: number): void {
   dailyCounter = todayCount;
-  lastCounterDate = new Date().toISOString().slice(0, 10);
+  lastCounterDate = getTodayIsrael();
 }
 
-/** Returns the next serial number for today, auto-resetting on date rollover (UTC). */
+/** Returns the next serial number for today, auto-resetting on date rollover (Israel time). */
 export function getNextAlertSerial(): number {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getTodayIsrael();
   if (today !== lastCounterDate) {
     dailyCounter = 0;
     lastCounterDate = today;
