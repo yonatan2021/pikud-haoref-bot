@@ -37,7 +37,15 @@ interface TrackedWhatsAppState {
   sentAt: number;
   debounceTimer?: ReturnType<typeof setTimeout>;
   latestImageBuffer?: Buffer;
+  /** Monotonically increasing counter — incremented on each alert wave.
+   *  Debounce callbacks capture the waveId at schedule time and skip if
+   *  it no longer matches the current state (stale timer guard). */
+  waveId: number;
+  /** Set to true after map image is sent for this wave; reset on each new wave. */
+  mapSent: boolean;
 }
+
+let nextWaveId = 1;
 
 // Key: `${groupId}:${alertType}`
 const activeMessages = new Map<string, TrackedWhatsAppState>();
@@ -95,10 +103,17 @@ async function sendDebouncedMap(
   groupId: string,
   alertType: string,
   getClientFn: BroadcasterDeps['getClientFn'],
+  expectedWaveId: number,
 ): Promise<void> {
   const key = `${groupId}:${alertType}`;
   const state = activeMessages.get(key);
   if (!state?.latestImageBuffer) return;
+
+  // Stale timer guard — skip if a newer wave has superseded this one
+  if (state.waveId !== expectedWaveId) return;
+
+  // Already sent for this wave — skip duplicate
+  if (state.mapSent) return;
 
   const client = getClientFn();
   if (!client) return;
@@ -113,6 +128,7 @@ async function sendDebouncedMap(
     await chat.sendMessage(media);
     state.latestImageBuffer = undefined;
     state.debounceTimer = undefined;
+    state.mapSent = true;
   } catch (err: unknown) {
     log('error', 'WhatsApp', `שגיאה בשליחת מפה מושהית לקבוצה ${groupId}: ${err instanceof Error ? err.message : String(err)}`);
   }
@@ -192,16 +208,18 @@ export function createBroadcaster(
 
             // Cancel existing debounce and reschedule if image available
             if (tracked.debounceTimer) cancelSchedule(tracked.debounceTimer);
+            const waveId = nextWaveId++;
             const newTimer = imageBuffer
-              ? schedule(() => { sendDebouncedMap(groupId, alert.type, getClientFn); }, debounceDelay)
+              ? schedule(() => { sendDebouncedMap(groupId, alert.type, getClientFn, waveId); }, debounceDelay)
               : undefined;
 
             track(groupId, alert.type, {
               textMessage: updatedMessage,
-              sentAt: tracked.sentAt,
+              sentAt: Date.now(),
               debounceTimer: newTimer,
-
               latestImageBuffer: imageBuffer ?? tracked.latestImageBuffer,
+              waveId,
+              mapSent: false,
             });
             if (newTimer) mapScheduledCount++;
           } else {
@@ -209,16 +227,18 @@ export function createBroadcaster(
             const sent = await sendFreshText(chat, text);
             sendCount++;
 
+            const waveId = nextWaveId++;
             const timer = imageBuffer
-              ? schedule(() => { sendDebouncedMap(groupId, alert.type, getClientFn); }, debounceDelay)
+              ? schedule(() => { sendDebouncedMap(groupId, alert.type, getClientFn, waveId); }, debounceDelay)
               : undefined;
 
             track(groupId, alert.type, {
               textMessage: sent,
               sentAt: Date.now(),
               debounceTimer: timer,
-
               latestImageBuffer: imageBuffer ?? undefined,
+              waveId,
+              mapSent: false,
             });
             if (timer) mapScheduledCount++;
           }
