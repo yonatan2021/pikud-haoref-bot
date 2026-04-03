@@ -5,6 +5,7 @@ import { initDb, getDb, closeDb } from '../db/schema';
 import { upsertUser } from '../db/userRepository';
 import {
   createContact,
+  createContactWithPermissions,
   getContactById,
   getContactByPair,
   acceptContact,
@@ -274,5 +275,35 @@ describe('contactRepository', () => {
     // Decode booleans (not raw 0/1)
     assert.equal(typeof perms!.safety_status, 'boolean');
     assert.equal(typeof perms!.home_city, 'boolean');
+  });
+
+  it('createDefaultPermissions throws if insert fails (unknown contactRowId)', () => {
+    // FK constraint: contact_id must reference contacts(id)
+    // With FK enforcement, inserting a row with an unknown id should throw
+    getDb().pragma('foreign_keys = ON');
+    assert.throws(
+      () => createDefaultPermissions(99999),
+      /FOREIGN KEY|Failed to create permissions/,
+      'should throw on FK violation or result.changes === 0'
+    );
+  });
+
+  it('updatePermissions throws on unknown contactRowId', () => {
+    assert.throws(
+      () => updatePermissions(99999, { safety_status: false }),
+      /not found/i,
+      'should throw when no row exists'
+    );
+  });
+
+  it('createContactWithPermissions creates both rows atomically', () => {
+    upsertUser(5001);
+    upsertUser(5002);
+    const contact = createContactWithPermissions(5001, 5002, { safety_status: true, home_city: true });
+
+    const perms = getPermissions(contact.id);
+    assert.ok(perms, 'permissions row should exist');
+    assert.equal(perms.safety_status, true);
+    assert.equal(perms.home_city, true);
   });
 });

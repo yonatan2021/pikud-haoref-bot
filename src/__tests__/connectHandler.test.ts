@@ -9,7 +9,7 @@ import {
   createContact,
   acceptContact,
 } from '../db/contactRepository.js';
-import { registerConnectHandler, failureCounts, lookupCooldownMap } from '../bot/connectHandler.js';
+import { registerConnectHandler, failureCounts, lookupCooldownMap, pendingPermissions, LOOKUP_COOLDOWN_MS } from '../bot/connectHandler.js';
 import type { Bot, Context } from 'grammy';
 
 before(() => {
@@ -187,9 +187,9 @@ describe('connectHandler', () => {
       const ctx = makeCtx({ message: { text: '/connect 222222' } });
       await bot._fireCmd('connect', ctx);
 
-      // Should show toggle screen via editMessageText
-      assert.equal((ctx as any)._editCalls.length, 1);
-      const text = (ctx as any)._editCalls[0][0] as string;
+      // Should show toggle screen via reply (not edit — no prior bot message in command path)
+      assert.equal((ctx as any)._replyCalls.length, 1);
+      const text = (ctx as any)._replyCalls[0][0] as string;
       assert.match(text, /בקשת חיבור/);
       assert.match(text, /מה הם יוכלו לראות/);
 
@@ -206,10 +206,10 @@ describe('connectHandler', () => {
       upsertUser(2002);
       setConnectionCode(2002, '222222');
 
-      // First connection - show permission screen
+      // First connection - show permission screen (via reply, not edit)
       const ctx1 = makeCtx({ message: { text: '/connect 222222' } });
       await bot._fireCmd('connect', ctx1);
-      assert.equal((ctx1 as any)._editCalls.length, 1);
+      assert.equal((ctx1 as any)._replyCalls.length, 1);
 
       // Confirm the first connection via callback
       const ctx1Confirm = makeCtx({ chat: { id: 1001, type: 'private' } });
@@ -436,6 +436,147 @@ describe('connectHandler', () => {
         lastReply.includes('יותר מדי ניסיונות') || lastReply.includes('נסה שוב'),
         'should show throttle message'
       );
+    });
+  });
+
+  describe('permission toggles', () => {
+    async function setupPermissionScreen(bot: ReturnType<typeof buildMockBot>) {
+      upsertUser(1001);
+      upsertUser(2002);
+      const code = '222222';
+      setConnectionCode(2002, code);
+
+      // /connect {code} to enter permission screen
+      const ctx = makeCtx({ message: { text: `/connect ${code}` } });
+      await bot._fireCmd('connect', ctx);
+      return ctx;
+    }
+
+    it('cx:pt:city toggles home_city field (not safety_status)', async () => {
+      const bot = buildMockBot();
+      registerConnectHandler(bot as unknown as Bot);
+      await setupPermissionScreen(bot);
+
+      const before = pendingPermissions.get(1001);
+      assert.ok(before, 'pending state should exist');
+      const initialCity = before.home_city;
+
+      const ctx = makeCtx();
+      await bot._fireCb('cx:pt:city', ctx);
+
+      const after = pendingPermissions.get(1001);
+      assert.ok(after, 'pending state should remain after toggle');
+      assert.equal(after.home_city, !initialCity, 'home_city should be toggled');
+      assert.equal(after.safety_status, before.safety_status, 'safety_status should be unchanged');
+    });
+
+    it('cx:pt:safety toggles safety_status field (not home_city)', async () => {
+      const bot = buildMockBot();
+      registerConnectHandler(bot as unknown as Bot);
+      await setupPermissionScreen(bot);
+
+      const before = pendingPermissions.get(1001);
+      assert.ok(before, 'pending state should exist');
+      const initialSafety = before.safety_status;
+
+      const ctx = makeCtx();
+      await bot._fireCb('cx:pt:safety', ctx);
+
+      const after = pendingPermissions.get(1001);
+      assert.ok(after, 'pending state should remain after toggle');
+      assert.equal(after.safety_status, !initialSafety, 'safety_status should be toggled');
+      assert.equal(after.home_city, before.home_city, 'home_city should be unchanged');
+    });
+
+    it('cx:cancel clears pendingPermissions entry', async () => {
+      const bot = buildMockBot();
+      registerConnectHandler(bot as unknown as Bot);
+      await setupPermissionScreen(bot);
+
+      assert.ok(pendingPermissions.has(1001), 'pending state should exist before cancel');
+
+      const ctx = makeCtx();
+      await bot._fireCb('cx:cancel', ctx);
+
+      assert.equal(pendingPermissions.has(1001), false, 'pending state should be cleared after cancel');
+    });
+
+    it('cx:confirm still creates contact even when notification sendMessage throws', async () => {
+      const bot = buildMockBot();
+      registerConnectHandler(bot as unknown as Bot);
+      await setupPermissionScreen(bot);
+
+      // Mock sendMessage to throw
+      const ctx = makeCtx({
+        api: {
+          sendMessage: async () => { throw new Error('Telegram blocked'); },
+        },
+      });
+      await bot._fireCb('cx:confirm', ctx);
+
+      // Contact should still be created despite notification failure
+      const contact = getContactByPair(1001, 2002);
+      assert.ok(contact, 'contact should be created even if notification throws');
+    });
+
+    it('cx:confirm persists permission toggle values to DB', async () => {
+      const bot = buildMockBot();
+      registerConnectHandler(bot as unknown as Bot);
+      await setupPermissionScreen(bot);
+
+      // Toggle home_city on
+      await bot._fireCb('cx:pt:city', makeCtx());
+      // Confirm
+      const ctx = makeCtx({
+        api: { sendMessage: async () => {} },
+      });
+      await bot._fireCb('cx:confirm', ctx);
+
+      const contact = getContactByPair(1001, 2002);
+      assert.ok(contact, 'contact should exist');
+      const perms = getPermissions(contact.id);
+      assert.ok(perms, 'permissions should exist');
+      // home_city should have been toggled from default (false → true)
+      assert.equal(perms.home_city, true, 'toggled home_city should be persisted');
+    });
+
+    it('cx:confirm TOCTOU: shows "already connected" if contact created between /connect and confirm', async () => {
+      const bot = buildMockBot();
+      registerConnectHandler(bot as unknown as Bot);
+      await setupPermissionScreen(bot);
+
+      // Simulate another connection being created before confirm fires
+      createContact(1001, 2002);
+
+      const ctx = makeCtx({
+        api: { sendMessage: async () => {} },
+      });
+      await bot._fireCb('cx:confirm', ctx);
+
+      // The edit should say already connected
+      const editText = ((ctx as any)._editCalls[0]?.[0] ?? '') as string;
+      assert.ok(editText.includes('כבר מחוברים'), 'should show already connected message');
+    });
+  });
+
+  describe('lookup cooldown behavior', () => {
+    it('second lookup within cooldown window returns retry message', async () => {
+      const bot = buildMockBot();
+      registerConnectHandler(bot as unknown as Bot);
+      upsertUser(1001);
+
+      // First attempt — triggers cooldown
+      const ctx1 = makeCtx({ message: { text: '/connect 123456' } });
+      await bot._fireCmd('connect', ctx1);
+
+      // Second attempt immediately — should hit cooldown (do NOT clear lookupCooldownMap)
+      const ctx2 = makeCtx({ message: { text: '/connect 654321' } });
+      await bot._fireCmd('connect', ctx2);
+
+      const reply = ((ctx2 as any)._replyCalls[0]?.[0] ?? '') as string;
+      assert.ok(reply.includes('שניות') || reply.includes('נסה שוב'), 'should show cooldown message');
+      // LOOKUP_COOLDOWN_MS should be the configured value
+      assert.equal(LOOKUP_COOLDOWN_MS, 5000, 'cooldown should be 5 seconds');
     });
   });
 });
