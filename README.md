@@ -14,7 +14,7 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue?style=for-the-badge)](https://opensource.org/licenses/Apache-2.0)
 [![Node.js](https://img.shields.io/badge/Node.js-24-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
-[![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://hub.docker.com)
+[![Docker](https://img.shields.io/badge/Docker-local_build-2496ED?style=for-the-badge&logo=docker&logoColor=white)](#הרצה-עם-docker)
 [![CI](https://img.shields.io/badge/CI/CD-GitHub_Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/yonatan2021/pikud-haoref-bot/actions)
 [![Telegram](https://img.shields.io/badge/ערוץ_טלגרם-הצטרף-26A5E4?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/phalaret)
 [![WhatsApp](https://img.shields.io/badge/קבוצת_WhatsApp-הצטרף-25D366?style=for-the-badge&logo=whatsapp&logoColor=white)](https://chat.whatsapp.com/LtCl4F8fwacCUdvMRlhK2i?mode=gi_t)
@@ -250,14 +250,6 @@ npm run dev
 ```
 
 ### הרצה עם Docker
-
-```bash
-# תמונה פומבית — מוכנה לשימוש מיידי
-docker run -d --restart unless-stopped \
-  --env-file .env \
-  -v ./data:/app/data \
-  ghcr.io/yonatan2021/pikud-haoref-bot:latest
-```
 
 ```bash
 # בנייה מקומית
@@ -629,14 +621,14 @@ dashboard-ui/                   # React SPA (Vite + Tailwind v4 RTL) — נבנ�
 
 <div dir="rtl">
 
-## 🚀 CI/CD ו-Docker Hub
+## 🚀 CI/CD
 
-הפרויקט מפורסם אוטומטית ב-push ל-`main`:
+הפרויקט משתמש ב-GitHub Actions עם CI אוטומטי:
 
-| Registry                  | Image                                         |
-| ------------------------- | --------------------------------------------- |
-| GitHub Container Registry | `ghcr.io/yonatan2021/pikud-haoref-bot:latest` |
-| Docker Hub                | `yonatan2021/pikud-haoref-bot:latest`         |
+- **כל `push`**: בדיקת סוג, בדיקות יחידה, בדיקות לוח הנתונים, בדיקה של Dockerfile
+- **כל `wizard-v*.*.*` tag**: פרסום הוויזארד ל-npm כ-`@haoref-boti/pikud-haoref-bot`
+
+ה-Dockerfile תמיד זמין לבנייה מקומית.
 
 </div>
 

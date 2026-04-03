@@ -26,6 +26,10 @@
 
 <div dir="rtl">
 
+### 🗑️ הוסר
+
+- **Docker Hub / GHCR פרסום ציבורי** — הוסרה אוטומציית פרסום Docker image ל-GHCR ו-Docker Hub; הדרך המומלצת להתקנה היא `npx @haoref-boti/pikud-haoref-bot`. ה-Dockerfile נשמר לבנייה מקומית.
+
 </div>
 
 ---
