@@ -5,6 +5,7 @@ import { getCityData } from '../cityLookup.js';
 import { ALERT_TYPE_CATEGORY } from '../topicRouter.js';
 import { dmQueue, type DmTask } from './dmQueue.js';
 import { log } from '../logger.js';
+import { renderCountdownBar } from '../config/urgency.js';
 
 /**
  * Returns a personal relevance indicator based on the subscriber's home city.
@@ -78,7 +79,9 @@ export function buildAlertDmMessage(alert: Alert, homeCity?: string | null): str
 
   if (cd > 0) {
     const drillSuffix = isDrill ? ' (תרגיל)' : '';
-    parts.push(`⏱ יש לך ${cd} שניות להיכנס למרחב מוגן${drillSuffix}`);
+    const bar = renderCountdownBar(cd);
+    const barPrefix = bar ? `${bar}  ` : '';
+    parts.push(`${barPrefix}⏱ יש לך ${cd} שניות להיכנס למרחב מוגן${drillSuffix}`);
   }
 
   return parts.join('\n');
