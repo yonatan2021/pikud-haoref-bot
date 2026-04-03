@@ -56,11 +56,16 @@ function windowMs(): number {
   return (isNaN(parsed) || parsed <= 0 ? 120 : parsed) * 1000;
 }
 
+const MAX_DEBOUNCE_SECONDS = 300;
+
 function mapDebounceMs(db: Database.Database): number {
   const dbVal = getSetting(db, 'whatsapp_map_debounce_seconds');
   if (dbVal) {
     const parsed = parseInt(dbVal, 10);
-    if (!isNaN(parsed) && parsed > 0) return parsed * 1000;
+    if (!isNaN(parsed) && parsed > 0 && parsed <= MAX_DEBOUNCE_SECONDS) return parsed * 1000;
+    if (!isNaN(parsed)) {
+      log('warn', 'WhatsApp', `debounce ${parsed}s out of range [1, ${MAX_DEBOUNCE_SECONDS}] — using default`);
+    }
   }
   const envVal = parseInt(process.env.WHATSAPP_MAP_DEBOUNCE_SECONDS ?? '', 10);
   return (isNaN(envVal) || envVal <= 0 ? 15 : envVal) * 1000;
@@ -126,9 +131,12 @@ async function sendDebouncedMap(
       'alert-map.png',
     );
     await chat.sendMessage(media);
-    state.latestImageBuffer = undefined;
-    state.debounceTimer = undefined;
-    state.mapSent = true;
+    track(groupId, alertType, {
+      ...state,
+      latestImageBuffer: undefined,
+      debounceTimer: undefined,
+      mapSent: true,
+    });
   } catch (err: unknown) {
     log('error', 'WhatsApp', `שגיאה בשליחת מפה מושהית לקבוצה ${groupId}: ${err instanceof Error ? err.message : String(err)}`);
   }

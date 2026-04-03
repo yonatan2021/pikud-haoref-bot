@@ -85,7 +85,8 @@ function parsePrivacyDefaults(): Record<string, boolean> {
   if (!raw) return { safety_status: true, home_city: false, update_time: true };
   try {
     return JSON.parse(raw) as Record<string, boolean>;
-  } catch {
+  } catch (err) {
+    log('error', 'Connect', `Failed to parse privacy_defaults setting: ${String(err)}. Using hardcoded defaults.`);
     return { safety_status: true, home_city: false, update_time: true };
   }
 }
@@ -98,10 +99,16 @@ function ensureConnectionCode(chatId: number): string {
   for (let i = 0; i < MAX_CODE_RETRIES; i++) {
     const code = generateCode();
     if (!findUserByConnectionCode(code)) {
-      setConnectionCode(chatId, code);
-      return code;
+      try {
+        setConnectionCode(chatId, code);
+        return code;
+      } catch (err) {
+        log('error', 'Connect', `setConnectionCode failed for ${chatId}: ${String(err)}`);
+        throw err;
+      }
     }
   }
+  log('error', 'Connect', `Code generation exhausted ${MAX_CODE_RETRIES} retries for user ${chatId}`);
   throw new Error('Failed to generate unique connection code after retries');
 }
 
@@ -109,10 +116,15 @@ function buildContactsPage(
   userId: number,
   page: number
 ): { text: string; keyboard: InlineKeyboard } {
+  if (!Number.isInteger(page) || page < 0) {
+    log('warn', 'Connect', `Invalid page requested: ${page} — clamping to 0`);
+    page = 0;
+  }
+
   const accepted = listContacts(userId, 'accepted');
   const total = accepted.length;
   const totalPages = Math.max(1, Math.ceil(total / CONTACTS_PER_PAGE));
-  const safePage = Math.min(Math.max(0, page), totalPages - 1);
+  const safePage = Math.min(page, totalPages - 1);
   const start = safePage * CONTACTS_PER_PAGE;
   const slice = accepted.slice(start, start + CONTACTS_PER_PAGE);
 
@@ -125,7 +137,11 @@ function buildContactsPage(
 
   const permissions = new Map<number, ReturnType<typeof getPermissions>>();
   for (const c of slice) {
-    permissions.set(c.id, getPermissions(c.id));
+    const perms = getPermissions(c.id);
+    if (!perms) {
+      log('error', 'Connect', `Contact ${c.id} has no permissions record — data integrity issue`);
+    }
+    permissions.set(c.id, perms);
   }
 
   const lines = ['👥 <b>אנשי הקשר שלי</b>', ''];
@@ -261,7 +277,13 @@ export function registerConnectHandler(bot: Bot): void {
     const chatId = ctx.chat?.id;
     if (chatId !== contact.contact_id) return;
 
-    acceptContact(contactId);
+    try {
+      acceptContact(contactId);
+    } catch (err) {
+      log('error', 'Connect', `Failed to accept contact ${contactId}: ${String(err)}`);
+      await ctx.editMessageText('❌ שגיאת שרת — נסה שוב.');
+      return;
+    }
     log('info', 'Connect', `Contact ${contactId} accepted`);
 
     const targetName = getUser(contact.contact_id)?.display_name ?? 'משתמש';
@@ -277,7 +299,7 @@ export function registerConnectHandler(bot: Bot): void {
         `✅ ${targetName} אישר/ה את בקשת החיבור שלך!`
       );
     } catch (err) {
-      log('warn', 'Connect', `Failed to notify requester ${contact.user_id}: ${String(err)}`);
+      log('error', 'Connect', `Failed to notify requester ${contact.user_id}: ${String(err)}`);
     }
   });
 
@@ -294,7 +316,13 @@ export function registerConnectHandler(bot: Bot): void {
     const chatId = ctx.chat?.id;
     if (chatId !== contact.contact_id) return;
 
-    rejectContact(contactId);
+    try {
+      rejectContact(contactId);
+    } catch (err) {
+      log('error', 'Connect', `Failed to reject contact ${contactId}: ${String(err)}`);
+      await ctx.editMessageText('❌ שגיאת שרת — נסה שוב.');
+      return;
+    }
     log('info', 'Connect', `Contact ${contactId} rejected`);
 
     await ctx.editMessageText('❌ <b>בקשת החיבור נדחתה.</b>', { parse_mode: 'HTML' });
@@ -306,7 +334,7 @@ export function registerConnectHandler(bot: Bot): void {
         '❌ בקשת החיבור שלך נדחתה.'
       );
     } catch (err) {
-      log('warn', 'Connect', `Failed to notify requester ${contact.user_id}: ${String(err)}`);
+      log('error', 'Connect', `Failed to notify requester ${contact.user_id}: ${String(err)}`);
     }
   });
 
@@ -341,7 +369,13 @@ export function registerConnectHandler(bot: Bot): void {
     // Verify this user is part of the contact pair
     if (contact.user_id !== chatId && contact.contact_id !== chatId) return;
 
-    removeContact(contactId);
+    try {
+      removeContact(contactId);
+    } catch (err) {
+      log('error', 'Connect', `Failed to remove contact ${contactId}: ${String(err)}`);
+      await ctx.answerCallbackQuery({ text: '❌ שגיאת שרת — נסה שוב', show_alert: true });
+      return;
+    }
     log('info', 'Connect', `User ${chatId} removed contact ${contactId}`);
     const { text, keyboard } = buildContactsPage(chatId, 0);
     await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });

@@ -193,7 +193,11 @@ export function createMessageHandler(
         const plainBody = truncatedBody ? `\n\n${truncatedBody}` : '';
         const plainText = `${plainHeader}${plainBody}`;
         broadcastToWhatsAppGroups(db, plainText, msg.from, broadcastDeps, downloadedMedia).catch((err: unknown) => {
-          log('error', 'WA→WA', `שגיאה בשידור: ${String(err)}`);
+          try {
+            log('error', 'WA→WA', `שגיאה בשידור: ${String(err)}`);
+          } catch {
+            // prevent log failure from becoming an unhandled rejection
+          }
         });
       }
     })().catch((err: unknown) => {

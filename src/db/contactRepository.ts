@@ -87,21 +87,24 @@ export function getContactByPair(userId: number, contactId: number): Contact | u
 }
 
 export function acceptContact(id: number): void {
-  getDb()
+  const result = getDb()
     .prepare("UPDATE contacts SET status = 'accepted' WHERE id = ?")
     .run(id);
+  if (result.changes === 0) throw new Error(`Contact ${id} not found`);
 }
 
 export function rejectContact(id: number): void {
-  getDb()
+  const result = getDb()
     .prepare("UPDATE contacts SET status = 'rejected' WHERE id = ?")
     .run(id);
+  if (result.changes === 0) throw new Error(`Contact ${id} not found`);
 }
 
 export function removeContact(id: number): void {
-  getDb()
+  const result = getDb()
     .prepare('DELETE FROM contacts WHERE id = ?')
     .run(id);
+  if (result.changes === 0) throw new Error(`Contact ${id} not found`);
 }
 
 export function listContacts(userId: number, status?: string): Contact[] {
