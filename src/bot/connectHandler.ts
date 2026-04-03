@@ -197,13 +197,13 @@ function buildPermissionScreenPayload(
   state: PendingPermissionState
 ): { text: string; keyboard: InlineKeyboard } {
   const safetyCheck = state.safety_status ? '✅' : '☐';
-  const cityCheck = state.home_city ? '✅' : '☐';
+  const cityCheck   = state.home_city ? '✅' : '☐';
 
   const text = `📤 <b>בקשת חיבור ל${escapeHtml(targetName)}</b>\n\nכשהם יאשרו — מה הם יוכלו לראות עליכם?\n\n${safetyCheck} <b>עיר הבית שלי</b>\n<i>כדי שיוכלו לדעת אם הגעתם לאזור בטוח</i>\n\n${cityCheck} <b>זמן עדכון אחרון</b>\n<i>כדי שיוכלו לדעת שראיתם את ההתראה</i>`;
 
   const keyboard = new InlineKeyboard()
-    .text('🔄 עיר הבית', `cx:pt:city`)
-    .text('🔄 זמן עדכון', `cx:pt:safety`)
+    .text('🔄 עיר הבית', `cx:pt:safety`)
+    .text('🔄 זמן עדכון', `cx:pt:city`)
     .row()
     .text('💾 שמור ושלח בקשה', `cx:confirm`)
     .text('❌ ביטול', `cx:cancel`)
