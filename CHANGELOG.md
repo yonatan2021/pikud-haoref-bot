@@ -36,6 +36,28 @@
 
 ---
 
+## [0.4.2] — 2026-04-03
+
+<div dir="rtl">
+
+### ✨ תכונות חדשות
+
+- **מערכת אנשי קשר** — `/connect` ו-`/contacts`: חיבור בין אנשים עם קוד ייחודי בן 6 ספרות, אישור/דחייה, רשימה עם pagination, הסרת קשרים
+- **אנטי-ספאם** — מגבלת 10 בקשות ממתינות, חסימה אחרי 5 ניסיונות שגויים (60 שניות), cooldown של 5 שניות בין חיפושים, פקיעה אוטומטית אחרי 7 ימים
+- **ניקוי אוטומטי** — בקשות קשר שפגו מוסרות כל 6 שעות (בנוסף לניקוי בהפעלה)
+- **קוד חיבור בפרופיל** — `/profile` מציג את קוד החיבור אם קיים
+- **נתוני קשרים בדשבורד** — עמוד מנויים מציג קוד חיבור, מספר קשרים, ורשימת אנשי קשר בפירוט; ייצוא CSV כולל שדות קשרים
+
+### 🧪 בדיקות
+
+- **+4 בדיקות connect handler** — stub הרשאות, פגישת מועד, pagination
+- **+4 בדיקות dashboard** — contact_count, contacts array, CSV עם שדות קשרים
+- **+3 בדיקות repository** — migration idempotency, pruneExpiredContacts, permission lifecycle
+
+</div>
+
+---
+
 ## [0.4.1a] — 2026-04-03
 
 <div dir="rtl">
@@ -788,7 +810,8 @@
 
 <div dir="rtl">
 
-[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.3.3...v0.4.0
 [0.3.3]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.3.2...v0.3.3
