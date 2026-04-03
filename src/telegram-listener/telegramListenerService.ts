@@ -68,7 +68,11 @@ export function createMessageHandler(
       if (listeners.length === 0) return;
 
       const targetChatId =
-        process.env['TELEGRAM_FORWARD_GROUP_ID'] ?? process.env['TELEGRAM_CHAT_ID']!;
+        process.env['TELEGRAM_FORWARD_GROUP_ID'] ?? process.env['TELEGRAM_CHAT_ID'];
+      if (!targetChatId) {
+        log('error', 'TG Listener', 'TELEGRAM_FORWARD_GROUP_ID or TELEGRAM_CHAT_ID not configured');
+        return;
+      }
 
       const truncatedBody =
         msg.body.length > MESSAGE_BODY_MAX
