@@ -335,9 +335,9 @@ git tag wizard-vX.Y.Z && git push origin wizard-vX.Y.Z
     </tr>
     <tr>
       <td align="right"><code>v0.4.3</code></td>
-      <td align="right">פרטיות פר-קשר</td>
-      <td align="right">שליטה מדויקת במה כל איש קשר רואה.</td>
-      <td align="right">⚪ מתוכנן</td>
+      <td align="right">פרטיות פר-קשר + Telegram Listener</td>
+      <td align="right">שליטה מדויקת במה כל איש קשר רואה; האזנה לקבוצות Telegram דרך GramJS.</td>
+      <td align="right">✅ הושלם</td>
     </tr>
     <tr>
       <td align="right"><code>v0.4.4</code></td>
@@ -475,7 +475,7 @@ git tag wizard-vX.Y.Z && git push origin wizard-vX.Y.Z
 </details>
 
 <details>
-<summary>v0.4.3 — הגדרות פרטיות לכל איש קשר</summary>
+<summary>v0.4.3 — הגדרות פרטיות לכל איש קשר + Telegram Listener ✅</summary>
 
 <table dir="rtl">
   <thead>
@@ -490,6 +490,11 @@ git tag wizard-vX.Y.Z && git push origin wizard-vX.Y.Z
       <td align="right">פרטיות פר-קשר</td>
       <td align="right">הרשאות חדשות, `/privacy`, והצגה ברורה של מה כל אחד רואה.</td>
       <td align="right">שליטה מלאה בשיתוף מידע, בלי להעמיס על המשתמש.</td>
+    </tr>
+    <tr>
+      <td align="right">Telegram Listener</td>
+      <td align="right">GramJS MTProto — האזנה לכל קבוצה/ערוץ שהמפעיל חבר בה, סינון מילות מפתח, העברה לנושאים + WhatsApp.</td>
+      <td align="right">כיסוי מקורות Telegram שלא ניתן להוסיף אליהם בוט.</td>
     </tr>
   </tbody>
 </table>
@@ -513,6 +518,14 @@ git tag wizard-vX.Y.Z && git push origin wizard-vX.Y.Z
     <tr>
       <td align="right">תצוגת איש קשר</td>
       <td align="right">מה הוא משתף איתך ומה אתה משתף איתו.</td>
+    </tr>
+    <tr>
+      <td align="right">Telegram auth flow</td>
+      <td align="right">חיבור מהדשבורד: טלפון → OTP → 2FA; session נשמר ב-SQLite.</td>
+    </tr>
+    <tr>
+      <td align="right">כללי האזנה</td>
+      <td align="right">מקור (chat), מילות מפתח, נושא יעד ב-Telegram, ו-flag להעברה ל-WhatsApp.</td>
     </tr>
   </tbody>
 </table>
