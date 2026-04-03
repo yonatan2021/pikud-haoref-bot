@@ -348,6 +348,14 @@ export function registerConnectHandler(bot: Bot): void {
     const { text, keyboard } = buildContactsPage(chatId, 0);
     await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
   });
+
+  // Permission editing — stub for v0.4.3
+  bot.callbackQuery(/^cx:perm:(\d+)$/, async (ctx: Context) => {
+    await ctx.answerCallbackQuery({
+      text: '🔜 ניהול הרשאות — בקרוב בגרסה הבאה',
+      show_alert: true,
+    });
+  });
 }
 
 /** Exposed for testing — clear to reset anti-spam state between test runs */
