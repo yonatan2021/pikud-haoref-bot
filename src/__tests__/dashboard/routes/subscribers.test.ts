@@ -177,6 +177,33 @@ describe('GET /api/subscribers/:id — contacts array', () => {
   });
 });
 
+describe('DELETE /api/subscribers/:id/contacts/:contactId', () => {
+  it('removes contact relationship', async () => {
+    db.prepare(`INSERT INTO users (chat_id, format, quiet_hours_enabled) VALUES (222, 'short', 0)`).run();
+    const result = db.prepare(`INSERT INTO contacts (user_id, contact_id, status) VALUES (111, 222, 'accepted')`).run();
+    const contactId = (result.lastInsertRowid as number);
+    const res = await request(app).delete(`/api/subscribers/111/contacts/${contactId}`);
+    assert.equal(res.status, 200);
+    const contacts = db.prepare('SELECT * FROM contacts WHERE user_id = 111 AND contact_id = 222').all() as any[];
+    assert.equal(contacts.length, 0);
+  });
+
+  it('handles bidirectional contact removal', async () => {
+    db.prepare(`INSERT INTO users (chat_id, format, quiet_hours_enabled) VALUES (222, 'short', 0)`).run();
+    const result = db.prepare(`INSERT INTO contacts (user_id, contact_id, status) VALUES (222, 111, 'pending')`).run();
+    const contactId = (result.lastInsertRowid as number);
+    const res = await request(app).delete(`/api/subscribers/111/contacts/${contactId}`);
+    assert.equal(res.status, 200);
+    const contacts = db.prepare('SELECT * FROM contacts WHERE id = ?').all(contactId) as any[];
+    assert.equal(contacts.length, 0);
+  });
+
+  it('returns 404 for non-existent contact', async () => {
+    const res = await request(app).delete('/api/subscribers/111/contacts/999');
+    assert.equal(res.status, 404);
+  });
+});
+
 describe('GET /api/subscribers/export/csv', () => {
   it('returns CSV content-type', async () => {
     const res = await request(app).get('/api/subscribers/export/csv');

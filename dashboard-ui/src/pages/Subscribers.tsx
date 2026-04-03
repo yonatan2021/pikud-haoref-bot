@@ -134,6 +134,16 @@ export function Subscribers() {
     onError: () => toast.error('שגיאה בהסרת עיר'),
   });
 
+  const removeContactMutation = useMutation({
+    mutationFn: ({ id, contactId }: { id: number; contactId: number }) =>
+      api.delete(`/api/subscribers/${id}/contacts/${contactId}`),
+    onSuccess: () => {
+      toast.success('קשר הוסר');
+      qc.invalidateQueries({ queryKey: ['subscriber-detail', expandedId] });
+    },
+    onError: () => toast.error('שגיאה בהסרת קשר'),
+  });
+
   const bulkDeleteMutation = useMutation({
     mutationFn: async (ids: number[]) => {
       const results = await Promise.allSettled(ids.map(id => api.delete(`/api/subscribers/${id}`)));
@@ -477,9 +487,9 @@ export function Subscribers() {
                                       <p className="text-text-muted text-xs mb-2 mt-4">אנשי קשר:</p>
                                       <div className="flex flex-wrap gap-2">
                                         {(expandedDetail.contacts ?? []).map(c => (
-                                          <span
+                                          <div
                                             key={c.id}
-                                            className={`flex items-center gap-1 border rounded-full px-3 py-1 text-xs ${
+                                            className={`flex items-center gap-1 border rounded-full px-3 py-1 text-xs group cursor-pointer transition-opacity hover:opacity-75 ${
                                               c.status === 'accepted'
                                                 ? 'bg-green-500/10 border-green-500/30 text-green-400'
                                                 : c.status === 'pending'
@@ -491,7 +501,18 @@ export function Subscribers() {
                                             <span className="text-[10px] opacity-60">
                                               {c.status === 'accepted' ? '✓' : c.status === 'pending' ? '⏳' : '✗'}
                                             </span>
-                                          </span>
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                removeContactMutation.mutate({ id: expandedId ?? 0, contactId: c.id });
+                                              }}
+                                              disabled={removeContactMutation.isPending}
+                                              className="text-[10px] opacity-0 group-hover:opacity-100 transition-opacity hover:text-red-400 disabled:opacity-50"
+                                              title="הסר קשר"
+                                            >
+                                              ✕
+                                            </button>
+                                          </div>
                                         ))}
                                       </div>
                                     </>

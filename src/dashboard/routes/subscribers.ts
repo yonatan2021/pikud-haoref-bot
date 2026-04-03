@@ -218,5 +218,33 @@ export function createSubscribersRouter(db: Database.Database): Router {
     }
   });
 
+  router.delete('/:id/contacts/:contactId', subscriberMutateLimiter, (req, res) => {
+    try {
+      const chatId = parseInt(req.params.id as string, 10);
+      const contactRowId = parseInt(req.params.contactId as string, 10);
+      if (isNaN(chatId) || isNaN(contactRowId)) {
+        res.status(400).json({ error: 'מזהה לא חוקי' });
+        return;
+      }
+
+      // Verify the contact belongs to this user (either direction) before deleting
+      const contact = db.prepare(`
+        SELECT id FROM contacts WHERE id = ? AND (user_id = ? OR contact_id = ?)
+      `).get(contactRowId, chatId, chatId) as { id: number } | undefined;
+
+      if (!contact) {
+        res.status(404).json({ error: 'קשר לא נמצא' });
+        return;
+      }
+
+      // Delete the contact by its id
+      db.prepare('DELETE FROM contacts WHERE id = ?').run(contactRowId);
+      res.json({ ok: true });
+    } catch (err) {
+      log('error', 'Dashboard', `Query error: ${String(err)}`);
+      res.status(500).json({ error: 'שגיאת שרת פנימית' });
+    }
+  });
+
   return router;
 }
