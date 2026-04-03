@@ -463,7 +463,7 @@ export function registerConnectHandler(bot: Bot): void {
 
     const chatId = ctx.chat?.id;
     if (chatId !== contact.contact_id) {
-      await ctx.answerCallbackQuery();
+      await ctx.reply('❌ רק הנמען יכול להגיב לבקשה זו.');
       return;
     }
 
@@ -520,7 +520,7 @@ export function registerConnectHandler(bot: Bot): void {
 
     const chatId = ctx.chat?.id;
     if (chatId !== contact.contact_id) {
-      await ctx.answerCallbackQuery();
+      await ctx.reply('❌ רק הנמען יכול להגיב לבקשה זו.');
       return;
     }
 
