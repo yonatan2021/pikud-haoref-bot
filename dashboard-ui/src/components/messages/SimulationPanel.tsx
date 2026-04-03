@@ -4,9 +4,14 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { GlassCard } from '../ui/GlassCard';
 import { CityMultiSelect } from './CityMultiSelect';
 import { TelegramBubblePreview } from './TelegramBubblePreview';
+import { WhatsAppBubblePreview } from './WhatsAppBubblePreview';
 import type { CityResult } from './CityMultiSelect';
 import type { TemplateEntry, TemplateEdit } from './TemplateRow';
-import { formatAlertMessageFE, type CityData } from '../../utils/alertFormatter';
+import {
+  formatAlertMessageFE,
+  formatAlertMessageWAFE,
+  type CityData,
+} from '../../utils/alertFormatter';
 import { api } from '../../api/client';
 
 interface ReplayEntry {
@@ -18,20 +23,34 @@ interface ReplayEntry {
   titleHe: string;
 }
 
+interface WhatsAppStatusResponse {
+  status: string;
+}
+
 interface SimulationPanelProps {
   targetEntry: (TemplateEntry & { localEdits?: Partial<TemplateEdit> }) | null;
   allEntries: TemplateEntry[];
 }
 
+type Platform = 'telegram' | 'whatsapp';
+
 export function SimulationPanel({ targetEntry }: SimulationPanelProps) {
   const [selectedCities, setSelectedCities] = useState<CityResult[]>([]);
   const [instructions, setInstructions] = useState('');
   const [selectedReplayId, setSelectedReplayId] = useState<number | null>(null);
+  const [platform, setPlatform] = useState<Platform>('telegram');
 
   // Replay history dropdown data
   const { data: replayHistory = [] } = useQuery<ReplayEntry[]>({
     queryKey: ['replay-history'],
     queryFn: () => api.get<ReplayEntry[]>('/api/messages/replay-history'),
+  });
+
+  // WhatsApp connection status (used to enable/disable WA test-fire button)
+  const { data: waStatus } = useQuery<WhatsAppStatusResponse>({
+    queryKey: ['whatsapp-status-sim'],
+    queryFn: () => api.get<WhatsAppStatusResponse>('/api/whatsapp/status'),
+    refetchInterval: 10_000,
   });
 
   // Build cityDataMap from selected cities
@@ -58,7 +77,7 @@ export function SimulationPanel({ targetEntry }: SimulationPanelProps) {
     };
   }, [targetEntry]);
 
-  // Generate preview HTML
+  // Live Telegram preview HTML
   const previewHtml = useMemo(() => {
     if (!mergedTemplate || selectedCities.length === 0) return '';
     return formatAlertMessageFE(
@@ -69,23 +88,54 @@ export function SimulationPanel({ targetEntry }: SimulationPanelProps) {
     );
   }, [mergedTemplate, selectedCities, instructions, cityDataMap]);
 
-  // Replay preview — fetches pre-rendered HTML from backend
+  // Live WhatsApp preview plain text
+  const previewWAText = useMemo(() => {
+    if (!mergedTemplate || selectedCities.length === 0) return '';
+    return formatAlertMessageWAFE(
+      targetEntry?.alertType ?? '',
+      selectedCities.map((c) => c.name),
+      instructions || undefined,
+      mergedTemplate,
+      cityDataMap,
+    );
+  }, [mergedTemplate, selectedCities, instructions, cityDataMap, targetEntry]);
+
+  // Replay preview — fetches pre-rendered output from backend
   const replayPreviewMutation = useMutation({
     mutationFn: (alertHistoryId: number) =>
-      api.post<{ html: string; charCount: number }>('/api/messages/replay-preview', {
+      api.post<{
+        html: string;
+        telegramHtml: string;
+        whatsappText: string;
+        charCount: number;
+        waCharCount: number;
+      }>('/api/messages/replay-preview', {
         alertHistoryId,
         templateOverride: mergedTemplate ?? undefined,
       }),
   });
 
-  // Test-fire mutation
+  // Telegram test-fire mutation
   const testFireMutation = useMutation({
     mutationFn: () =>
-      api.post<{ ok: boolean; messageId: number }>('/api/messages/test-fire', {
+      api.post<{ ok: boolean; telegram?: number }>('/api/messages/test-fire', {
         alertType: targetEntry?.alertType,
         cities: selectedCities.map((c) => c.name),
         instructions: instructions || undefined,
         templateOverride: mergedTemplate ?? undefined,
+        platform: 'telegram',
+      }),
+  });
+
+  // WhatsApp test-fire mutation
+  const testFireWAMutation = useMutation({
+    mutationFn: () =>
+      api.post<{ ok: boolean; whatsappGroups?: number }>('/api/messages/test-fire', {
+        alertType: targetEntry?.alertType,
+        cities: selectedCities.map((c) => c.name),
+        instructions: instructions || undefined,
+        templateOverride: mergedTemplate ?? undefined,
+        platform: 'whatsapp',
       }),
   });
 
@@ -99,9 +149,13 @@ export function SimulationPanel({ targetEntry }: SimulationPanelProps) {
     replayPreviewMutation.mutate(id);
   };
 
-  // Determine what HTML to show — live preview or replay
-  const displayHtml = replayPreviewMutation.data?.html ?? previewHtml;
+  // Determine what to show — replay result or live preview
+  const displayHtml = replayPreviewMutation.data?.telegramHtml ?? previewHtml;
+  const displayWAText = replayPreviewMutation.data?.whatsappText ?? previewWAText;
   const displayCharCount = replayPreviewMutation.data?.charCount ?? previewHtml.length;
+  const displayWACharCount = replayPreviewMutation.data?.waCharCount ?? previewWAText.length;
+
+  const waConnected = waStatus?.status === 'ready';
 
   return (
     <GlassCard glow="blue">
@@ -142,9 +196,39 @@ export function SimulationPanel({ targetEntry }: SimulationPanelProps) {
         />
       </div>
 
+      {/* Platform tabs */}
+      <div className="flex gap-2 mb-3">
+        <button
+          type="button"
+          onClick={() => setPlatform('telegram')}
+          className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors
+            ${platform === 'telegram'
+              ? 'bg-blue/20 text-blue border border-blue/30'
+              : 'bg-base text-text-secondary border border-border hover:border-blue/20'
+            }`}
+        >
+          📱 טלגרם
+        </button>
+        <button
+          type="button"
+          onClick={() => setPlatform('whatsapp')}
+          className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors
+            ${platform === 'whatsapp'
+              ? 'bg-[#005c4b]/30 text-[#25d366] border border-[#25d366]/30'
+              : 'bg-base text-text-secondary border border-border hover:border-[#25d366]/20'
+            }`}
+        >
+          📲 WhatsApp
+        </button>
+      </div>
+
       {/* Preview */}
       <div className="mb-3">
-        <TelegramBubblePreview html={displayHtml} charCount={displayCharCount} />
+        {platform === 'telegram' ? (
+          <TelegramBubblePreview html={displayHtml} charCount={displayCharCount} />
+        ) : (
+          <WhatsAppBubblePreview text={displayWAText} charCount={displayWACharCount} />
+        )}
       </div>
 
       {/* Replay dropdown */}
@@ -169,50 +253,98 @@ export function SimulationPanel({ targetEntry }: SimulationPanelProps) {
         </select>
       </div>
 
-      {/* Test fire button */}
+      {/* Test fire buttons */}
       {targetEntry && (
-        <div>
-          <button
-            type="button"
-            onClick={() => testFireMutation.mutate()}
-            disabled={
-              testFireMutation.isPending ||
-              selectedCities.length === 0
-            }
-            className="w-full py-2 rounded-lg text-sm font-medium
-                       bg-blue/20 text-blue hover:bg-blue/30
-                       disabled:opacity-50 disabled:cursor-not-allowed
-                       transition-colors"
-          >
-            {testFireMutation.isPending ? 'שולח...' : '🧪 שלח בדיקה לטלגרם'}
-          </button>
-          <p className="text-[10px] text-text-muted mt-1 text-center">
-            ההודעה תישלח ללא מפה
-          </p>
+        <div className="flex flex-col gap-2">
+          {/* Telegram test-fire */}
+          <div>
+            <button
+              type="button"
+              onClick={() => testFireMutation.mutate()}
+              disabled={testFireMutation.isPending || selectedCities.length === 0}
+              className="w-full py-2 rounded-lg text-sm font-medium
+                         bg-blue/20 text-blue hover:bg-blue/30
+                         disabled:opacity-50 disabled:cursor-not-allowed
+                         transition-colors"
+            >
+              {testFireMutation.isPending ? 'שולח...' : '🧪 שלח בדיקה לטלגרם'}
+            </button>
+            <p className="text-[10px] text-text-muted mt-1 text-center">
+              ההודעה תישלח ללא מפה
+            </p>
+            <AnimatePresence>
+              {testFireMutation.isSuccess && (
+                <motion.div
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="mt-2 p-2 bg-green/10 border border-green/20 rounded-lg text-xs text-green text-center"
+                >
+                  נשלח בהצלחה — message #{testFireMutation.data?.telegram}
+                </motion.div>
+              )}
+              {testFireMutation.isError && (
+                <motion.div
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="mt-2 p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-400 text-center"
+                >
+                  שגיאה: {String(testFireMutation.error)}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
 
-          {/* Test-fire result */}
-          <AnimatePresence>
-            {testFireMutation.isSuccess && (
-              <motion.div
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className="mt-2 p-2 bg-green/10 border border-green/20 rounded-lg text-xs text-green text-center"
-              >
-                נשלח בהצלחה — message #{testFireMutation.data?.messageId}
-              </motion.div>
-            )}
-            {testFireMutation.isError && (
-              <motion.div
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className="mt-2 p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-400 text-center"
-              >
-                שגיאה: {String(testFireMutation.error)}
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {/* WhatsApp test-fire */}
+          <div>
+            <button
+              type="button"
+              onClick={() => testFireWAMutation.mutate()}
+              disabled={
+                testFireWAMutation.isPending ||
+                selectedCities.length === 0 ||
+                !waConnected
+              }
+              className="w-full py-2 rounded-lg text-sm font-medium
+                         bg-[#005c4b]/20 text-[#25d366] hover:bg-[#005c4b]/30
+                         disabled:opacity-50 disabled:cursor-not-allowed
+                         transition-colors"
+            >
+              {testFireWAMutation.isPending
+                ? 'שולח...'
+                : !waConnected
+                  ? '📵 WhatsApp לא מחובר'
+                  : '🧪 שלח בדיקה לוואטסאפ'}
+            </button>
+            <p className="text-[10px] text-text-muted mt-1 text-center">
+              {waConnected
+                ? 'ישלח לכל הקבוצות המופעלות לסוג התרעה זה'
+                : 'התחבר ל-WhatsApp בדף WhatsApp כדי לשלוח'}
+            </p>
+            <AnimatePresence>
+              {testFireWAMutation.isSuccess && (
+                <motion.div
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="mt-2 p-2 bg-green/10 border border-green/20 rounded-lg text-xs text-green text-center"
+                >
+                  נשלח ל-{testFireWAMutation.data?.whatsappGroups ?? 0} קבוצות
+                </motion.div>
+              )}
+              {testFireWAMutation.isError && (
+                <motion.div
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="mt-2 p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-400 text-center"
+                >
+                  שגיאה: {String(testFireWAMutation.error)}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       )}
     </GlassCard>
