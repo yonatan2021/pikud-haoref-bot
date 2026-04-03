@@ -713,6 +713,59 @@ describe('whatsappBroadcaster — null client despite ready', () => {
   });
 });
 
+describe('whatsappBroadcaster — TTL expiry', () => {
+  beforeEach(() => clearTrackedMessages());
+
+  it('sends fresh message (not edit) after the edit window expires', async () => {
+    const db = makeDb();
+    const firstMsg = makeMockMessage();
+    let sendCount = 0;
+    const sendMessage = mock.fn(async () => {
+      sendCount++;
+      return sendCount === 1 ? firstMsg : makeMockMessage();
+    });
+    const getChatById = mock.fn(async () => ({ sendMessage }));
+    const getClientFn = mock.fn(() => ({ getChatById }));
+    const deps = makeDeps({
+      getEnabledGroupsFn: mock.fn(() => ['group1']) as unknown as BroadcasterDeps['getEnabledGroupsFn'],
+      getClientFn: getClientFn as unknown as BroadcasterDeps['getClientFn'],
+    });
+
+    const broadcast = createBroadcaster(db, deps);
+
+    // First broadcast — creates tracked entry (sentAt = Date.now())
+    await broadcast(BASE_ALERT);
+    assert.equal(
+      (sendMessage as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
+      1,
+      'first broadcast should send'
+    );
+
+    // Advance Date.now 130 seconds into the future (beyond the 120s default window)
+    const origNow = Date.now;
+    Date.now = () => origNow() + 130_000;
+
+    try {
+      const updatedAlert: Alert = { type: 'missiles', cities: ['חיפה'] };
+      await broadcast(updatedAlert);
+
+      // Window expired → getTracked returns null → fresh send, NOT edit
+      assert.equal(
+        (sendMessage as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
+        2,
+        'second broadcast after TTL expiry should send a fresh message'
+      );
+      assert.equal(
+        (firstMsg.edit as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
+        0,
+        'edit() must NOT be called after the TTL window expires'
+      );
+    } finally {
+      Date.now = origNow;
+    }
+  });
+});
+
 describe('whatsappBroadcaster — no enabled groups', () => {
   beforeEach(() => clearTrackedMessages());
 
