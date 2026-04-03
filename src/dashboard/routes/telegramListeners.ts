@@ -179,7 +179,7 @@ export function createTelegramListenerRouter(
 
   // GET /chats/:chatId/topics → topics for a forum supergroup
   router.get('/chats/:chatId/topics', (req: Request, res: Response) => {
-    const chatId = req.params['chatId'];
+    const chatId = req.params['chatId'] as string;
     if (!chatId) {
       res.status(400).json({ error: 'chatId חסר' });
       return;
