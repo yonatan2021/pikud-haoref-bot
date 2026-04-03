@@ -10,6 +10,7 @@ import { createMessagesRouter } from './routes/messages.js';
 import { createWhatsAppRouter } from './routes/whatsapp.js';
 import { createListenersRouter } from './routes/whatsappListeners.js';
 import * as whatsappService from '../whatsapp/whatsappService.js';
+import { getEnabledGroupsForAlertType } from '../db/whatsappGroupRepository.js';
 
 export function createApiRouter(db: Database.Database, bot: Bot): Router {
   const router = Router();
@@ -18,7 +19,11 @@ export function createApiRouter(db: Database.Database, bot: Bot): Router {
   router.use('/operations', createOperationsRouter(db, bot));
   router.use('/settings', createSettingsRouter(db));
   router.use('/landing', createLandingRouter(db));
-  router.use('/messages', createMessagesRouter(db, bot));
+  router.use('/messages', createMessagesRouter(db, bot, {
+    getStatus: whatsappService.getStatus,
+    getClient: whatsappService.getClient as () => { getChatById: (id: string) => Promise<{ sendMessage: (text: string) => Promise<unknown> }> } | null,
+    getEnabledGroups: getEnabledGroupsForAlertType,
+  }));
   router.use('/whatsapp/listeners', createListenersRouter(db, bot));
   router.use('/whatsapp', createWhatsAppRouter(db, whatsappService));
   return router;
