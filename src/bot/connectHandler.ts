@@ -220,6 +220,7 @@ function buildAndSendPermissionScreen(ctx: Context, chatId: number, targetName: 
   const { text, keyboard } = buildPermissionScreenPayload(targetName, state);
   ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard }).catch((err) => {
     log('warn', 'Connect', `Failed to edit permission screen: ${String(err)}`);
+    ctx.reply('❌ שגיאת עדכון — נסה שוב').catch(() => undefined);
   });
 }
 
