@@ -22,6 +22,7 @@ import {
 import { getSetting } from '../dashboard/settingsRepository.js';
 import { getDb } from '../db/schema.js';
 import { log } from '../logger.js';
+import { escapeHtml } from '../textUtils.js';
 
 const CONTACTS_PER_PAGE = 5;
 const MAX_PENDING_REQUESTS = 10;
@@ -164,8 +165,8 @@ function buildContactsPage(
     const other = getUser(otherId);
     const name = other?.display_name ?? UNNAMED_USER;
     const perms = permissions.get(contact.id);
-    const cityLine = perms?.home_city && other?.home_city ? ` — ${other.home_city}` : '';
-    lines.push(`• ${name}${cityLine}`);
+    const cityLine = perms?.home_city && other?.home_city ? ` — ${escapeHtml(other.home_city)}` : '';
+    lines.push(`• ${escapeHtml(name)}${cityLine}`);
   }
 
   const keyboard = new InlineKeyboard();
@@ -198,7 +199,7 @@ function buildPermissionScreenPayload(
   const safetyCheck = state.safety_status ? '✅' : '☐';
   const cityCheck = state.home_city ? '✅' : '☐';
 
-  const text = `📤 <b>בקשת חיבור ל${targetName}</b>\n\nכשהם יאשרו — מה הם יוכלו לראות עליכם?\n\n${safetyCheck} <b>עיר הבית שלי</b>\n<i>כדי שיוכלו לדעת אם הגעתם לאזור בטוח</i>\n\n${cityCheck} <b>זמן עדכון אחרון</b>\n<i>כדי שיוכלו לדעת שראיתם את ההתראה</i>`;
+  const text = `📤 <b>בקשת חיבור ל${escapeHtml(targetName)}</b>\n\nכשהם יאשרו — מה הם יוכלו לראות עליכם?\n\n${safetyCheck} <b>עיר הבית שלי</b>\n<i>כדי שיוכלו לדעת אם הגעתם לאזור בטוח</i>\n\n${cityCheck} <b>זמן עדכון אחרון</b>\n<i>כדי שיוכלו לדעת שראיתם את ההתראה</i>`;
 
   const keyboard = new InlineKeyboard()
     .text('🔄 עיר הבית', `cx:pt:city`)
@@ -426,7 +427,7 @@ export function registerConnectHandler(bot: Bot): void {
     try {
       await ctx.api.sendMessage(
         state.targetId,
-        `📨 <b>בקשת חיבור חדשה</b>\n\n${requesterName} שלח/ה לכם בקשת חיבור ורוצה להתחבר אליכם.`,
+        `📨 <b>בקשת חיבור חדשה</b>\n\n${escapeHtml(requesterName)} שלח/ה לכם בקשת חיבור ורוצה להתחבר אליכם.`,
         { parse_mode: 'HTML', reply_markup: keyboard }
       );
     } catch (err) {
@@ -478,7 +479,7 @@ export function registerConnectHandler(bot: Bot): void {
     const requesterName = getUser(contact.user_id)?.display_name ?? UNNAMED_USER;
     const accepterName = getUser(contact.contact_id)?.display_name ?? UNNAMED_USER;
     await ctx.editMessageText(
-      `✅ <b>חיבור אושר</b>\nאתה ו-${requesterName} מחוברים כעת.`,
+      `✅ <b>חיבור אושר</b>\nאתה ו-${escapeHtml(requesterName)} מחוברים כעת.`,
       { parse_mode: 'HTML' }
     );
 
@@ -496,7 +497,7 @@ export function registerConnectHandler(bot: Bot): void {
     try {
       await ctx.api.sendMessage(
         contact.user_id,
-        `✅ <b>${accepterName} אישרו את הבקשה!</b>\n\n${sharedText}`,
+        `✅ <b>${escapeHtml(accepterName)} אישרו את הבקשה!</b>\n\n${sharedText}`,
         { parse_mode: 'HTML' }
       );
     } catch (err) {
