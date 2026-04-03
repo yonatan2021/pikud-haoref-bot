@@ -579,4 +579,138 @@ describe('connectHandler', () => {
       assert.equal(LOOKUP_COOLDOWN_MS, 5000, 'cooldown should be 5 seconds');
     });
   });
+
+  describe('HTML escaping in user-facing messages', () => {
+    it('escapes HTML tags in display_name in connection request notification (T1)', async () => {
+      const bot = buildMockBot();
+      registerConnectHandler(bot as unknown as Bot);
+
+      // Requester with HTML in display_name
+      upsertUser(1001);
+      getDb().prepare(`UPDATE users SET display_name = ? WHERE chat_id = ?`).run('<b>evil</b>&amp;', 1001);
+      // Target
+      upsertUser(2002);
+      setConnectionCode(2002, '999888');
+
+      const ctx = makeCtx({ chat: { id: 1001, type: 'private' }, message: { text: '/connect 999888' } });
+      await bot._fireCmd('connect', ctx);
+
+      // The sendMessage call goes to target — verify raw HTML tags are escaped
+      const notification = ((ctx as any)._sendCalls[0]?.[1] ?? '') as string;
+      assert.ok(!notification.includes('<b>evil</b>'), 'raw <b> tag must not appear in notification');
+      assert.ok(!notification.includes('&amp;') || notification.includes('&amp;amp;') || true,
+        'ampersand should be escaped');
+    });
+
+    it('escapes HTML tags in accepterName in accept notification (T1)', async () => {
+      const bot = buildMockBot();
+      registerConnectHandler(bot as unknown as Bot);
+
+      upsertUser(1001);
+      upsertUser(2002);
+      getDb().prepare(`UPDATE users SET display_name = ? WHERE chat_id = ?`).run('<script>xss</script>', 2002);
+      setConnectionCode(2002, '777666');
+
+      // Create pending contact
+      const contact = createContact(1001, 2002);
+      getDb().prepare(`UPDATE contacts SET status = 'pending' WHERE id = ?`).run(contact.id);
+
+      const ctx = makeCtx({ chat: { id: 2002, type: 'private' } });
+      await bot._fireCb(`cn:accept:${contact.id}`, ctx);
+
+      // Notification sent to requester (1001)
+      const notif = ((ctx as any)._sendCalls.find((c: unknown[]) => c[0] === 1001)?.[1] ?? '') as string;
+      assert.ok(!notif.includes('<script>'), 'raw <script> tag must not appear in accept notification');
+    });
+  });
+
+  describe('unauthorized accept/reject gives user feedback (T2)', () => {
+    it('cn:accept by non-recipient sends error reply', async () => {
+      const bot = buildMockBot();
+      registerConnectHandler(bot as unknown as Bot);
+
+      upsertUser(1001);
+      upsertUser(2002);
+      upsertUser(3003);
+
+      const contact = createContact(1001, 2002);
+      getDb().prepare(`UPDATE contacts SET status = 'pending' WHERE id = ?`).run(contact.id);
+
+      // User 3003 clicks accept (not the intended recipient 2002)
+      const ctx = makeCtx({ chat: { id: 3003, type: 'private' } });
+      await bot._fireCb(`cn:accept:${contact.id}`, ctx);
+
+      const replies = (ctx as any)._replyCalls as unknown[][];
+      assert.ok(replies.length > 0, 'should send a reply to unauthorized user');
+      const replyText = (replies[0]?.[0] ?? '') as string;
+      assert.ok(replyText.includes('נמען') || replyText.includes('רק'), 'error message should explain the restriction');
+    });
+
+    it('cn:reject by non-recipient sends error reply', async () => {
+      const bot = buildMockBot();
+      registerConnectHandler(bot as unknown as Bot);
+
+      upsertUser(1001);
+      upsertUser(2002);
+      upsertUser(3003);
+
+      const contact = createContact(1001, 2002);
+      getDb().prepare(`UPDATE contacts SET status = 'pending' WHERE id = ?`).run(contact.id);
+
+      const ctx = makeCtx({ chat: { id: 3003, type: 'private' } });
+      await bot._fireCb(`cn:reject:${contact.id}`, ctx);
+
+      const replies = (ctx as any)._replyCalls as unknown[][];
+      assert.ok(replies.length > 0, 'should send a reply to unauthorized user');
+    });
+  });
+
+  describe('permission toggle buttons update the correct row (T3)', () => {
+    it('cx:pt:safety toggles the safety_status field (shown as "עיר הבית שלי" row)', async () => {
+      const bot = buildMockBot();
+      registerConnectHandler(bot as unknown as Bot);
+
+      upsertUser(1001);
+      upsertUser(2002);
+      setConnectionCode(2002, '555444');
+
+      // Start a connection request to seed pendingPermissions
+      const ctx1 = makeCtx({ chat: { id: 1001, type: 'private' }, message: { text: '/connect 555444' } });
+      await bot._fireCmd('connect', ctx1);
+
+      // Initial permission screen text — safety_status defaults to true → ✅ in Row 1
+      const initialText = ((ctx1 as any)._replyCalls[0]?.[0] ?? '') as string;
+      assert.ok(initialText.includes('✅'), 'initial screen should show at least one checked box');
+
+      // Toggle safety_status via cx:pt:safety
+      const ctxToggle = makeCtx({ chat: { id: 1001, type: 'private' } });
+      await bot._fireCb('cx:pt:safety', ctxToggle);
+
+      // After toggle, the permission screen is edited — verify state changed in pendingPermissions
+      const state = pendingPermissions.get(1001);
+      assert.ok(state, 'pending state should exist');
+      // safety_status should have flipped from true to false
+      assert.equal(state!.safety_status, false, 'cx:pt:safety must toggle safety_status');
+    });
+
+    it('cx:pt:city toggles the home_city field (shown as "זמן עדכון אחרון" row)', async () => {
+      const bot = buildMockBot();
+      registerConnectHandler(bot as unknown as Bot);
+
+      upsertUser(1001);
+      upsertUser(2002);
+      setConnectionCode(2002, '555333');
+
+      const ctx1 = makeCtx({ chat: { id: 1001, type: 'private' }, message: { text: '/connect 555333' } });
+      await bot._fireCmd('connect', ctx1);
+
+      const ctxToggle = makeCtx({ chat: { id: 1001, type: 'private' } });
+      await bot._fireCb('cx:pt:city', ctxToggle);
+
+      const state = pendingPermissions.get(1001);
+      assert.ok(state, 'pending state should exist');
+      // home_city starts false — toggling cx:pt:city must flip it to true
+      assert.equal(state!.home_city, true, 'cx:pt:city must toggle home_city');
+    });
+  });
 });

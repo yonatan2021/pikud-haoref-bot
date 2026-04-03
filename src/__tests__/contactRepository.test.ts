@@ -306,4 +306,27 @@ describe('contactRepository', () => {
     assert.equal(perms.safety_status, true);
     assert.equal(perms.home_city, true);
   });
+
+  // T6: transaction rollback — no orphaned contact row on failure
+  it('createContactWithPermissions rolls back contact row when creation fails (T6)', () => {
+    // Enable FK enforcement so that a missing user causes the INSERT to fail
+    getDb().pragma('foreign_keys = ON');
+    upsertUser(6001);
+    // 6002 is deliberately NOT inserted — FK on contacts(contact_id) → users(chat_id) will fail
+
+    assert.throws(
+      () => createContactWithPermissions(6001, 6002),
+      /FOREIGN KEY|SQLITE_CONSTRAINT|not found/i
+    );
+
+    // The transaction must have rolled back — no orphaned row should exist
+    const orphan = getContactByPair(6001, 6002);
+    assert.equal(orphan, undefined, 'contact row must not exist after transaction rollback');
+
+    // contact_permissions table must also be clean
+    const permCount = getDb()
+      .prepare('SELECT COUNT(*) as cnt FROM contact_permissions')
+      .get() as { cnt: number };
+    assert.equal(permCount.cnt, 0, 'no permissions row should exist after rollback');
+  });
 });
