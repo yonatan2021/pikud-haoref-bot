@@ -1,4 +1,4 @@
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2, Hash } from 'lucide-react';
 import { ToggleSwitch } from '../../components/ui/ToggleSwitch';
 
 export interface TelegramListenerRule {
@@ -11,6 +11,7 @@ export interface TelegramListenerRule {
   telegramTopicName: string | null;
   forwardToWhatsApp: boolean;
   isActive: boolean;
+  sourceTopicId: number | null;
   createdAt: string;
 }
 
@@ -47,6 +48,12 @@ export function RuleCard({ rule, onEdit, onDelete, onToggle, disabled }: RuleCar
           {rule.telegramTopicId != null && rule.telegramTopicName && (
             <span className="px-1.5 py-0.5 text-xs rounded bg-white/5 border border-border text-text-muted">
               {rule.telegramTopicName}
+            </span>
+          )}
+          {rule.sourceTopicId != null && (
+            <span className="flex items-center gap-1 px-1.5 py-0.5 text-xs rounded bg-white/5 border border-border text-text-muted">
+              <Hash size={10} />
+              נושא {rule.sourceTopicId}
             </span>
           )}
           {rule.forwardToWhatsApp && (
