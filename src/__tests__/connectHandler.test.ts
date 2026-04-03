@@ -1,15 +1,16 @@
 import { describe, it, before, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { initDb, getDb } from '../db/schema.js';
-import { upsertUser, setConnectionCode, getUser } from '../db/userRepository.js';
+import { upsertUser, setConnectionCode, getUser, updateProfile } from '../db/userRepository.js';
 import {
   getContactByPair,
   getContactById,
   getPermissions,
   createContact,
+  createContactWithPermissions,
   acceptContact,
 } from '../db/contactRepository.js';
-import { registerConnectHandler, failureCounts, lookupCooldownMap, pendingPermissions, LOOKUP_COOLDOWN_MS } from '../bot/connectHandler.js';
+import { registerConnectHandler, buildContactsPage, failureCounts, lookupCooldownMap, pendingPermissions, LOOKUP_COOLDOWN_MS } from '../bot/connectHandler.js';
 import type { Bot, Context } from 'grammy';
 
 before(() => {
@@ -711,6 +712,30 @@ describe('connectHandler', () => {
       assert.ok(state, 'pending state should exist');
       // home_city starts false — toggling cx:pt:city must flip it to true
       assert.equal(state!.home_city, true, 'cx:pt:city must toggle home_city');
+    });
+  });
+
+  describe('buildContactsPage — permission-gated rendering (#78)', () => {
+    it('hides home_city when home_city permission is false', () => {
+      upsertUser(1001);
+      updateProfile(1001, { home_city: 'תל אביב', display_name: 'משה' });
+      upsertUser(2002);
+      const contact = createContactWithPermissions(1001, 2002, { home_city: false });
+      acceptContact(contact.id);
+
+      const { text } = buildContactsPage(2002, 0);
+      assert.doesNotMatch(text, /תל אביב/, 'city must be hidden when home_city permission is false');
+    });
+
+    it('shows home_city when home_city permission is true', () => {
+      upsertUser(1001);
+      updateProfile(1001, { home_city: 'תל אביב', display_name: 'משה' });
+      upsertUser(2002);
+      const contact = createContactWithPermissions(1001, 2002, { home_city: true });
+      acceptContact(contact.id);
+
+      const { text } = buildContactsPage(2002, 0);
+      assert.match(text, /תל אביב/, 'city must be visible when home_city permission is true');
     });
   });
 });
