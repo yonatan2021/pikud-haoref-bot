@@ -26,15 +26,40 @@
 
 <div dir="rtl">
 
+</div>
+
+---
+
+## [0.4.3] — 2026-04-03
+
+<div dir="rtl">
+
 ### ✨ תכונות חדשות
 
-- **שיפור UX חיבור חברים** — זרימה אינטראקטיבית לא-טכנית עם מנו, קוד בתיבה tappable, ובחירת הרשאות מפורשת לפני שליחת בקשה
+- **Telegram Listener** — האזנה לקבוצות/ערוצים Telegram דרך GramJS MTProto (חשבון משתמש), סינון לפי מילות מפתח, והעברה לנושאים בערוץ ו-WhatsApp; ניהול מלא מלוח הבקרה עם auth flow (טלפון → OTP → 2FA)
+- **הגדרות פרטיות** — פקודה חדשה `/privacy` לניהול מדיניות פרטיות ברירת המחדל לחיבורים חדשים
+- **שליטה per-contact** — ניתן לשנות בנפרד אילו שדות (סטטוס ביטחוני, עיר בית, זמן עדכון) כל איש קשר יכול לראות
+- **תבנית ברירת מחדל** — הגדרות הפרטיות שנבחרו מוחלות אוטומטית על כל חיבור חדש
+- **שיפור UX חיבור חברים** — זרימה אינטראקטיבית לא-טכנית עם תפריט, קוד בתיבה tappable, ובחירת הרשאות מפורשת לפני שליחת בקשה
 - **סיכום הרשאות בעת אישור** — כשחבר מאשר בקשת חיבור, הם רואים בדיוק אילו שדות שותפו (עיר בית, זמן עדכון אחרון)
 - **ניסוח משופר** — כל הודעות שגיאה וחיבור כתובות בעברית יומיומית, לא טכנית
 
+### 🐛 תיקוני באגים
+
+- **Telegram Listener — pagination** — לולאת `refreshKnownChats` עצרה אחרי 100 צ'אטים ראשונים בגלל תנאי break הפוך (`>=` במקום `<=`)
+- **Telegram Listener — סיווג supergroup** — קבוצות-ערוץ (megagroup) אוחסנו בטעות כ-`group` במקום `supergroup`
+- **Telegram Listener — race condition** — `startPhoneAuth()` יכול היה לרוץ במקביל ל-`initialize()` וליצור שתי TelegramClient instances
+- **Telegram Listener — env validation** — אפליקציה עלתה ללא `TELEGRAM_API_ID`/`TELEGRAM_API_HASH` ונכשלה מאוחר יותר בלי הודעת שגיאה ברורה
+- **Telegram Listener — chatId null** — שימוש ב-`!` non-null assertion על `TELEGRAM_CHAT_ID` גרם לקריסה כש-env var לא הוגדר
+- **Privacy — update_time** — `createContactWithPermissions` נקרא ללא `update_time`, כך שתמיד ברירת המחדל הייתה `true` ללא קשר להגדרות `/privacy`
+- **Privacy — error handling** — חריגות לא-נתפסות ב-`updatePermissions()` ו-`editMessageText()` גרמו לקריסת callback handlers
+
 ### 🧪 בדיקות
 
+- **כיסוי הרשאות פרטיות** — טסטים מלאים ל-`/privacy`, `pv:toggle`, `cx:perm`, `cp:toggle` ו-`getPrivacyDefaults`
+- **rendering test לבדיקת הרשאות** — בדיקה שעיר הבית מוצגת/מוסתרת בהתאם להרשאת `home_city`
 - **+8 בדיקות connectHandler** — כיסוי של תפריט ה-connect, קולבקי toggle הרשאות, ו-cx:confirm/cx:cancel
+- **+81 בדיקות Telegram Listener** — repository, service, ו-dashboard routes; injectable deps לבידוד מ-GramJS
 
 </div>
 
@@ -811,7 +836,8 @@
 
 <div dir="rtl">
 
-[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.3...HEAD
+[0.4.3]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.3.3...v0.4.0
