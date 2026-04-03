@@ -142,7 +142,16 @@ export function initSchema(database: Database.Database): void {
       chat_id    TEXT PRIMARY KEY,
       chat_name  TEXT NOT NULL,
       chat_type  TEXT NOT NULL,
+      is_forum   INTEGER NOT NULL DEFAULT 0,
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS telegram_known_topics (
+      topic_id   INTEGER NOT NULL,
+      chat_id    TEXT    NOT NULL REFERENCES telegram_known_chats(chat_id) ON DELETE CASCADE,
+      topic_name TEXT    NOT NULL,
+      updated_at TEXT    NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (chat_id, topic_id)
     );
 
     CREATE TABLE IF NOT EXISTS contacts (
@@ -195,6 +204,10 @@ export function initSchema(database: Database.Database): void {
   addColumnIfMissing(database, 'ALTER TABLE users ADD COLUMN onboarding_completed INTEGER NOT NULL DEFAULT 0');
   addColumnIfMissing(database, 'ALTER TABLE users ADD COLUMN connection_code TEXT');
   addColumnIfMissing(database, 'ALTER TABLE users ADD COLUMN onboarding_step TEXT');
+
+  // v0.4.4 — telegram listener topic support
+  addColumnIfMissing(database, 'ALTER TABLE telegram_listeners ADD COLUMN source_topic_id INTEGER');
+  addColumnIfMissing(database, 'ALTER TABLE telegram_known_chats ADD COLUMN is_forum INTEGER NOT NULL DEFAULT 0');
 
   database.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_connection_code ON users(connection_code) WHERE connection_code IS NOT NULL').run();
 }
