@@ -12,9 +12,9 @@ describe('ZONE_COLORS', () => {
     }
   });
 
-  it('covers all 28 zones', () => {
-    assert.equal(allZoneNames.length, 28, 'SUPER_REGIONS should contain exactly 28 zones');
-    assert.equal(Object.keys(ZONE_COLORS).length, 28, 'ZONE_COLORS should have 28 entries');
+  it('covers all 33 zones', () => {
+    assert.equal(allZoneNames.length, 33, 'SUPER_REGIONS should contain exactly 33 zones');
+    assert.equal(Object.keys(ZONE_COLORS).length, 33, 'ZONE_COLORS should have 33 entries');
   });
 
   it('all colors are valid hex strings', () => {
