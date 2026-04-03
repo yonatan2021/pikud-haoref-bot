@@ -208,7 +208,10 @@ export function WhatsApp() {
     refetchInterval: (query) => {
       const s = query.state.data?.status;
       if (s === 'ready' || s === 'disconnected') return false;
-      if (query.state.errorUpdateCount >= 5) return false;
+      // Fast poll while waiting for QR — expires in ~60s so 1s is needed to catch it
+      if (s === 'qr') return 1000;
+      // Back off on errors but keep polling — don't go dark if server restarts
+      if (query.state.errorUpdateCount >= 5) return 10_000;
       return 3000;
     },
   });
@@ -228,6 +231,18 @@ export function WhatsApp() {
     },
     onError: () => {
       toast.error('שגיאה בחיבור מחדש');
+    },
+  });
+
+  const clearSessionMutation = useMutation({
+    mutationFn: () => api.post('/api/whatsapp/clear-session', {}),
+    onSuccess: () => {
+      toast.success('Session נמחק — ממתין לקוד QR');
+      queryClient.invalidateQueries({ queryKey: ['whatsapp-status'] });
+      queryClient.invalidateQueries({ queryKey: ['whatsapp-groups'] });
+    },
+    onError: () => {
+      toast.error('שגיאה במחיקת session');
     },
   });
 
@@ -325,9 +340,26 @@ export function WhatsApp() {
               )}
 
               {status === 'connecting' && (
-                <div className="flex items-center gap-2 text-text-muted text-sm">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  מתחבר ל-WhatsApp...
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2 text-text-muted text-sm">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    מתחבר ל-WhatsApp...
+                  </div>
+                  <p className="text-text-muted text-xs">
+                    תקוע? ייתכן שה-session הישן פג תוקף. מחק אותו כדי לקבל QR חדש.
+                  </p>
+                  <button
+                    onClick={() => clearSessionMutation.mutate()}
+                    disabled={clearSessionMutation.isPending}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-border hover:bg-white/10 text-text-muted text-xs rounded-lg transition-colors disabled:opacity-40 w-fit whitespace-nowrap"
+                  >
+                    {clearSessionMutation.isPending ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <RefreshCw size={12} />
+                    )}
+                    מחק session וקבל QR חדש
+                  </button>
                 </div>
               )}
 
@@ -360,7 +392,7 @@ export function WhatsApp() {
                 )}
                 <button
                   onClick={() => status === 'ready' ? setShowReconnectConfirm(true) : reconnectMutation.mutate()}
-                  disabled={reconnectMutation.isPending}
+                  disabled={reconnectMutation.isPending || clearSessionMutation.isPending}
                   className="flex items-center gap-2 px-4 py-2 bg-surface border border-border hover:bg-base text-text-secondary text-sm rounded-lg transition-colors disabled:opacity-40 w-fit whitespace-nowrap"
                 >
                   {reconnectMutation.isPending ? (

@@ -15,6 +15,7 @@ export interface WhatsAppServiceDeps {
   getCachedGroups: () => WhatsAppGroup[];
   initialize: () => void;
   disconnect: () => Promise<void>;
+  clearSession: () => Promise<void>;
   refreshGroups: () => Promise<void>;
 }
 
@@ -148,6 +149,10 @@ export function createWhatsAppRouter(
 
   // POST /reconnect — disconnect (if connected) then re-initialize
   router.post('/reconnect', async (_req: Request, res: Response) => {
+    if (process.env.WHATSAPP_ENABLED !== 'true') {
+      res.status(400).json({ error: 'WhatsApp לא מופעל' });
+      return;
+    }
     try {
       const currentStatus = service.getStatus();
       if (currentStatus === 'ready' || currentStatus === 'connecting' || currentStatus === 'qr') {
@@ -158,6 +163,22 @@ export function createWhatsAppRouter(
     } catch (err: unknown) {
       log('error', 'WhatsApp', `שגיאה באתחול מחדש: ${err instanceof Error ? err.message : String(err)}`);
       res.status(500).json({ error: 'אתחול WhatsApp נכשל' });
+    }
+  });
+
+  // POST /clear-session — delete stored session files and reinitialize (forces fresh QR)
+  router.post('/clear-session', async (_req: Request, res: Response) => {
+    if (process.env.WHATSAPP_ENABLED !== 'true') {
+      res.status(400).json({ error: 'WhatsApp לא מופעל' });
+      return;
+    }
+    try {
+      await service.clearSession();
+      service.initialize();
+      res.json({ ok: true });
+    } catch (err: unknown) {
+      log('error', 'WhatsApp', `שגיאה במחיקת session: ${err instanceof Error ? err.message : String(err)}`);
+      res.status(500).json({ error: 'מחיקת session נכשלה' });
     }
   });
 

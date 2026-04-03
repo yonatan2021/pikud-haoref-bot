@@ -1,5 +1,7 @@
 import { Client, LocalAuth } from 'whatsapp-web.js';
 import path from 'path';
+import fs from 'fs/promises';
+import { spawnSync } from 'child_process';
 import QRCode from 'qrcode';
 import { log } from '../logger.js';
 import type { IncomingWhatsAppMsg } from './whatsappListenerService.js';
@@ -52,6 +54,45 @@ let currentQr: string | null = null;
 let phone: string | null = null;
 let cachedGroups: WhatsAppGroup[] = [];
 let onMessageCallback: ((msg: IncomingWhatsAppMsg) => void) | null = null;
+let isInitializing = false;
+
+// Module-level timer reference so disconnect() can always cancel it, even if
+// the initialize() call that created it is no longer in scope. This prevents
+// a stale 90s timeout from killing a subsequent initialization.
+let initTimeoutHandle: ReturnType<typeof setTimeout> | null = null;
+
+// ─── Internal helpers ─────────────────────────────────────────────────────────
+
+// Kill the Chromium process by PID via the Puppeteer browser object.
+// This is a best-effort fast path — works when pupBrowser is already set.
+async function forceKillByPid(c: Client): Promise<void> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pid: number | undefined = (c as any).pupBrowser?.process()?.pid;
+    // Guard: pid must be a positive integer — process.kill(0) would signal the
+    // current process group, which would crash the entire Node.js process.
+    if (pid && pid > 0) {
+      process.kill(pid, 'SIGKILL');
+      log('info', 'WhatsApp', `Chromium (PID ${pid}) נהרג בכוח`);
+    }
+  } catch {
+    // process already dead — fine
+  }
+}
+
+// Kill ALL Chrome processes that reference this session directory in their
+// command-line arguments. Handles the case where pupBrowser is null (Chromium
+// is mid-launch) or where destroy() left a zombie process behind.
+function killChromeBySessionPath(sessionPath: string): void {
+  try {
+    // pkill -9 -f matches against the full argv string of every running process.
+    // On macOS/Linux this terminates any Chromium that used our userDataDir.
+    spawnSync('pkill', ['-9', '-f', sessionPath], { timeout: 3000 });
+    log('info', 'WhatsApp', 'כל תהליכי Chromium שהשתמשו ב-session נהרגו');
+  } catch {
+    // pkill unavailable or no matching processes — fine
+  }
+}
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
@@ -134,17 +175,48 @@ export async function refreshGroups(): Promise<void> {
 }
 
 export async function disconnect(): Promise<void> {
-  if (!client) return;
-  try {
-    await client.destroy();
-  } catch (err: unknown) {
-    log('error', 'WhatsApp', `שגיאה בניתוק: ${err instanceof Error ? err.message : String(err)}`);
+  // Cancel any pending init timeout before anything else — a stale 90s timer
+  // from a previous initialize() call must never fire against a new session.
+  if (initTimeoutHandle !== null) {
+    clearTimeout(initTimeoutHandle);
+    initTimeoutHandle = null;
   }
+
+  isInitializing = false;
+  if (!client) return;
+
+  // Null client immediately so concurrent initialize() calls are blocked
+  const c = client;
   client = null;
   status = 'disconnected';
   phone = null;
   cachedGroups = [];
   currentQr = null;
+
+  // Attempt graceful shutdown first (5s timeout), then force-kill by PID.
+  try {
+    await Promise.race([
+      c.destroy(),
+      new Promise<void>(resolve => setTimeout(resolve, 5000)),
+    ]);
+  } catch { /* ignore destroy errors */ }
+  await forceKillByPid(c);
+}
+
+export async function clearSession(): Promise<void> {
+  const sessionPath = path.join(__dirname, '../../data/whatsapp-session');
+
+  // Kill all Chromium processes referencing this session BEFORE disconnect()
+  // so that pkill handles the case where pupBrowser is null (mid-launch).
+  killChromeBySessionPath(sessionPath);
+
+  await disconnect();
+
+  // Wait for the OS to release all file locks after SIGKILL. 2s is conservative
+  // but avoids EACCES on fs.rm when Chromium hasn't fully exited yet.
+  await new Promise<void>(resolve => setTimeout(resolve, 2000));
+  await fs.rm(sessionPath, { recursive: true, force: true });
+  log('info', 'WhatsApp', 'Session נמחק — QR חדש יופיע לאחר אתחול');
 }
 
 export function initialize(): void {
@@ -158,6 +230,14 @@ export function initialize(): void {
     return;
   }
 
+  // Prevent concurrent initializations — e.g. when disconnect() nulls client
+  // but the previous Chromium process is still launching.
+  if (isInitializing) {
+    log('info', 'WhatsApp', 'אתחול כבר מתבצע — מדלג');
+    return;
+  }
+  isInitializing = true;
+
   const sessionPath = path.join(__dirname, '../../data/whatsapp-session');
 
   client = new Client({
@@ -167,6 +247,18 @@ export function initialize(): void {
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH ?? undefined,
     },
   });
+
+  // Store timeout at module scope so disconnect() can cancel it regardless of
+  // which initialize() call created it. Prevents stale timers from killing a
+  // subsequent initialization (e.g. after clear-session).
+  if (initTimeoutHandle !== null) clearTimeout(initTimeoutHandle);
+  initTimeoutHandle = setTimeout(() => {
+    initTimeoutHandle = null;
+    if (status === 'connecting') {
+      log('warn', 'WhatsApp', 'אתחול פג זמן (90s) — מנתק ומאפס');
+      disconnect().catch(() => {});
+    }
+  }, 90_000);
 
   client.on('qr', (qr: string) => {
     const isRefresh = currentQr !== null;
@@ -189,6 +281,11 @@ export function initialize(): void {
   });
 
   client.on('ready', async () => {
+    if (initTimeoutHandle !== null) {
+      clearTimeout(initTimeoutHandle);
+      initTimeoutHandle = null;
+    }
+    isInitializing = false;
     status = 'ready';
     currentQr = null;
     phone = client!.info.wid.user;
@@ -201,6 +298,11 @@ export function initialize(): void {
   });
 
   client.on('disconnected', (reason: string) => {
+    if (initTimeoutHandle !== null) {
+      clearTimeout(initTimeoutHandle);
+      initTimeoutHandle = null;
+    }
+    isInitializing = false;
     client = null;
     status = 'disconnected';
     phone = null;
@@ -229,6 +331,11 @@ export function initialize(): void {
 
   status = 'connecting';
   client.initialize().catch((err: unknown) => {
+    if (initTimeoutHandle !== null) {
+      clearTimeout(initTimeoutHandle);
+      initTimeoutHandle = null;
+    }
+    isInitializing = false;
     client = null;
     status = 'disconnected';
     log('error', 'WhatsApp', `שגיאה באתחול: ${err instanceof Error ? err.message : String(err)}`);
