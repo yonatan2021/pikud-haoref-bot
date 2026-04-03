@@ -1,6 +1,7 @@
 import { Bot, InlineKeyboard } from 'grammy';
 import type { Context } from 'grammy';
 import { getProfile, updateProfile, upsertUser } from '../db/userRepository.js';
+import { updateSubscriberData } from '../db/subscriptionRepository.js';
 import { searchCities, getCityData, getCityById } from '../cityLookup.js';
 import { log } from '../logger.js';
 import { stripHtml, escapeHtml } from '../textUtils.js';
@@ -141,6 +142,7 @@ export function registerProfileHandler(bot: Bot): void {
         return;
       }
       updateProfile(chatId, { home_city: city.name });
+      updateSubscriberData(chatId, { home_city: city.name });
       pendingEdits.delete(chatId);
       log('info', 'Profile', `User ${chatId} updated home_city to ${city.name}`);
       await renderProfile(ctx, chatId, false);
@@ -193,6 +195,7 @@ export function registerProfileHandler(bot: Bot): void {
         const exact = getCityData(query);
         if (exact) {
           updateProfile(chatId, { home_city: exact.name });
+          updateSubscriberData(chatId, { home_city: exact.name });
           pendingEdits.delete(chatId);
           log('info', 'Profile', `User ${chatId} updated home_city to ${exact.name}`);
           await renderProfile(ctx, chatId, false);
@@ -211,6 +214,7 @@ export function registerProfileHandler(bot: Bot): void {
 
         if (results.length === 1) {
           updateProfile(chatId, { home_city: results[0].name });
+          updateSubscriberData(chatId, { home_city: results[0].name });
           pendingEdits.delete(chatId);
           log('info', 'Profile', `User ${chatId} updated home_city to ${results[0].name}`);
           await renderProfile(ctx, chatId, false);
