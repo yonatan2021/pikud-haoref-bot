@@ -136,6 +136,14 @@ export function createDefaultPermissions(
     .run(contactRowId, safetyStatus, homeCity, updateTime);
 }
 
+/** Delete pending contacts older than 7 days. Called on a recurring interval. */
+export function pruneExpiredContacts(): number {
+  const result = getDb()
+    .prepare("DELETE FROM contacts WHERE status = 'pending' AND created_at < datetime('now', '-7 days')")
+    .run();
+  return result.changes;
+}
+
 export function updatePermissions(
   contactRowId: number,
   patch: Partial<ContactPermissions>

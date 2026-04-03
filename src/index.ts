@@ -27,6 +27,7 @@ import { createMessageHandler } from './whatsapp/whatsappListenerService.js';
 import { InputFile } from 'grammy';
 import { initSubscriptionCache } from './db/subscriptionRepository.js';
 import { initUsageCache } from './db/mapboxUsageRepository.js';
+import { pruneExpiredContacts } from './db/contactRepository.js';
 
 // Prevent broken-pipe errors from crashing the bot when a stdout consumer exits.
 process.stdout.on('error', (err: NodeJS.ErrnoException) => {
@@ -153,6 +154,15 @@ for (const envVar of REQUIRED_ENV_VARS) {
   });
 
   poller.start(2000);
+
+  // Prune expired pending contact requests every 6 hours
+  const CONTACT_CLEANUP_INTERVAL_MS = 6 * 60 * 60 * 1000;
+  setInterval(() => {
+    const pruned = pruneExpiredContacts();
+    if (pruned > 0) {
+      log('info', 'Cleanup', `הוסרו ${pruned} בקשות קשר שפגו`);
+    }
+  }, CONTACT_CLEANUP_INTERVAL_MS);
 
   logStartupHeader('0.4.1', [
     { name: 'Health Server', detail: healthOk ? toVisualRtl(`פורט ${resolvedHealthPort}`) : toVisualRtl('נכשל בהפעלה'), ok: healthOk, url: healthOk ? `http://localhost:${resolvedHealthPort}/health` : undefined },
