@@ -535,3 +535,29 @@ describe('editAlert degraded chain (_editAlertChain)', () => {
     assert.equal(api.editMessageText.mock.calls.length, 1, 'text fallback used on caption failure');
   });
 });
+
+describe('buildZonedCityList — urgency sorting', () => {
+  it('sorts zones by urgency (most urgent first)', () => {
+    // החותרים → "חיפה" (60s), אור יהודה → "דן" (90s)
+    // חיפה has lower countdown, should appear first
+    const result = buildZonedCityList(['אור יהודה', 'החותרים']);
+    const haifaIdx = result.indexOf('חיפה');
+    const danIdx = result.indexOf('דן');
+    assert.ok(haifaIdx < danIdx, `חיפה (60s) should appear before דן (90s): ${result}`);
+  });
+
+  it('zone headers include urgency emoji', () => {
+    // החותרים → "חיפה" (60s) — should get 🟡 (מהיר: <=60)
+    const result = buildZonedCityList(['החותרים']);
+    assert.ok(result.includes('🟡'), `Expected urgency emoji 🟡 in zone header: ${result}`);
+  });
+
+  it('does not show urgency emoji for zones with no countdown', () => {
+    const result = buildZonedCityList(['עיר לא קיימת בכלל']);
+    assert.ok(
+      !result.includes('🔴') && !result.includes('🟠') && !result.includes('🟡') &&
+      !result.includes('🟢') && !result.includes('⚪'),
+      `Should not show urgency emoji for unknown city zones: ${result}`
+    );
+  });
+});
