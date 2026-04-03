@@ -28,7 +28,10 @@ export interface IncomingTelegramMsg {
   body: string;
   timestamp: number; // Unix seconds
   hasMedia: boolean;
-  topicId: number | null; // forum topic thread ID, null for non-forum messages
+  mediaBuffer?: Buffer;    // downloaded bytes; undefined if >50MB, download failed, or no media
+  mediaMimetype?: string;  // e.g. 'image/jpeg', 'video/mp4', 'application/pdf'
+  mediaFilename?: string;  // original filename from DocumentAttributeFilename (documents only)
+  topicId: number | null;  // forum topic thread ID, null for non-forum messages
 }
 
 const SETTINGS_SESSION_KEY = 'telegram_listener_session';
@@ -249,7 +252,8 @@ function attachMessageListener(db: Database.Database): void {
   client.addEventHandler(async (event: NewMessageEvent) => {
     try {
       const message = event.message;
-      if (!message?.message) return;
+      // Allow media-only messages through (message.message is "" for photos/videos with no caption)
+      if (!message?.message && !message?.media) return;
 
       const peerId = message.peerId;
       if (!peerId) return;
@@ -295,6 +299,8 @@ function attachMessageListener(db: Database.Database): void {
         }
       }
 
+      const MAX_MEDIA_BYTES = 50 * 1024 * 1024; // 50MB — Telegram bot API upload limit
+
       const msg: IncomingTelegramMsg = {
         chatId,
         chatName,
@@ -306,8 +312,42 @@ function attachMessageListener(db: Database.Database): void {
         topicId,
       };
 
+      // Download media for forwarding (photos and documents up to 50MB)
+      if (message.media) {
+        try {
+          let skipDownload = false;
+
+          if (message.media instanceof Api.MessageMediaDocument) {
+            const doc = message.media.document;
+            if (doc && 'size' in doc && Number((doc as { size?: unknown }).size) > MAX_MEDIA_BYTES) {
+              log('info', 'TG Listener', `קובץ גדול מדי (${Math.round(Number((doc as { size?: unknown }).size) / 1024 / 1024)}MB) — שולח טקסט בלבד`);
+              skipDownload = true;
+            }
+          }
+
+          if (!skipDownload) {
+            const downloaded = await client!.downloadMedia(message, {});
+            if (downloaded instanceof Buffer && downloaded.length > 0) {
+              msg.mediaBuffer = downloaded;
+              if (message.media instanceof Api.MessageMediaPhoto) {
+                msg.mediaMimetype = 'image/jpeg';
+              } else if (message.media instanceof Api.MessageMediaDocument) {
+                const doc = message.media.document as { mimeType?: string; attributes?: Array<{ className: string; fileName?: string }> } | undefined;
+                msg.mediaMimetype = doc?.mimeType ?? 'application/octet-stream';
+                const filenameAttr = doc?.attributes?.find(a => a.className === 'DocumentAttributeFilename');
+                msg.mediaFilename = filenameAttr?.fileName;
+              }
+            }
+          }
+        } catch (mediaErr: unknown) {
+          log('warn', 'TG Listener', `הורדת מדיה נכשלה — שולח טקסט בלבד: ${mediaErr instanceof Error ? mediaErr.message : String(mediaErr)}`);
+        }
+      }
+
       if (messageCallback) {
         await messageCallback(msg);
+      } else {
+        log('warn', 'TG Listener', `הודעה התקבלה אך אין messageCallback מוגדר — chatId: ${chatId}`);
       }
     } catch (err: unknown) {
       log('error', 'TG Listener', `שגיאה בטיפול בהודעה: ${err instanceof Error ? err.message : String(err)}`);

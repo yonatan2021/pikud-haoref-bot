@@ -1,4 +1,5 @@
 import type { Bot } from 'grammy';
+import { InputFile } from 'grammy';
 import type Database from 'better-sqlite3';
 import { getActiveListenersForChat } from '../db/telegramListenerRepository.js';
 import { isRoutingCacheLoaded, getWhatsAppTopicIdCached } from '../config/routingCache.js';
@@ -65,7 +66,10 @@ export function createMessageHandler(
   return async function handleIncomingMessage(msg: IncomingTelegramMsg): Promise<void> {
     try {
       const listeners = getActiveListenersForChat(db, msg.chatId);
-      if (listeners.length === 0) return;
+      if (listeners.length === 0) {
+        log('warn', 'TG Listener', `לא נמצאו כללים פעילים עבור chatId: ${msg.chatId}`);
+        return;
+      }
 
       const targetChatId =
         process.env['TELEGRAM_FORWARD_GROUP_ID'] ?? process.env['TELEGRAM_CHAT_ID'];
@@ -85,13 +89,19 @@ export function createMessageHandler(
 
       for (const listener of listeners) {
         // Topic filter: if a specific source topic is configured, only forward messages from that topic
-        if (listener.sourceTopicId !== null && msg.topicId !== listener.sourceTopicId) continue;
+        if (listener.sourceTopicId !== null && msg.topicId !== listener.sourceTopicId) {
+          log('info', 'TG Listener', `listener ${listener.id}: נושא לא תואם (נדרש ${listener.sourceTopicId}, התקבל ${msg.topicId})`);
+          continue;
+        }
 
         const shouldForward =
           listener.keywords.length === 0 ||
           listener.keywords.some((kw) => msg.body.includes(kw));
 
-        if (!shouldForward) continue;
+        if (!shouldForward) {
+          log('info', 'TG Listener', `listener ${listener.id}: מילות מפתח לא תואמות`);
+          continue;
+        }
 
         anyForwarded = true;
         if (listener.forwardToWhatsApp) anyWAForward = true;
@@ -101,15 +111,41 @@ export function createMessageHandler(
         const topicId = listener.telegramTopicId ?? getDefaultTopicId() ?? undefined;
 
         const sendOpts = topicId ? { message_thread_id: topicId } : {};
-        bot.api
-          .sendMessage(targetChatId, caption, { parse_mode: 'HTML', ...sendOpts })
-          .catch((err: unknown) => {
-            log(
-              'error',
-              'TG→TG',
-              `שגיאה בהעברת הודעה מ-${msg.chatId}: ${err instanceof Error ? err.message : String(err)}`
-            );
-          });
+
+        if (msg.mediaBuffer && msg.mediaMimetype) {
+          const mediaCaption = truncateToCaptionLimit(caption); // photos/docs cap at 1024 chars
+          const filename = msg.mediaFilename;
+
+          if (msg.mediaMimetype.startsWith('image/')) {
+            bot.api
+              .sendPhoto(targetChatId, new InputFile(msg.mediaBuffer, filename ?? 'photo.jpg'), {
+                caption: mediaCaption, parse_mode: 'HTML', ...sendOpts,
+              })
+              .catch((err: unknown) => {
+                log('error', 'TG→TG', `שגיאה בשליחת תמונה מ-${msg.chatId}: ${err instanceof Error ? err.message : String(err)}`);
+                bot.api.sendMessage(targetChatId, caption, { parse_mode: 'HTML', ...sendOpts }).catch(() => {});
+              });
+          } else {
+            bot.api
+              .sendDocument(targetChatId, new InputFile(msg.mediaBuffer, filename ?? 'file'), {
+                caption: mediaCaption, parse_mode: 'HTML', ...sendOpts,
+              })
+              .catch((err: unknown) => {
+                log('error', 'TG→TG', `שגיאה בשליחת קובץ מ-${msg.chatId}: ${err instanceof Error ? err.message : String(err)}`);
+                bot.api.sendMessage(targetChatId, caption, { parse_mode: 'HTML', ...sendOpts }).catch(() => {});
+              });
+          }
+        } else {
+          bot.api
+            .sendMessage(targetChatId, caption, { parse_mode: 'HTML', ...sendOpts })
+            .catch((err: unknown) => {
+              log(
+                'error',
+                'TG→TG',
+                `שגיאה בהעברת הודעה מ-${msg.chatId}: ${err instanceof Error ? err.message : String(err)}`
+              );
+            });
+        }
       }
 
       if (anyWAForward && broadcastToWAFn) {
