@@ -24,6 +24,7 @@ import { setMenuHandlerDb } from './bot/menuHandler.js';
 import { initialize as initWhatsApp, setMessageCallback } from './whatsapp/whatsappService.js';
 import { createBroadcaster } from './whatsapp/whatsappBroadcaster.js';
 import { createMessageHandler } from './whatsapp/whatsappListenerService.js';
+import { initializeTelegramListener } from './telegram-listener/telegramListenerService.js';
 import { InputFile } from 'grammy';
 import { initSubscriptionCache } from './db/subscriptionRepository.js';
 import { initUsageCache } from './db/mapboxUsageRepository.js';
@@ -85,6 +86,14 @@ for (const envVar of REQUIRED_ENV_VARS) {
 
   const bot = getBot();
   await setupBotHandlers(bot);
+
+  try {
+    if (process.env.TELEGRAM_LISTENER_ENABLED === 'true') {
+      await initializeTelegramListener(getDb(), bot);
+    }
+  } catch (err) {
+    log('warn', 'Init', `Telegram Listener אתחול נכשל — ממשיך ללא: ${err}`);
+  }
 
   // Wire WhatsApp→Telegram listener. setMessageCallback is safe to call even when
   // WHATSAPP_ENABLED=false — the callback is stored but the message event never fires.
@@ -170,6 +179,7 @@ for (const envVar of REQUIRED_ENV_VARS) {
     { name: 'Dashboard',     detail: dashboardSecret ? toVisualRtl(`פורט ${dashboardPort}`) : toVisualRtl('כבוי (אין DASHBOARD_SECRET)'), ok: !!dashboardSecret, url: dashboardSecret ? `http://localhost:${dashboardPort}/dashboard` : undefined },
     { name: 'Database',      detail: toVisualRtl('מאותחל'),                                                ok: true },
     { name: 'WhatsApp',      detail: toVisualRtl(process.env.WHATSAPP_ENABLED === 'true' ? 'מופעל' : 'כבוי'), ok: process.env.WHATSAPP_ENABLED === 'true' },
+    { name: 'TG Listener',  detail: toVisualRtl(process.env.TELEGRAM_LISTENER_ENABLED === 'true' ? 'מופעל' : 'כבוי'), ok: process.env.TELEGRAM_LISTENER_ENABLED === 'true' },
   ], alertsToday);
 
   logSectionDivider();
