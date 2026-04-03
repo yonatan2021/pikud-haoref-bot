@@ -84,6 +84,9 @@ export function createMessageHandler(
       let anyWAForward = false;
 
       for (const listener of listeners) {
+        // Topic filter: if a specific source topic is configured, only forward messages from that topic
+        if (listener.sourceTopicId !== null && msg.topicId !== listener.sourceTopicId) continue;
+
         const shouldForward =
           listener.keywords.length === 0 ||
           listener.keywords.some((kw) => msg.body.includes(kw));
