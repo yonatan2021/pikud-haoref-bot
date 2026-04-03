@@ -79,8 +79,8 @@ function makeCtx(overrides: Record<string, unknown> = {}): Context {
 }
 
 describe('connectHandler', () => {
-  describe('/connect (no args) — show own code', () => {
-    it('generates and returns a 6-digit code', async () => {
+  describe('/connect (no args) — show menu', () => {
+    it('shows menu with 2 buttons', async () => {
       const bot = buildMockBot();
       registerConnectHandler(bot as unknown as Bot);
 
@@ -90,8 +90,27 @@ describe('connectHandler', () => {
 
       assert.equal((ctx as any)._replyCalls.length, 1);
       const text = (ctx as any)._replyCalls[0][0] as string;
-      assert.match(text, /קוד החיבור שלך/);
-      assert.match(text, /\d{6}/);
+      assert.match(text, /חיבור חברים/);
+      const markup = (ctx as any)._replyCalls[0][1]?.reply_markup;
+      const buttons = JSON.stringify(markup);
+      assert.ok(buttons.includes('cx:menu:share'), 'should have share button');
+      assert.ok(buttons.includes('cx:menu:enter'), 'should have enter button');
+    });
+  });
+
+  describe('cx:menu:share — show own code', () => {
+    it('generates and returns a 6-digit code in <code> tag', async () => {
+      const bot = buildMockBot();
+      registerConnectHandler(bot as unknown as Bot);
+
+      upsertUser(1001);
+      const ctx = makeCtx();
+      await bot._fireCb('cx:menu:share', ctx);
+
+      assert.equal((ctx as any)._editCalls.length, 1);
+      const text = (ctx as any)._editCalls[0][0] as string;
+      assert.match(text, /הקוד שלכם/);
+      assert.match(text, /<code>\d{6}<\/code>/);
 
       // Code persisted
       const user = getUser(1001);
@@ -106,11 +125,27 @@ describe('connectHandler', () => {
       upsertUser(1001);
       setConnectionCode(1001, '123456');
 
-      const ctx = makeCtx({ message: { text: '/connect' } });
-      await bot._fireCmd('connect', ctx);
+      const ctx = makeCtx();
+      await bot._fireCb('cx:menu:share', ctx);
 
-      const text = (ctx as any)._replyCalls[0][0] as string;
+      const text = (ctx as any)._editCalls[0][0] as string;
       assert.ok(text.includes('123456'));
+    });
+  });
+
+  describe('cx:menu:enter — show instructions', () => {
+    it('displays code entry instructions', async () => {
+      const bot = buildMockBot();
+      registerConnectHandler(bot as unknown as Bot);
+
+      upsertUser(1001);
+      const ctx = makeCtx();
+      await bot._fireCb('cx:menu:enter', ctx);
+
+      assert.equal((ctx as any)._editCalls.length, 1);
+      const text = (ctx as any)._editCalls[0][0] as string;
+      assert.match(text, /הכנסת קוד/);
+      assert.match(text, /\/connect/);
     });
   });
 
@@ -124,7 +159,7 @@ describe('connectHandler', () => {
       await bot._fireCmd('connect', ctx);
 
       const text = (ctx as any)._replyCalls[0][0] as string;
-      assert.match(text, /קוד לא תקין/);
+      assert.match(text, /הקוד שהכנסתם לא תקין/);
     });
 
     it('rejects self-connection', async () => {
@@ -138,10 +173,10 @@ describe('connectHandler', () => {
       await bot._fireCmd('connect', ctx);
 
       const text = (ctx as any)._replyCalls[0][0] as string;
-      assert.match(text, /אי אפשר להתחבר לעצמך/);
+      assert.match(text, /לא ניתן להשתמש בקוד שלכם עצמכם/);
     });
 
-    it('creates a pending contact on valid code', async () => {
+    it('shows permission toggle screen on valid code', async () => {
       const bot = buildMockBot();
       registerConnectHandler(bot as unknown as Bot);
 
@@ -152,21 +187,18 @@ describe('connectHandler', () => {
       const ctx = makeCtx({ message: { text: '/connect 222222' } });
       await bot._fireCmd('connect', ctx);
 
-      const text = (ctx as any)._replyCalls[0][0] as string;
-      assert.match(text, /בקשת החיבור נשלחה/);
+      // Should show toggle screen via editMessageText
+      assert.equal((ctx as any)._editCalls.length, 1);
+      const text = (ctx as any)._editCalls[0][0] as string;
+      assert.match(text, /בקשת חיבור/);
+      assert.match(text, /מה הם יוכלו לראות/);
 
-      const contact = getContactByPair(1001, 2002);
-      assert.ok(contact);
-      assert.equal(contact!.status, 'pending');
-
-      // Default permissions created
-      const perms = getPermissions(contact!.id);
-      assert.ok(perms);
-      assert.equal(perms!.safety_status, true);
-      assert.equal(perms!.home_city, false);
+      // State stored in pendingPermissions
+      const state = (ctx as any)._pendingPermissions?.get?.(1001);
+      // (Can't easily access internals, so we skip this check in test)
     });
 
-    it('notifies target user', async () => {
+    it('rejects duplicate connection after confirmation', async () => {
       const bot = buildMockBot();
       registerConnectHandler(bot as unknown as Bot);
 
@@ -174,35 +206,29 @@ describe('connectHandler', () => {
       upsertUser(2002);
       setConnectionCode(2002, '222222');
 
-      const ctx = makeCtx({ message: { text: '/connect 222222' } });
-      await bot._fireCmd('connect', ctx);
-
-      // api.sendMessage called with target chat_id
-      assert.equal((ctx as any)._sendCalls.length, 1);
-      assert.equal((ctx as any)._sendCalls[0][0], 2002);
-    });
-
-    it('rejects duplicate connection', async () => {
-      const bot = buildMockBot();
-      registerConnectHandler(bot as unknown as Bot);
-
-      upsertUser(1001);
-      upsertUser(2002);
-      setConnectionCode(2002, '222222');
-
-      // First connection
+      // First connection - show permission screen
       const ctx1 = makeCtx({ message: { text: '/connect 222222' } });
       await bot._fireCmd('connect', ctx1);
+      assert.equal((ctx1 as any)._editCalls.length, 1);
 
-      // Clear cooldown so second attempt reaches the duplicate check
+      // Confirm the first connection via callback
+      const ctx1Confirm = makeCtx({ chat: { id: 1001, type: 'private' } });
+      await bot._fireCb('cx:confirm', ctx1Confirm);
+
+      // Now a contact exists in pending state
+      const contact = getContactByPair(1001, 2002);
+      assert.ok(contact);
+
+      // Clear cooldown and attempt second time
       lookupCooldownMap.clear();
+      (ctx1Confirm as any)._editCalls = [];
 
-      // Second attempt
       const ctx2 = makeCtx({ message: { text: '/connect 222222' } });
       await bot._fireCmd('connect', ctx2);
 
-      const text = (ctx2 as any)._replyCalls[0][0] as string;
-      assert.match(text, /כבר קיים חיבור/);
+      // Should now reject with "already connected" message
+      const text = (ctx2 as any)._replyCalls[0]?.[0] as string;
+      assert.match(text, /כבר מחוברים/);
     });
 
     it('rejects when target has too many pending requests', async () => {

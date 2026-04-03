@@ -51,6 +51,15 @@ const lookupCooldown = {
 /** Track consecutive lookup failures per user */
 const failureCounts = new Map<number, { count: number; blockedUntil: number }>();
 
+/** Store pending permission state during connection flow (ephemeral) */
+interface PendingPermissionState {
+  targetId: number;
+  targetName: string;
+  safety_status: boolean;
+  home_city: boolean;
+}
+const pendingPermissions = new Map<number, PendingPermissionState>();
+
 function isBlocked(userId: number): boolean {
   const entry = failureCounts.get(userId);
   if (!entry) return false;
@@ -130,7 +139,7 @@ function buildContactsPage(
 
   if (total === 0) {
     return {
-      text: '👥 <b>אנשי הקשר שלי</b>\n\nאין לך אנשי קשר עדיין.\nשלח /connect כדי לחבר מישהו.',
+      text: '👥 <b>אנשי הקשר שלי</b>\n\nאין לך אנשי קשר עדיין.\nלחיבור חבר חדש: /connect',
       keyboard: new InlineKeyboard().text('↩️ חזור', 'menu:main'),
     };
   }
@@ -176,8 +185,31 @@ function buildContactsPage(
   return { text: lines.join('\n'), keyboard };
 }
 
+/** Build and send/edit permission toggle screen */
+function buildAndSendPermissionScreen(ctx: Context, chatId: number, targetName: string): void {
+  const state = pendingPermissions.get(chatId);
+  if (!state) return;
+
+  const safetyCheck = state.safety_status ? '✅' : '☐';
+  const cityCheck = state.home_city ? '✅' : '☐';
+
+  const text = `📤 <b>בקשת חיבור ל${targetName}</b>\n\nכשהם יאשרו — מה הם יוכלו לראות עליכם?\n\n${safetyCheck} <b>עיר הבית שלי</b>\n<i>כדי שיוכלו לדעת אם הגעתם לאזור בטוח</i>\n\n${cityCheck} <b>זמן עדכון אחרון</b>\n<i>כדי שיוכלו לדעת שראיתם את ההתראה</i>`;
+
+  const keyboard = new InlineKeyboard()
+    .text('🔄 עיר הבית', `cx:pt:safety`)
+    .text('🔄 זמן עדכון', `cx:pt:city`)
+    .row()
+    .text('💾 שמור ושלח בקשה', `cx:confirm`)
+    .text('❌ ביטול', `cx:cancel`)
+    .row();
+
+  ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard }).catch((err) => {
+    log('warn', 'Connect', `Failed to edit permission screen: ${String(err)}`);
+  });
+}
+
 export function registerConnectHandler(bot: Bot): void {
-  // /connect — show code or connect to someone
+  // /connect — show menu or connect to someone
   bot.command('connect', async (ctx: Context) => {
     if (ctx.chat?.type !== 'private') return;
     const chatId = ctx.chat.id;
@@ -187,18 +219,23 @@ export function registerConnectHandler(bot: Bot): void {
     const codeArg = args[0]?.trim();
 
     if (!codeArg) {
-      // Show own code
-      const code = ensureConnectionCode(chatId);
+      // Show menu: share code or enter code
+      const keyboard = new InlineKeyboard()
+        .text('📤 שתפו את הקוד שלכם', 'cx:menu:share')
+        .text('📥 הכנסו קוד של חבר', 'cx:menu:enter')
+        .row()
+        .text('↩️ חזור', 'menu:main');
+
       await ctx.reply(
-        `🔗 <b>קוד החיבור שלך</b>\n\n📋 ${code}\n\nשלח את הקוד הזה לחברים כדי שיוכלו להתחבר אליך.\nלחיבור עם חבר, שלח /connect ואחריו את הקוד שלו.`,
-        { parse_mode: 'HTML' }
+        `🔗 <b>חיבור חברים</b>\n\nחברו אנשים קרובים כדי שתוכלו לדעת שכולם בסדר בזמן אזעקה.`,
+        { parse_mode: 'HTML', reply_markup: keyboard }
       );
       return;
     }
 
     // Connect to someone by code
     if (!/^\d{6}$/.test(codeArg)) {
-      await ctx.reply('❌ קוד לא תקין. הקוד חייב להיות 6 ספרות.');
+      await ctx.reply('❌ הקוד שהכנסתם לא תקין — חייב להיות בדיוק 6 ספרות.');
       return;
     }
 
@@ -216,14 +253,14 @@ export function registerConnectHandler(bot: Bot): void {
     const target = findUserByConnectionCode(codeArg);
     if (!target) {
       recordFailure(chatId);
-      await ctx.reply('❌ לא נמצא משתמש עם הקוד הזה.');
+      await ctx.reply('❌ לא מצאנו אף אחד עם הקוד הזה. בדקו שהעתקתם נכון.');
       return;
     }
 
     clearFailures(chatId);
 
     if (target.chat_id === chatId) {
-      await ctx.reply('❌ אי אפשר להתחבר לעצמך.');
+      await ctx.reply('❌ לא ניתן להשתמש בקוד שלכם עצמכם 😊');
       return;
     }
 
@@ -231,7 +268,7 @@ export function registerConnectHandler(bot: Bot): void {
     const existingForward = getContactByPair(chatId, target.chat_id);
     const existingReverse = getContactByPair(target.chat_id, chatId);
     if (existingForward || existingReverse) {
-      await ctx.reply('ℹ️ כבר קיים חיבור עם המשתמש הזה.');
+      await ctx.reply('ℹ️ אתם כבר מחוברים עם המשתמש הזה.');
       return;
     }
 
@@ -240,10 +277,96 @@ export function registerConnectHandler(bot: Bot): void {
       return;
     }
 
+    // Store pending state + show permission toggles
+    const targetName = target.display_name ?? 'משתמש';
     const defaults = parsePrivacyDefaults();
-    const contact = createContactWithPermissions(chatId, target.chat_id, defaults);
+    pendingPermissions.set(chatId, {
+      targetId: target.chat_id,
+      targetName,
+      safety_status: defaults.safety_status ?? true,
+      home_city: defaults.home_city ?? false,
+    });
 
-    log('info', 'Connect', `User ${chatId} sent connection request to ${target.chat_id}`);
+    buildAndSendPermissionScreen(ctx, chatId, targetName);
+  });
+
+  // Menu: Share own code
+  bot.callbackQuery('cx:menu:share', async (ctx: Context) => {
+    await ctx.answerCallbackQuery();
+    const chatId = ctx.chat?.id;
+    if (!chatId) return;
+
+    const code = ensureConnectionCode(chatId);
+    const keyboard = new InlineKeyboard().text('↩️ חזור', 'menu:main');
+
+    await ctx.editMessageText(
+      `📤 <b>הקוד שלכם</b>\n\nשלחו את הקוד הזה לחבר שתרצו להתחבר אליו:\n\n<code>${code}</code>\n\nכשהם יכניסו אותו הם ישלחו לכם בקשת חיבור — ותוכלו לאשר.`,
+      { parse_mode: 'HTML', reply_markup: keyboard }
+    );
+  });
+
+  // Menu: Enter code from a friend
+  bot.callbackQuery('cx:menu:enter', async (ctx: Context) => {
+    await ctx.answerCallbackQuery();
+    const keyboard = new InlineKeyboard().text('↩️ חזור', 'menu:main');
+
+    await ctx.editMessageText(
+      `📥 <b>הכנסת קוד</b>\n\nבקשו מהחבר לשלוח לכם את הקוד שלהם, ואז שלחו:\n\n<code>/connect 123456</code>`,
+      { parse_mode: 'HTML', reply_markup: keyboard }
+    );
+  });
+
+  // Toggle: Safety status
+  bot.callbackQuery('cx:pt:safety', async (ctx: Context) => {
+    await ctx.answerCallbackQuery();
+    const chatId = ctx.chat?.id;
+    if (!chatId) return;
+
+    const state = pendingPermissions.get(chatId);
+    if (!state) {
+      await ctx.reply('❌ הסשן פג תוקף. נסה שוב: /connect');
+      return;
+    }
+
+    state.safety_status = !state.safety_status;
+    buildAndSendPermissionScreen(ctx, chatId, state.targetName);
+  });
+
+  // Toggle: Home city
+  bot.callbackQuery('cx:pt:city', async (ctx: Context) => {
+    await ctx.answerCallbackQuery();
+    const chatId = ctx.chat?.id;
+    if (!chatId) return;
+
+    const state = pendingPermissions.get(chatId);
+    if (!state) {
+      await ctx.reply('❌ הסשן פג תוקף. נסה שוב: /connect');
+      return;
+    }
+
+    state.home_city = !state.home_city;
+    buildAndSendPermissionScreen(ctx, chatId, state.targetName);
+  });
+
+  // Confirm and send request
+  bot.callbackQuery('cx:confirm', async (ctx: Context) => {
+    await ctx.answerCallbackQuery();
+    const chatId = ctx.chat?.id;
+    if (!chatId) return;
+
+    const state = pendingPermissions.get(chatId);
+    if (!state) {
+      await ctx.reply('❌ הסשן פג תוקף. נסה שוב: /connect');
+      return;
+    }
+
+    // Create contact with selected permissions
+    const contact = createContactWithPermissions(chatId, state.targetId, {
+      safety_status: state.safety_status,
+      home_city: state.home_city,
+    });
+
+    log('info', 'Connect', `User ${chatId} sent connection request to ${state.targetId} with permissions: safety=${state.safety_status}, city=${state.home_city}`);
 
     // Notify target
     const requesterName = getUser(chatId)?.display_name ?? 'משתמש';
@@ -253,15 +376,26 @@ export function registerConnectHandler(bot: Bot): void {
 
     try {
       await ctx.api.sendMessage(
-        target.chat_id,
-        `📨 <b>בקשת חיבור חדשה</b>\n${requesterName} רוצה להתחבר אליך.`,
+        state.targetId,
+        `📨 <b>בקשת חיבור חדשה</b>\n\n${requesterName} שלח/ה לכם בקשת חיבור ורוצה להתחבר אליכם.`,
         { parse_mode: 'HTML', reply_markup: keyboard }
       );
     } catch (err) {
-      log('warn', 'Connect', `Failed to notify target ${target.chat_id}: ${String(err)}`);
+      log('warn', 'Connect', `Failed to notify target ${state.targetId}: ${String(err)}`);
     }
 
-    await ctx.reply('✅ בקשת החיבור נשלחה! תקבל הודעה כשהצד השני יאשר.');
+    pendingPermissions.delete(chatId);
+    await ctx.editMessageText('✅ בקשת החיבור נשלחה! תקבל הודעה כשהם יאשרו.', { parse_mode: 'HTML' });
+  });
+
+  // Cancel request
+  bot.callbackQuery('cx:cancel', async (ctx: Context) => {
+    await ctx.answerCallbackQuery();
+    const chatId = ctx.chat?.id;
+    if (!chatId) return;
+
+    pendingPermissions.delete(chatId);
+    await ctx.editMessageText('❌ <b>ביטול</b>\n\nחזרת לתפריט הראשי: /connect', { parse_mode: 'HTML' });
   });
 
   // Accept connection request
@@ -286,17 +420,29 @@ export function registerConnectHandler(bot: Bot): void {
     }
     log('info', 'Connect', `Contact ${contactId} accepted`);
 
-    const targetName = getUser(contact.contact_id)?.display_name ?? 'משתמש';
+    const requesterName = getUser(contact.user_id)?.display_name ?? 'משתמש';
+    const accepterName = getUser(contact.contact_id)?.display_name ?? 'משתמש';
     await ctx.editMessageText(
-      `✅ <b>חיבור אושר</b>\nאתה ו-${getUser(contact.user_id)?.display_name ?? 'משתמש'} מחוברים כעת.`,
+      `✅ <b>חיבור אושר</b>\nאתה ו-${requesterName} מחוברים כעת.`,
       { parse_mode: 'HTML' }
     );
 
-    // Notify requester
+    // Build permission summary for requester
+    const perms = getPermissions(contactId);
+    const sharedList: string[] = [];
+    if (perms?.safety_status) sharedList.push('עיר הבית שלך');
+    if (perms?.home_city) sharedList.push('זמן עדכון אחרון');
+
+    const sharedText = sharedList.length > 0
+      ? `הם יכולים עכשיו לראות:\n${sharedList.map(s => `• ${s}`).join('\n')}\n\nלשינוי הגדרות: /contacts`
+      : `לא שתפת כל מידע נוסף בעת החיבור.`;
+
+    // Notify requester with permission summary
     try {
       await ctx.api.sendMessage(
         contact.user_id,
-        `✅ ${targetName} אישר/ה את בקשת החיבור שלך!`
+        `✅ <b>${accepterName} אישרו את הבקשה!</b>\n\n${sharedText}`,
+        { parse_mode: 'HTML' }
       );
     } catch (err) {
       log('error', 'Connect', `Failed to notify requester ${contact.user_id}: ${String(err)}`);
@@ -391,4 +537,4 @@ export function registerConnectHandler(bot: Bot): void {
 }
 
 /** Exposed for testing — clear to reset anti-spam state between test runs */
-export { buildContactsPage, ensureConnectionCode, parsePrivacyDefaults, isBlocked, recordFailure, clearFailures, failureCounts, lookupCooldownMap };
+export { buildContactsPage, ensureConnectionCode, parsePrivacyDefaults, isBlocked, recordFailure, clearFailures, failureCounts, lookupCooldownMap, pendingPermissions };
