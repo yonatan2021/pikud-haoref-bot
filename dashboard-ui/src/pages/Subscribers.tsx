@@ -98,7 +98,7 @@ export function Subscribers() {
     },
   });
 
-  const { data: expandedDetail } = useQuery<UserDetail>({
+  const { data: expandedDetail, isLoading: isDetailLoading, isError: isDetailError } = useQuery<UserDetail>({
     queryKey: ['subscriber-detail', expandedId],
     queryFn: () => api.get<UserDetail>(`/api/subscribers/${expandedId}`),
     enabled: expandedId !== null,
@@ -466,11 +466,17 @@ export function Subscribers() {
                                     <Skeleton className="h-8 w-48" />
                                   )}
                                   {/* Contacts section */}
-                                  {expandedDetail && expandedDetail.contacts.length > 0 && (
+                                  {isDetailLoading && (
+                                    <p className="text-text-secondary text-xs mt-4">טוען קשרים...</p>
+                                  )}
+                                  {isDetailError && (
+                                    <p className="text-red-400 text-xs mt-4">שגיאה בטעינת פרטי מנוי</p>
+                                  )}
+                                  {!isDetailLoading && !isDetailError && expandedDetail && (expandedDetail.contacts ?? []).length > 0 && (
                                     <>
                                       <p className="text-text-muted text-xs mb-2 mt-4">אנשי קשר:</p>
                                       <div className="flex flex-wrap gap-2">
-                                        {expandedDetail.contacts.map(c => (
+                                        {(expandedDetail.contacts ?? []).map(c => (
                                           <span
                                             key={c.id}
                                             className={`flex items-center gap-1 border rounded-full px-3 py-1 text-xs ${
