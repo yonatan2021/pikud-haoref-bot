@@ -47,9 +47,13 @@ export function israelMidnight(now?: Date): string {
 
 /**
  * Returns the UTC datetime string for midnight Israel time yesterday.
+ * Uses calendar-day subtraction (DST-safe) rather than a fixed 86400s offset,
+ * which would be wrong on DST changeover nights (Israel spring: 25h day, fall: 23h day).
  */
 export function israelYesterdayMidnight(now?: Date): string {
-  const d = now ?? new Date();
-  const yesterday = new Date(d.getTime() - 24 * 60 * 60_000);
-  return israelMidnight(yesterday);
+  const dateStr = israelDateString(now);
+  const [year, month, day] = dateStr.split('-').map(Number);
+  // Subtract one calendar day by building a UTC date at that date minus 1 day
+  const yesterdayUtc = new Date(Date.UTC(year!, month! - 1, day! - 1));
+  return israelMidnight(yesterdayUtc);
 }

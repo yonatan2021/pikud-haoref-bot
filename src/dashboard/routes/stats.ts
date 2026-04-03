@@ -17,6 +17,7 @@ const MAX_DAYS = 365;
 const MIN_DAYS = 1;
 const DEFAULT_DAYS = 7;
 const DEFAULT_LIMIT = 100;
+const MAX_LIMIT = 500;
 const TOP_CITIES_LIMIT = 10;
 
 function parseIntParam(value: string | undefined, defaultValue: number): number {
@@ -68,14 +69,17 @@ export function createStatsRouter(db: Database.Database): Router {
 
       const todayBoundary = israelMidnight();
       const yesterdayBoundary = israelYesterdayMidnight();
+      // Use Israel-timezone boundaries for all windows to stay consistent with today/yesterday
+      const sevenDaysAgo = israelMidnight(new Date(Date.now() - 7 * 24 * 60 * 60_000));
+      const fourteenDaysAgo = israelMidnight(new Date(Date.now() - 14 * 24 * 60 * 60_000));
 
       const result = {
         totalSubscribers: q('SELECT COUNT(*) as c FROM users'),
         totalSubscriptions: q('SELECT COUNT(*) as c FROM subscriptions'),
         alertsToday: q(`SELECT COUNT(*) as c FROM alert_history WHERE fired_at >= ?`, todayBoundary),
         alertsYesterday: q(`SELECT COUNT(*) as c FROM alert_history WHERE fired_at >= ? AND fired_at < ?`, yesterdayBoundary, todayBoundary),
-        alertsLast7Days: q(`SELECT COUNT(*) as c FROM alert_history WHERE fired_at >= datetime('now', '-7 days')`),
-        alertsPrev7Days: q(`SELECT COUNT(*) as c FROM alert_history WHERE fired_at >= datetime('now', '-14 days') AND fired_at < datetime('now', '-7 days')`),
+        alertsLast7Days: q(`SELECT COUNT(*) as c FROM alert_history WHERE fired_at >= ?`, sevenDaysAgo),
+        alertsPrev7Days: q(`SELECT COUNT(*) as c FROM alert_history WHERE fired_at >= ? AND fired_at < ?`, fourteenDaysAgo, sevenDaysAgo),
         mapboxMonth: mapboxRow?.request_count ?? 0,
       };
       setCached('stats:overview', result, 60_000);
@@ -135,8 +139,8 @@ export function createStatsRouter(db: Database.Database): Router {
 
       const rawDays = parseIntParam(query.days, DEFAULT_DAYS);
       const safeDays = Math.min(Math.max(rawDays, MIN_DAYS), MAX_DAYS);
-      const limit = parseIntParam(query.limit, DEFAULT_LIMIT);
-      const offset = parseIntParam(query.offset, 0);
+      const safeLimit = Math.min(Math.max(parseIntParam(query.limit, DEFAULT_LIMIT), 1), MAX_LIMIT);
+      const safeOffset = Math.max(parseIntParam(query.offset, 0), 0);
 
       let sql = `
         SELECT id, type, cities, instructions, fired_at
@@ -164,7 +168,7 @@ export function createStatsRouter(db: Database.Database): Router {
       }
 
       sql += ` ORDER BY fired_at DESC LIMIT ? OFFSET ?`;
-      params.push(limit, offset);
+      params.push(safeLimit, safeOffset);
 
       const rows = db.prepare(sql).all(...params) as Array<{
         id: number;
