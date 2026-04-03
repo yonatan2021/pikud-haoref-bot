@@ -26,6 +26,15 @@
 
 <div dir="rtl">
 
+### ✨ תכונות חדשות
+
+- **Forum topics support** — GramJS listener תומך כעת בנושאים (threads) בתוך קבוצות forum; יכול לסנן הודעות מוגדלות לנושא מסוים דרך `sourceTopicId`
+
+### 🐛 תיקוני באגים
+
+- **Empty chat list on fresh GramJS session** — כאשר GramJS מתחיל לאחר authentication, cache הentity היה ריק וגרם לכל chats להתדלות. כעת יש fallback ל-`client.getEntity()` ו-retry עם השהיה של 2 שניות בעת 0 תוצאות
+- **GetForumTopics not paginated** — groups עם יותר מ-100 נושאים היו מפסידים נושאים. כעת יש pagination loop
+
 </div>
 
 ---

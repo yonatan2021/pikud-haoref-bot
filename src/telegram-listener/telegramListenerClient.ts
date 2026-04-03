@@ -62,29 +62,37 @@ async function refreshTopicsForChat(db: Database.Database, chatId: string): Prom
   if (!client) return;
   try {
     clearKnownTopicsForChat(db, chatId);
-    const result = await client.invoke(
-      new Api.channels.GetForumTopics({
-        channel: chatId,
-        limit: 100,
-        offsetId: 0,
-        offsetDate: 0,
-        offsetTopic: 0,
-      })
-    );
-    const topics = (result as unknown as { topics?: Array<{ id: number; title: string }> }).topics ?? [];
-    for (const topic of topics) {
-      if (topic.id && topic.title) {
-        upsertKnownTopic(db, { topicId: topic.id, chatId, topicName: topic.title });
+    let offsetTopic = 0;
+    let totalTopics = 0;
+    while (true) {
+      const result = await client.invoke(
+        new Api.channels.GetForumTopics({
+          channel: chatId,
+          limit: 100,
+          offsetId: 0,
+          offsetDate: 0,
+          offsetTopic,
+        })
+      );
+      const batch = (result as unknown as { topics?: Array<{ id: number; title: string }> }).topics ?? [];
+      if (!batch.length) break;
+      for (const topic of batch) {
+        if (topic.id && topic.title) {
+          upsertKnownTopic(db, { topicId: topic.id, chatId, topicName: topic.title });
+          totalTopics++;
+        }
       }
+      if (batch.length < 100) break; // last page
+      offsetTopic = batch[batch.length - 1]!.id;
     }
-    log('info', 'TG Listener', `נושאים עודכנו עבור ${chatId} — ${topics.length} נושאים`);
+    log('info', 'TG Listener', `נושאים עודכנו עבור ${chatId} — ${totalTopics} נושאים`);
   } catch (err: unknown) {
     // Non-fatal — not all groups support topics
     log('warn', 'TG Listener', `GetForumTopics נכשל עבור ${chatId}: ${err instanceof Error ? err.message : String(err)}`);
   }
 }
 
-export async function refreshKnownChats(db: Database.Database): Promise<void> {
+export async function refreshKnownChats(db: Database.Database, retryCount = 0): Promise<void> {
   if (!client) return;
   try {
     clearKnownChats(db);
@@ -151,10 +159,10 @@ export async function refreshKnownChats(db: Database.Database): Promise<void> {
     await Promise.all(forumChatIds.map((chatId) => refreshTopicsForChat(db, chatId)));
 
     // Retry once on completely empty result — GramJS may need a moment to sync after fresh auth
-    if (storedCount === 0 && totalFetched === 0) {
+    if (storedCount === 0 && totalFetched === 0 && retryCount === 0) {
       log('info', 'TG Listener', 'לא נמצאו דיאלוגים — מנסה שוב בעוד 2 שניות');
       await new Promise<void>((resolve) => setTimeout(resolve, 2000));
-      await refreshKnownChats(db);
+      await refreshKnownChats(db, 1);
       return;
     }
 

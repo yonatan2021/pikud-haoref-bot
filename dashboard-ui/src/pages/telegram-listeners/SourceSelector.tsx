@@ -66,11 +66,6 @@ export function SourceSelector({
     if (open) searchRef.current?.focus();
   }, [open]);
 
-  // Reset topic when a non-forum group is selected
-  useEffect(() => {
-    if (!isForum) onChangeTopicId(null);
-  }, [value, isForum, onChangeTopicId]);
-
   const filteredChats = useMemo(() => {
     const term = search.toLowerCase();
     return (chats ?? []).filter(c => c.chatName.toLowerCase().includes(term));
