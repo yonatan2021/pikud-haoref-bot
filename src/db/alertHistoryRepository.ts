@@ -1,6 +1,7 @@
 import { getDb } from './schema.js';
 import type { Alert } from '../types.js';
 import { log } from '../logger.js';
+import { israelMidnight } from '../dashboard/israelDate.js';
 
 export interface AlertHistoryRow {
   id: number;
@@ -75,10 +76,8 @@ export function getAlertsForCity(city: string, limit: number): AlertHistoryRow[]
 
 export function countAlertsToday(): number {
   const row = getDb()
-    .prepare(
-      `SELECT COUNT(*) as cnt FROM alert_history WHERE fired_at >= datetime('now','start of day')`
-    )
-    .get() as { cnt: number } | undefined;
+    .prepare(`SELECT COUNT(*) as cnt FROM alert_history WHERE fired_at >= ?`)
+    .get(israelMidnight()) as { cnt: number } | undefined;
   return row?.cnt ?? 0;
 }
 
