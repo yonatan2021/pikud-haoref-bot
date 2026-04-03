@@ -111,7 +111,11 @@ export function registerPrivacyHandler(bot: Bot): void {
     log('info', 'Privacy', `User ${ctx.chat?.id} toggled default ${field} → ${updated[field]}`);
 
     const { text, keyboard } = buildDefaultsMessage(updated);
-    await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
+    try {
+      await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
+    } catch (err) {
+      log('warn', 'Privacy', `editMessageText failed (message likely deleted): ${err}`);
+    }
   });
 
   // Per-contact permission view (from contacts list)
@@ -122,13 +126,20 @@ export function registerPrivacyHandler(bot: Bot): void {
     if (!contact) return;
 
     const chatId = ctx.chat?.id;
-    if (chatId !== contact.user_id && chatId !== contact.contact_id) return;
+    if (chatId !== contact.user_id && chatId !== contact.contact_id) {
+      log('warn', 'Privacy', `Unauthorized access attempt by ${chatId ?? 'unknown'} on contact ${contactId}`);
+      return;
+    }
 
     const perms = getPermissions(contactId);
     if (!perms) return;
 
     const { text, keyboard } = buildContactPermissionsMessage(contactId, perms);
-    await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
+    try {
+      await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
+    } catch (err) {
+      log('warn', 'Privacy', `editMessageText failed (message likely deleted): ${err}`);
+    }
   });
 
   // Toggle per-contact permission
@@ -142,19 +153,32 @@ export function registerPrivacyHandler(bot: Bot): void {
     if (!contact) return;
 
     const chatId = ctx.chat?.id;
-    if (chatId !== contact.user_id && chatId !== contact.contact_id) return;
+    if (chatId !== contact.user_id && chatId !== contact.contact_id) {
+      log('warn', 'Privacy', `Unauthorized access attempt by ${chatId ?? 'unknown'} on contact ${contactId}`);
+      return;
+    }
 
     const perms = getPermissions(contactId);
     if (!perms) return;
 
     const updated: Partial<ContactPermissions> = { [field]: !perms[field] };
-    updatePermissions(contactId, updated);
+    try {
+      updatePermissions(contactId, updated);
+    } catch (err) {
+      log('error', 'Privacy', `updatePermissions failed for contact ${contactId}: ${err}`);
+      await ctx.answerCallbackQuery({ text: 'שגיאה בעדכון הגדרות', show_alert: true });
+      return;
+    }
     log('info', 'Privacy', `User ${chatId} toggled contact ${contactId} ${field} → ${!perms[field]}`);
 
     const newPerms = getPermissions(contactId);
     if (!newPerms) return;
 
     const { text, keyboard } = buildContactPermissionsMessage(contactId, newPerms);
-    await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
+    try {
+      await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
+    } catch (err) {
+      log('warn', 'Privacy', `editMessageText failed (message likely deleted): ${err}`);
+    }
   });
 }
