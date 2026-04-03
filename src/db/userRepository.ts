@@ -4,6 +4,8 @@ export type NotificationFormat = 'short' | 'detailed';
 
 export type OnboardingStep = 'name' | 'city' | 'confirm';
 
+const VALID_ONBOARDING_STEPS = new Set<string>(['name', 'city', 'confirm']);
+
 export interface User {
   chat_id: number;
   format: NotificationFormat;
@@ -48,7 +50,9 @@ function mapRowToUser(raw: RawUserRow): User {
     display_name: raw.display_name ?? null,
     home_city: raw.home_city ?? null,
     connection_code: raw.connection_code ?? null,
-    onboarding_step: (raw.onboarding_step as OnboardingStep | null) ?? null,
+    onboarding_step: raw.onboarding_step && VALID_ONBOARDING_STEPS.has(raw.onboarding_step)
+      ? (raw.onboarding_step as OnboardingStep)
+      : null,
   };
 }
 

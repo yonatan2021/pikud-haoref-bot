@@ -69,7 +69,7 @@ export function registerProfileHandler(bot: Bot): void {
   });
 
   bot.callbackQuery('pf:edit_name', async (ctx: Context) => {
-    await ctx.answerCallbackQuery().catch(() => {});
+    await ctx.answerCallbackQuery().catch((e) => log('warn', 'Profile', `answerCallbackQuery: ${e}`));
     const chatId = ctx.chat?.id;
     if (!chatId || ctx.chat?.type !== 'private') return;
     try {
@@ -83,11 +83,14 @@ export function registerProfileHandler(bot: Bot): void {
       );
     } catch (err) {
       log('error', 'Profile', `pf:edit_name failed: ${err}`);
+      await ctx.reply('אירעה שגיאה. נסה שוב מאוחר יותר.').catch((e) =>
+        log('error', 'Profile', `Failed to send error reply: ${e}`)
+      );
     }
   });
 
   bot.callbackQuery('pf:edit_city', async (ctx: Context) => {
-    await ctx.answerCallbackQuery().catch(() => {});
+    await ctx.answerCallbackQuery().catch((e) => log('warn', 'Profile', `answerCallbackQuery: ${e}`));
     const chatId = ctx.chat?.id;
     if (!chatId || ctx.chat?.type !== 'private') return;
     try {
@@ -101,11 +104,14 @@ export function registerProfileHandler(bot: Bot): void {
       );
     } catch (err) {
       log('error', 'Profile', `pf:edit_city failed: ${err}`);
+      await ctx.reply('אירעה שגיאה. נסה שוב מאוחר יותר.').catch((e) =>
+        log('error', 'Profile', `Failed to send error reply: ${e}`)
+      );
     }
   });
 
   bot.callbackQuery('pf:cancel', async (ctx: Context) => {
-    await ctx.answerCallbackQuery().catch(() => {});
+    await ctx.answerCallbackQuery().catch((e) => log('warn', 'Profile', `answerCallbackQuery: ${e}`));
     const chatId = ctx.chat?.id;
     if (!chatId) return;
     try {
@@ -113,11 +119,14 @@ export function registerProfileHandler(bot: Bot): void {
       await renderProfile(ctx, chatId, true);
     } catch (err) {
       log('error', 'Profile', `pf:cancel failed: ${err}`);
+      await ctx.reply('אירעה שגיאה. נסה שוב מאוחר יותר.').catch((e) =>
+        log('error', 'Profile', `Failed to send error reply: ${e}`)
+      );
     }
   });
 
   bot.callbackQuery(/^pf:city:(\d+)$/, async (ctx: Context) => {
-    await ctx.answerCallbackQuery().catch(() => {});
+    await ctx.answerCallbackQuery().catch((e) => log('warn', 'Profile', `answerCallbackQuery: ${e}`));
     const chatId = ctx.chat?.id;
     if (!chatId) return;
     try {
@@ -133,6 +142,9 @@ export function registerProfileHandler(bot: Bot): void {
       await renderProfile(ctx, chatId, false);
     } catch (err) {
       log('error', 'Profile', `pf:city callback failed: ${err}`);
+      await ctx.reply('אירעה שגיאה. נסה שוב מאוחר יותר.').catch((e) =>
+        log('error', 'Profile', `Failed to send error reply: ${e}`)
+      );
     }
   });
 
