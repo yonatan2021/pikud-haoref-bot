@@ -73,7 +73,7 @@ const defaultBroadcastDeps: ListenerBroadcastDeps = {
   getEnabledGroupsFn: getEnabledGroupsForAlertType,
 };
 
-async function broadcastToWhatsAppGroups(
+export async function broadcastToWhatsAppGroups(
   db: Database.Database,
   text: string,
   sourceGroupId: string,
