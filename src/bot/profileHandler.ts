@@ -14,11 +14,13 @@ const pendingEdits = new Map<number, 'name' | 'city'>();
 export function buildProfileSummary(
   displayName: string | null,
   homeCity: string | null,
-  locale: string
+  locale: string,
+  connectionCode?: string | null
 ): { text: string; keyboard: InlineKeyboard } {
   const nameLine = displayName ?? 'לא הוגדר';
   const cityLine = homeCity ?? 'לא הוגדרה';
   const localeName = locale === 'he' ? 'עברית' : locale;
+  const codeLine = connectionCode ? `<code>${connectionCode}</code>` : '—';
 
   const text = [
     '👤 <b>הפרופיל שלי</b>',
@@ -26,6 +28,7 @@ export function buildProfileSummary(
     `📛 שם: ${nameLine}`,
     `🏠 עיר מגורים: ${cityLine}`,
     `🌐 שפה: ${localeName} ✓`,
+    `🔗 קוד חיבור: ${codeLine}`,
   ].join('\n');
 
   const keyboard = new InlineKeyboard()
@@ -43,7 +46,8 @@ async function renderProfile(ctx: Context, chatId: number, edit: boolean): Promi
   const { text, keyboard } = buildProfileSummary(
     profile?.display_name ?? null,
     profile?.home_city ?? null,
-    profile?.locale ?? 'he'
+    profile?.locale ?? 'he',
+    profile?.connection_code ?? null
   );
   if (edit) {
     await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });

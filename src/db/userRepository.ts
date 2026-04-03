@@ -109,7 +109,7 @@ export function deleteUser(chatId: number): void {
 
 // --- Profile functions (v0.4.1) ---
 
-export function getProfile(chatId: number): Pick<User, 'display_name' | 'home_city' | 'locale' | 'onboarding_completed' | 'onboarding_step'> | undefined {
+export function getProfile(chatId: number): Pick<User, 'display_name' | 'home_city' | 'locale' | 'onboarding_completed' | 'onboarding_step' | 'connection_code'> | undefined {
   const user = getUser(chatId);
   if (!user) return undefined;
   return {
@@ -118,6 +118,7 @@ export function getProfile(chatId: number): Pick<User, 'display_name' | 'home_ci
     locale: user.locale,
     onboarding_completed: user.onboarding_completed,
     onboarding_step: user.onboarding_step,
+    connection_code: user.connection_code,
   };
 }
 
