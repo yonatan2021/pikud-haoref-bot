@@ -53,7 +53,7 @@ export function createSubscribersRouter(db: Database.Database): Router {
       const escCsv = (s: string) => s.replace(/"/g, '""');
       const header = 'chat_id,display_name,home_city,connection_code,contact_count,format,quiet_hours,onboarding,locale,created_at,cities\n';
       const body = rows.map(r =>
-        `${r.chat_id},"${escCsv(r.display_name ?? '')}","${escCsv(r.home_city ?? '')}","${r.connection_code ?? ''}",${r.contact_count},${r.format},${r.quiet_hours_enabled},${r.onboarding_completed},${r.locale},${r.created_at},"${escCsv(r.cities ?? '')}"`
+        `${r.chat_id},"${escCsv(r.display_name ?? '')}","${escCsv(r.home_city ?? '')}","${escCsv(r.connection_code ?? '')}",${r.contact_count},"${escCsv(r.format)}",${r.quiet_hours_enabled},${r.onboarding_completed},"${escCsv(r.locale)}","${escCsv(r.created_at)}","${escCsv(r.cities ?? '')}"`
       ).join('\n');
 
       res.setHeader('Content-Type', 'text/csv');
