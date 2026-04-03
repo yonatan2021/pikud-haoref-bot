@@ -4,6 +4,7 @@ import { Alert } from './types';
 import { getCityData } from './cityLookup';
 import { getEmoji, getTitleHe, getInstructionsPrefix } from './config/templateCache.js';
 import { getUrgencyForCountdown } from './config/urgency.js';
+import { getSuperRegionByZone } from './config/zones.js';
 import { log } from './logger.js';
 export { DEFAULT_ALERT_TYPE_HE as ALERT_TYPE_HE, DEFAULT_ALERT_TYPE_EMOJI as ALERT_TYPE_EMOJI } from './config/alertTypeDefaults.js';
 
@@ -98,7 +99,9 @@ export function buildZonedCityList(cities: string[]): string {
     const countdownSuffix =
       minCountdown > 0 && isFinite(minCountdown) ? `  ⏱ <b>${minCountdown} שנ׳</b>` : '';
     const zoneCount = ` (${sorted.length})`;
-    sections.push(`▸ ${urgencyPrefix}<b>${escapeHtml(zone)}</b>${zoneCount}${countdownSuffix}\n${buildCityList(sorted)}`);
+    const srEmoji = getSuperRegionByZone(zone)?.name.split(' ')[0] ?? '';
+    const srPrefix = srEmoji ? `${srEmoji} ` : '';
+    sections.push(`▸ ${srPrefix}${urgencyPrefix}<b>${escapeHtml(zone)}</b>${zoneCount}${countdownSuffix}\n${buildCityList(sorted)}`);
   }
 
   if (noZone.length > 0) {
@@ -134,7 +137,9 @@ export function buildZoneOnlyList(cities: string[]): string {
   for (const [zone, { count, minCountdown }] of zoneMap) {
     const countdownSuffix =
       minCountdown > 0 && isFinite(minCountdown) ? `  ⏱ <b>${minCountdown} שנ׳</b>` : '';
-    sections.push(`▸ <b>${escapeHtml(zone)}</b> (${count})${countdownSuffix}`);
+    const srEmoji = getSuperRegionByZone(zone)?.name.split(' ')[0] ?? '';
+    const srPrefix = srEmoji ? `${srEmoji} ` : '';
+    sections.push(`▸ ${srPrefix}<b>${escapeHtml(zone)}</b> (${count})${countdownSuffix}`);
   }
 
   return sections.join('\n');

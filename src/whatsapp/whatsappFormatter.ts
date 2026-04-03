@@ -1,6 +1,7 @@
 import type { Alert } from '../types.js';
 import { getCityData } from '../cityLookup.js';
 import { getAllCached } from '../config/templateCache.js';
+import { getSuperRegionByZone } from '../config/zones.js';
 
 function getCurrentTimeIL(): string {
   return new Date().toLocaleTimeString('he-IL', {
@@ -76,7 +77,9 @@ export function formatAlertForWhatsApp(alert: Alert): string {
   for (const group of zones) {
     const countdownSuffix =
       group.minCountdown !== null ? ` — ⏱ ${group.minCountdown} שנ׳` : '';
-    lines.push(`📍 *${group.zone}*${countdownSuffix}`);
+    const srEmoji = getSuperRegionByZone(group.zone)?.name.split(' ')[0] ?? '';
+    const header = srEmoji ? `📍 ${srEmoji} *${group.zone}*` : `📍 *${group.zone}*`;
+    lines.push(`${header}${countdownSuffix}`);
     lines.push(group.cities.join(', '));
     lines.push('');
   }

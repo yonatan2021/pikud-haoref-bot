@@ -39,7 +39,7 @@ describe('formatAlertForWhatsApp — zone header with countdown', () => {
     const alert: Alert = { type: 'missiles', cities: ['אבו גוש'] };
     const result = formatAlertForWhatsApp(alert);
 
-    assert.ok(result.includes('📍 *בית שמש*'), 'expected zone header for אבו גוש');
+    assert.ok(result.includes('*בית שמש*'), 'expected zone header for אבו גוש');
     assert.ok(result.includes('⏱'), 'expected countdown indicator for known city');
     assert.ok(result.includes("שנ׳"), "expected שנ׳ countdown unit");
     assert.ok(result.includes('אבו גוש'), 'expected city name listed under zone');
@@ -50,7 +50,8 @@ describe('formatAlertForWhatsApp — zone header with countdown', () => {
     const alert: Alert = { type: 'missiles', cities: ['אבו גוש', 'בית שמש'] };
     const result = formatAlertForWhatsApp(alert);
 
-    const zoneHeaderCount = (result.match(/📍 \*בית שמש\*/g) ?? []).length;
+    const zoneHeaderCount = (result.match(/📍 .* \*בית שמש\*/g) ?? []).length
+      + (result.match(/📍 \*בית שמש\*/g) ?? []).length;
     assert.equal(zoneHeaderCount, 1, 'should have exactly one zone header');
     assert.ok(result.includes('אבו גוש'), 'city 1 should appear');
     assert.ok(result.includes('בית שמש'), 'city 2 should appear');
