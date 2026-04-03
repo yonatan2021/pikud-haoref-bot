@@ -87,6 +87,12 @@ for (const envVar of REQUIRED_ENV_VARS) {
   const bot = getBot();
   await setupBotHandlers(bot);
 
+  if (process.env.TELEGRAM_LISTENER_ENABLED === 'true') {
+    for (const key of ['TELEGRAM_API_ID', 'TELEGRAM_API_HASH']) {
+      if (!process.env[key]) throw new Error(`${key} is required when TELEGRAM_LISTENER_ENABLED=true`);
+    }
+  }
+
   try {
     if (process.env.TELEGRAM_LISTENER_ENABLED === 'true') {
       await initializeTelegramListener(getDb(), bot);
