@@ -28,6 +28,7 @@ export function createSubscribersRouter(db: Database.Database): Router {
     try {
       const rows = db.prepare(`
         SELECT u.chat_id, u.format, u.quiet_hours_enabled, u.created_at,
+               u.display_name, u.home_city, u.locale, u.onboarding_completed,
                GROUP_CONCAT(s.city_name, '; ') as cities
         FROM users u LEFT JOIN subscriptions s ON u.chat_id = s.chat_id
         GROUP BY u.chat_id
@@ -36,12 +37,16 @@ export function createSubscribersRouter(db: Database.Database): Router {
         format: string;
         quiet_hours_enabled: number;
         created_at: string;
+        display_name: string | null;
+        home_city: string | null;
+        locale: string;
+        onboarding_completed: number;
         cities: string | null;
       }>;
 
-      const header = 'chat_id,format,quiet_hours,created_at,cities\n';
+      const header = 'chat_id,display_name,home_city,format,quiet_hours,onboarding,locale,created_at,cities\n';
       const body = rows.map(r =>
-        `${r.chat_id},${r.format},${r.quiet_hours_enabled},${r.created_at},"${r.cities ?? ''}"`
+        `${r.chat_id},"${r.display_name ?? ''}","${r.home_city ?? ''}",${r.format},${r.quiet_hours_enabled},${r.onboarding_completed},${r.locale},${r.created_at},"${r.cities ?? ''}"`
       ).join('\n');
 
       res.setHeader('Content-Type', 'text/csv');
@@ -61,14 +66,15 @@ export function createSubscribersRouter(db: Database.Database): Router {
 
       let sql = `
         SELECT u.chat_id, u.format, u.quiet_hours_enabled, u.created_at,
+               u.display_name, u.home_city, u.locale, u.onboarding_completed,
                COUNT(s.city_name) as city_count
         FROM users u LEFT JOIN subscriptions s ON u.chat_id = s.chat_id
       `;
       const params: (string | number)[] = [];
 
       if (search) {
-        sql += ` WHERE CAST(u.chat_id AS TEXT) LIKE ? OR s.city_name LIKE ?`;
-        params.push(`%${search}%`, `%${search}%`);
+        sql += ` WHERE CAST(u.chat_id AS TEXT) LIKE ? OR s.city_name LIKE ? OR u.display_name LIKE ? OR u.home_city LIKE ?`;
+        params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
       }
 
       sql += ` GROUP BY u.chat_id ORDER BY u.created_at DESC LIMIT ? OFFSET ?`;
@@ -77,8 +83,8 @@ export function createSubscribersRouter(db: Database.Database): Router {
       let countSql = 'SELECT COUNT(DISTINCT u.chat_id) as c FROM users u LEFT JOIN subscriptions s ON u.chat_id = s.chat_id';
       const countParams: string[] = [];
       if (search) {
-        countSql += ' WHERE CAST(u.chat_id AS TEXT) LIKE ? OR s.city_name LIKE ?';
-        countParams.push(`%${search}%`, `%${search}%`);
+        countSql += ' WHERE CAST(u.chat_id AS TEXT) LIKE ? OR s.city_name LIKE ? OR u.display_name LIKE ? OR u.home_city LIKE ?';
+        countParams.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
       }
       const total = (db.prepare(countSql).get(...countParams) as { c: number }).c;
       const data = db.prepare(sql).all(...params);
@@ -118,9 +124,11 @@ export function createSubscribersRouter(db: Database.Database): Router {
       const chatId = parseInt(req.params.id as string, 10);
       if (isNaN(chatId)) { res.status(400).json({ error: 'מזהה לא חוקי' }); return; }
 
-      const { format, quiet_hours_enabled } = req.body as {
+      const { format, quiet_hours_enabled, display_name, home_city } = req.body as {
         format?: string;
         quiet_hours_enabled?: boolean;
+        display_name?: string | null;
+        home_city?: string | null;
       };
 
       if (format !== undefined) {
@@ -138,6 +146,14 @@ export function createSubscribersRouter(db: Database.Database): Router {
           chatId,
         );
         updateSubscriberData(chatId, { quiet_hours_enabled });
+      }
+
+      if (display_name !== undefined) {
+        db.prepare('UPDATE users SET display_name = ? WHERE chat_id = ?').run(display_name, chatId);
+      }
+
+      if (home_city !== undefined) {
+        db.prepare('UPDATE users SET home_city = ? WHERE chat_id = ?').run(home_city, chatId);
       }
 
       res.json({ ok: true });

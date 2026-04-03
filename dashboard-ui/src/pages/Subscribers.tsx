@@ -16,6 +16,10 @@ interface User {
   quiet_hours_enabled: number;
   created_at: string;
   city_count: number;
+  display_name: string | null;
+  home_city: string | null;
+  locale: string;
+  onboarding_completed: number;
 }
 
 interface UserDetail {
@@ -24,6 +28,10 @@ interface UserDetail {
   quiet_hours_enabled: number;
   created_at: string;
   cities: string[];
+  display_name: string | null;
+  home_city: string | null;
+  locale: string;
+  onboarding_completed: number;
 }
 
 interface SubscribersResponse {
@@ -34,6 +42,8 @@ interface SubscribersResponse {
 interface EditForm {
   format: string;
   quiet_hours_enabled: boolean;
+  display_name: string;
+  home_city: string;
 }
 
 function relDate(iso: string): string {
@@ -61,7 +71,7 @@ export function Subscribers() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
-  const [editForm, setEditForm] = useState<EditForm>({ format: 'short', quiet_hours_enabled: false });
+  const [editForm, setEditForm] = useState<EditForm>({ format: 'short', quiet_hours_enabled: false, display_name: '', home_city: '' });
 
   const debouncedSearch = useDebounce(search, 400);
 
@@ -160,6 +170,8 @@ export function Subscribers() {
     setEditForm({
       format: user.format,
       quiet_hours_enabled: !!user.quiet_hours_enabled,
+      display_name: user.display_name ?? '',
+      home_city: user.home_city ?? '',
     });
   };
 
@@ -168,6 +180,8 @@ export function Subscribers() {
     const body: Record<string, unknown> = {
       format: editForm.format,
       quiet_hours_enabled: editForm.quiet_hours_enabled,
+      display_name: editForm.display_name || null,
+      home_city: editForm.home_city || null,
     };
     patchMutation.mutate(
       { id: editUser.chat_id, body },
@@ -225,7 +239,7 @@ export function Subscribers() {
             type="text"
             value={search}
             onChange={handleSearchChange}
-            placeholder="חיפוש לפי מזהה או עיר..."
+            placeholder="חיפוש לפי מזהה, שם, או עיר..."
             className="flex-1 bg-[var(--color-glass)] backdrop-blur-md border border-[var(--color-border)] rounded-lg px-4 py-2.5 text-sm text-text-primary outline-none focus:border-amber-500/60 focus:ring-2 focus:ring-amber-500/40 transition-all"
           />
           <span className="flex items-center text-text-muted text-sm whitespace-nowrap">
@@ -256,6 +270,8 @@ export function Subscribers() {
                       />
                     </th>
                     <th className="px-4 py-2 text-right font-medium">מזהה</th>
+                    <th className="px-4 py-2 text-right font-medium">שם</th>
+                    <th className="px-4 py-2 text-right font-medium">עיר</th>
                     <th className="px-4 py-2 text-right font-medium">ערים</th>
                     <th className="px-4 py-2 text-right font-medium">פורמט</th>
                     <th className="px-4 py-2 text-right font-medium">Quiet Hours</th>
@@ -293,6 +309,21 @@ export function Subscribers() {
                               📋
                             </button>
                           </div>
+                        </td>
+                        <td className="px-4 py-3 text-text-secondary text-xs max-w-[120px] truncate" title={user.display_name ?? ''}>
+                          {user.display_name ? (
+                            <span className="flex items-center gap-1">
+                              {user.display_name}
+                              {!user.onboarding_completed && (
+                                <span className="text-amber-400" title="לא השלים onboarding">⏳</span>
+                              )}
+                            </span>
+                          ) : (
+                            <span className="text-text-muted">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-text-secondary text-xs max-w-[120px] truncate" title={user.home_city ?? ''}>
+                          {user.home_city ?? <span className="text-text-muted">—</span>}
                         </td>
                         <td className="px-4 py-3">
                           <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded-full">
@@ -354,7 +385,7 @@ export function Subscribers() {
                       <AnimatePresence key={`${user.chat_id}-presence`}>
                         {expandedId === user.chat_id && (
                           <tr key={`${user.chat_id}-exp`} className="bg-white/5">
-                            <td colSpan={7} className="p-0 overflow-hidden">
+                            <td colSpan={9} className="p-0 overflow-hidden">
                               <motion.div
                                 initial={{ height: 0, opacity: 0 }}
                                 animate={{ height: 'auto', opacity: 1 }}
@@ -363,6 +394,14 @@ export function Subscribers() {
                                 className="overflow-hidden"
                               >
                                 <div className="px-6 py-4">
+                                  {expandedDetail && (
+                                    <div className="flex flex-wrap gap-4 mb-3 text-xs text-text-muted">
+                                      <span>👤 {expandedDetail.display_name ?? 'ללא שם'}</span>
+                                      <span>🏠 {expandedDetail.home_city ?? 'ללא עיר'}</span>
+                                      <span>🌐 {expandedDetail.locale === 'he' ? 'עברית' : expandedDetail.locale}</span>
+                                      <span>{expandedDetail.onboarding_completed ? '✅ Onboarding הושלם' : '⏳ לא השלים onboarding'}</span>
+                                    </div>
+                                  )}
                                   <p className="text-text-muted text-xs mb-2">ערים מנויות:</p>
                                   {expandedDetail ? (
                                     <div className="flex flex-wrap gap-2">
@@ -455,6 +494,27 @@ export function Subscribers() {
                 עריכת מנוי {editUser.chat_id}
               </h3>
               <div className="space-y-4">
+                <div>
+                  <label className="text-text-muted text-xs block mb-1">שם תצוגה</label>
+                  <input
+                    type="text"
+                    value={editForm.display_name}
+                    onChange={e => setEditForm(f => ({ ...f, display_name: e.target.value }))}
+                    placeholder="ללא שם"
+                    maxLength={50}
+                    className="w-full bg-[var(--color-glass)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-text-primary outline-none focus:border-amber-500/60"
+                  />
+                </div>
+                <div>
+                  <label className="text-text-muted text-xs block mb-1">עיר מגורים</label>
+                  <input
+                    type="text"
+                    value={editForm.home_city}
+                    onChange={e => setEditForm(f => ({ ...f, home_city: e.target.value }))}
+                    placeholder="ללא עיר"
+                    className="w-full bg-[var(--color-glass)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-text-primary outline-none focus:border-amber-500/60"
+                  />
+                </div>
                 <div>
                   <label className="text-text-muted text-xs block mb-1">פורמט הודעות</label>
                   <select
