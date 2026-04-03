@@ -4,7 +4,7 @@ import { getMetrics } from '../../metrics.js';
 import { ALERT_TYPE_CATEGORY } from '../../topicRouter.js';
 import { log } from '../../logger.js';
 import { getCached, setCached } from '../statsCache.js';
-import { israelMidnight, israelYesterdayMidnight } from '../israelDate.js';
+import { israelMidnight, israelYesterdayMidnight, israelMidnightDaysAgo } from '../israelDate.js';
 
 // Reverse map: category → list of alert types (derived once at module load)
 const groups: Record<string, string[]> = {};
@@ -69,9 +69,10 @@ export function createStatsRouter(db: Database.Database): Router {
 
       const todayBoundary = israelMidnight();
       const yesterdayBoundary = israelYesterdayMidnight();
-      // Use Israel-timezone boundaries for all windows to stay consistent with today/yesterday
-      const sevenDaysAgo = israelMidnight(new Date(Date.now() - 7 * 24 * 60 * 60_000));
-      const fourteenDaysAgo = israelMidnight(new Date(Date.now() - 14 * 24 * 60 * 60_000));
+      // Use calendar-day subtraction (DST-safe) so the 7-day window aligns with
+      // the Israel calendar boundary rather than drifting ±1h on DST changeover nights.
+      const sevenDaysAgo = israelMidnightDaysAgo(7);
+      const fourteenDaysAgo = israelMidnightDaysAgo(14);
 
       const result = {
         totalSubscribers: q('SELECT COUNT(*) as c FROM users'),
