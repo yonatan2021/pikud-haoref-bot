@@ -20,6 +20,16 @@ interface User {
   home_city: string | null;
   locale: string;
   onboarding_completed: number;
+  connection_code: string | null;
+  contact_count: number;
+}
+
+interface ContactEntry {
+  id: number;
+  status: string;
+  created_at: string;
+  other_id: number;
+  other_name: string | null;
 }
 
 interface UserDetail {
@@ -32,6 +42,7 @@ interface UserDetail {
   home_city: string | null;
   locale: string;
   onboarding_completed: number;
+  contacts: ContactEntry[];
 }
 
 interface SubscribersResponse {
@@ -194,9 +205,9 @@ export function Subscribers() {
     setPage(0);
   };
 
-  const handleCopy = (e: React.MouseEvent, chatId: number) => {
+  const handleCopy = (e: React.MouseEvent, text: string | number) => {
     e.stopPropagation();
-    navigator.clipboard.writeText(String(chatId));
+    navigator.clipboard.writeText(String(text));
     toast.success('הועתק');
   };
 
@@ -273,6 +284,8 @@ export function Subscribers() {
                     <th className="px-4 py-2 text-right font-medium">שם</th>
                     <th className="px-4 py-2 text-right font-medium">עיר</th>
                     <th className="px-4 py-2 text-right font-medium">ערים</th>
+                    <th className="px-4 py-2 text-right font-medium">קוד חיבור</th>
+                    <th className="px-4 py-2 text-right font-medium">קשרים</th>
                     <th className="px-4 py-2 text-right font-medium">פורמט</th>
                     <th className="px-4 py-2 text-right font-medium">Quiet Hours</th>
                     <th className="px-4 py-2 text-right font-medium">הצטרף</th>
@@ -330,6 +343,28 @@ export function Subscribers() {
                             {user.city_count}
                           </span>
                         </td>
+                        <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                          {user.connection_code ? (
+                            <button
+                              onClick={e => handleCopy(e, user.connection_code!)}
+                              className="font-mono text-xs text-text-secondary bg-[var(--color-glass)] border border-[var(--color-border)] rounded px-2 py-0.5 hover:border-amber-500/60 transition-colors"
+                              title="העתק קוד חיבור"
+                            >
+                              {user.connection_code}
+                            </button>
+                          ) : (
+                            <span className="text-text-muted text-xs">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          {user.contact_count > 0 ? (
+                            <span className="bg-purple-500/20 text-purple-400 text-xs px-2 py-0.5 rounded-full">
+                              {user.contact_count}
+                            </span>
+                          ) : (
+                            <span className="text-text-muted text-xs">0</span>
+                          )}
+                        </td>
                         <td className="px-4 py-3">
                           <span
                             className={`text-xs px-2 py-0.5 rounded-full ${
@@ -385,7 +420,7 @@ export function Subscribers() {
                       <AnimatePresence key={`${user.chat_id}-presence`}>
                         {expandedId === user.chat_id && (
                           <tr key={`${user.chat_id}-exp`} className="bg-white/5">
-                            <td colSpan={9} className="p-0 overflow-hidden">
+                            <td colSpan={11} className="p-0 overflow-hidden">
                               <motion.div
                                 initial={{ height: 0, opacity: 0 }}
                                 animate={{ height: 'auto', opacity: 1 }}
@@ -429,6 +464,31 @@ export function Subscribers() {
                                     </div>
                                   ) : (
                                     <Skeleton className="h-8 w-48" />
+                                  )}
+                                  {/* Contacts section */}
+                                  {expandedDetail && expandedDetail.contacts.length > 0 && (
+                                    <>
+                                      <p className="text-text-muted text-xs mb-2 mt-4">אנשי קשר:</p>
+                                      <div className="flex flex-wrap gap-2">
+                                        {expandedDetail.contacts.map(c => (
+                                          <span
+                                            key={c.id}
+                                            className={`flex items-center gap-1 border rounded-full px-3 py-1 text-xs ${
+                                              c.status === 'accepted'
+                                                ? 'bg-green-500/10 border-green-500/30 text-green-400'
+                                                : c.status === 'pending'
+                                                  ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                                                  : 'bg-[var(--color-glass)] border-[var(--color-border)] text-text-muted'
+                                            }`}
+                                          >
+                                            {c.other_name ?? c.other_id}
+                                            <span className="text-[10px] opacity-60">
+                                              {c.status === 'accepted' ? '✓' : c.status === 'pending' ? '⏳' : '✗'}
+                                            </span>
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </>
                                   )}
                                 </div>
                               </motion.div>
