@@ -1,6 +1,7 @@
 import { Bot, InlineKeyboard } from 'grammy';
 import type { Context } from 'grammy';
 import { getProfile, updateProfile, upsertUser } from '../db/userRepository.js';
+import { updateSubscriberData } from '../db/subscriptionRepository.js';
 import { searchCities, getCityData, getCityById } from '../cityLookup.js';
 import { log } from '../logger.js';
 
@@ -105,16 +106,24 @@ export function registerProfileHandler(bot: Bot): void {
     await ctx.answerCallbackQuery();
     const chatId = ctx.chat?.id;
     if (!chatId) return;
-    const cityId = parseInt(ctx.match![1]);
-    const city = getCityById(cityId);
-    if (!city) {
-      await ctx.reply('❌ עיר לא נמצאה.');
-      return;
+    try {
+      const cityId = parseInt(ctx.match![1]);
+      const city = getCityById(cityId);
+      if (!city) {
+        await ctx.reply('❌ עיר לא נמצאה.');
+        return;
+      }
+      updateProfile(chatId, { home_city: city.name });
+      updateSubscriberData(chatId, { home_city: city.name });
+      pendingEdits.delete(chatId);
+      log('info', 'Profile', `User ${chatId} updated home_city to ${city.name}`);
+      await renderProfile(ctx, chatId, false);
+    } catch (err) {
+      log('error', 'Profile', `pf:city callback failed: ${err}`);
+      await ctx.reply('אירעה שגיאה. נסה שוב מאוחר יותר.').catch((e) =>
+        log('error', 'Profile', `Failed to send error reply: ${e}`)
+      );
     }
-    updateProfile(chatId, { home_city: city.name });
-    pendingEdits.delete(chatId);
-    log('info', 'Profile', `User ${chatId} updated home_city to ${city.name}`);
-    await renderProfile(ctx, chatId, false);
   });
 
   // Text handler for profile edits
@@ -157,6 +166,7 @@ export function registerProfileHandler(bot: Bot): void {
       const exact = getCityData(query);
       if (exact) {
         updateProfile(chatId, { home_city: exact.name });
+        updateSubscriberData(chatId, { home_city: exact.name });
         pendingEdits.delete(chatId);
         log('info', 'Profile', `User ${chatId} updated home_city to ${exact.name}`);
         await renderProfile(ctx, chatId, false);
@@ -167,7 +177,7 @@ export function registerProfileHandler(bot: Bot): void {
       const results = searchCities(query);
       if (results.length === 0) {
         await ctx.reply(
-          `🔍 לא נמצאו ערים עבור "<b>${query}</b>". נסה שוב:`,
+          `🔍 לא נמצאו ערים עבור "<b>${escapeHtml(query)}</b>". נסה שוב:`,
           { parse_mode: 'HTML' }
         );
         return;
@@ -175,6 +185,7 @@ export function registerProfileHandler(bot: Bot): void {
 
       if (results.length === 1) {
         updateProfile(chatId, { home_city: results[0].name });
+        updateSubscriberData(chatId, { home_city: results[0].name });
         pendingEdits.delete(chatId);
         log('info', 'Profile', `User ${chatId} updated home_city to ${results[0].name}`);
         await renderProfile(ctx, chatId, false);

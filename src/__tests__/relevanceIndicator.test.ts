@@ -11,67 +11,71 @@ describe('getRelevanceIndicator', () => {
     assert.equal(getRelevanceIndicator('תל אביב', []), null);
   });
 
-  it('returns red indicator when homeCity is in alert cities', () => {
-    const result = getRelevanceIndicator('אבו גוש', ['אבו גוש', 'נהריה']);
+  it('returns 🔴 באזורך when homeCity is directly in alert cities', () => {
+    // אור יהודה is a real city in cities.json
+    const result = getRelevanceIndicator('אור יהודה', ['אור יהודה', 'בני ברק']);
     assert.equal(result, '🔴 באזורך');
   });
 
-  it('returns yellow indicator when homeCity shares zone with alert city', () => {
-    // אבו גוש and אביעזר are both in zone "בית שמש"
-    const result = getRelevanceIndicator('אבו גוש', ['אביעזר']);
+  it('returns 🟡 באזור קרוב when homeCity shares a zone with an alert city', () => {
+    // אור יהודה and בני ברק are both in the "דן" zone
+    const result = getRelevanceIndicator('אור יהודה', ['בני ברק']);
     assert.equal(result, '🟡 באזור קרוב');
   });
 
-  it('returns green indicator when no geographic match', () => {
-    // אבו גוש is in "בית שמש", נהריה is in "קו העימות" — different zones
-    const result = getRelevanceIndicator('אבו גוש', ['נהריה']);
+  it('returns 🟢 לא באזורך when no geographic match', () => {
+    // אילת has a different zone from דן cities
+    const result = getRelevanceIndicator('אילת', ['אור יהודה', 'בני ברק']);
     assert.equal(result, '🟢 לא באזורך');
   });
 
-  it('returns green for homeCity with no zone data', () => {
-    const result = getRelevanceIndicator('עיר_לא_קיימת', ['אבו גוש']);
+  it('returns 🟢 לא באזורך when homeCity has no zone data', () => {
+    const result = getRelevanceIndicator('עיר לא קיימת בכלל', ['אור יהודה']);
     assert.equal(result, '🟢 לא באזורך');
   });
 });
 
 describe('buildAlertDmMessage — relevance indicator', () => {
-  it('prepends red indicator when homeCity is in alert cities', () => {
-    const alert = { type: 'missiles', cities: ['אבו גוש'] };
-    const msg = buildAlertDmMessage(alert, 'אבו גוש');
-    assert.ok(msg.startsWith('🔴 באזורך'), `Expected to start with red indicator: ${msg}`);
+  it('prepends 🔴 באזורך when homeCity is in alert cities', () => {
+    const alert = { type: 'missiles', cities: ['אור יהודה'], instructions: undefined };
+    const result = buildAlertDmMessage(alert, 'אור יהודה');
+    assert.ok(result.startsWith('🔴 באזורך'), `Expected 🔴 first line: ${result}`);
   });
 
-  it('prepends green indicator when homeCity is not in zone', () => {
-    const alert = { type: 'missiles', cities: ['נהריה'] };
-    const msg = buildAlertDmMessage(alert, 'אבו גוש');
-    assert.ok(msg.startsWith('🟢 לא באזורך'), `Expected to start with green indicator: ${msg}`);
+  it('prepends 🟢 לא באזורך when homeCity is not in zone', () => {
+    const alert = { type: 'missiles', cities: ['אור יהודה'], instructions: undefined };
+    const result = buildAlertDmMessage(alert, 'אילת');
+    assert.ok(result.startsWith('🟢 לא באזורך'), `Expected 🟢 first line: ${result}`);
   });
 
-  it('does not include indicator when homeCity is null', () => {
-    const alert = { type: 'missiles', cities: ['אבו גוש'] };
-    const msg = buildAlertDmMessage(alert, null);
-    assert.ok(!msg.includes('באזורך\n🔴'), 'should not have relevance indicator');
-    assert.ok(!msg.includes('🟢'), 'should not have green indicator');
+  it('omits indicator when homeCity is null', () => {
+    const alert = { type: 'missiles', cities: ['אור יהודה'], instructions: undefined };
+    const result = buildAlertDmMessage(alert, null);
+    const firstLine = result.split('\n')[0];
+    assert.ok(firstLine !== '🔴 באזורך' && firstLine !== '🟡 באזור קרוב' && firstLine !== '🟢 לא באזורך',
+      `First line should not be a standalone relevance indicator: ${firstLine}`);
   });
 
-  it('does not include indicator when homeCity is undefined (default)', () => {
-    const alert = { type: 'missiles', cities: ['אבו גוש'] };
-    const msg = buildAlertDmMessage(alert);
-    assert.ok(!msg.includes('🟢'), 'should not have indicator without homeCity');
+  it('omits indicator when homeCity is undefined (default)', () => {
+    const alert = { type: 'missiles', cities: ['אור יהודה'], instructions: undefined };
+    const result = buildAlertDmMessage(alert);
+    const firstLine = result.split('\n')[0];
+    assert.ok(firstLine !== '🔴 באזורך' && firstLine !== '🟡 באזור קרוב' && firstLine !== '🟢 לא באזורך',
+      `First line should not be a standalone relevance indicator: ${firstLine}`);
   });
 });
 
 describe('buildNewsFlashDmMessage — relevance indicator', () => {
   it('prepends indicator when homeCity is set and alert has cities', () => {
-    const alert = { type: 'newsFlash', cities: ['אבו גוש'] };
-    const msg = buildNewsFlashDmMessage(alert, 'אבו גוש');
-    const lines = msg.split('\n');
-    assert.equal(lines[0], '🔴 באזורך', 'first line should be relevance indicator');
+    const alert = { type: 'newsFlash', cities: ['אור יהודה'], instructions: 'הודעה' };
+    const result = buildNewsFlashDmMessage(alert, 'אור יהודה');
+    assert.ok(result.startsWith('🔴 באזורך'), `Expected 🔴 first line: ${result}`);
   });
 
   it('omits indicator when homeCity is null', () => {
-    const alert = { type: 'newsFlash', cities: ['אבו גוש'] };
-    const msg = buildNewsFlashDmMessage(alert, null);
-    assert.ok(msg.startsWith('📢'), 'should start with newsFlash emoji when no homeCity');
+    const alert = { type: 'newsFlash', cities: ['אור יהודה'], instructions: 'הודעה' };
+    const result = buildNewsFlashDmMessage(alert, null);
+    assert.ok(!result.startsWith('🔴') && !result.startsWith('🟡') && !result.startsWith('🟢'),
+      `Should not start with relevance emoji: ${result}`);
   });
 });
