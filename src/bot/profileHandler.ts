@@ -3,6 +3,7 @@ import type { Context } from 'grammy';
 import { getProfile, updateProfile, upsertUser } from '../db/userRepository.js';
 import { updateSubscriberData } from '../db/subscriptionRepository.js';
 import { searchCities, getCityData, getCityById } from '../cityLookup.js';
+import { escapeHtml } from '../telegramBot.js';
 import { log } from '../logger.js';
 
 const MAX_NAME_LENGTH = 50;

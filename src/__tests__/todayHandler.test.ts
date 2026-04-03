@@ -4,7 +4,7 @@ import { buildTodayMessage } from '../bot/todayHandler.js';
 import type { AlertHistoryRow } from '../db/alertHistoryRepository.js';
 
 function makeAlert(type: string, cities: string[] = []): AlertHistoryRow {
-  return { id: 1, type, cities, instructions: null, firedAt: new Date().toISOString() };
+  return { id: 1, type, cities, instructions: undefined, fired_at: new Date().toISOString() };
 }
 
 describe('buildTodayMessage', () => {
