@@ -129,7 +129,7 @@ export function initSchema(database: Database.Database): void {
       id          INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id     INTEGER NOT NULL,
       contact_id  INTEGER NOT NULL,
-      status      TEXT NOT NULL DEFAULT 'pending',
+      status      TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected')),
       created_at  TEXT NOT NULL DEFAULT (datetime('now')),
       UNIQUE(user_id, contact_id),
       FOREIGN KEY (user_id) REFERENCES users(chat_id) ON DELETE CASCADE,
@@ -137,8 +137,10 @@ export function initSchema(database: Database.Database): void {
     );
     CREATE INDEX IF NOT EXISTS idx_contacts_user ON contacts(user_id);
     CREATE INDEX IF NOT EXISTS idx_contacts_contact ON contacts(contact_id);
+    CREATE INDEX IF NOT EXISTS idx_contacts_status ON contacts(status);
 
     CREATE TABLE IF NOT EXISTS contact_permissions (
+      -- contact_id references contacts(id) surrogate PK (the relationship row), not a user
       contact_id    INTEGER PRIMARY KEY,
       safety_status INTEGER NOT NULL DEFAULT 1,
       home_city     INTEGER NOT NULL DEFAULT 0,
