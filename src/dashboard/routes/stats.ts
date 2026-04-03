@@ -4,6 +4,7 @@ import { getMetrics } from '../../metrics.js';
 import { ALERT_TYPE_CATEGORY } from '../../topicRouter.js';
 import { log } from '../../logger.js';
 import { getCached, setCached } from '../statsCache.js';
+import { israelMidnight, israelYesterdayMidnight } from '../israelDate.js';
 
 // Reverse map: category → list of alert types (derived once at module load)
 const groups: Record<string, string[]> = {};
@@ -24,8 +25,8 @@ function parseIntParam(value: string | undefined, defaultValue: number): number 
   return isNaN(parsed) ? defaultValue : parsed;
 }
 
-function countQuery(db: Database.Database, sql: string): number {
-  return (db.prepare(sql).get() as { c: number }).c;
+function countQuery(db: Database.Database, sql: string, ...params: unknown[]): number {
+  return (db.prepare(sql).get(...params) as { c: number }).c;
 }
 
 export function createStatsRouter(db: Database.Database): Router {
@@ -41,7 +42,7 @@ export function createStatsRouter(db: Database.Database): Router {
     const { lastAlertAt, lastPollAt } = getMetrics();
     let alertsToday = 0;
     try {
-      alertsToday = countQuery(db, `SELECT COUNT(*) as c FROM alert_history WHERE fired_at >= date('now')`);
+      alertsToday = countQuery(db, `SELECT COUNT(*) as c FROM alert_history WHERE fired_at >= ?`, israelMidnight());
     } catch (err) {
       log('warn', 'Dashboard', `alertsToday query failed: ${String(err)}`);
     }
@@ -60,16 +61,19 @@ export function createStatsRouter(db: Database.Database): Router {
     if (cached) return res.json(cached);
 
     try {
-      const q = (sql: string): number => countQuery(db, sql);
+      const q = (sql: string, ...params: unknown[]): number => countQuery(db, sql, ...params);
       const mapboxRow = db
         .prepare(`SELECT request_count FROM mapbox_usage WHERE month = strftime('%Y-%m', 'now')`)
         .get() as { request_count: number } | undefined;
 
+      const todayBoundary = israelMidnight();
+      const yesterdayBoundary = israelYesterdayMidnight();
+
       const result = {
         totalSubscribers: q('SELECT COUNT(*) as c FROM users'),
         totalSubscriptions: q('SELECT COUNT(*) as c FROM subscriptions'),
-        alertsToday: q(`SELECT COUNT(*) as c FROM alert_history WHERE fired_at >= date('now')`),
-        alertsYesterday: q(`SELECT COUNT(*) as c FROM alert_history WHERE fired_at >= date('now', '-1 day') AND fired_at < date('now')`),
+        alertsToday: q(`SELECT COUNT(*) as c FROM alert_history WHERE fired_at >= ?`, todayBoundary),
+        alertsYesterday: q(`SELECT COUNT(*) as c FROM alert_history WHERE fired_at >= ? AND fired_at < ?`, yesterdayBoundary, todayBoundary),
         alertsLast7Days: q(`SELECT COUNT(*) as c FROM alert_history WHERE fired_at >= datetime('now', '-7 days')`),
         alertsPrev7Days: q(`SELECT COUNT(*) as c FROM alert_history WHERE fired_at >= datetime('now', '-14 days') AND fired_at < datetime('now', '-7 days')`),
         mapboxMonth: mapboxRow?.request_count ?? 0,
