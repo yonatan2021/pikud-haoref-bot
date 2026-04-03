@@ -24,6 +24,7 @@ const BASE = {
   telegramTopicName: null,
   forwardToWhatsApp: false,
   isActive: true,
+  sourceTopicId: null,
 };
 
 type TestMsg = {
@@ -34,6 +35,7 @@ type TestMsg = {
   body: string;
   timestamp: number;
   hasMedia: boolean;
+  topicId: number | null;
 };
 
 function makeMsg(chatId: string, body: string, overrides: Partial<TestMsg> = {}): TestMsg {
@@ -45,6 +47,7 @@ function makeMsg(chatId: string, body: string, overrides: Partial<TestMsg> = {})
     body,
     timestamp: 1700000000,
     hasMedia: false,
+    topicId: null,
     ...overrides,
   };
 }
@@ -315,5 +318,47 @@ describe('createMessageHandler — body truncation', () => {
     await new Promise(r => setTimeout(r, 10));
     assert.ok(calls[0]!.text.includes(shortBody), 'short body should appear untruncated');
     assert.ok(!calls[0]!.text.includes('…'), 'should not add ellipsis to short body');
+  });
+});
+
+// ─── Source topic filter ─────────────────────────────────────────────────────
+
+describe('createMessageHandler — source topic filter', () => {
+  beforeEach(() => { db.prepare('DELETE FROM telegram_listeners').run(); });
+
+  it('forwards when listener has no sourceTopicId (all topics)', async () => {
+    createListener(db, { ...BASE, chatId: '-100st1', sourceTopicId: null });
+    const { bot, calls } = makeBot();
+    const h = createMessageHandler(db, bot);
+    await h(makeMsg('-100st1', 'msg', { topicId: 5 }) as any);
+    await new Promise(r => setTimeout(r, 10));
+    assert.equal(calls.length, 1);
+  });
+
+  it('forwards when message topicId matches listener sourceTopicId', async () => {
+    createListener(db, { ...BASE, chatId: '-100st2', sourceTopicId: 5 });
+    const { bot, calls } = makeBot();
+    const h = createMessageHandler(db, bot);
+    await h(makeMsg('-100st2', 'msg', { topicId: 5 }) as any);
+    await new Promise(r => setTimeout(r, 10));
+    assert.equal(calls.length, 1);
+  });
+
+  it('does NOT forward when message topicId does not match sourceTopicId', async () => {
+    createListener(db, { ...BASE, chatId: '-100st3', sourceTopicId: 5 });
+    const { bot, calls } = makeBot();
+    const h = createMessageHandler(db, bot);
+    await h(makeMsg('-100st3', 'msg', { topicId: 3 }) as any);
+    await new Promise(r => setTimeout(r, 10));
+    assert.equal(calls.length, 0);
+  });
+
+  it('does NOT forward when message has no topicId but listener has sourceTopicId', async () => {
+    createListener(db, { ...BASE, chatId: '-100st4', sourceTopicId: 5 });
+    const { bot, calls } = makeBot();
+    const h = createMessageHandler(db, bot);
+    await h(makeMsg('-100st4', 'msg', { topicId: null }) as any);
+    await new Promise(r => setTimeout(r, 10));
+    assert.equal(calls.length, 0);
   });
 });
