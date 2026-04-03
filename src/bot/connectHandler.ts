@@ -8,7 +8,6 @@ import {
   upsertUser,
 } from '../db/userRepository.js';
 import {
-  createContact,
   getContactByPair,
   getContactById,
   acceptContact,
@@ -16,7 +15,7 @@ import {
   removeContact,
   listContacts,
   getPendingCountForUser,
-  createDefaultPermissions,
+  createContactWithPermissions,
   getPermissions,
   type Contact,
 } from '../db/contactRepository.js';
@@ -225,9 +224,8 @@ export function registerConnectHandler(bot: Bot): void {
       return;
     }
 
-    const contact = createContact(chatId, target.chat_id);
     const defaults = parsePrivacyDefaults();
-    createDefaultPermissions(contact.id, defaults);
+    const contact = createContactWithPermissions(chatId, target.chat_id, defaults);
 
     log('info', 'Connect', `User ${chatId} sent connection request to ${target.chat_id}`);
 

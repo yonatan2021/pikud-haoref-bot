@@ -174,16 +174,16 @@ export function initSchema(database: Database.Database): void {
   addColumnIfMissing(database, 'ALTER TABLE users ADD COLUMN connection_code TEXT');
   addColumnIfMissing(database, 'ALTER TABLE users ADD COLUMN onboarding_step TEXT');
 
-  database.prepare('CREATE INDEX IF NOT EXISTS idx_users_connection_code ON users(connection_code)').run();
+  database.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_connection_code ON users(connection_code) WHERE connection_code IS NOT NULL').run();
 }
 
 export function initDb(): void {
   const database = getDb();
   initSchema(database);
-  // Prune alert history older than 7 days on startup
-  database.exec(`DELETE FROM alert_history WHERE fired_at < datetime('now', '-7 days')`);
-  // Prune expired login attempt records on startup
-  database.exec('DELETE FROM login_attempts WHERE reset_at < (unixepoch() * 1000)');
-  // Prune expired pending contact requests on startup
-  database.exec(`DELETE FROM contacts WHERE status = 'pending' AND created_at < datetime('now', '-7 days')`);
+  // Prune stale data atomically on startup
+  database.transaction(() => {
+    database.prepare(`DELETE FROM alert_history WHERE fired_at < datetime('now', '-7 days')`).run();
+    database.prepare('DELETE FROM login_attempts WHERE reset_at < (unixepoch() * 1000)').run();
+    database.prepare(`DELETE FROM contacts WHERE status = 'pending' AND created_at < datetime('now', '-7 days')`).run();
+  })();
 }

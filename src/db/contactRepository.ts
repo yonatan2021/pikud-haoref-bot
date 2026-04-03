@@ -58,6 +58,20 @@ export function createContact(userId: number, contactId: number): Contact {
   return decodeContact(raw);
 }
 
+/** Creates a contact AND its default permissions atomically in a single transaction. */
+export function createContactWithPermissions(
+  userId: number,
+  contactId: number,
+  defaults?: Partial<ContactPermissions>,
+): Contact {
+  const db = getDb();
+  return db.transaction(() => {
+    const contact = createContact(userId, contactId);
+    createDefaultPermissions(contact.id, defaults);
+    return contact;
+  })();
+}
+
 export function getContactById(id: number): Contact | undefined {
   const raw = getDb()
     .prepare('SELECT * FROM contacts WHERE id = ?')
