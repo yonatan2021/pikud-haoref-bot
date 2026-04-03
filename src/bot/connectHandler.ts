@@ -27,10 +27,14 @@ const CONTACTS_PER_PAGE = 5;
 const MAX_PENDING_REQUESTS = 10;
 const MAX_CODE_RETRIES = 10;
 const FAILURE_BLOCK_THRESHOLD = 5;
-const FAILURE_BLOCK_MS = 60_000;
+export const FAILURE_BLOCK_MS = 60_000;
+/** Default display name when a user has none set */
+const UNNAMED_USER = 'משתמש';
+/** How long a pending permission state lives before being pruned (10 minutes) */
+const PENDING_PERMISSIONS_TTL_MS = 10 * 60_000;
 
 /** Cooldown for code lookups — 5s between attempts. Map exposed for test reset. */
-const LOOKUP_COOLDOWN_MS = 5000;
+export const LOOKUP_COOLDOWN_MS = 5000;
 const lookupCooldownMap = new Map<number, number>();
 
 const lookupCooldown = {
@@ -57,6 +61,7 @@ interface PendingPermissionState {
   targetName: string;
   safety_status: boolean;
   home_city: boolean;
+  expiresAt: number;
 }
 const pendingPermissions = new Map<number, PendingPermissionState>();
 
@@ -86,7 +91,7 @@ function clearFailures(userId: number): void {
 }
 
 function generateCode(): string {
-  return String(crypto.randomInt(100000, 999999));
+  return String(crypto.randomInt(100000, 1000000));
 }
 
 function parsePrivacyDefaults(): Record<string, boolean> {
@@ -125,15 +130,15 @@ function buildContactsPage(
   userId: number,
   page: number
 ): { text: string; keyboard: InlineKeyboard } {
-  if (!Number.isInteger(page) || page < 0) {
+  const effectivePage = Number.isInteger(page) && page >= 0 ? page : 0;
+  if (effectivePage !== page) {
     log('warn', 'Connect', `Invalid page requested: ${page} — clamping to 0`);
-    page = 0;
   }
 
   const accepted = listContacts(userId, 'accepted');
   const total = accepted.length;
   const totalPages = Math.max(1, Math.ceil(total / CONTACTS_PER_PAGE));
-  const safePage = Math.min(page, totalPages - 1);
+  const safePage = Math.min(effectivePage, totalPages - 1);
   const start = safePage * CONTACTS_PER_PAGE;
   const slice = accepted.slice(start, start + CONTACTS_PER_PAGE);
 
@@ -157,7 +162,7 @@ function buildContactsPage(
   for (const contact of slice) {
     const otherId = contact.user_id === userId ? contact.contact_id : contact.user_id;
     const other = getUser(otherId);
-    const name = other?.display_name ?? 'משתמש';
+    const name = other?.display_name ?? UNNAMED_USER;
     const perms = permissions.get(contact.id);
     const cityLine = perms?.home_city && other?.home_city ? ` — ${other.home_city}` : '';
     lines.push(`• ${name}${cityLine}`);
@@ -167,7 +172,7 @@ function buildContactsPage(
   for (const contact of slice) {
     const otherId = contact.user_id === userId ? contact.contact_id : contact.user_id;
     const other = getUser(otherId);
-    const name = other?.display_name ?? 'משתמש';
+    const name = other?.display_name ?? UNNAMED_USER;
     keyboard
       .text(`🔒 ${name}`, `cx:perm:${contact.id}`)
       .text('❌', `cx:rm:${contact.id}`)
@@ -185,35 +190,58 @@ function buildContactsPage(
   return { text: lines.join('\n'), keyboard };
 }
 
-/** Build and send/edit permission toggle screen */
-function buildAndSendPermissionScreen(ctx: Context, chatId: number, targetName: string): void {
-  const state = pendingPermissions.get(chatId);
-  if (!state) return;
-
+/** Build permission toggle screen payload (pure — no side effects) */
+function buildPermissionScreenPayload(
+  targetName: string,
+  state: PendingPermissionState
+): { text: string; keyboard: InlineKeyboard } {
   const safetyCheck = state.safety_status ? '✅' : '☐';
   const cityCheck = state.home_city ? '✅' : '☐';
 
   const text = `📤 <b>בקשת חיבור ל${targetName}</b>\n\nכשהם יאשרו — מה הם יוכלו לראות עליכם?\n\n${safetyCheck} <b>עיר הבית שלי</b>\n<i>כדי שיוכלו לדעת אם הגעתם לאזור בטוח</i>\n\n${cityCheck} <b>זמן עדכון אחרון</b>\n<i>כדי שיוכלו לדעת שראיתם את ההתראה</i>`;
 
   const keyboard = new InlineKeyboard()
-    .text('🔄 עיר הבית', `cx:pt:safety`)
-    .text('🔄 זמן עדכון', `cx:pt:city`)
+    .text('🔄 עיר הבית', `cx:pt:city`)
+    .text('🔄 זמן עדכון', `cx:pt:safety`)
     .row()
     .text('💾 שמור ושלח בקשה', `cx:confirm`)
     .text('❌ ביטול', `cx:cancel`)
     .row();
 
+  return { text, keyboard };
+}
+
+/** Edit an existing bot message with the permission toggle screen (used by toggle callbacks) */
+function buildAndSendPermissionScreen(ctx: Context, chatId: number, targetName: string): void {
+  const state = pendingPermissions.get(chatId);
+  if (!state) return;
+
+  const { text, keyboard } = buildPermissionScreenPayload(targetName, state);
   ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard }).catch((err) => {
     log('warn', 'Connect', `Failed to edit permission screen: ${String(err)}`);
   });
 }
 
 export function registerConnectHandler(bot: Bot): void {
+  // Prune abandoned pending permission states every 5 minutes to prevent memory leak
+  setInterval(() => {
+    const now = Date.now();
+    for (const [id, state] of pendingPermissions) {
+      if (now > state.expiresAt) pendingPermissions.delete(id);
+    }
+  }, 5 * 60_000).unref();
+
   // /connect — show menu or connect to someone
   bot.command('connect', async (ctx: Context) => {
     if (ctx.chat?.type !== 'private') return;
     const chatId = ctx.chat.id;
-    upsertUser(chatId);
+    try {
+      upsertUser(chatId);
+    } catch (err) {
+      log('error', 'Connect', `Failed to upsert user ${chatId}: ${String(err)}`);
+      await ctx.reply('❌ שגיאת שרת — נסה שוב.');
+      return;
+    }
 
     const args = (ctx.message?.text ?? '').split(/\s+/).slice(1);
     const codeArg = args[0]?.trim();
@@ -278,16 +306,22 @@ export function registerConnectHandler(bot: Bot): void {
     }
 
     // Store pending state + show permission toggles
-    const targetName = target.display_name ?? 'משתמש';
+    const targetName = target.display_name ?? UNNAMED_USER;
     const defaults = parsePrivacyDefaults();
     pendingPermissions.set(chatId, {
       targetId: target.chat_id,
       targetName,
       safety_status: defaults.safety_status ?? true,
       home_city: defaults.home_city ?? false,
+      expiresAt: Date.now() + PENDING_PERMISSIONS_TTL_MS,
     });
 
-    buildAndSendPermissionScreen(ctx, chatId, targetName);
+    // Use reply (not edit) — there is no prior bot message to edit in the command path
+    const pendingState = pendingPermissions.get(chatId);
+    if (pendingState) {
+      const { text, keyboard } = buildPermissionScreenPayload(targetName, pendingState);
+      await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard });
+    }
   });
 
   // Menu: Share own code
@@ -328,7 +362,7 @@ export function registerConnectHandler(bot: Bot): void {
       return;
     }
 
-    state.safety_status = !state.safety_status;
+    pendingPermissions.set(chatId, { ...state, safety_status: !state.safety_status });
     buildAndSendPermissionScreen(ctx, chatId, state.targetName);
   });
 
@@ -344,7 +378,7 @@ export function registerConnectHandler(bot: Bot): void {
       return;
     }
 
-    state.home_city = !state.home_city;
+    pendingPermissions.set(chatId, { ...state, home_city: !state.home_city });
     buildAndSendPermissionScreen(ctx, chatId, state.targetName);
   });
 
@@ -360,6 +394,21 @@ export function registerConnectHandler(bot: Bot): void {
       return;
     }
 
+    // Re-validate at confirm time (TOCTOU guard) — duplicate/pending might have changed since /connect
+    const existingForward = getContactByPair(chatId, state.targetId);
+    const existingReverse = getContactByPair(state.targetId, chatId);
+    if (existingForward || existingReverse) {
+      pendingPermissions.delete(chatId);
+      await ctx.editMessageText('ℹ️ כבר מחוברים עם המשתמש הזה.');
+      return;
+    }
+
+    if (getPendingCountForUser(state.targetId) >= MAX_PENDING_REQUESTS) {
+      pendingPermissions.delete(chatId);
+      await ctx.editMessageText('❌ יותר מדי בקשות ממתינות. נסה שוב מאוחר יותר.');
+      return;
+    }
+
     // Create contact with selected permissions
     const contact = createContactWithPermissions(chatId, state.targetId, {
       safety_status: state.safety_status,
@@ -369,7 +418,7 @@ export function registerConnectHandler(bot: Bot): void {
     log('info', 'Connect', `User ${chatId} sent connection request to ${state.targetId} with permissions: safety=${state.safety_status}, city=${state.home_city}`);
 
     // Notify target
-    const requesterName = getUser(chatId)?.display_name ?? 'משתמש';
+    const requesterName = getUser(chatId)?.display_name ?? UNNAMED_USER;
     const keyboard = new InlineKeyboard()
       .text('✅ אישור', `cn:accept:${contact.id}`)
       .text('❌ דחייה', `cn:reject:${contact.id}`);
@@ -401,7 +450,10 @@ export function registerConnectHandler(bot: Bot): void {
   // Accept connection request
   bot.callbackQuery(/^cn:accept:(\d+)$/, async (ctx: Context) => {
     await ctx.answerCallbackQuery();
-    const contactId = parseInt(ctx.match![1]);
+    const raw = ctx.match?.[1];
+    if (!raw) return;
+    const contactId = parseInt(raw, 10);
+    if (isNaN(contactId)) return;
     const contact = getContactById(contactId);
     if (!contact || contact.status !== 'pending') {
       await ctx.editMessageText('ℹ️ הבקשה כבר טופלה.');
@@ -409,7 +461,10 @@ export function registerConnectHandler(bot: Bot): void {
     }
 
     const chatId = ctx.chat?.id;
-    if (chatId !== contact.contact_id) return;
+    if (chatId !== contact.contact_id) {
+      await ctx.answerCallbackQuery();
+      return;
+    }
 
     try {
       acceptContact(contactId);
@@ -420,8 +475,8 @@ export function registerConnectHandler(bot: Bot): void {
     }
     log('info', 'Connect', `Contact ${contactId} accepted`);
 
-    const requesterName = getUser(contact.user_id)?.display_name ?? 'משתמש';
-    const accepterName = getUser(contact.contact_id)?.display_name ?? 'משתמש';
+    const requesterName = getUser(contact.user_id)?.display_name ?? UNNAMED_USER;
+    const accepterName = getUser(contact.contact_id)?.display_name ?? UNNAMED_USER;
     await ctx.editMessageText(
       `✅ <b>חיבור אושר</b>\nאתה ו-${requesterName} מחוברים כעת.`,
       { parse_mode: 'HTML' }
@@ -452,7 +507,10 @@ export function registerConnectHandler(bot: Bot): void {
   // Reject connection request
   bot.callbackQuery(/^cn:reject:(\d+)$/, async (ctx: Context) => {
     await ctx.answerCallbackQuery();
-    const contactId = parseInt(ctx.match![1]);
+    const raw = ctx.match?.[1];
+    if (!raw) return;
+    const contactId = parseInt(raw, 10);
+    if (isNaN(contactId)) return;
     const contact = getContactById(contactId);
     if (!contact || contact.status !== 'pending') {
       await ctx.editMessageText('ℹ️ הבקשה כבר טופלה.');
@@ -460,7 +518,10 @@ export function registerConnectHandler(bot: Bot): void {
     }
 
     const chatId = ctx.chat?.id;
-    if (chatId !== contact.contact_id) return;
+    if (chatId !== contact.contact_id) {
+      await ctx.answerCallbackQuery();
+      return;
+    }
 
     try {
       rejectContact(contactId);
@@ -488,7 +549,13 @@ export function registerConnectHandler(bot: Bot): void {
   bot.command('contacts', async (ctx: Context) => {
     if (ctx.chat?.type !== 'private') return;
     const chatId = ctx.chat.id;
-    upsertUser(chatId);
+    try {
+      upsertUser(chatId);
+    } catch (err) {
+      log('error', 'Connect', `Failed to upsert user ${chatId}: ${String(err)}`);
+      await ctx.reply('❌ שגיאת שרת — נסה שוב.');
+      return;
+    }
     const { text, keyboard } = buildContactsPage(chatId, 0);
     await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard });
   });
@@ -498,7 +565,10 @@ export function registerConnectHandler(bot: Bot): void {
     await ctx.answerCallbackQuery();
     const chatId = ctx.chat?.id;
     if (!chatId) return;
-    const page = parseInt(ctx.match![1]);
+    const rawPage = ctx.match?.[1];
+    if (!rawPage) return;
+    const page = parseInt(rawPage, 10);
+    if (isNaN(page)) return;
     const { text, keyboard } = buildContactsPage(chatId, page);
     await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
   });
@@ -508,7 +578,10 @@ export function registerConnectHandler(bot: Bot): void {
     await ctx.answerCallbackQuery();
     const chatId = ctx.chat?.id;
     if (!chatId) return;
-    const contactId = parseInt(ctx.match![1]);
+    const rawRm = ctx.match?.[1];
+    if (!rawRm) return;
+    const contactId = parseInt(rawRm, 10);
+    if (isNaN(contactId)) return;
     const contact = getContactById(contactId);
     if (!contact) return;
 
