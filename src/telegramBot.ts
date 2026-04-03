@@ -3,10 +3,27 @@ import { autoRetry } from '@grammyjs/auto-retry';
 import { Alert } from './types';
 import { getCityData } from './cityLookup';
 import { getEmoji, getTitleHe, getInstructionsPrefix } from './config/templateCache.js';
+import { getUrgencyForCountdown } from './config/urgency.js';
 import { log } from './logger.js';
 export { DEFAULT_ALERT_TYPE_HE as ALERT_TYPE_HE, DEFAULT_ALERT_TYPE_EMOJI as ALERT_TYPE_EMOJI } from './config/alertTypeDefaults.js';
 
 const MAX_CITIES_DISPLAYED = 25;
+
+/** Alert types that require shelter action (excludes newsFlash, generalDrill, general, unknown). */
+const SHELTER_TYPES = new Set([
+  'missiles', 'terroristInfiltration', 'earthQuake', 'tsunami',
+  'hazardousMaterials', 'radiologicalEvent', 'unconventionalWeapons', 'hostileAircraftIntrusion',
+  'missilesDrill', 'terroristInfiltrationDrill', 'earthQuakeDrill', 'tsunamiDrill',
+  'hazardousMaterialsDrill', 'radiologicalEventDrill', 'unconventionalWeaponsDrill',
+  'hostileAircraftIntrusionDrill',
+]);
+
+/** Returns a shelter action card line for alert types that require immediate action, or null. */
+export function buildActionCard(alertType: string): string | null {
+  if (!SHELTER_TYPES.has(alertType)) return null;
+  const prefix = getInstructionsPrefix(alertType);
+  return `🛡 <b>${prefix ? escapeHtml(prefix) + ' ' : ''}היכנסו למרחב מוגן!</b>`;
+}
 
 /** Telegram's hard caption limit for photo messages (sendPhoto / editMessageCaption). */
 export const TELEGRAM_CAPTION_MAX = 1024;
@@ -67,14 +84,21 @@ export function buildZonedCityList(cities: string[]): string {
     }
   }
 
+  // Sort zones by urgency: most urgent (lowest countdown) first; stable for equal values
+  const sortedZones = [...zoneMap.entries()].sort(
+    (a, b) => a[1].minCountdown - b[1].minCountdown
+  );
+
   const sections: string[] = [];
 
-  for (const [zone, { cities: zoneCities, minCountdown }] of zoneMap) {
+  for (const [zone, { cities: zoneCities, minCountdown }] of sortedZones) {
     const sorted = [...zoneCities].sort((a, b) => a.localeCompare(b, 'he'));
+    const urgency = getUrgencyForCountdown(minCountdown);
+    const urgencyPrefix = minCountdown > 0 && isFinite(minCountdown) ? `${urgency.emoji} ` : '';
     const countdownSuffix =
       minCountdown > 0 && isFinite(minCountdown) ? `  ⏱ <b>${minCountdown} שנ׳</b>` : '';
     const zoneCount = ` (${sorted.length})`;
-    sections.push(`▸ <b>${escapeHtml(zone)}</b>${zoneCount}${countdownSuffix}\n${buildCityList(sorted)}`);
+    sections.push(`▸ ${urgencyPrefix}<b>${escapeHtml(zone)}</b>${zoneCount}${countdownSuffix}\n${buildCityList(sorted)}`);
   }
 
   if (noZone.length > 0) {
@@ -117,6 +141,7 @@ export function buildZoneOnlyList(cities: string[]): string {
 }
 
 export function formatAlertMessage(alert: Alert): string {
+  const actionCard = buildActionCard(alert.type);
   const emoji = getEmoji(alert.type);
   const title = getTitleHe(alert.type);
 
@@ -129,9 +154,13 @@ export function formatAlertMessage(alert: Alert): string {
   });
 
   const cityCountSuffix = alert.cities.length > 0 ? `  ·  ${alert.cities.length} ערים` : '';
-  const parts: string[] = [
+  const parts: string[] = [];
+
+  if (actionCard) parts.push(actionCard);
+
+  parts.push(
     `${emoji} <b>${escapeHtml(title)}</b>\n⏰ ${escapeHtml(timeStr)}${cityCountSuffix}`,
-  ];
+  );
 
   let instructionsPart: string | null = null;
   if (alert.instructions) {
