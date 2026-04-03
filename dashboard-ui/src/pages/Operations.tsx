@@ -101,14 +101,17 @@ export function Operations() {
     onError: () => toast.error('שגיאה בניקוי'),
   });
 
+  const parsedTestChatId = parseInt(testChatId, 10);
+  const isValidChatId = testChatId.trim().length > 0 && !isNaN(parsedTestChatId);
+
   const testAlertMutation = useMutation({
-    mutationFn: () => api.post('/api/operations/test-alert', { chatId: parseInt(testChatId, 10), text: testText }),
+    mutationFn: () => api.post('/api/operations/test-alert', { chatId: parsedTestChatId, text: testText }),
     onSuccess: () => { toast.success('הודעת בדיקה נשלחה'); setTestText(''); },
     onError: () => toast.error('שגיאה בשליחת בדיקה'),
   });
 
   const testAllMutation = useMutation({
-    mutationFn: () => api.post('/api/operations/test-alert-all', { chatId: parseInt(testChatId, 10) }),
+    mutationFn: () => api.post('/api/operations/test-alert-all', { chatId: parsedTestChatId }),
     onSuccess: () => toast.success('שולח 6 הודעות בדיקה...'),
     onError: () => toast.error('שגיאה בשליחת בדיקה'),
   });
@@ -334,14 +337,14 @@ export function Operations() {
           </div>
           <div className="flex flex-wrap gap-3 mt-4">
             <button
-              disabled={!testChatId || !testText || testAlertMutation.isPending}
+              disabled={!isValidChatId || !testText || testAlertMutation.isPending}
               onClick={() => testAlertMutation.mutate()}
               className="px-6 py-2 bg-surface border border-border hover:bg-base text-text-secondary text-sm rounded-lg disabled:opacity-40"
             >
               {testAlertMutation.isPending ? 'שולח...' : 'שלח בדיקה'}
             </button>
             <button
-              disabled={!testChatId || testAllMutation.isPending}
+              disabled={!isValidChatId || testAllMutation.isPending}
               onClick={() => testAllMutation.mutate()}
               className="px-6 py-2 bg-surface border border-amber/30 hover:bg-base text-amber text-sm rounded-lg disabled:opacity-40"
             >
