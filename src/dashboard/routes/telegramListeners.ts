@@ -5,6 +5,7 @@ import type { Bot } from 'grammy';
 import {
   getAllListeners,
   getAllKnownChats,
+  getTopicsForChat,
   createListener,
   updateListener,
   deleteListener,
@@ -16,6 +17,7 @@ import {
   submitCode as _submitCode,
   submitPassword as _submitPassword,
   disconnect as _disconnect,
+  refreshKnownChats as _refreshKnownChats,
   type TelegramListenerStatus,
 } from '../../telegram-listener/telegramListenerClient.js';
 import { getSetting } from '../settingsRepository.js';
@@ -28,6 +30,7 @@ export interface TelegramClientDeps {
   submitCode: (db: Database.Database, code: string, phoneCodeHash: string) => Promise<void>;
   submitPassword: (db: Database.Database, password: string) => Promise<void>;
   disconnect: (db: Database.Database) => Promise<void>;
+  refreshKnownChats: (db: Database.Database) => Promise<void>;
 }
 
 const defaultClientDeps: TelegramClientDeps = {
@@ -37,6 +40,7 @@ const defaultClientDeps: TelegramClientDeps = {
   submitCode: _submitCode,
   submitPassword: _submitPassword,
   disconnect: _disconnect,
+  refreshKnownChats: _refreshKnownChats,
 };
 
 const VALID_CHAT_TYPES = new Set(['group', 'channel', 'supergroup']);
@@ -159,6 +163,36 @@ export function createTelegramListenerRouter(
     }
   });
 
+  // POST /refresh-chats → triggers a fresh getDialogs scan, returns { count }
+  router.post('/refresh-chats', async (_req: Request, res: Response) => {
+    try {
+      await clientDeps.refreshKnownChats(db);
+      const count = getAllKnownChats(db).length;
+      log('info', 'TG Listener', `רענון ידני של צ'אטים — ${count} נשמרו`);
+      res.json({ ok: true, count });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      log('error', 'TG Listener', `שגיאה ברענון chats: ${msg}`);
+      res.status(500).json({ error: msg });
+    }
+  });
+
+  // GET /chats/:chatId/topics → topics for a forum supergroup
+  router.get('/chats/:chatId/topics', (req: Request, res: Response) => {
+    const chatId = req.params['chatId'];
+    if (!chatId) {
+      res.status(400).json({ error: 'chatId חסר' });
+      return;
+    }
+    try {
+      const topics = getTopicsForChat(db, chatId);
+      res.json(topics);
+    } catch (err: unknown) {
+      log('error', 'TG Listener', `שגיאה בטעינת נושאים עבור ${chatId}: ${err instanceof Error ? err.message : String(err)}`);
+      res.status(500).json({ error: 'שגיאת שרת פנימית' });
+    }
+  });
+
   // ── CRUD — CRITICAL: static path before param routes ────────────────────
 
   // GET /listeners/telegram-topics
@@ -240,6 +274,9 @@ export function createTelegramListenerRouter(
     const rawTopicName = body['telegramTopicName'];
     const telegramTopicName: string | null = typeof rawTopicName === 'string' ? rawTopicName : null;
 
+    const rawSourceTopicId = body['sourceTopicId'];
+    const sourceTopicId: number | null = typeof rawSourceTopicId === 'number' ? rawSourceTopicId : null;
+
     if (body['isActive'] !== undefined && typeof body['isActive'] !== 'boolean') {
       res.status(400).json({ error: 'isActive חייב להיות boolean' });
       return;
@@ -262,6 +299,7 @@ export function createTelegramListenerRouter(
         telegramTopicName,
         forwardToWhatsApp,
         isActive,
+        sourceTopicId,
       });
       log('info', 'TG Listener', `listener נוצר: ${chatId}`);
       res.status(201).json(listener);
@@ -336,6 +374,10 @@ export function createTelegramListenerRouter(
 
     if ('telegramTopicName' in body) {
       updates['telegramTopicName'] = typeof body['telegramTopicName'] === 'string' ? body['telegramTopicName'] : null;
+    }
+
+    if ('sourceTopicId' in body) {
+      updates['sourceTopicId'] = typeof body['sourceTopicId'] === 'number' ? body['sourceTopicId'] : null;
     }
 
     try {
