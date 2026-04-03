@@ -7,6 +7,8 @@ import {
   getPolygonCoords,
   buildGeoJSON,
   expandGeoJSONBounds,
+  getCityIdsByZones,
+  extractZoneNamesFromText,
 } from '../cityLookup.js';
 
 // City 511 = אבו גוש, zone = בית שמש — a stable, well-known entry in cities.json
@@ -206,5 +208,52 @@ describe('expandGeoJSONBounds', () => {
     const empty = buildGeoJSON([]);
     const result = expandGeoJSONBounds(empty);
     assert.equal(result.type, 'FeatureCollection');
+  });
+});
+
+describe('getCityIdsByZones', () => {
+  it('returns city IDs for a known zone', () => {
+    const ids = getCityIdsByZones([KNOWN_CITY_ZONE]);
+    assert.ok(ids.length > 0, 'Should return at least one city ID for a known zone');
+    assert.ok(ids.includes(KNOWN_CITY_ID), `Should include city ${KNOWN_CITY_ID} (אבו גוש) in ${KNOWN_CITY_ZONE}`);
+  });
+
+  it('aggregates IDs across multiple zones', () => {
+    const single = getCityIdsByZones([KNOWN_CITY_ZONE]);
+    const multi = getCityIdsByZones([KNOWN_CITY_ZONE, 'דן']);
+    assert.ok(multi.length > single.length, 'Multiple zones should return more IDs than one zone');
+  });
+
+  it('returns empty array for unknown zone', () => {
+    const ids = getCityIdsByZones(['אזור לא קיים']);
+    assert.deepEqual(ids, []);
+  });
+
+  it('returns empty array for empty input', () => {
+    const ids = getCityIdsByZones([]);
+    assert.deepEqual(ids, []);
+  });
+});
+
+describe('extractZoneNamesFromText', () => {
+  it('finds a known zone name substring in Hebrew text', () => {
+    const zones = extractZoneNamesFromText('בדקות הקרובות עלולות להתקבל אזעקות בגליל עליון');
+    assert.ok(zones.includes('גליל עליון'), `Should find גליל עליון in result: ${zones}`);
+  });
+
+  it('returns multiple zone names when text contains several', () => {
+    const zones = extractZoneNamesFromText('אזעקות צפויות באזורי דן וגליל עליון');
+    assert.ok(zones.includes('גליל עליון'));
+    assert.ok(zones.includes('דן'));
+  });
+
+  it('returns empty array when text contains no zone names', () => {
+    const zones = extractZoneNamesFromText('הודעה כללית ללא שם אזור');
+    assert.deepEqual(zones, []);
+  });
+
+  it('returns empty array for empty string', () => {
+    const zones = extractZoneNamesFromText('');
+    assert.deepEqual(zones, []);
   });
 });

@@ -5,7 +5,8 @@ import union from '@turf/union';
 import { polygon as turfPolygon, featureCollection } from '@turf/helpers';
 import type { FeatureCollection, Polygon, MultiPolygon, Feature } from 'geojson';
 import { Alert, CityEntry } from './types';
-import { getCityData, getCityById, buildGeoJSON, expandGeoJSONBounds } from './cityLookup';
+import { getCityData, getCityById, buildGeoJSON, expandGeoJSONBounds, getCityIdsByZones, extractZoneNamesFromText } from './cityLookup';
+import { isPreliminaryAlert } from './alertHelpers.js';
 import { isMonthlyLimitReached, incrementMonthlyCount } from './db/mapboxUsageRepository.js';
 import { loadCacheEntries, saveCacheEntry, deleteCacheEntry, pruneCacheEntries } from './db/mapboxCacheRepository.js';
 import { getZoneColor } from './config/zoneColors.js';
@@ -312,6 +313,15 @@ export async function generateMapImage(alert: Alert): Promise<Buffer | null> {
         continue;
       }
       cityIds.push(cityData.id);
+    }
+
+    // Pre-warning path: no cities → derive zone polygons from instructions text
+    if (cityIds.length === 0 && isPreliminaryAlert(alert.instructions)) {
+      const zoneNames = extractZoneNamesFromText(alert.instructions ?? '');
+      if (zoneNames.length > 0) {
+        cityIds.push(...getCityIdsByZones(zoneNames));
+        log('info', 'MapService', `Pre-warning: derived ${cityIds.length} city IDs from zones: ${zoneNames.join(', ')}`);
+      }
     }
 
     if (cityIds.length === 0) {

@@ -1,6 +1,7 @@
 import type { Feature, FeatureCollection, Polygon, Position } from 'geojson';
 import { CityEntry, PolygonCoords, PolygonsMap } from './types';
 import { normalizeCityName } from './alertPoller';
+import { SUPER_REGIONS } from './config/zones.js';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const citiesData: CityEntry[] = require('pikud-haoref-api/cities.json');
@@ -166,4 +167,21 @@ export function expandGeoJSONBounds(
   };
 
   return { ...geojson, features: [...geojson.features, paddingBox] };
+}
+
+/** Returns all city IDs for the given zone names. */
+export function getCityIdsByZones(zoneNames: string[]): number[] {
+  const ids: number[] = [];
+  for (const zone of zoneNames) {
+    for (const city of getCitiesByZone(zone)) {
+      ids.push(city.id);
+    }
+  }
+  return ids;
+}
+
+/** Searches text for any of the 33 known zone names (substring match). */
+export function extractZoneNamesFromText(text: string): string[] {
+  const allZoneNames = SUPER_REGIONS.flatMap((sr) => sr.zones);
+  return allZoneNames.filter((zone) => text.includes(zone));
 }
