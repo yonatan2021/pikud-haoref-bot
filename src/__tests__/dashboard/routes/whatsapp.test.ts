@@ -25,6 +25,7 @@ const mockSvc: WhatsAppServiceDeps = {
   getCachedGroups: () => mockCachedGroups as any,
   initialize: () => { initializeCalled = true; },
   disconnect: async () => { disconnectCalled = true; mockStatus = 'disconnected'; mockPhone = null; mockCachedGroups = []; },
+  clearSession: async () => { mockStatus = 'disconnected'; mockPhone = null; mockCachedGroups = []; },
   refreshGroups: async () => { refreshGroupsCalled = true; },
 };
 

@@ -80,18 +80,19 @@ async function forceKillByPid(c: Client): Promise<void> {
   }
 }
 
-// Kill ALL Chrome processes that reference this session directory in their
-// command-line arguments. Handles the case where pupBrowser is null (Chromium
-// is mid-launch) or where destroy() left a zombie process behind.
-function killChromeBySessionPath(sessionPath: string): void {
+// Kill ALL Puppeteer-managed Chrome processes. Uses ASCII-only patterns so
+// pkill -f works correctly even when the session path contains non-ASCII
+// characters (Hebrew directories). Falls back to multiple strategies.
+function killChromeBySessionPath(_sessionPath: string): void {
+  // Strategy 1: match Puppeteer's cache directory — always ASCII, always works
   try {
-    // pkill -9 -f matches against the full argv string of every running process.
-    // On macOS/Linux this terminates any Chromium that used our userDataDir.
-    spawnSync('pkill', ['-9', '-f', sessionPath], { timeout: 3000 });
-    log('info', 'WhatsApp', 'כל תהליכי Chromium שהשתמשו ב-session נהרגו');
-  } catch {
-    // pkill unavailable or no matching processes — fine
-  }
+    spawnSync('pkill', ['-9', '-f', '.cache/puppeteer'], { timeout: 3000 });
+  } catch { /* ignore */ }
+  // Strategy 2: match the Chrome for Testing app bundle (macOS)
+  try {
+    spawnSync('pkill', ['-9', '-f', 'Google Chrome for Testing'], { timeout: 3000 });
+  } catch { /* ignore */ }
+  log('info', 'WhatsApp', 'כל תהליכי Chrome for Testing נהרגו');
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────

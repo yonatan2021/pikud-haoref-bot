@@ -201,15 +201,21 @@ export function WhatsApp() {
   const queryClient = useQueryClient();
   const debounceMapRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const [showReconnectConfirm, setShowReconnectConfirm] = useState(false);
+  // Tracks whether we've already auto-triggered init on this page visit.
+  // Prevents re-firing after the user explicitly disconnects.
+  const hasAutoInitRef = useRef(false);
 
   const { data: statusData, isError: statusError } = useQuery<WhatsAppStatus>({
     queryKey: ['whatsapp-status'],
     queryFn: () => api.get('/api/whatsapp/status'),
     refetchInterval: (query) => {
       const s = query.state.data?.status;
-      if (s === 'ready' || s === 'disconnected') return false;
+      if (s === 'ready') return false;
       // Fast poll while waiting for QR — expires in ~60s so 1s is needed to catch it
       if (s === 'qr') return 1000;
+      // Keep polling while disconnected until auto-init has fired, so we catch
+      // the transition to 'connecting' immediately without waiting for user action.
+      if (s === 'disconnected') return hasAutoInitRef.current ? false : 3000;
       // Back off on errors but keep polling — don't go dark if server restarts
       if (query.state.errorUpdateCount >= 5) return 10_000;
       return 3000;
@@ -250,6 +256,8 @@ export function WhatsApp() {
     mutationFn: () => api.post('/api/whatsapp/disconnect', {}),
     onSuccess: () => {
       toast.success('WhatsApp נותק');
+      // Reset auto-init so the user can manually reconnect after explicit disconnect
+      hasAutoInitRef.current = true;
       queryClient.invalidateQueries({ queryKey: ['whatsapp-status'] });
       queryClient.invalidateQueries({ queryKey: ['whatsapp-groups'] });
     },
@@ -257,6 +265,18 @@ export function WhatsApp() {
       toast.error('שגיאה בניתוק');
     },
   });
+
+  // Auto-trigger initialization the first time the page loads with 'disconnected'
+  // status. This means the QR will start appearing without the user having to
+  // click "התחבר" manually. Reset the flag when the user explicitly disconnects.
+  useEffect(() => {
+    const s = statusData?.status;
+    if (s === 'disconnected' && !hasAutoInitRef.current && !statusError) {
+      hasAutoInitRef.current = true;
+      reconnectMutation.mutate();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusData?.status, statusError]);
 
   const handleGroupUpdate = useCallback((groupId: string, patch: Partial<WhatsAppGroup>) => {
     const current = queryClient.getQueryData<WhatsAppGroup[]>(['whatsapp-groups'])?.find(g => g.groupId === groupId);
