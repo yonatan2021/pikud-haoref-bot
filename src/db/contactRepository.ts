@@ -47,6 +47,7 @@ function decodePermissions(raw: RawPermissions): ContactPermissions {
   };
 }
 
+/** @internal — use createContactWithPermissions for all public flows to ensure permissions row is created atomically */
 export function createContact(userId: number, contactId: number): Contact {
   if (userId === contactId) {
     throw new Error('Cannot create a contact with yourself');
@@ -146,11 +147,14 @@ export function createDefaultPermissions(
   const homeCity = defaults?.home_city !== undefined ? (defaults.home_city ? 1 : 0) : 0;
   const updateTime = defaults?.update_time !== undefined ? (defaults.update_time ? 1 : 0) : 1;
 
-  getDb()
+  const result = getDb()
     .prepare(
       'INSERT INTO contact_permissions (contact_id, safety_status, home_city, update_time) VALUES (?, ?, ?, ?)'
     )
     .run(contactRowId, safetyStatus, homeCity, updateTime);
+  if (result.changes === 0) {
+    throw new Error(`Failed to create permissions for contact_id ${contactRowId}`);
+  }
 }
 
 /** Delete pending contacts older than 7 days. Called on a recurring interval. */
@@ -184,7 +188,10 @@ export function updatePermissions(
   if (setClauses.length === 0) return;
 
   values.push(contactRowId);
-  getDb()
+  const result = getDb()
     .prepare(`UPDATE contact_permissions SET ${setClauses.join(', ')} WHERE contact_id = ?`)
     .run(...values);
+  if (result.changes === 0) {
+    throw new Error(`Contact permissions not found for contact_id ${contactRowId}`);
+  }
 }
