@@ -1,5 +1,4 @@
 import { getDb } from './schema.js';
-import { evictSubscriberFromCache } from './subscriptionRepository.js';
 
 export type NotificationFormat = 'short' | 'detailed';
 
@@ -106,7 +105,10 @@ export function deleteUser(chatId: number): void {
   getDb()
     .prepare('DELETE FROM users WHERE chat_id = ?')
     .run(chatId);
-  evictSubscriberFromCache(chatId);
+  // Dynamic require avoids circular dependency (subscriptionRepository imports from userRepository)
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  (require('./subscriptionRepository.js') as { evictSubscriberFromCache: (id: number) => void })
+    .evictSubscriberFromCache(chatId);
 }
 
 // --- Profile functions (v0.4.1) ---
