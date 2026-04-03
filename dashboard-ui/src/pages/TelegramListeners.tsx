@@ -98,7 +98,7 @@ function ConnectionSection({ statusData, onRefreshStatus }: ConnectionSectionPro
   const connectedPhone = statusData?.phone ?? null;
 
   const connectMutation = useMutation({
-    mutationFn: (phoneNum: string) => api.post('/api/telegram/connect', { phone: phoneNum }),
+    mutationFn: (phoneNum: string) => api.post('/api/telegram/connect', { phone: phoneNum }) as Promise<{ phoneCodeHash: string }>,
     onSuccess: (data: { phoneCodeHash: string }) => {
       setPendingHash(data.phoneCodeHash);
       queryClient.invalidateQueries({ queryKey: ['telegram-listener-status'] });
@@ -165,7 +165,7 @@ function ConnectionSection({ statusData, onRefreshStatus }: ConnectionSectionPro
       <div className="mb-4 pb-3 border-b border-border flex items-center justify-between">
         <h2 className="font-semibold text-text-primary">חיבור חשבון טלגרם</h2>
         <div className="flex items-center gap-2">
-          <LiveDot active={status === 'connected'} />
+          <LiveDot color={status === 'connected' ? 'green' : status === 'disconnected' ? 'red' : 'amber'} />
           <span className={`text-xs font-medium ${statusBadge.color}`}>{statusBadge.label}</span>
         </div>
       </div>
