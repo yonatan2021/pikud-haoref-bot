@@ -62,6 +62,7 @@ interface PendingPermissionState {
   targetName: string;
   safety_status: boolean;
   home_city: boolean;
+  update_time: boolean;
   expiresAt: number;
 }
 const pendingPermissions = new Map<number, PendingPermissionState>();
@@ -315,6 +316,7 @@ export function registerConnectHandler(bot: Bot): void {
       targetName,
       safety_status: defaults.safety_status ?? true,
       home_city: defaults.home_city ?? false,
+      update_time: (defaults.update_time as boolean | undefined) ?? true,
       expiresAt: Date.now() + PENDING_PERMISSIONS_TTL_MS,
     });
 
@@ -415,6 +417,7 @@ export function registerConnectHandler(bot: Bot): void {
     const contact = createContactWithPermissions(chatId, state.targetId, {
       safety_status: state.safety_status,
       home_city: state.home_city,
+      update_time: state.update_time,
     });
 
     log('info', 'Connect', `User ${chatId} sent connection request to ${state.targetId} with permissions: safety=${state.safety_status}, city=${state.home_city}`);
