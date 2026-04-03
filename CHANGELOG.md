@@ -26,14 +26,27 @@
 
 <div dir="rtl">
 
+</div>
+
+---
+
+## [0.4.3] — 2026-04-03
+
+<div dir="rtl">
+
 ### ✨ תכונות חדשות
 
-- **שיפור UX חיבור חברים** — זרימה אינטראקטיבית לא-טכנית עם מנו, קוד בתיבה tappable, ובחירת הרשאות מפורשת לפני שליחת בקשה
+- **הגדרות פרטיות** — פקודה חדשה `/privacy` לניהול מדיניות פרטיות ברירת המחדל לחיבורים חדשים
+- **שליטה per-contact** — ניתן לשנות בנפרד אילו שדות (סטטוס ביטחוני, עיר בית, זמן עדכון) כל איש קשר יכול לראות
+- **תבנית ברירת מחדל** — הגדרות הפרטיות שנבחרו מוחלות אוטומטית על כל חיבור חדש
+- **שיפור UX חיבור חברים** — זרימה אינטראקטיבית לא-טכנית עם תפריט, קוד בתיבה tappable, ובחירת הרשאות מפורשת לפני שליחת בקשה
 - **סיכום הרשאות בעת אישור** — כשחבר מאשר בקשת חיבור, הם רואים בדיוק אילו שדות שותפו (עיר בית, זמן עדכון אחרון)
 - **ניסוח משופר** — כל הודעות שגיאה וחיבור כתובות בעברית יומיומית, לא טכנית
 
 ### 🧪 בדיקות
 
+- **כיסוי הרשאות פרטיות** — טסטים מלאים ל-`/privacy`, `pv:toggle`, `cx:perm`, `cp:toggle` ו-`getPrivacyDefaults`
+- **rendering test לבדיקת הרשאות** — בדיקה שעיר הבית מוצגת/מוסתרת בהתאם להרשאת `home_city`
 - **+8 בדיקות connectHandler** — כיסוי של תפריט ה-connect, קולבקי toggle הרשאות, ו-cx:confirm/cx:cancel
 
 </div>
@@ -811,7 +824,8 @@
 
 <div dir="rtl">
 
-[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.3...HEAD
+[0.4.3]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.3.3...v0.4.0
