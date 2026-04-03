@@ -2,6 +2,7 @@ import { TelegramClient, Api } from 'telegram';
 import { StringSession } from 'telegram/sessions/index.js';
 import { NewMessage, NewMessageEvent } from 'telegram/events/index.js';
 import { computeCheck } from 'telegram/Password.js';
+import bigInt from 'big-integer';
 import type Database from 'better-sqlite3';
 import { getSetting, setSetting } from '../dashboard/settingsRepository.js';
 import {
@@ -41,6 +42,9 @@ let messageCallback: ((msg: IncomingTelegramMsg) => Promise<void>) | null = null
 
 // Stored between sendCode() and signIn() calls (within the same session)
 let pendingPhone: string | null = null;
+
+// Exponential backoff delays for getDialogs() retries (ms)
+const RETRY_DELAYS_MS = [2000, 5000, 12000, 30000] as const;
 
 function getApiCredentials(): { apiId: number; apiHash: string } {
   const apiIdStr = process.env['TELEGRAM_API_ID'];
@@ -94,60 +98,123 @@ async function refreshTopicsForChat(db: Database.Database, chatId: string): Prom
 
 export async function refreshKnownChats(db: Database.Database, retryCount = 0): Promise<void> {
   if (!client) return;
+
+  const authorized = await client.isUserAuthorized();
+  if (!authorized) {
+    log('warn', 'TG Listener', 'לקוח לא מאומת — מדלג על רענון דיאלוגים');
+    return;
+  }
+
   try {
     clearKnownChats(db);
     let offsetDate = 0;
+    let offsetId = 0;
+    let offsetPeer: Api.TypeInputPeer = new Api.InputPeerEmpty();
     let totalFetched = 0;
     let nullEntityCount = 0;
     let storedCount = 0;
     const forumChatIds: string[] = [];
 
     while (true) {
-      const batch = await client.getDialogs({ limit: 100, offsetDate });
-      if (!batch.length) break;
-      totalFetched += batch.length;
+      // Use invoke() directly instead of the getDialogs() high-level wrapper.
+      // The wrapper (_DialogsIter) builds an internal entity-cache lookup and
+      // silently skips dialogs when the peer-ID key format doesn't match — which
+      // happens reliably on cold session restores and causes an empty return even
+      // though the API response contains dialogs. invoke() gives us the raw
+      // response with result.chats always present, so we build our own map.
+      const result = await client.invoke(
+        new Api.messages.GetDialogs({
+          offsetDate,
+          offsetId,
+          offsetPeer,
+          limit: 100,
+          hash: bigInt.zero,
+        })
+      );
 
-      for (const dialog of batch) {
-        let entity = dialog.entity;
+      // DialogsNotModified means nothing changed — stop
+      if (result.className === 'messages.DialogsNotModified') break;
 
-        // Fallback: attempt to resolve entity when GramJS cache is cold (fresh session)
-        if (!entity) {
-          nullEntityCount++;
-          try {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            entity = await client.getEntity((dialog as any).inputEntity ?? (dialog as any).id);
-          } catch {
-            continue;
-          }
-          if (!entity) continue;
+      const rawDialogs = (result as Api.messages.Dialogs | Api.messages.DialogsSlice).dialogs;
+      if (!rawDialogs.length) break;
+      totalFetched += rawDialogs.length;
+
+      // Build entity lookup directly from the API response (no GramJS cache dependency)
+      const chatMap = new Map<string, Api.TypeChat>();
+      for (const chat of (result as Api.messages.Dialogs).chats) {
+        chatMap.set(chat.id.toString(), chat);
+      }
+
+      let lastRawDialog: Api.Dialog | undefined;
+
+      for (const dialog of rawDialogs) {
+        if (!(dialog instanceof Api.Dialog)) continue;
+        lastRawDialog = dialog;
+
+        const peer = dialog.peer;
+        let isChannelType = false;
+        let rawId: string;
+
+        if (peer instanceof Api.PeerChannel) {
+          rawId = peer.channelId.toString();
+          isChannelType = true;
+        } else if (peer instanceof Api.PeerChat) {
+          rawId = peer.chatId.toString();
+        } else {
+          continue; // skip PeerUser (DMs)
         }
 
-        const entityType = entity.className;
-        if (entityType !== 'Chat' && entityType !== 'Channel') continue;
+        const entity = chatMap.get(rawId);
+        if (!entity) {
+          nullEntityCount++;
+          continue;
+        }
+        if (
+          entity instanceof Api.ChatEmpty ||
+          entity instanceof Api.ChatForbidden ||
+          entity instanceof Api.ChannelForbidden
+        ) continue;
 
-        const isChannel = entityType === 'Channel';
-        const entityAs = entity as { megagroup?: boolean; forum?: boolean };
-        const megagroup = !!entityAs.megagroup;
-        const isForum = !!entityAs.forum;
-        const chatType = isChannel ? (megagroup ? 'supergroup' : 'channel') : 'group';
-
-        const rawId = entity.id;
-        const chatId = isChannel ? `-100${rawId.toString()}` : `-${rawId.toString()}`;
-        const chatName = (entity as { title?: string }).title ?? String(rawId);
+        const megagroup = 'megagroup' in entity && !!(entity as { megagroup?: boolean }).megagroup;
+        const isForum = 'forum' in entity && !!(entity as { forum?: boolean }).forum;
+        const chatType = isChannelType ? (megagroup ? 'supergroup' : 'channel') : 'group';
+        const chatId = isChannelType ? `-100${rawId}` : `-${rawId}`;
+        const chatName = (entity as { title?: string }).title ?? rawId;
 
         upsertKnownChat(db, { chatId, chatName, chatType, isForum });
         storedCount++;
-
-        if (isForum) {
-          forumChatIds.push(chatId);
-        }
+        if (isForum) forumChatIds.push(chatId);
       }
 
-      const lastDialog = batch[batch.length - 1];
-      const lastDate = (lastDialog?.date as number | undefined) ?? 0;
-      // Stop when GramJS returns the same or no date (prevents infinite loops)
+      // Only paginate for DialogsSlice (server has more pages)
+      if (result.className !== 'messages.DialogsSlice' || rawDialogs.length < 100) break;
+      if (!lastRawDialog) break;
+
+      // Resolve the date of the last dialog's top message for the next page offset
+      const lastTopMsgId = lastRawDialog.topMessage;
+      const lastMsg = (result as Api.messages.DialogsSlice).messages.find(
+        (m): m is Api.Message => m instanceof Api.Message && m.id === lastTopMsgId
+      );
+      const lastDate = lastMsg?.date ?? 0;
       if (!lastDate || (offsetDate !== 0 && lastDate >= offsetDate)) break;
+
       offsetDate = lastDate;
+      offsetId = lastTopMsgId;
+
+      // Build InputPeer for the last dialog (required by GetDialogs pagination)
+      const lastPeer = lastRawDialog.peer;
+      if (lastPeer instanceof Api.PeerChannel) {
+        const lastEntity = chatMap.get(lastPeer.channelId.toString());
+        const accessHash = lastEntity && 'accessHash' in lastEntity
+          ? (lastEntity as { accessHash?: ReturnType<typeof bigInt> }).accessHash
+          : undefined;
+        if (!accessHash) break;
+        offsetPeer = new Api.InputPeerChannel({ channelId: lastPeer.channelId, accessHash });
+      } else if (lastPeer instanceof Api.PeerChat) {
+        offsetPeer = new Api.InputPeerChat({ chatId: lastPeer.chatId });
+      } else {
+        break;
+      }
     }
 
     log(
@@ -158,17 +225,21 @@ export async function refreshKnownChats(db: Database.Database, retryCount = 0): 
     // Fetch topics for all forum supergroups in parallel
     await Promise.all(forumChatIds.map((chatId) => refreshTopicsForChat(db, chatId)));
 
-    // Retry once on completely empty result — GramJS may need a moment to sync after fresh auth
-    if (storedCount === 0 && totalFetched === 0 && retryCount === 0) {
-      log('info', 'TG Listener', 'לא נמצאו דיאלוגים — מנסה שוב בעוד 2 שניות');
-      await new Promise<void>((resolve) => setTimeout(resolve, 2000));
-      await refreshKnownChats(db, 1);
+    // Retry with exponential backoff if the server genuinely returned nothing
+    if (storedCount === 0 && totalFetched === 0 && retryCount < RETRY_DELAYS_MS.length) {
+      const delay = RETRY_DELAYS_MS[retryCount]!;
+      log(
+        'info', 'TG Listener',
+        `לא נמצאו דיאלוגים — מנסה שוב בעוד ${delay / 1000} שנ׳ (ניסיון ${retryCount + 1}/${RETRY_DELAYS_MS.length})`
+      );
+      await new Promise<void>((resolve) => setTimeout(resolve, delay));
+      await refreshKnownChats(db, retryCount + 1);
       return;
     }
 
     log('info', 'TG Listener', 'רשימת צ\'אטים מוכרים עודכנה');
   } catch (err: unknown) {
-    log('warn', 'TG Listener', `getDialogs נכשל: ${err instanceof Error ? err.message : String(err)}`);
+    log('warn', 'TG Listener', `GetDialogs נכשל: ${err instanceof Error ? err.message : String(err)}`);
   }
 }
 
@@ -267,6 +338,8 @@ export async function initialize(db: Database.Database): Promise<void> {
     });
 
     await client.connect();
+    // Warm-up: forces a round-trip that completes GramJS session sync before getDialogs() is called
+    await client.getMe();
     status = 'connected';
     log('success', 'TG Listener', 'מחובר עם session קיים');
     attachMessageListener(db);
@@ -350,6 +423,8 @@ async function saveSessionAndFinish(db: Database.Database): Promise<void> {
   pendingPhone = null;
   status = 'connected';
   log('success', 'TG Listener', 'אימות הצליח — מחובר');
+  // Warm-up: ensure session state is settled before attaching the listener
+  await client.getMe();
   attachMessageListener(db);
 }
 
