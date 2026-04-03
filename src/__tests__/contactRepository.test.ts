@@ -15,6 +15,7 @@ import {
   getPermissions,
   createDefaultPermissions,
   updatePermissions,
+  pruneExpiredContacts,
 } from '../db/contactRepository';
 
 const USER_A = 1001;
@@ -218,5 +219,60 @@ describe('contactRepository', () => {
 
     removeContact(c.id);
     assert.equal(getPermissions(c.id), undefined);
+  });
+
+  it('migration preserves existing data (re-init idempotency)', () => {
+    const c = createContact(USER_A, USER_B);
+    createDefaultPermissions(c.id, { safety_status: true, home_city: true });
+
+    // Simulate restart: re-run initSchema on existing DB
+    const { initSchema } = require('../db/schema');
+    initSchema(getDb());
+
+    // Data should survive
+    const found = getContactById(c.id);
+    assert.ok(found, 'contact should survive re-init');
+    assert.equal(found!.user_id, USER_A);
+    const perms = getPermissions(c.id);
+    assert.ok(perms, 'permissions should survive re-init');
+    assert.equal(perms!.home_city, true);
+  });
+
+  it('pruneExpiredContacts removes only expired pending requests', () => {
+    const c1 = createContact(USER_A, USER_B); // pending, fresh
+    const c2 = createContact(USER_A, USER_C); // pending, will be backdated
+    acceptContact(c1.id); // now accepted — should survive prune
+
+    // Backdate c2 to 8 days ago
+    getDb()
+      .prepare("UPDATE contacts SET created_at = datetime('now', '-8 days') WHERE id = ?")
+      .run(c2.id);
+
+    const pruned = pruneExpiredContacts();
+    assert.equal(pruned, 1, 'should prune exactly 1 expired pending contact');
+
+    // c1 (accepted) should survive
+    assert.ok(getContactById(c1.id), 'accepted contact should survive');
+    // c2 (old pending) should be gone
+    assert.equal(getContactById(c2.id), undefined, 'expired pending contact should be removed');
+  });
+
+  it('representative permission lookup: create → set → read full cycle', () => {
+    const c = createContact(USER_A, USER_B);
+    createDefaultPermissions(c.id); // defaults: safety=true, home=false, update=true
+
+    // Update one field
+    updatePermissions(c.id, { home_city: true });
+
+    // Verify full state
+    const perms = getPermissions(c.id);
+    assert.ok(perms);
+    assert.equal(perms!.safety_status, true);
+    assert.equal(perms!.home_city, true);
+    assert.equal(perms!.update_time, true);
+
+    // Decode booleans (not raw 0/1)
+    assert.equal(typeof perms!.safety_status, 'boolean');
+    assert.equal(typeof perms!.home_city, 'boolean');
   });
 });
