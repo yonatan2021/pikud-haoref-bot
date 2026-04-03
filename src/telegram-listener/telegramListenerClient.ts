@@ -72,8 +72,8 @@ async function refreshKnownChats(db: Database.Database): Promise<void> {
         if (entityType !== 'Chat' && entityType !== 'Channel') continue;
 
         const isChannel = entityType === 'Channel';
-        const isGroup = !isChannel || (entity as { megagroup?: boolean }).megagroup;
-        const chatType = isChannel && !isGroup ? 'channel' : isGroup ? 'group' : 'supergroup';
+        const megagroup = !!(entity as { megagroup?: boolean }).megagroup;
+        const chatType = isChannel ? (megagroup ? 'supergroup' : 'channel') : 'group';
 
         const rawId = entity.id;
         // Convert to signed 64-bit Telegram chat ID format
