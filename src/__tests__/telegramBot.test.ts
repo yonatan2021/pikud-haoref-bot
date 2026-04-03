@@ -556,7 +556,7 @@ describe('buildZonedCityList — urgency sorting', () => {
     const result = buildZonedCityList(['עיר לא קיימת בכלל']);
     assert.ok(
       !result.includes('🔴') && !result.includes('🟠') && !result.includes('🟡') &&
-      !result.includes('🟢') && !result.includes('⚪'),
+      !result.includes('🟢') && !result.includes('⚪') && !result.includes('🔵'),
       `Should not show urgency emoji for unknown city zones: ${result}`
     );
   });
