@@ -348,7 +348,7 @@ export function WhatsApp() {
                   <button
                     onClick={() => disconnectMutation.mutate()}
                     disabled={disconnectMutation.isPending}
-                    className="flex items-center gap-2 px-4 py-2 bg-red/10 border border-red/30 hover:bg-red/20 text-red text-sm rounded-lg transition-colors disabled:opacity-40 w-fit"
+                    className="flex items-center gap-2 px-4 py-2 bg-red/10 border border-red/30 hover:bg-red/20 text-red text-sm rounded-lg transition-colors disabled:opacity-40 w-fit whitespace-nowrap"
                   >
                     {disconnectMutation.isPending ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -361,7 +361,7 @@ export function WhatsApp() {
                 <button
                   onClick={() => status === 'ready' ? setShowReconnectConfirm(true) : reconnectMutation.mutate()}
                   disabled={reconnectMutation.isPending}
-                  className="flex items-center gap-2 px-4 py-2 bg-surface border border-border hover:bg-base text-text-secondary text-sm rounded-lg transition-colors disabled:opacity-40 w-fit"
+                  className="flex items-center gap-2 px-4 py-2 bg-surface border border-border hover:bg-base text-text-secondary text-sm rounded-lg transition-colors disabled:opacity-40 w-fit whitespace-nowrap"
                 >
                   {reconnectMutation.isPending ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
