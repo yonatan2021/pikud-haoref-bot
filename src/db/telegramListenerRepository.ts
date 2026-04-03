@@ -11,6 +11,7 @@ interface TelegramListenerRow {
   telegram_topic_name: string | null;
   forward_to_whatsapp: number;   // 0 | 1
   is_active: number;             // 0 | 1
+  source_topic_id: number | null;
   created_at: string;
 }
 
@@ -18,6 +19,14 @@ interface TelegramKnownChatRow {
   chat_id: string;
   chat_name: string;
   chat_type: string;
+  is_forum: number;              // 0 | 1
+  updated_at: string;
+}
+
+interface TelegramKnownTopicRow {
+  topic_id: number;
+  chat_id: string;
+  topic_name: string;
   updated_at: string;
 }
 
@@ -31,6 +40,7 @@ export interface TelegramListener {
   telegramTopicName: string | null;
   forwardToWhatsApp: boolean;
   isActive: boolean;
+  sourceTopicId: number | null;
   createdAt: string;
 }
 
@@ -38,6 +48,14 @@ export interface TelegramKnownChat {
   chatId: string;
   chatName: string;
   chatType: string;
+  isForum: boolean;
+  updatedAt: string;
+}
+
+export interface TelegramKnownTopic {
+  topicId: number;
+  chatId: string;
+  topicName: string;
   updatedAt: string;
 }
 
@@ -50,6 +68,7 @@ export interface CreateTelegramListenerInput {
   telegramTopicName: string | null;
   forwardToWhatsApp: boolean;
   isActive: boolean;
+  sourceTopicId: number | null;
 }
 
 export type UpdateTelegramListenerInput = Partial<Omit<CreateTelegramListenerInput, 'chatId'>>;
@@ -79,6 +98,7 @@ function decodeRow(row: TelegramListenerRow): TelegramListener {
     telegramTopicName: row.telegram_topic_name,
     forwardToWhatsApp: row.forward_to_whatsapp === 1,
     isActive: row.is_active === 1,
+    sourceTopicId: row.source_topic_id ?? null,
     createdAt: row.created_at,
   };
 }
@@ -107,8 +127,8 @@ export function createListener(
   const result = db
     .prepare(`
       INSERT INTO telegram_listeners
-        (chat_id, chat_name, chat_type, keywords, telegram_topic_id, telegram_topic_name, forward_to_whatsapp, is_active)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        (chat_id, chat_name, chat_type, keywords, telegram_topic_id, telegram_topic_name, forward_to_whatsapp, is_active, source_topic_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
     .run(
       input.chatId,
@@ -118,7 +138,8 @@ export function createListener(
       input.telegramTopicId,
       input.telegramTopicName,
       input.forwardToWhatsApp ? 1 : 0,
-      input.isActive ? 1 : 0
+      input.isActive ? 1 : 0,
+      input.sourceTopicId ?? null
     );
 
   const row = db
@@ -148,6 +169,7 @@ export function updateListener(
     telegram_topic_name: input.telegramTopicName  !== undefined ? input.telegramTopicName  : existing.telegram_topic_name,
     forward_to_whatsapp: input.forwardToWhatsApp  !== undefined ? (input.forwardToWhatsApp ? 1 : 0) : existing.forward_to_whatsapp,
     is_active:           input.isActive           !== undefined ? (input.isActive ? 1 : 0)          : existing.is_active,
+    source_topic_id:     input.sourceTopicId      !== undefined ? (input.sourceTopicId ?? null)      : existing.source_topic_id,
   };
 
   db.prepare(`
@@ -158,7 +180,8 @@ export function updateListener(
         telegram_topic_id   = ?,
         telegram_topic_name = ?,
         forward_to_whatsapp = ?,
-        is_active           = ?
+        is_active           = ?,
+        source_topic_id     = ?
     WHERE id = ?
   `).run(
     merged.chat_name,
@@ -168,6 +191,7 @@ export function updateListener(
     merged.telegram_topic_name,
     merged.forward_to_whatsapp,
     merged.is_active,
+    merged.source_topic_id,
     id
   );
 
@@ -184,13 +208,14 @@ export function upsertKnownChat(
   chat: Omit<TelegramKnownChat, 'updatedAt'>
 ): void {
   db.prepare(`
-    INSERT INTO telegram_known_chats (chat_id, chat_name, chat_type, updated_at)
-    VALUES (?, ?, ?, datetime('now'))
+    INSERT INTO telegram_known_chats (chat_id, chat_name, chat_type, is_forum, updated_at)
+    VALUES (?, ?, ?, ?, datetime('now'))
     ON CONFLICT(chat_id) DO UPDATE SET
       chat_name  = excluded.chat_name,
       chat_type  = excluded.chat_type,
+      is_forum   = excluded.is_forum,
       updated_at = excluded.updated_at
-  `).run(chat.chatId, chat.chatName, chat.chatType);
+  `).run(chat.chatId, chat.chatName, chat.chatType, chat.isForum ? 1 : 0);
 }
 
 export function getAllKnownChats(db: Database.Database): TelegramKnownChat[] {
@@ -201,10 +226,45 @@ export function getAllKnownChats(db: Database.Database): TelegramKnownChat[] {
     chatId: r.chat_id,
     chatName: r.chat_name,
     chatType: r.chat_type,
+    isForum: r.is_forum === 1,
     updatedAt: r.updated_at,
   }));
 }
 
 export function clearKnownChats(db: Database.Database): void {
   db.prepare('DELETE FROM telegram_known_chats').run();
+}
+
+// ── Topics (forum supergroups) ────────────────────────────────────────────────
+
+export function upsertKnownTopic(
+  db: Database.Database,
+  topic: Omit<TelegramKnownTopic, 'updatedAt'>
+): void {
+  db.prepare(`
+    INSERT INTO telegram_known_topics (topic_id, chat_id, topic_name, updated_at)
+    VALUES (?, ?, ?, datetime('now'))
+    ON CONFLICT(chat_id, topic_id) DO UPDATE SET
+      topic_name = excluded.topic_name,
+      updated_at = excluded.updated_at
+  `).run(topic.topicId, topic.chatId, topic.topicName);
+}
+
+export function getTopicsForChat(
+  db: Database.Database,
+  chatId: string
+): TelegramKnownTopic[] {
+  const rows = db
+    .prepare('SELECT * FROM telegram_known_topics WHERE chat_id = ? ORDER BY topic_name ASC')
+    .all(chatId) as TelegramKnownTopicRow[];
+  return rows.map((r) => ({
+    topicId: r.topic_id,
+    chatId: r.chat_id,
+    topicName: r.topic_name,
+    updatedAt: r.updated_at,
+  }));
+}
+
+export function clearKnownTopicsForChat(db: Database.Database, chatId: string): void {
+  db.prepare('DELETE FROM telegram_known_topics WHERE chat_id = ?').run(chatId);
 }

@@ -4,7 +4,11 @@ import Database from 'better-sqlite3';
 import express from 'express';
 import request from 'supertest';
 import { initSchema } from '../../../db/schema.js';
-import { createListener, upsertKnownChat } from '../../../db/telegramListenerRepository.js';
+import {
+  createListener,
+  upsertKnownChat,
+  upsertKnownTopic,
+} from '../../../db/telegramListenerRepository.js';
 import {
   createTelegramListenerRouter,
   type TelegramClientDeps,
@@ -25,9 +29,11 @@ let lastPhoneArg: string | null = null;
 let submitCodeCalled = false;
 let submitPasswordCalled = false;
 let disconnectCalled = false;
+let refreshChatsCalled = false;
 let startPhoneAuthShouldThrow: string | null = null;
 let submitCodeShouldThrow: string | null = null;
 let submitPasswordShouldThrow: string | null = null;
+let refreshChatsCount = 0;
 
 const mockClientDeps: TelegramClientDeps = {
   getStatus: () => mockStatus as any,
@@ -50,6 +56,10 @@ const mockClientDeps: TelegramClientDeps = {
     disconnectCalled = true;
     mockStatus = 'disconnected';
     mockPhone = null;
+  },
+  refreshKnownChats: async (_db) => {
+    refreshChatsCalled = true;
+    refreshChatsCount++;
   },
 };
 
@@ -76,6 +86,8 @@ beforeEach(() => {
   submitCodeCalled = false;
   submitPasswordCalled = false;
   disconnectCalled = false;
+  refreshChatsCalled = false;
+  refreshChatsCount = 0;
   startPhoneAuthShouldThrow = null;
   submitCodeShouldThrow = null;
   submitPasswordShouldThrow = null;
@@ -94,6 +106,7 @@ const BASE = {
   telegramTopicName: null,
   forwardToWhatsApp: false,
   isActive: true,
+  sourceTopicId: null as number | null,
 };
 
 // ─── GET /api/telegram/status ─────────────────────────────────────────────────
@@ -249,13 +262,21 @@ describe('GET /api/telegram/chats', () => {
   });
 
   it('returns known chats from DB', async () => {
-    upsertKnownChat(db, { chatId: '-100abc', chatName: 'Test Group', chatType: 'group' });
+    upsertKnownChat(db, { chatId: '-100abc', chatName: 'Test Group', chatType: 'group', isForum: false });
     const res = await request(app).get('/api/telegram/chats');
     assert.equal(res.status, 200);
     assert.equal(res.body.length, 1);
     assert.equal(res.body[0].chatId, '-100abc');
     assert.equal(res.body[0].chatName, 'Test Group');
     assert.equal(res.body[0].chatType, 'group');
+    assert.equal(res.body[0].isForum, false);
+  });
+
+  it('marks forum groups with isForum=true', async () => {
+    upsertKnownChat(db, { chatId: '-100forum', chatName: 'Forum Group', chatType: 'supergroup', isForum: true });
+    const res = await request(app).get('/api/telegram/chats');
+    assert.equal(res.status, 200);
+    assert.equal(res.body[0].isForum, true);
   });
 });
 
@@ -337,6 +358,18 @@ describe('POST /api/telegram/listeners', () => {
     assert.equal(res.status, 201);
     assert.equal(res.body.chatType, 'supergroup');
   });
+
+  it('stores sourceTopicId when provided', async () => {
+    const res = await request(app).post('/api/telegram/listeners').send({ ...BASE, chatId: '-100stopic', sourceTopicId: 42 });
+    assert.equal(res.status, 201);
+    assert.equal(res.body.sourceTopicId, 42);
+  });
+
+  it('defaults sourceTopicId to null when omitted', async () => {
+    const res = await request(app).post('/api/telegram/listeners').send(BASE);
+    assert.equal(res.status, 201);
+    assert.equal(res.body.sourceTopicId, null);
+  });
 });
 
 // ─── PATCH /api/telegram/listeners/:id ───────────────────────────────────────
@@ -384,6 +417,20 @@ describe('PATCH /api/telegram/listeners/:id', () => {
     assert.equal(res.status, 200);
     assert.deepEqual(res.body.keywords, ['test']);
     assert.equal(res.body.isActive, false);
+  });
+
+  it('updates sourceTopicId', async () => {
+    const c = createListener(db, BASE);
+    const res = await request(app).patch(`/api/telegram/listeners/${c.id}`).send({ sourceTopicId: 77 });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.sourceTopicId, 77);
+  });
+
+  it('clears sourceTopicId to null', async () => {
+    const c = createListener(db, { ...BASE, chatId: '-100clr', sourceTopicId: 5 });
+    const res = await request(app).patch(`/api/telegram/listeners/${c.id}`).send({ sourceTopicId: null });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.sourceTopicId, null);
   });
 });
 
@@ -462,5 +509,57 @@ describe('GET /api/telegram/listeners/telegram-topics', () => {
     const topic = res.body.find((t: { id: number }) => t.id === 77);
     assert.ok(topic);
     assert.ok(topic.name.includes('עדכונים'));
+  });
+});
+
+// ─── POST /api/telegram/refresh-chats ────────────────────────────────────────
+
+describe('POST /api/telegram/refresh-chats', () => {
+  it('calls refreshKnownChats and returns count', async () => {
+    upsertKnownChat(db, { chatId: '-100a', chatName: 'Group A', chatType: 'group', isForum: false });
+    upsertKnownChat(db, { chatId: '-100b', chatName: 'Group B', chatType: 'supergroup', isForum: true });
+    const res = await request(app).post('/api/telegram/refresh-chats');
+    assert.equal(res.status, 200);
+    assert.equal(res.body.ok, true);
+    assert.equal(res.body.count, 2);
+    assert.equal(refreshChatsCalled, true);
+  });
+
+  it('returns count of 0 when no chats after refresh', async () => {
+    const res = await request(app).post('/api/telegram/refresh-chats');
+    assert.equal(res.status, 200);
+    assert.equal(res.body.ok, true);
+    assert.equal(res.body.count, 0);
+    assert.equal(refreshChatsCalled, true);
+  });
+});
+
+// ─── GET /api/telegram/chats/:chatId/topics ───────────────────────────────────
+
+describe('GET /api/telegram/chats/:chatId/topics', () => {
+  beforeEach(() => {
+    upsertKnownChat(db, { chatId: '-100forum', chatName: 'Forum Group', chatType: 'supergroup', isForum: true });
+  });
+
+  it('returns topics for a forum chat', async () => {
+    upsertKnownTopic(db, { topicId: 1, chatId: '-100forum', topicName: 'כללי' });
+    upsertKnownTopic(db, { topicId: 2, chatId: '-100forum', topicName: 'חדשות' });
+    const res = await request(app).get('/api/telegram/chats/-100forum/topics');
+    assert.equal(res.status, 200);
+    assert.equal(res.body.length, 2);
+    assert.ok(res.body.some((t: { topicId: number }) => t.topicId === 1));
+    assert.ok(res.body.some((t: { topicId: number }) => t.topicId === 2));
+  });
+
+  it('returns empty array for chat with no topics', async () => {
+    const res = await request(app).get('/api/telegram/chats/-100forum/topics');
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body, []);
+  });
+
+  it('returns empty array for unknown chatId', async () => {
+    const res = await request(app).get('/api/telegram/chats/-100notexist/topics');
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body, []);
   });
 });

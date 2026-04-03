@@ -6,6 +6,8 @@ import type Database from 'better-sqlite3';
 import { getSetting, setSetting } from '../dashboard/settingsRepository.js';
 import {
   upsertKnownChat,
+  upsertKnownTopic,
+  clearKnownTopicsForChat,
   clearKnownChats,
 } from '../db/telegramListenerRepository.js';
 import { log } from '../logger.js';
@@ -25,6 +27,7 @@ export interface IncomingTelegramMsg {
   body: string;
   timestamp: number; // Unix seconds
   hasMedia: boolean;
+  topicId: number | null; // forum topic thread ID, null for non-forum messages
 }
 
 const SETTINGS_SESSION_KEY = 'telegram_listener_session';
@@ -54,40 +57,115 @@ function getApiCredentials(): { apiId: number; apiHash: string } {
   return { apiId, apiHash };
 }
 
-async function refreshKnownChats(db: Database.Database): Promise<void> {
+// Fetch forum topics for a supergroup and persist them.
+async function refreshTopicsForChat(db: Database.Database, chatId: string): Promise<void> {
+  if (!client) return;
+  try {
+    clearKnownTopicsForChat(db, chatId);
+    let offsetTopic = 0;
+    let totalTopics = 0;
+    while (true) {
+      const result = await client.invoke(
+        new Api.channels.GetForumTopics({
+          channel: chatId,
+          limit: 100,
+          offsetId: 0,
+          offsetDate: 0,
+          offsetTopic,
+        })
+      );
+      const batch = (result as unknown as { topics?: Array<{ id: number; title: string }> }).topics ?? [];
+      if (!batch.length) break;
+      for (const topic of batch) {
+        if (topic.id && topic.title) {
+          upsertKnownTopic(db, { topicId: topic.id, chatId, topicName: topic.title });
+          totalTopics++;
+        }
+      }
+      if (batch.length < 100) break; // last page
+      offsetTopic = batch[batch.length - 1]!.id;
+    }
+    log('info', 'TG Listener', `נושאים עודכנו עבור ${chatId} — ${totalTopics} נושאים`);
+  } catch (err: unknown) {
+    // Non-fatal — not all groups support topics
+    log('warn', 'TG Listener', `GetForumTopics נכשל עבור ${chatId}: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+export async function refreshKnownChats(db: Database.Database, retryCount = 0): Promise<void> {
   if (!client) return;
   try {
     clearKnownChats(db);
     let offsetDate = 0;
+    let totalFetched = 0;
+    let nullEntityCount = 0;
+    let storedCount = 0;
+    const forumChatIds: string[] = [];
+
     while (true) {
       const batch = await client.getDialogs({ limit: 100, offsetDate });
       if (!batch.length) break;
+      totalFetched += batch.length;
 
       for (const dialog of batch) {
-        const entity = dialog.entity;
-        if (!entity) continue;
+        let entity = dialog.entity;
 
-        // Only groups, channels, and supergroups — skip DMs and bots
+        // Fallback: attempt to resolve entity when GramJS cache is cold (fresh session)
+        if (!entity) {
+          nullEntityCount++;
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            entity = await client.getEntity((dialog as any).inputEntity ?? (dialog as any).id);
+          } catch {
+            continue;
+          }
+          if (!entity) continue;
+        }
+
         const entityType = entity.className;
         if (entityType !== 'Chat' && entityType !== 'Channel') continue;
 
         const isChannel = entityType === 'Channel';
-        const megagroup = !!(entity as { megagroup?: boolean }).megagroup;
+        const entityAs = entity as { megagroup?: boolean; forum?: boolean };
+        const megagroup = !!entityAs.megagroup;
+        const isForum = !!entityAs.forum;
         const chatType = isChannel ? (megagroup ? 'supergroup' : 'channel') : 'group';
 
         const rawId = entity.id;
-        // Convert to signed 64-bit Telegram chat ID format
         const chatId = isChannel ? `-100${rawId.toString()}` : `-${rawId.toString()}`;
         const chatName = (entity as { title?: string }).title ?? String(rawId);
 
-        upsertKnownChat(db, { chatId, chatName, chatType });
+        upsertKnownChat(db, { chatId, chatName, chatType, isForum });
+        storedCount++;
+
+        if (isForum) {
+          forumChatIds.push(chatId);
+        }
       }
 
       const lastDialog = batch[batch.length - 1];
       const lastDate = (lastDialog?.date as number | undefined) ?? 0;
-      if (!lastDate || lastDate <= offsetDate) break;
+      // Stop when GramJS returns the same or no date (prevents infinite loops)
+      if (!lastDate || (offsetDate !== 0 && lastDate >= offsetDate)) break;
       offsetDate = lastDate;
     }
+
+    log(
+      'info', 'TG Listener',
+      `סריקת דיאלוגים: ${totalFetched} נמצאו, ${nullEntityCount} entity ריק, ${storedCount} נשמרו`
+    );
+
+    // Fetch topics for all forum supergroups in parallel
+    await Promise.all(forumChatIds.map((chatId) => refreshTopicsForChat(db, chatId)));
+
+    // Retry once on completely empty result — GramJS may need a moment to sync after fresh auth
+    if (storedCount === 0 && totalFetched === 0 && retryCount === 0) {
+      log('info', 'TG Listener', 'לא נמצאו דיאלוגים — מנסה שוב בעוד 2 שניות');
+      await new Promise<void>((resolve) => setTimeout(resolve, 2000));
+      await refreshKnownChats(db, 1);
+      return;
+    }
+
     log('info', 'TG Listener', 'רשימת צ\'אטים מוכרים עודכנה');
   } catch (err: unknown) {
     log('warn', 'TG Listener', `getDialogs נכשל: ${err instanceof Error ? err.message : String(err)}`);
@@ -117,6 +195,9 @@ function attachMessageListener(db: Database.Database): void {
       const chatId = peerType === 'PeerChannel'
         ? `-100${rawId.toString()}`
         : `-${rawId.toString()}`;
+
+      // Extract forum topic thread ID (replyToTopId is set for messages inside a topic)
+      const topicId = (message.replyTo as { replyToTopId?: number } | undefined)?.replyToTopId ?? null;
 
       // Get chat name from the event's input chat
       let chatName = chatId;
@@ -151,6 +232,7 @@ function attachMessageListener(db: Database.Database): void {
         body: message.message,
         timestamp: message.date ?? Math.floor(Date.now() / 1000),
         hasMedia: message.media != null,
+        topicId,
       };
 
       if (messageCallback) {

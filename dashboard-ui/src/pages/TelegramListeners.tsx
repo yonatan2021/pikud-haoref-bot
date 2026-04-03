@@ -12,7 +12,7 @@ import { EmptyState } from '../components/EmptyState';
 import { ListenersBanner } from './telegram-listeners/ListenersBanner';
 import { KeywordHelp } from './telegram-listeners/KeywordHelp';
 import { RuleCard, type TelegramListenerRule } from './telegram-listeners/RuleCard';
-import { SourceSelector, type TelegramKnownChat } from './telegram-listeners/SourceSelector';
+import { SourceSelector, type TelegramKnownChat, type TelegramKnownTopic } from './telegram-listeners/SourceSelector';
 
 type TelegramStatus = 'connected' | 'connecting' | 'awaiting_code' | 'awaiting_password' | 'disconnected';
 
@@ -290,6 +290,7 @@ const EMPTY_FORM = {
   chatName: '',
   keywords: [] as string[],
   telegramTopicId: null as number | null,
+  sourceTopicId: null as number | null,
   forwardToWhatsApp: false,
   isActive: true,
 };
@@ -322,6 +323,24 @@ export function TelegramListeners() {
     queryFn: () => api.get('/api/telegram/chats'),
   });
 
+  const refreshChatsMutation = useMutation({
+    mutationFn: () => api.post('/api/telegram/refresh-chats', {}) as Promise<{ count: number }>,
+    onSuccess: (data: { count: number }) => {
+      queryClient.invalidateQueries({ queryKey: ['tg-chats'] });
+      toast.success(data.count > 0 ? `נמצאו ${data.count} קבוצות` : 'לא נמצאו קבוצות — נסה שוב');
+    },
+    onError: () => toast.error('שגיאה ברענון הקבוצות'),
+  });
+
+  const selectedChat = chats?.find(c => c.chatId === form.chatId);
+  const isForum = selectedChat?.isForum ?? false;
+
+  const { data: sourceTopics } = useQuery<TelegramKnownTopic[]>({
+    queryKey: ['tg-chat-topics', form.chatId],
+    queryFn: () => api.get(`/api/telegram/chats/${encodeURIComponent(form.chatId)}/topics`),
+    enabled: !!form.chatId && isForum,
+  });
+
   const { data: topics } = useQuery<TelegramTopic[]>({
     queryKey: ['tg-listener-topics'],
     queryFn: () => api.get('/api/telegram/listeners/telegram-topics'),
@@ -340,6 +359,7 @@ export function TelegramListeners() {
         ...data,
         chatType: chats?.find(c => c.chatId === data.chatId)?.chatType ?? 'group',
         telegramTopicName: topics?.find(t => t.id === data.telegramTopicId)?.name ?? null,
+        sourceTopicId: data.sourceTopicId,
       }),
     onSuccess: () => {
       toast.success('כלל נוסף');
@@ -354,7 +374,7 @@ export function TelegramListeners() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<typeof EMPTY_FORM> & { telegramTopicName?: string | null } }) =>
+    mutationFn: ({ id, data }: { id: number; data: Partial<typeof EMPTY_FORM> & { telegramTopicName?: string | null; sourceTopicId?: number | null } }) =>
       api.patch(`/api/telegram/listeners/${id}`, data),
     onSuccess: () => {
       toast.success('כלל עודכן');
@@ -386,6 +406,7 @@ export function TelegramListeners() {
       chatName: rule.chatName,
       keywords: rule.keywords,
       telegramTopicId: rule.telegramTopicId,
+      sourceTopicId: rule.sourceTopicId ?? null,
       forwardToWhatsApp: rule.forwardToWhatsApp,
       isActive: rule.isActive,
     });
@@ -411,6 +432,7 @@ export function TelegramListeners() {
           keywords: form.keywords,
           telegramTopicId: form.telegramTopicId,
           telegramTopicName: topics?.find(t => t.id === form.telegramTopicId)?.name ?? null,
+          sourceTopicId: form.sourceTopicId,
           forwardToWhatsApp: form.forwardToWhatsApp,
           isActive: form.isActive,
         },
@@ -483,10 +505,15 @@ export function TelegramListeners() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <SourceSelector
                 chats={chats}
+                topics={sourceTopics}
                 value={form.chatId}
-                onChange={chatId => setForm(prev => ({ ...prev, chatId }))}
+                sourceTopicId={form.sourceTopicId}
+                onChangeChatId={chatId => setForm(prev => ({ ...prev, chatId, sourceTopicId: null }))}
+                onChangeTopicId={sourceTopicId => setForm(prev => ({ ...prev, sourceTopicId }))}
                 disabled={editingId != null}
                 telegramConnected={isConnected}
+                onRefresh={() => refreshChatsMutation.mutate()}
+                refreshing={refreshChatsMutation.isPending}
               />
 
               <div className="flex flex-col gap-1.5">
