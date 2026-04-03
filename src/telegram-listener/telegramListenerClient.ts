@@ -85,7 +85,7 @@ async function refreshKnownChats(db: Database.Database): Promise<void> {
 
       const lastDialog = batch[batch.length - 1];
       const lastDate = (lastDialog?.date as number | undefined) ?? 0;
-      if (!lastDate || lastDate >= offsetDate) break;
+      if (!lastDate || lastDate <= offsetDate) break;
       offsetDate = lastDate;
     }
     log('info', 'TG Listener', 'רשימת צ\'אטים מוכרים עודכנה');
