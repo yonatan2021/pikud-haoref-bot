@@ -13,6 +13,7 @@ import {
   removeAllSubscriptions,
   getUsersForCities,
   initSubscriptionCache,
+  updateSubscriberData,
 } from '../db/subscriptionRepository';
 import { setFormat, setQuietHours, setMutedUntil } from '../db/userRepository';
 
@@ -200,5 +201,29 @@ describe('subscriptionRepository — cache invalidation via userRepository sette
 
     const results = getUsersForCities(['באר שבע']);
     assert.equal(results.length, 0);
+  });
+
+  it('updateSubscriberData: home_city patch updates cached value', () => {
+    getDb().prepare('INSERT OR IGNORE INTO users (chat_id) VALUES (?)').run(901);
+    getDb().prepare('INSERT OR IGNORE INTO subscriptions (chat_id, city_name) VALUES (?, ?)').run(901, 'חיפה');
+    initSubscriptionCache();
+
+    updateSubscriberData(901, { home_city: 'תל אביב' });
+
+    const results = getUsersForCities(['חיפה']);
+    assert.equal(results.length, 1);
+    assert.equal(results[0].home_city, 'תל אביב');
+  });
+
+  it('updateSubscriberData: home_city null clears cached value', () => {
+    getDb().prepare('INSERT OR IGNORE INTO users (chat_id, home_city) VALUES (?, ?)').run(902, 'חיפה');
+    getDb().prepare('INSERT OR IGNORE INTO subscriptions (chat_id, city_name) VALUES (?, ?)').run(902, 'חיפה');
+    initSubscriptionCache();
+
+    updateSubscriberData(902, { home_city: null });
+
+    const results = getUsersForCities(['חיפה']);
+    assert.equal(results.length, 1);
+    assert.equal(results[0].home_city, null);
   });
 });
