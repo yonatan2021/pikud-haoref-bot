@@ -20,7 +20,7 @@ export function buildProfileSummary(
   const nameLine = displayName ?? 'לא הוגדר';
   const cityLine = homeCity ?? 'לא הוגדרה';
   const localeName = locale === 'he' ? 'עברית' : locale;
-  const codeLine = connectionCode ? `<code>${connectionCode}</code>` : '—';
+  const codeLine = connectionCode ? `<code>${escapeHtml(connectionCode)}</code>` : '—';
 
   const text = [
     '👤 <b>הפרופיל שלי</b>',
