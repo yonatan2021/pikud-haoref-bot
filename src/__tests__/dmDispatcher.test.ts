@@ -365,7 +365,7 @@ describe('notifySubscribers', () => {
   let upsertUser: (chatId: number) => void;
   let setQuietHours: (chatId: number, enabled: boolean) => void;
   let setMutedUntil: (chatId: number, until: Date | null) => void;
-  let updateProfile: (chatId: number, patch: { home_city?: string | null }) => void;
+  let updateProfile: (chatId: number, patch: { home_city?: string }) => void;
 
   const CHAT_A = 777001;
   // 'אבו גוש' (id=511) — reliable test fixture with zone data
