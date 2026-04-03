@@ -58,19 +58,21 @@ function makeCtx(overrides: Record<string, unknown> = {}): Context {
   const replyCalls: unknown[] = [];
   const editCalls: unknown[] = [];
   const sendCalls: unknown[] = [];
+  const answerCalls: unknown[] = [];
   const ctx: any = {
     chat: { id: 1001, type: 'private' },
     message: { text: '/connect' },
     match: null,
     reply: async (...args: unknown[]) => { replyCalls.push(args); },
     editMessageText: async (...args: unknown[]) => { editCalls.push(args); },
-    answerCallbackQuery: async () => {},
+    answerCallbackQuery: async (...args: unknown[]) => { answerCalls.push(args); },
     api: {
       sendMessage: async (...args: unknown[]) => { sendCalls.push(args); },
     },
     _replyCalls: replyCalls,
     _editCalls: editCalls,
     _sendCalls: sendCalls,
+    _answerCalls: answerCalls,
     ...overrides,
   };
   return ctx as Context;
@@ -363,6 +365,26 @@ describe('connectHandler', () => {
 
       const stillThere = getContactById(contact.id);
       assert.ok(stillThere);
+    });
+  });
+
+  describe('cx:perm stub handler', () => {
+    it('answers with "coming soon" popup', async () => {
+      const bot = buildMockBot();
+      registerConnectHandler(bot as unknown as Bot);
+
+      upsertUser(1001);
+      upsertUser(2002);
+      const contact = createContact(1001, 2002);
+      acceptContact(contact.id);
+
+      const ctx = makeCtx();
+      await bot._fireCb(`cx:perm:${contact.id}`, ctx);
+
+      assert.equal((ctx as any)._answerCalls.length, 1);
+      const args = (ctx as any)._answerCalls[0][0] as { text: string; show_alert: boolean };
+      assert.ok(args.text.includes('בקרוב'), 'should mention "coming soon"');
+      assert.equal(args.show_alert, true, 'should use show_alert popup');
     });
   });
 
