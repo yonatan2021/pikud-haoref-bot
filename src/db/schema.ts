@@ -125,6 +125,26 @@ export function initSchema(database: Database.Database): void {
       created_at          TEXT    NOT NULL DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS telegram_listeners (
+      id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat_id             TEXT    NOT NULL UNIQUE,
+      chat_name           TEXT    NOT NULL,
+      chat_type           TEXT    NOT NULL DEFAULT 'group',
+      keywords            TEXT    NOT NULL DEFAULT '[]',
+      telegram_topic_id   INTEGER,
+      telegram_topic_name TEXT,
+      forward_to_whatsapp INTEGER NOT NULL DEFAULT 0,
+      is_active           INTEGER NOT NULL DEFAULT 1,
+      created_at          TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS telegram_known_chats (
+      chat_id    TEXT PRIMARY KEY,
+      chat_name  TEXT NOT NULL,
+      chat_type  TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS contacts (
       id          INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id     INTEGER NOT NULL,
