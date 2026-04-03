@@ -132,13 +132,13 @@ export function Operations() {
               📢 שליחת Broadcast
             </h2>
             <p className="text-text-muted text-xs mb-4">
-              שולח הודעת HTML לכל המנויים הפעילים בבוט. תומך בתגיות: &lt;b&gt;, &lt;i&gt;, &lt;a href&gt;, &lt;code&gt;
+              שולח הודעת טקסט לכל המנויים הפעילים בבוט
             </p>
             <div className="space-y-3">
               <textarea
                 value={broadcastText}
                 onChange={e => setBroadcastText(e.target.value)}
-                placeholder="תוכן ההודעה בפורמט HTML..."
+                placeholder="תוכן ההודעה..."
                 rows={5}
                 className="w-full bg-base border border-border rounded-lg px-4 py-3 text-sm text-text-primary outline-none focus:border-amber resize-none"
               />
