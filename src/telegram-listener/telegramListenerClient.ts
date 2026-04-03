@@ -203,6 +203,7 @@ export async function startPhoneAuth(
   phone: string
 ): Promise<{ phoneCodeHash: string }> {
   if (isDisconnecting) throw new Error('מתנתק כרגע — נסה שוב בעוד רגע');
+  if (isInitializing) throw new Error('אתחול מתבצע כרגע — נסה שוב בעוד רגע');
 
   const { apiId, apiHash } = getApiCredentials();
   const session = new StringSession('');
