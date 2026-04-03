@@ -140,6 +140,43 @@ describe('DELETE /api/subscribers/:id/cities/:city', () => {
   });
 });
 
+describe('GET /api/subscribers — contact data', () => {
+  it('returns connection_code and contact_count in list', async () => {
+    db.prepare("UPDATE users SET connection_code = '123456' WHERE chat_id = 111").run();
+    const res = await request(app).get('/api/subscribers');
+    assert.equal(res.body.data[0].connection_code, '123456');
+    assert.equal(typeof res.body.data[0].contact_count, 'number');
+    assert.equal(res.body.data[0].contact_count, 0);
+  });
+
+  it('counts accepted contacts correctly', async () => {
+    db.prepare(`INSERT INTO users (chat_id, format, quiet_hours_enabled) VALUES (222, 'short', 0)`).run();
+    db.prepare(`INSERT INTO contacts (user_id, contact_id, status) VALUES (111, 222, 'accepted')`).run();
+    const res = await request(app).get('/api/subscribers');
+    const user111 = res.body.data.find((u: { chat_id: number }) => u.chat_id === 111);
+    assert.equal(user111.contact_count, 1);
+  });
+});
+
+describe('GET /api/subscribers/:id — contacts array', () => {
+  it('returns contacts array in detail', async () => {
+    db.prepare(`INSERT INTO users (chat_id, format, quiet_hours_enabled, display_name) VALUES (222, 'short', 0, 'דני')`).run();
+    db.prepare(`INSERT INTO contacts (user_id, contact_id, status) VALUES (111, 222, 'accepted')`).run();
+    const res = await request(app).get('/api/subscribers/111');
+    assert.ok(Array.isArray(res.body.contacts));
+    assert.equal(res.body.contacts.length, 1);
+    assert.equal(res.body.contacts[0].other_id, 222);
+    assert.equal(res.body.contacts[0].other_name, 'דני');
+    assert.equal(res.body.contacts[0].status, 'accepted');
+  });
+
+  it('returns empty contacts array when no contacts', async () => {
+    const res = await request(app).get('/api/subscribers/111');
+    assert.ok(Array.isArray(res.body.contacts));
+    assert.equal(res.body.contacts.length, 0);
+  });
+});
+
 describe('GET /api/subscribers/export/csv', () => {
   it('returns CSV content-type', async () => {
     const res = await request(app).get('/api/subscribers/export/csv');
@@ -147,11 +184,12 @@ describe('GET /api/subscribers/export/csv', () => {
     assert.ok(res.headers['content-type']?.includes('text/csv'));
   });
 
-  it('includes profile fields in CSV header', async () => {
+  it('includes contact fields in CSV header', async () => {
     const res = await request(app).get('/api/subscribers/export/csv');
     const header = res.text.split('\n')[0];
     assert.ok(header.includes('display_name'));
     assert.ok(header.includes('home_city'));
-    assert.ok(header.includes('onboarding'));
+    assert.ok(header.includes('connection_code'));
+    assert.ok(header.includes('contact_count'));
   });
 });

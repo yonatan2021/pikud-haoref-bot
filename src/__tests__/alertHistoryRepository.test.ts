@@ -12,6 +12,7 @@ import {
   getRecentAlerts,
   getAlertsForCity,
   getAlertsForCities,
+  countAlertsToday,
 } from '../db/alertHistoryRepository';
 import type { Alert } from '../types';
 
@@ -118,5 +119,24 @@ describe('alertHistoryRepository', () => {
     const rows = getRecentAlerts(24);
     assert.equal(rows.length, 1, 'corrupt row should be skipped, valid row returned');
     assert.deepEqual(rows[0].cities, ['אבו גוש', 'אביעזר']);
+  });
+
+  // T4: countAlertsToday — Israel timezone boundary
+  it('countAlertsToday counts alerts inserted with datetime("now") as today (T4)', () => {
+    // Insert one alert right now — should be counted as today in any timezone
+    insertAlert(A_MISSILES);
+    assert.equal(countAlertsToday(), 1, 'recent alert should be counted as today');
+  });
+
+  it('countAlertsToday excludes alerts from 48 hours ago (T4)', () => {
+    // Insert an alert 48h ago — should never be "today" regardless of timezone
+    getDb()
+      .prepare(`INSERT INTO alert_history (type, cities, fired_at) VALUES (?, ?, datetime('now', '-48 hours'))`)
+      .run('missiles', '["תל אביב"]');
+    assert.equal(countAlertsToday(), 0, 'alert from 48h ago should not count as today');
+  });
+
+  it('countAlertsToday returns 0 when no alerts today (T4)', () => {
+    assert.equal(countAlertsToday(), 0, 'should return 0 for empty table');
   });
 });

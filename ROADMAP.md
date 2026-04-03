@@ -331,7 +331,7 @@ git tag wizard-vX.Y.Z && git push origin wizard-vX.Y.Z
       <td align="right"><code>v0.4.2</code></td>
       <td align="right">מערכת אנשי קשר</td>
       <td align="right">חיבור בין אנשים עם קוד, אישור, רשימה וניהול קשרים.</td>
-      <td align="right">⚪ מתוכנן</td>
+      <td align="right">✅ הושלם</td>
     </tr>
     <tr>
       <td align="right"><code>v0.4.3</code></td>

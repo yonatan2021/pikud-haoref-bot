@@ -192,9 +192,23 @@
   <section class="features section section--alt" id="features">
     <div class="container">
       <h2 class="section-title reveal">✨ תכונות</h2>
+
+      <!-- Mobile-only tab switcher -->
+      <div class="features-tabs" role="tablist" aria-label="בחירת קטגוריית תכונות">
+        <button class="features-tab features-tab--active" role="tab"
+                aria-selected="true" aria-controls="panel-user" id="tab-user">
+          🔔 למשתמש
+        </button>
+        <button class="features-tab" role="tab"
+                aria-selected="false" aria-controls="panel-dev" id="tab-dev">
+          ⚙️ למתכנתים
+        </button>
+      </div>
+
       <div class="features-columns">
 
-        <div class="features-panel features-panel--user glass-card reveal">
+        <div class="features-panel features-panel--user glass-card reveal"
+             id="panel-user" role="tabpanel" aria-labelledby="tab-user">
           <div class="features-panel-header">
             <span class="features-panel-icon">🔔</span>
             <div>
@@ -205,9 +219,13 @@
           <div class="features-grid">
             {{USER_FEATURES_HTML}}
           </div>
+          <button class="features-show-more" aria-expanded="false">
+            הצג עוד
+          </button>
         </div>
 
-        <div class="features-panel features-panel--dev glass-card reveal" style="--reveal-delay: 0.1s">
+        <div class="features-panel features-panel--dev glass-card reveal"
+             id="panel-dev" role="tabpanel" aria-labelledby="tab-dev" style="--reveal-delay: 0.1s">
           <div class="features-panel-header">
             <span class="features-panel-icon">⚙️</span>
             <div>
@@ -218,6 +236,9 @@
           <div class="features-grid">
             {{DEV_FEATURES_HTML}}
           </div>
+          <button class="features-show-more" aria-expanded="false">
+            הצג עוד
+          </button>
         </div>
 
       </div>
@@ -328,6 +349,9 @@
       <ul class="changelog-list reveal" style="--reveal-delay: 0.1s">
         {{WHATS_NEW_HTML}}
       </ul>
+      <button class="changelog-show-more" aria-expanded="false">
+        עוד עדכונים
+      </button>
       <div class="changelog-footer reveal" style="--reveal-delay: 0.2s">
         <a
           href="https://github.com/yonatan2021/pikud-haoref-bot/blob/main/CHANGELOG.md"
@@ -419,9 +443,13 @@
     <p class="footer-credit">עשוי עם ❤️ בישראל 🇮🇱</p>
   </footer>
 
+  <!-- Mobile FAB — quick join link, hidden on desktop -->
+  <a href="https://t.me/phalaret" class="mobile-fab" target="_blank"
+     rel="noopener noreferrer" aria-label="הצטרף בטלגרם">🔔</a>
+
   <!-- -----------------------------------------------------------------------
        Inline JS — cursor spotlight, scroll reveal, counters,
-                   How It Works connector, copy button
+                   How It Works connector, copy button, mobile interactions
   ------------------------------------------------------------------------ -->
   <script>
     // ── 1. Cursor spotlight ─────────────────────────────────────────────────
@@ -500,7 +528,92 @@
       howObserver.observe(howSection);
     }
 
-    // ── 6. Copy-to-clipboard (npx command) ──────────────────────────────────
+    // ── 6. Mobile: feature tabs, show-more, compact cards ─────────────────
+    var isMobile = window.matchMedia('(max-width: 900px)');
+
+    // 6a. Tab switcher for feature panels
+    var tabs = document.querySelectorAll('.features-tab');
+    var panels = [document.getElementById('panel-user'), document.getElementById('panel-dev')];
+
+    function activateTab(selectedTab) {
+      tabs.forEach(function(tab) {
+        var isSelected = tab === selectedTab;
+        tab.classList.toggle('features-tab--active', isSelected);
+        tab.setAttribute('aria-selected', isSelected);
+      });
+      var activeId = selectedTab.getAttribute('aria-controls');
+      panels.forEach(function(panel) {
+        if (!panel) return;
+        var show = panel.id === activeId;
+        panel.hidden = !show;
+        panel.style.display = show ? '' : 'none';
+      });
+    }
+
+    function initMobileTabs() {
+      if (isMobile.matches) {
+        // On mobile: show only user panel initially
+        if (panels[1]) { panels[1].hidden = true; panels[1].style.display = 'none'; }
+      } else {
+        // On desktop: show both, remove hidden
+        panels.forEach(function(p) { if (p) { p.hidden = false; p.style.display = ''; } });
+      }
+    }
+
+    tabs.forEach(function(tab) {
+      tab.addEventListener('click', function() { activateTab(tab); });
+    });
+
+    initMobileTabs();
+    isMobile.addEventListener('change', initMobileTabs);
+
+    // 6b. "Show more" buttons for feature grids
+    document.querySelectorAll('.features-show-more').forEach(function(btn) {
+      var grid = btn.previousElementSibling;
+      if (!grid || !grid.classList.contains('features-grid')) return;
+      var total = grid.querySelectorAll('.feature-card').length;
+      var hiddenCount = Math.max(0, total - 6);
+      if (hiddenCount > 0) {
+        btn.textContent = 'הצג עוד (' + hiddenCount + ')';
+      }
+      btn.addEventListener('click', function() {
+        var expanded = grid.classList.toggle('expanded');
+        btn.setAttribute('aria-expanded', expanded);
+        btn.textContent = expanded ? 'הצג פחות' : 'הצג עוד (' + hiddenCount + ')';
+      });
+    });
+
+    // 6c. Compact cards — tap to expand description on mobile
+    document.querySelectorAll('.feature-card').forEach(function(card) {
+      card.addEventListener('click', function() {
+        if (!isMobile.matches) return;
+        card.classList.toggle('expanded');
+      });
+    });
+
+    // 6d. What's New show-more
+    var clBtn = document.querySelector('.changelog-show-more');
+    if (clBtn) {
+      var clList = document.querySelector('.changelog-list');
+      clBtn.addEventListener('click', function() {
+        if (!clList) return;
+        var expanded = clList.classList.toggle('expanded');
+        clBtn.setAttribute('aria-expanded', expanded);
+        clBtn.textContent = expanded ? 'הצג פחות' : 'עוד עדכונים';
+      });
+    }
+
+    // 6e. FAB auto-hide near CTA section
+    var fab = document.querySelector('.mobile-fab');
+    var ctaSection = document.querySelector('.cta-section');
+    if (fab && ctaSection) {
+      var fabObserver = new IntersectionObserver(function(entries) {
+        fab.classList.toggle('mobile-fab--hidden', entries[0].isIntersecting);
+      }, { threshold: 0.2 });
+      fabObserver.observe(ctaSection);
+    }
+
+    // ── 7. Copy-to-clipboard (npx command) ──────────────────────────────────
     document.querySelectorAll('.copy-btn').forEach(function(btn) {
       btn.addEventListener('click', function() {
         var text = btn.dataset.copy;

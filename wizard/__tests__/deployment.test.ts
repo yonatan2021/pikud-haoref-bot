@@ -2,7 +2,7 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import path from 'node:path'
 import os from 'node:os'
-import { buildWhatsAppNote, runNodeSetup, resolveTargetPath, spawnQuiet, type SpawnFn } from '../src/steps/deployment.js'
+import { buildWhatsAppNote, runNodeSetup, resolveTargetPath, type SpawnFn } from '../src/steps/deployment.js'
 
 // ── Fake spawn factory ────────────────────────────────────────────────────────
 //
@@ -384,8 +384,8 @@ describe('resolveTargetPath', () => {
 
 describe('runNodeSetup — git clone uses --depth 1 and absolute targetPath', () => {
   it('passes --depth 1 and absolute path to git clone', async () => {
-    // clone(0) + remote-rename(0) + gh-check(1=not installed) + npm-install(0)
-    const { spawnFn, getCalls } = makeMultiFakeSpawn([0, 0, 1, 0])
+    // clone(0) + remote-rename(0) + npm-install(0)
+    const { spawnFn, getCalls } = makeMultiFakeSpawn([0, 0, 0])
 
     await runNodeSetup('/fake/.env', 'telegram', {
       spawn: spawnFn,
@@ -415,8 +415,8 @@ describe('runNodeSetup — git clone uses --depth 1 and absolute targetPath', ()
 
 describe('runNodeSetup — remote setup after clone', () => {
   it('renames origin to upstream after successful clone', async () => {
-    // clone(0) + remote-rename(0) + gh-check(1=not installed) + npm-install(0)
-    const { spawnFn, getCalls } = makeMultiFakeSpawn([0, 0, 1, 0])
+    // clone(0) + remote-rename(0) + npm-install(0)
+    const { spawnFn, getCalls } = makeMultiFakeSpawn([0, 0, 0])
 
     await runNodeSetup('/fake/.env', 'telegram', {
       spawn: spawnFn,
@@ -469,24 +469,3 @@ describe('runNodeSetup — remote setup after clone', () => {
   })
 })
 
-// ── spawnQuiet — unit tests ──────────────────────────────────────────────────
-
-describe('spawnQuiet', () => {
-  it('resolves true on exit code 0', async () => {
-    const { spawnFn } = makeMultiFakeSpawn([0])
-    const result = await spawnQuiet(spawnFn, 'gh', ['--version'])
-    assert.equal(result, true)
-  })
-
-  it('resolves false on non-zero exit code', async () => {
-    const { spawnFn } = makeMultiFakeSpawn([1])
-    const result = await spawnQuiet(spawnFn, 'gh', ['auth', 'status'])
-    assert.equal(result, false)
-  })
-
-  it('resolves false when spawn throws', async () => {
-    const throwingSpawn: SpawnFn = () => { throw new Error('command not found') }
-    const result = await spawnQuiet(throwingSpawn, 'nonexistent', [])
-    assert.equal(result, false)
-  })
-})

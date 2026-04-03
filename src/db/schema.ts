@@ -124,6 +124,29 @@ export function initSchema(database: Database.Database): void {
       is_active           INTEGER NOT NULL DEFAULT 1,
       created_at          TEXT    NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS contacts (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id     INTEGER NOT NULL,
+      contact_id  INTEGER NOT NULL,
+      status      TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected')),
+      created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(user_id, contact_id),
+      FOREIGN KEY (user_id) REFERENCES users(chat_id) ON DELETE CASCADE,
+      FOREIGN KEY (contact_id) REFERENCES users(chat_id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_contacts_user ON contacts(user_id);
+    CREATE INDEX IF NOT EXISTS idx_contacts_contact ON contacts(contact_id);
+    CREATE INDEX IF NOT EXISTS idx_contacts_status ON contacts(status);
+
+    CREATE TABLE IF NOT EXISTS contact_permissions (
+      -- contact_id references contacts(id) surrogate PK (the relationship row), not a user
+      contact_id    INTEGER PRIMARY KEY,
+      safety_status INTEGER NOT NULL DEFAULT 1,
+      home_city     INTEGER NOT NULL DEFAULT 0,
+      update_time   INTEGER NOT NULL DEFAULT 1,
+      FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE
+    );
   `);
 
   database.exec(
@@ -153,14 +176,16 @@ export function initSchema(database: Database.Database): void {
   addColumnIfMissing(database, 'ALTER TABLE users ADD COLUMN connection_code TEXT');
   addColumnIfMissing(database, 'ALTER TABLE users ADD COLUMN onboarding_step TEXT');
 
-  database.prepare('CREATE INDEX IF NOT EXISTS idx_users_connection_code ON users(connection_code)').run();
+  database.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_connection_code ON users(connection_code) WHERE connection_code IS NOT NULL').run();
 }
 
 export function initDb(): void {
   const database = getDb();
   initSchema(database);
-  // Prune alert history older than 7 days on startup
-  database.exec(`DELETE FROM alert_history WHERE fired_at < datetime('now', '-7 days')`);
-  // Prune expired login attempt records on startup
-  database.exec('DELETE FROM login_attempts WHERE reset_at < (unixepoch() * 1000)');
+  // Prune stale data atomically on startup
+  database.transaction(() => {
+    database.prepare(`DELETE FROM alert_history WHERE fired_at < datetime('now', '-7 days')`).run();
+    database.prepare('DELETE FROM login_attempts WHERE reset_at < (unixepoch() * 1000)').run();
+    database.prepare(`DELETE FROM contacts WHERE status = 'pending' AND created_at < datetime('now', '-7 days')`).run();
+  })();
 }

@@ -29,7 +29,11 @@ export function createSubscribersRouter(db: Database.Database): Router {
       const rows = db.prepare(`
         SELECT u.chat_id, u.format, u.quiet_hours_enabled, u.created_at,
                u.display_name, u.home_city, u.locale, u.onboarding_completed,
-               GROUP_CONCAT(s.city_name, '; ') as cities
+               u.connection_code,
+               GROUP_CONCAT(s.city_name, '; ') as cities,
+               (SELECT COUNT(*) FROM contacts c
+                WHERE (c.user_id = u.chat_id OR c.contact_id = u.chat_id)
+                AND c.status = 'accepted') as contact_count
         FROM users u LEFT JOIN subscriptions s ON u.chat_id = s.chat_id
         GROUP BY u.chat_id
       `).all() as Array<{
@@ -41,12 +45,15 @@ export function createSubscribersRouter(db: Database.Database): Router {
         home_city: string | null;
         locale: string;
         onboarding_completed: number;
+        connection_code: string | null;
         cities: string | null;
+        contact_count: number;
       }>;
 
-      const header = 'chat_id,display_name,home_city,format,quiet_hours,onboarding,locale,created_at,cities\n';
+      const escCsv = (s: string) => s.replace(/"/g, '""');
+      const header = 'chat_id,display_name,home_city,connection_code,contact_count,format,quiet_hours,onboarding,locale,created_at,cities\n';
       const body = rows.map(r =>
-        `${r.chat_id},"${r.display_name ?? ''}","${r.home_city ?? ''}",${r.format},${r.quiet_hours_enabled},${r.onboarding_completed},${r.locale},${r.created_at},"${r.cities ?? ''}"`
+        `${r.chat_id},"${escCsv(r.display_name ?? '')}","${escCsv(r.home_city ?? '')}","${escCsv(r.connection_code ?? '')}",${r.contact_count},"${escCsv(r.format)}",${r.quiet_hours_enabled},${r.onboarding_completed},"${escCsv(r.locale)}","${escCsv(r.created_at)}","${escCsv(r.cities ?? '')}"`
       ).join('\n');
 
       res.setHeader('Content-Type', 'text/csv');
@@ -67,7 +74,11 @@ export function createSubscribersRouter(db: Database.Database): Router {
       let sql = `
         SELECT u.chat_id, u.format, u.quiet_hours_enabled, u.created_at,
                u.display_name, u.home_city, u.locale, u.onboarding_completed,
-               COUNT(s.city_name) as city_count
+               u.connection_code,
+               COUNT(s.city_name) as city_count,
+               (SELECT COUNT(*) FROM contacts c
+                WHERE (c.user_id = u.chat_id OR c.contact_id = u.chat_id)
+                AND c.status = 'accepted') as contact_count
         FROM users u LEFT JOIN subscriptions s ON u.chat_id = s.chat_id
       `;
       const params: (string | number)[] = [];
@@ -112,7 +123,21 @@ export function createSubscribersRouter(db: Database.Database): Router {
         db.prepare('SELECT city_name FROM subscriptions WHERE chat_id = ?').all(chatId) as { city_name: string }[]
       ).map(r => r.city_name);
 
-      res.json({ ...user, cities });
+      const contacts = db.prepare(`
+        SELECT c.id, c.status, c.created_at,
+               CASE WHEN c.user_id = ? THEN c.contact_id ELSE c.user_id END as other_id,
+               CASE WHEN c.user_id = ? THEN u2.display_name ELSE u1.display_name END as other_name
+        FROM contacts c
+        LEFT JOIN users u1 ON u1.chat_id = c.user_id
+        LEFT JOIN users u2 ON u2.chat_id = c.contact_id
+        WHERE c.user_id = ? OR c.contact_id = ?
+        ORDER BY c.created_at DESC
+      `).all(chatId, chatId, chatId, chatId) as Array<{
+        id: number; status: string; created_at: string;
+        other_id: number; other_name: string | null;
+      }>;
+
+      res.json({ ...user, cities, contacts });
     } catch (err) {
       log('error', 'Dashboard', `Query error: ${String(err)}`);
       res.status(500).json({ error: 'שגיאת שרת פנימית' });

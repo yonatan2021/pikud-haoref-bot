@@ -85,6 +85,37 @@ export function buildZonedCityList(cities: string[]): string {
   return sections.join('\n\n');
 }
 
+/** Zone-summary list for newsFlash alerts — shows zone names + count + countdown only.
+ *  Individual city names are omitted to keep preliminary warnings concise. */
+export function buildZoneOnlyList(cities: string[]): string {
+  if (cities.length === 0) return '';
+
+  const zoneMap = new Map<string, { count: number; minCountdown: number }>();
+
+  for (const cityName of cities) {
+    const cityData = getCityData(cityName);
+    const zone = cityData?.zone;
+    if (!zone) continue;
+    const existing = zoneMap.get(zone) ?? { count: 0, minCountdown: Infinity };
+    const countdown = cityData?.countdown ?? 0;
+    zoneMap.set(zone, {
+      count: existing.count + 1,
+      minCountdown: countdown > 0 ? Math.min(existing.minCountdown, countdown) : existing.minCountdown,
+    });
+  }
+
+  if (zoneMap.size === 0) return '';
+
+  const sections: string[] = [];
+  for (const [zone, { count, minCountdown }] of zoneMap) {
+    const countdownSuffix =
+      minCountdown > 0 && isFinite(minCountdown) ? `  ⏱ <b>${minCountdown} שנ׳</b>` : '';
+    sections.push(`▸ <b>${escapeHtml(zone)}</b> (${count})${countdownSuffix}`);
+  }
+
+  return sections.join('\n');
+}
+
 export function formatAlertMessage(alert: Alert): string {
   const emoji = getEmoji(alert.type);
   const title = getTitleHe(alert.type);
@@ -110,11 +141,14 @@ export function formatAlertMessage(alert: Alert): string {
       : `<i>${escapeHtml(alert.instructions)}</i>`;
   }
 
-  const zonedList = buildZonedCityList(alert.cities);
+  const cityList =
+    alert.type === 'newsFlash'
+      ? buildZoneOnlyList(alert.cities)
+      : buildZonedCityList(alert.cities);
 
   // Instructions appear before cities so they are visible in push notification previews
   if (instructionsPart) parts.push(instructionsPart);
-  if (zonedList) parts.push(zonedList);
+  if (cityList) parts.push(cityList);
 
   return parts.join('\n\n');
 }

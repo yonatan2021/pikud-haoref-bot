@@ -105,11 +105,15 @@ export function deleteUser(chatId: number): void {
   getDb()
     .prepare('DELETE FROM users WHERE chat_id = ?')
     .run(chatId);
+  // Dynamic require avoids circular dependency (subscriptionRepository imports from userRepository)
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  (require('./subscriptionRepository.js') as { evictSubscriberFromCache: (id: number) => void })
+    .evictSubscriberFromCache(chatId);
 }
 
 // --- Profile functions (v0.4.1) ---
 
-export function getProfile(chatId: number): Pick<User, 'display_name' | 'home_city' | 'locale' | 'onboarding_completed' | 'onboarding_step'> | undefined {
+export function getProfile(chatId: number): Pick<User, 'display_name' | 'home_city' | 'locale' | 'onboarding_completed' | 'onboarding_step' | 'connection_code'> | undefined {
   const user = getUser(chatId);
   if (!user) return undefined;
   return {
@@ -118,6 +122,7 @@ export function getProfile(chatId: number): Pick<User, 'display_name' | 'home_ci
     locale: user.locale,
     onboarding_completed: user.onboarding_completed,
     onboarding_step: user.onboarding_step,
+    connection_code: user.connection_code,
   };
 }
 
