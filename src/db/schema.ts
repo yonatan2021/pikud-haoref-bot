@@ -144,6 +144,16 @@ export function initSchema(database: Database.Database): void {
   // on repeat runs (e.g. after restart). addColumnIfMissing catches that specific error.
   addColumnIfMissing(database, 'ALTER TABLE users ADD COLUMN quiet_hours_enabled INTEGER NOT NULL DEFAULT 0');
   addColumnIfMissing(database, 'ALTER TABLE users ADD COLUMN muted_until TEXT');
+
+  // v0.4.1 — profile, onboarding, and connection fields
+  addColumnIfMissing(database, 'ALTER TABLE users ADD COLUMN display_name TEXT');
+  addColumnIfMissing(database, 'ALTER TABLE users ADD COLUMN home_city TEXT');
+  addColumnIfMissing(database, "ALTER TABLE users ADD COLUMN locale TEXT NOT NULL DEFAULT 'he'");
+  addColumnIfMissing(database, 'ALTER TABLE users ADD COLUMN onboarding_completed INTEGER NOT NULL DEFAULT 0');
+  addColumnIfMissing(database, 'ALTER TABLE users ADD COLUMN connection_code TEXT');
+  addColumnIfMissing(database, 'ALTER TABLE users ADD COLUMN onboarding_step TEXT');
+
+  database.prepare('CREATE INDEX IF NOT EXISTS idx_users_connection_code ON users(connection_code)').run();
 }
 
 export function initDb(): void {
