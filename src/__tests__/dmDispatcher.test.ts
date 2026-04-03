@@ -127,6 +127,48 @@ describe('buildAlertDmMessage', () => {
     const msg = buildAlertDmMessage(alert);
     assert.ok(msg.includes('ועוד 5'));
   });
+
+  it('includes 🔴🔴🔴🔴🔴 countdown bar for city with 15s countdown (אבשלום)', () => {
+    // אבשלום has countdown=15 in cities.json → מיידי urgency → full red bar
+    const alert: Alert = { type: 'missiles', cities: ['אבשלום'] };
+    const msg = buildAlertDmMessage(alert);
+    assert.ok(msg.includes('🔴🔴🔴🔴🔴'), `expected full red bar in: ${msg}`);
+    assert.ok(msg.includes('⏱'), 'expected ⏱ countdown indicator alongside bar');
+  });
+
+  it('includes 🟢🟢⬜⬜⬜ countdown bar for city with 90s countdown (אבו גוש)', () => {
+    // אבו גוש has countdown=90 in cities.json → מתון urgency → 2/5 green bar
+    const alert: Alert = { type: 'missiles', cities: ['אבו גוש'] };
+    const msg = buildAlertDmMessage(alert);
+    assert.ok(msg.includes('🟢🟢⬜⬜⬜'), `expected green bar in: ${msg}`);
+  });
+
+  it('omits countdown bar when countdown = 0 (confrontation-line city)', () => {
+    // City with countdown=0 → getMinCountdown returns 0 → no bar rendered
+    const alert: Alert = { type: 'missiles', cities: ['עיר_לא_קיימת_בכלל'] };
+    const msg = buildAlertDmMessage(alert);
+    assert.ok(!msg.includes('🔴🔴'), 'no bar for unknown/zero-countdown city');
+    assert.ok(!msg.includes('🟢🟢'), 'no bar for unknown/zero-countdown city');
+  });
+});
+
+describe('buildAlertDmMessage — minimum-urgency regression (#90)', () => {
+  it('DM bar reflects the minimum countdown across all cities (most urgent city wins)', () => {
+    // אבשלום=15s (מיידי → 🔴🔴🔴🔴🔴), אבו גוש=90s (מתון → 🟢🟢⬜⬜⬜)
+    // When both appear, the bar must use 15s (most urgent) — not 90s.
+    // Regression guard: if getMinCountdown changes logic to use max instead of min, this test fails.
+    const alert: Alert = { type: 'missiles', cities: ['אבו גוש', 'אבשלום'] };
+    const msg = buildAlertDmMessage(alert);
+    assert.ok(msg.includes('🔴🔴🔴🔴🔴'), `expected red bar (15s min) not green in: ${msg}`);
+    assert.ok(!msg.includes('🟢🟢⬜⬜⬜'), 'must not show the less-urgent 90s bar');
+  });
+
+  it('DM countdown shows the minimum seconds value when multiple cities', () => {
+    const alert: Alert = { type: 'missiles', cities: ['אבו גוש', 'אבשלום'] };
+    const msg = buildAlertDmMessage(alert);
+    assert.ok(msg.includes('15 שניות'), `expected 15s in: ${msg}`);
+    assert.ok(!msg.includes('90 שניות'), 'must not show 90s when 15s is the minimum');
+  });
 });
 
 describe('buildNewsFlashDmMessage', () => {
