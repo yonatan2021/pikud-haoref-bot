@@ -5,7 +5,7 @@ import { sendAlert, getBot, editAlert } from './telegramBot';
 import { getActiveMessage, trackMessage, loadActiveMessages } from './alertWindowTracker';
 import { getTopicId } from './topicRouter';
 import { Alert } from './types';
-import { initDb } from './db/schema';
+import { initDb, closeDb } from './db/schema';
 import { initializeCache } from './mapService';
 import { setupBotHandlers } from './bot/botSetup';
 import { notifySubscribers } from './services/dmDispatcher';
@@ -21,7 +21,7 @@ import { toVisualRtl } from './loggerUtils.js';
 import { loadTemplateCache } from './config/templateCache.js';
 import { loadRoutingCache } from './config/routingCache.js';
 import { setMenuHandlerDb } from './bot/menuHandler.js';
-import { initialize as initWhatsApp, setMessageCallback } from './whatsapp/whatsappService.js';
+import { initialize as initWhatsApp, disconnect as disconnectWhatsApp, setMessageCallback } from './whatsapp/whatsappService.js';
 import { createBroadcaster } from './whatsapp/whatsappBroadcaster.js';
 import { createMessageHandler } from './whatsapp/whatsappListenerService.js';
 import { initializeTelegramListener } from './telegram-listener/telegramListenerService.js';
@@ -146,9 +146,9 @@ for (const envVar of REQUIRED_ENV_VARS) {
     }, sendMediaToTelegram)
   );
 
-  if (dashboardSecret) {
-    startDashboardServer(getDb(), bot, dashboardPort, dashboardSecret);
-  }
+  const dashboardHttpServer = dashboardSecret
+    ? startDashboardServer(getDb(), bot, dashboardPort, dashboardSecret)
+    : null;
 
   const poller = new AlertPoller();
   const broadcastToWhatsApp = process.env.WHATSAPP_ENABLED === 'true'
@@ -169,9 +169,21 @@ for (const envVar of REQUIRED_ENV_VARS) {
     },
   });
 
-  // Clear all-clear timers on graceful shutdown to avoid dangling timer handles
-  process.once('SIGTERM', () => { allClearTracker.clearAll(); process.exit(0); });
-  process.once('SIGINT',  () => { allClearTracker.clearAll(); process.exit(0); });
+  // Graceful shutdown — stop accepting work, drain in-flight, close storage
+  async function shutdown(signal: string): Promise<void> {
+    log('info', 'Init', `${signal} — מבצע כיבוי מסודר...`);
+    allClearTracker.clearAll();
+    try { await bot.stop(); } catch { /* ignore */ }
+    healthServer.close();
+    if (dashboardHttpServer) { dashboardHttpServer.close(); }
+    if (process.env.WHATSAPP_ENABLED === 'true') {
+      try { await disconnectWhatsApp(); } catch { /* ignore */ }
+    }
+    try { closeDb(); } catch { /* ignore */ }
+    process.exit(0);
+  }
+  process.once('SIGTERM', () => { void shutdown('SIGTERM'); });
+  process.once('SIGINT',  () => { void shutdown('SIGINT');  });
 
   poller.on('newAlert', async (alert: Alert) => {
     updateLastAlertAt();
