@@ -4,10 +4,16 @@ import { getSetting, setSetting } from '../settingsRepository.js';
 import { log } from '../../logger.js';
 import { createRateLimitMiddleware } from '../rateLimiter.js';
 
-const deployLimiter = createRateLimitMiddleware({
+export const deployLimiter = createRateLimitMiddleware({
   maxRequests: 3,
   windowMs: 3_600_000,
   message: 'יותר מדי בקשות deploy — נסה שוב בעוד שעה',
+});
+
+export const landingConfigLimiter = createRateLimitMiddleware({
+  maxRequests: 10,
+  windowMs: 60_000,
+  message: 'יותר מדי שינויי config — נסה שוב בעוד דקה',
 });
 
 export function createLandingRouter(db: Database.Database): Router {
@@ -24,7 +30,7 @@ export function createLandingRouter(db: Database.Database): Router {
     });
   });
 
-  router.patch('/config', (req, res) => {
+  router.patch('/config', landingConfigLimiter, (req, res) => {
     const { ga4MeasurementId, siteUrl } = req.body as { ga4MeasurementId?: string; siteUrl?: string };
     if (ga4MeasurementId !== undefined) {
       if (!/^G-[A-Z0-9]{4,12}$/.test(ga4MeasurementId) && ga4MeasurementId !== '') {

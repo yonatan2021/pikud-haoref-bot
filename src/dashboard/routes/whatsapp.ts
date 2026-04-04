@@ -5,8 +5,10 @@ import type { WhatsAppGroup, WhatsAppStatus } from '../../whatsapp/whatsappServi
 import { getAllGroups, upsertGroup } from '../../db/whatsappGroupRepository.js';
 import { ALL_ALERT_TYPES } from '../../config/alertTypeDefaults.js';
 import { log } from '../../logger.js';
+import { createRateLimitMiddleware } from '../rateLimiter.js';
 
 const ALERT_TYPES_SET = new Set(ALL_ALERT_TYPES);
+export const waLifecycleLimiter = createRateLimitMiddleware({ maxRequests: 3, windowMs: 60_000, message: 'יותר מדי פעולות WhatsApp — נסה בעוד דקה' });
 
 export interface WhatsAppServiceDeps {
   getStatus: () => WhatsAppStatus;
@@ -148,7 +150,7 @@ export function createWhatsAppRouter(
   });
 
   // POST /reconnect — disconnect (if connected) then re-initialize
-  router.post('/reconnect', async (_req: Request, res: Response) => {
+  router.post('/reconnect', waLifecycleLimiter, async (_req: Request, res: Response) => {
     if (process.env.WHATSAPP_ENABLED !== 'true') {
       res.status(400).json({ error: 'WhatsApp לא מופעל' });
       return;
@@ -167,7 +169,7 @@ export function createWhatsAppRouter(
   });
 
   // POST /clear-session — delete stored session files and reinitialize (forces fresh QR)
-  router.post('/clear-session', async (_req: Request, res: Response) => {
+  router.post('/clear-session', waLifecycleLimiter, async (_req: Request, res: Response) => {
     if (process.env.WHATSAPP_ENABLED !== 'true') {
       res.status(400).json({ error: 'WhatsApp לא מופעל' });
       return;
@@ -183,7 +185,7 @@ export function createWhatsAppRouter(
   });
 
   // POST /disconnect — disconnect WhatsApp client
-  router.post('/disconnect', async (_req: Request, res: Response) => {
+  router.post('/disconnect', waLifecycleLimiter, async (_req: Request, res: Response) => {
     try {
       await service.disconnect();
       res.json({ ok: true });

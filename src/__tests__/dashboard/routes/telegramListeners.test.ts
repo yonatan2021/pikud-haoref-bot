@@ -11,6 +11,9 @@ import {
 } from '../../../db/telegramListenerRepository.js';
 import {
   createTelegramListenerRouter,
+  tgConnectLimiter,
+  tgVerifyLimiter,
+  tgRefreshLimiter,
   type TelegramClientDeps,
 } from '../../../dashboard/routes/telegramListeners.js';
 
@@ -93,6 +96,10 @@ beforeEach(() => {
   submitPasswordShouldThrow = null;
   db.prepare('DELETE FROM telegram_listeners').run();
   db.prepare('DELETE FROM telegram_known_chats').run();
+  // Reset rate limiter counters to avoid 429 between test cases
+  tgConnectLimiter.clearStore();
+  tgVerifyLimiter.clearStore();
+  tgRefreshLimiter.clearStore();
 });
 
 // ─── Base fixture ─────────────────────────────────────────────────────────────

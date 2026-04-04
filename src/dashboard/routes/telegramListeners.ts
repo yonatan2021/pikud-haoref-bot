@@ -22,6 +22,11 @@ import {
 } from '../../telegram-listener/telegramListenerClient.js';
 import { getSetting } from '../settingsRepository.js';
 import { log } from '../../logger.js';
+import { createRateLimitMiddleware } from '../rateLimiter.js';
+
+export const tgConnectLimiter  = createRateLimitMiddleware({ maxRequests: 3,  windowMs: 3_600_000, message: 'יותר מדי ניסיונות התחברות — נסה בעוד שעה' });
+export const tgVerifyLimiter   = createRateLimitMiddleware({ maxRequests: 10, windowMs: 900_000,   message: 'יותר מדי ניסיונות אימות — נסה בעוד 15 דקות' });
+export const tgRefreshLimiter  = createRateLimitMiddleware({ maxRequests: 5,  windowMs: 60_000,    message: 'יותר מדי רענונים — נסה בעוד דקה' });
 
 export interface TelegramClientDeps {
   getStatus: () => TelegramListenerStatus;
@@ -71,7 +76,7 @@ export function createTelegramListenerRouter(
   });
 
   // POST /connect → { phone } → starts OTP auth, returns { phoneCodeHash }
-  router.post('/connect', async (req: Request, res: Response) => {
+  router.post('/connect', tgConnectLimiter, async (req: Request, res: Response) => {
     const body = req.body as Record<string, unknown>;
     const phone = typeof body['phone'] === 'string' ? body['phone'].trim() : '';
     if (!phone) {
@@ -93,7 +98,7 @@ export function createTelegramListenerRouter(
 
   // POST /verify → { code, phoneCodeHash } → completes OTP login
   //   on 2FA: returns 400 { error: 'SESSION_PASSWORD_NEEDED' }
-  router.post('/verify', async (req: Request, res: Response) => {
+  router.post('/verify', tgVerifyLimiter, async (req: Request, res: Response) => {
     const body = req.body as Record<string, unknown>;
     const code = typeof body['code'] === 'string' ? body['code'].trim() : '';
     const phoneCodeHash = typeof body['phoneCodeHash'] === 'string' ? body['phoneCodeHash'].trim() : '';
@@ -119,7 +124,7 @@ export function createTelegramListenerRouter(
   });
 
   // POST /verify-password → { password } → completes 2FA login
-  router.post('/verify-password', async (req: Request, res: Response) => {
+  router.post('/verify-password', tgVerifyLimiter, async (req: Request, res: Response) => {
     const body = req.body as Record<string, unknown>;
     const password = typeof body['password'] === 'string' ? body['password'] : '';
     if (!password) {
@@ -165,7 +170,7 @@ export function createTelegramListenerRouter(
   });
 
   // POST /refresh-chats → triggers a fresh getDialogs scan, returns { count }
-  router.post('/refresh-chats', async (_req: Request, res: Response) => {
+  router.post('/refresh-chats', tgRefreshLimiter, async (_req: Request, res: Response) => {
     try {
       await clientDeps.refreshKnownChats(db);
       const count = getAllKnownChats(db).length;
