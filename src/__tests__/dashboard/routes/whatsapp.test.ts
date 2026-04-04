@@ -5,7 +5,7 @@ import express from 'express';
 import request from 'supertest';
 import { initSchema } from '../../../db/schema.js';
 import { upsertGroup, getAllGroups } from '../../../db/whatsappGroupRepository.js';
-import { createWhatsAppRouter } from '../../../dashboard/routes/whatsapp.js';
+import { createWhatsAppRouter, waLifecycleLimiter } from '../../../dashboard/routes/whatsapp.js';
 import type { WhatsAppServiceDeps } from '../../../dashboard/routes/whatsapp.js';
 
 // ─── Mock whatsapp service state ─────────────────────────────────────────────
@@ -55,6 +55,8 @@ beforeEach(() => {
   refreshGroupsCalled = false;
   // Clear DB groups
   db.prepare('DELETE FROM whatsapp_groups').run();
+  // Reset rate limiter counters to avoid 429 between test cases
+  waLifecycleLimiter.clearStore();
 });
 
 // ─── Tests ───────────────────────────────────────────────────────────────────

@@ -10,6 +10,12 @@ const deployLimiter = createRateLimitMiddleware({
   message: 'יותר מדי בקשות deploy — נסה שוב בעוד שעה',
 });
 
+const landingConfigLimiter = createRateLimitMiddleware({
+  maxRequests: 10,
+  windowMs: 60_000,
+  message: 'יותר מדי שינויי config — נסה שוב בעוד דקה',
+});
+
 export function createLandingRouter(db: Database.Database): Router {
   const router = Router();
 
@@ -24,7 +30,7 @@ export function createLandingRouter(db: Database.Database): Router {
     });
   });
 
-  router.patch('/config', (req, res) => {
+  router.patch('/config', landingConfigLimiter, (req, res) => {
     const { ga4MeasurementId, siteUrl } = req.body as { ga4MeasurementId?: string; siteUrl?: string };
     if (ga4MeasurementId !== undefined) {
       if (!/^G-[A-Z0-9]{4,12}$/.test(ga4MeasurementId) && ga4MeasurementId !== '') {

@@ -139,6 +139,18 @@ export const systemMessageLimiter = createRateLimitMiddleware({
   message: 'יותר מדי הודעות מערכת — נסה שוב בעוד דקה',
 });
 
+const templateMutateLimiter = createRateLimitMiddleware({
+  maxRequests: 20,
+  windowMs: 60_000,
+  message: 'יותר מדי עדכוני תבניות — נסה שוב בעוד דקה',
+});
+
+const rollbackLimiter = createRateLimitMiddleware({
+  maxRequests: 10,
+  windowMs: 60_000,
+  message: 'יותר מדי rollbacks — נסה שוב בעוד דקה',
+});
+
 // ─── Router ────────────────────────────────────────────────────────────────
 
 export function createMessagesRouter(db: Database.Database, bot: Bot, whatsappDeps?: WhatsAppDeps): Router {
@@ -489,8 +501,8 @@ export function createMessagesRouter(db: Database.Database, bot: Bot, whatsappDe
   // ── Parameterized routes (:type) LAST ────────────────────────────────
 
   // PATCH /api/messages/:alertType — partial update (with history recording)
-  router.patch('/:alertType', (req, res) => {
-    const { alertType } = req.params;
+  router.patch('/:alertType', templateMutateLimiter, (req, res) => {
+    const alertType = req.params['alertType'] as string;
     if (!ALL_ALERT_TYPES.includes(alertType)) {
       res.status(400).json({ error: `סוג התראה לא מוכר: ${alertType}` });
       return;
@@ -541,8 +553,8 @@ export function createMessagesRouter(db: Database.Database, bot: Bot, whatsappDe
   });
 
   // DELETE /api/messages/:alertType — reset to defaults
-  router.delete('/:alertType', (req, res) => {
-    const { alertType } = req.params;
+  router.delete('/:alertType', templateMutateLimiter, (req, res) => {
+    const alertType = req.params['alertType'] as string;
     if (!ALL_ALERT_TYPES.includes(alertType)) {
       res.status(400).json({ error: `סוג התראה לא מוכר: ${alertType}` });
       return;
@@ -565,8 +577,8 @@ export function createMessagesRouter(db: Database.Database, bot: Bot, whatsappDe
   });
 
   // POST /api/messages/:alertType/rollback — restore a previous template version
-  router.post('/:alertType/rollback', (req, res) => {
-    const { alertType } = req.params;
+  router.post('/:alertType/rollback', rollbackLimiter, (req, res) => {
+    const alertType = req.params['alertType'] as string;
     if (!ALL_ALERT_TYPES.includes(alertType)) {
       res.status(400).json({ error: `סוג התראה לא מוכר: ${alertType}` });
       return;
