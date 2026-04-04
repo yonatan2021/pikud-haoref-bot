@@ -2,7 +2,7 @@ import { Router } from 'express';
 import type Database from 'better-sqlite3';
 import path from 'path';
 import { statSync, readFileSync } from 'fs';
-import { getAllSettings, getAllSettingsWithMeta, setSetting } from '../settingsRepository.js';
+import { getAllSettings, setSetting } from '../settingsRepository.js';
 import { createRateLimitMiddleware } from '../rateLimiter.js';
 import { loadRoutingCache } from '../../config/routingCache.js';
 
@@ -53,8 +53,7 @@ export function createSettingsRouter(db: Database.Database): Router {
       whatsapp_enabled:       process.env.WHATSAPP_ENABLED ?? 'false',
       whatsapp_map_debounce_seconds: process.env.WHATSAPP_MAP_DEBOUNCE_SECONDS ?? '15',
     };
-    const _settingsMeta = getAllSettingsWithMeta(db, [...ALLOWED_KEYS]);
-    res.json({ ...envDefaults, ...dbSettings, bot_version: pkgVersion, db_size_bytes: String(dbSizeBytes), _settingsMeta });
+    res.json({ ...envDefaults, ...dbSettings, bot_version: pkgVersion, db_size_bytes: String(dbSizeBytes) });
   });
 
   router.patch('/', settingsMutateLimiter, (req, res) => {
