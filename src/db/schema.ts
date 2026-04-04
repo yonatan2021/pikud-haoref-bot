@@ -132,6 +132,7 @@ export function initSchema(database: Database.Database): void {
       status      TEXT NOT NULL DEFAULT 'pending',
       created_at  TEXT NOT NULL DEFAULT (datetime('now')),
       UNIQUE(user_id, contact_id),
+      CHECK(user_id != contact_id),
       FOREIGN KEY (user_id) REFERENCES users(chat_id) ON DELETE CASCADE,
       FOREIGN KEY (contact_id) REFERENCES users(chat_id) ON DELETE CASCADE
     );

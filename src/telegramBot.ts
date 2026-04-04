@@ -196,7 +196,7 @@ export function formatAlertMessage(alert: Alert, serial?: number): string {
 
 /** Formats an all-clear closure message for a zone. */
 export function formatAllClearMessage(zoneName: string): string {
-  return `\u2705 <b>\u05D4\u05E1\u05EA\u05D9\u05D9\u05DD</b>\n\u05D4\u05D0\u05D6\u05D4\u05E8\u05D4 \u05D1\u05D0\u05D6\u05D5\u05E8 \u05D4\u05D1\u05D0 \u05D4\u05E1\u05EA\u05D9\u05D9\u05DE\u05D4:\n\uD83D\uDCCD ${escapeHtml(zoneName)}`;
+  return `✅ <b>הסתיים</b>\nהאזהרה באזור הבא הסתיימה:\n📍 ${escapeHtml(zoneName)}`;
 }
 
 let botInstance: Bot | null = null;

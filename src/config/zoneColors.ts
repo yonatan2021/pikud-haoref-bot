@@ -9,12 +9,20 @@ const ZONE_PALETTE: readonly string[] = [
   '#4DB6AC', '#EF9A9A', '#80CBC4', '#FFE082', '#B0BEC5',
 ];
 
-/** All 33 zone names in the stable order they appear in SUPER_REGIONS. */
+/** All zone names in the stable order they appear in SUPER_REGIONS. */
 const zoneNames: readonly string[] = SUPER_REGIONS.flatMap((sr) => sr.zones);
+
+// Invariant: palette must cover exactly as many zones as SUPER_REGIONS defines.
+// If this throws at startup, add colors to ZONE_PALETTE or remove zones from zones.ts.
+if (zoneNames.length !== ZONE_PALETTE.length) {
+  throw new Error(
+    `[zoneColors] Zone count (${zoneNames.length}) !== palette size (${ZONE_PALETTE.length}). Update ZONE_PALETTE in zoneColors.ts.`
+  );
+}
 
 /** Deterministic zone → hex color mapping. Same zone always maps to the same color. */
 export const ZONE_COLORS: Readonly<Record<string, string>> = Object.freeze(
-  Object.fromEntries(zoneNames.map((name, i) => [name, ZONE_PALETTE[i % ZONE_PALETTE.length]]))
+  Object.fromEntries(zoneNames.map((name, i) => [name, ZONE_PALETTE[i]]))
 );
 
 /** Returns the stable color for a zone name, or fallback red for unknown zones. */

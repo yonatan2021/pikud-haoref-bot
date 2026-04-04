@@ -141,15 +141,21 @@ for (const envVar of REQUIRED_ENV_VARS) {
 
   const allClearChatId = process.env.TELEGRAM_CHAT_ID!;
   const allClearTracker = createAllClearTracker({
-    onAllClear: (zones) => {
+    onAllClear: async (zones) => {
       for (const zone of zones) {
-        const message = formatAllClearMessage(zone);
-        bot.api.sendMessage(allClearChatId, message, { parse_mode: 'HTML' }).catch((err) => {
-          log('error', 'AllClear', `Failed to send all-clear for zone "${zone}": ${String(err)}`);
-        });
+        try {
+          const message = formatAllClearMessage(zone);
+          await bot.api.sendMessage(allClearChatId, message, { parse_mode: 'HTML' });
+        } catch (err) {
+          log('error', 'AllClear', `שליחת הודעת סיום כשלה עבור אזור "${zone}": ${String(err)}`);
+        }
       }
     },
   });
+
+  // Clear all-clear timers on graceful shutdown to avoid dangling timer handles
+  process.once('SIGTERM', () => { allClearTracker.clearAll(); process.exit(0); });
+  process.once('SIGINT',  () => { allClearTracker.clearAll(); process.exit(0); });
 
   poller.on('newAlert', async (alert: Alert) => {
     updateLastAlertAt();

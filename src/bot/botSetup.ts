@@ -14,7 +14,9 @@ import { registerLegendHandler } from './legendHandler.js';
 import { log } from '../logger.js';
 
 export async function setupBotHandlers(bot: Bot): Promise<void> {
-  // Onboarding text handler must be registered BEFORE other text handlers
+  // CRITICAL: onboarding must be first — its bot.on('message:text') handler
+  // calls next() for non-onboarding messages so downstream handlers run.
+  // Reordering this will silently swallow text input during onboarding.
   registerOnboardingHandler(bot);
   registerProfileHandler(bot);
   registerMenuHandler(bot);

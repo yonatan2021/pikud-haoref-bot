@@ -91,17 +91,24 @@ function parsePrivacyDefaults(): Record<string, boolean> {
   }
 }
 
-/** Get or generate a connection code for a user */
+/** Get or generate a connection code for a user.
+ * Uses an atomic UPDATE WHERE NULL pattern to prevent race conditions:
+ * two concurrent /connect calls could both pass a uniqueness check before
+ * either writes, resulting in duplicate codes. Writing only when
+ * connection_code IS NULL ensures exactly one caller wins. */
 function ensureConnectionCode(chatId: number): string {
   const user = getUser(chatId);
   if (user?.connection_code) return user.connection_code;
 
   for (let i = 0; i < MAX_CODE_RETRIES; i++) {
     const code = generateCode();
-    if (!findUserByConnectionCode(code)) {
-      setConnectionCode(chatId, code);
-      return code;
-    }
+    const result = getDb()
+      .prepare('UPDATE users SET connection_code = ? WHERE chat_id = ? AND connection_code IS NULL')
+      .run(code, chatId);
+    if (result.changes > 0) return code;
+    // Another concurrent request won the race — return whatever code they wrote
+    const updated = getUser(chatId);
+    if (updated?.connection_code) return updated.connection_code;
   }
   throw new Error('Failed to generate unique connection code after retries');
 }

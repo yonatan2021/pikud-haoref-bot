@@ -94,17 +94,12 @@ export function listContacts(userId: number, status?: string): Contact[] {
   const base = 'SELECT * FROM contacts WHERE (user_id = ? OR contact_id = ?)';
   const params: unknown[] = [userId, userId];
 
-  if (status) {
-    const rows = getDb()
-      .prepare(`${base} AND status = ?`)
-      .all(...params, status) as RawContact[];
-    return rows.map(decodeContact);
-  }
+  const raw = status
+    ? getDb().prepare(`${base} AND status = ?`).all(...params, status)
+    : getDb().prepare(base).all(...params);
 
-  const rows = getDb()
-    .prepare(base)
-    .all(...params) as RawContact[];
-  return rows.map(decodeContact);
+  if (!Array.isArray(raw)) throw new Error('contactRepository.listContacts: unexpected DB result shape');
+  return (raw as RawContact[]).map(decodeContact);
 }
 
 export function getPendingCountForUser(userId: number): number {
