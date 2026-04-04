@@ -1,43 +1,64 @@
+export interface AllClearEvent {
+  zone: string;
+  alertType: string;
+}
+
 export interface AllClearDeps {
   scheduleFn?: (cb: () => void, ms: number) => ReturnType<typeof setTimeout>;
   cancelScheduleFn?: (id: ReturnType<typeof setTimeout>) => void;
-  onAllClear: (zones: string[]) => void;
+  onAllClear: (events: AllClearEvent[]) => void;
   quietWindowMs?: number;
+}
+
+interface ZoneTimer {
+  id: ReturnType<typeof setTimeout>;
+  alertType: string;
 }
 
 const DEFAULT_QUIET_WINDOW_MS = 600_000; // 10 minutes
 
 export function createAllClearTracker(deps: AllClearDeps) {
-  const timers = new Map<string, ReturnType<typeof setTimeout>>();
+  const timers = new Map<string, ZoneTimer>();
   const firedZones = new Set<string>();
   const schedule = deps.scheduleFn ?? setTimeout;
   const cancel = deps.cancelScheduleFn ?? clearTimeout;
   const windowMs = deps.quietWindowMs ?? DEFAULT_QUIET_WINDOW_MS;
 
-  function recordAlert(zones: string[]): void {
+  function recordAlert(zones: string[], alertType: string): void {
     for (const zone of zones) {
       const existing = timers.get(zone);
-      if (existing) cancel(existing);
+      if (existing) cancel(existing.id);
 
       // New alert resets dedupe — a fresh all-clear should fire later
       firedZones.delete(zone);
 
-      const timer = schedule(() => {
+      const id = schedule(() => {
         if (!firedZones.has(zone)) {
           firedZones.add(zone);
-          deps.onAllClear([zone]);
+          deps.onAllClear([{ zone, alertType }]);
         }
         timers.delete(zone);
       }, windowMs);
-      timers.set(zone, timer);
+      timers.set(zone, { id, alertType });
+    }
+  }
+
+  // Cancels the pending all-clear timer for the given zones without firing it.
+  // Does NOT reset firedZones — a new alert will re-open the cycle correctly.
+  // Use when an official "האירוע הסתיים" newsFlash has already notified the user.
+  function cancelAlert(zones: string[]): void {
+    for (const zone of zones) {
+      const existing = timers.get(zone);
+      if (existing) cancel(existing.id);
+      timers.delete(zone);
     }
   }
 
   function clearAll(): void {
-    for (const timer of timers.values()) cancel(timer);
+    for (const { id } of timers.values()) cancel(id);
     timers.clear();
     firedZones.clear();
   }
 
-  return { recordAlert, clearAll };
+  return { recordAlert, cancelAlert, clearAll };
 }
