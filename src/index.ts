@@ -27,10 +27,11 @@ import { createMessageHandler } from './whatsapp/whatsappListenerService.js';
 import { initializeTelegramListener } from './telegram-listener/telegramListenerService.js';
 import { disconnect as disconnectTelegramListener } from './telegram-listener/telegramListenerClient.js';
 import { InputFile } from 'grammy';
-import { initSubscriptionCache } from './db/subscriptionRepository.js';
+import { initSubscriptionCache, getUserIdsByZone } from './db/subscriptionRepository.js';
 import { initUsageCache } from './db/mapboxUsageRepository.js';
 import { createAllClearTracker } from './services/allClearTracker.js';
-import { formatAllClearMessage } from './telegramBot.js';
+import { createAllClearService } from './services/allClearService.js';
+import { renderAllClearTemplate } from './telegramBot.js';
 import { getCityData } from './cityLookup.js';
 import { initAlertSerial, getNextAlertSerial } from './config/alertSerial.js';
 import { getDensityLabel } from './config/alertDensity.js';
@@ -157,17 +158,25 @@ for (const envVar of REQUIRED_ENV_VARS) {
     ? createBroadcaster(getDb())
     : undefined;
 
-  const allClearChatId = process.env.TELEGRAM_CHAT_ID!;
+  const allClearService = createAllClearService({
+    db: getDb(),
+    chatId: process.env.TELEGRAM_CHAT_ID!,
+    sendTelegram: (chatId, topicId, text) =>
+      bot.api.sendMessage(chatId, text, {
+        parse_mode: 'HTML',
+        ...(topicId != null ? { message_thread_id: topicId } : {}),
+      }),
+    getUserIdsByZone,
+    sendDm: (userId, text) =>
+      bot.api.sendMessage(String(userId), text, { parse_mode: 'HTML' }),
+    renderTemplate: renderAllClearTemplate,
+  });
+
   const allClearTracker = createAllClearTracker({
-    onAllClear: async (events) => {
-      for (const { zone } of events) {
-        try {
-          const message = formatAllClearMessage(zone);
-          await bot.api.sendMessage(allClearChatId, message, { parse_mode: 'HTML' });
-        } catch (err) {
-          log('error', 'AllClear', `שליחת הודעת סיום כשלה עבור אזור "${zone}": ${String(err)}`);
-        }
-      }
+    onAllClear: (events) => {
+      allClearService.handleAllClear(events).catch(err =>
+        log('error', 'Index', `handleAllClear נכשל: ${String(err)}`)
+      );
     },
   });
 
@@ -213,8 +222,18 @@ for (const envVar of REQUIRED_ENV_VARS) {
         .map((city) => getCityData(city)?.zone)
         .filter((z): z is string => z != null)
     )];
+
+    // Official "האירוע הסתיים" newsFlash cancels the pending timer — no double notification.
+    const isOfficialAllClear =
+      alert.type === 'newsFlash' &&
+      (alert.instructions ?? '').includes('האירוע הסתיים');
+
     if (alertZones.length > 0) {
-      allClearTracker.recordAlert(alertZones, alert.type);
+      if (isOfficialAllClear) {
+        allClearTracker.cancelAlert(alertZones);
+      } else {
+        allClearTracker.recordAlert(alertZones, alert.type);
+      }
     }
 
     await handleNewAlert(alert, {
