@@ -13,6 +13,7 @@ export function buildSummaryLine(cities: string[]): string | null {
     if (zone) zones.add(zone);
   }
   const zoneCount = zones.size;
-  if (zoneCount > 1) return `${zoneCount} אזורים · ${cities.length} ערים`;
-  return `${cities.length} ערים`;
+  const cityWord = cities.length === 1 ? 'עיר' : 'ערים';
+  if (zoneCount > 1) return `${zoneCount} אזורים · ${cities.length} ${cityWord}`;
+  return `${cities.length} ${cityWord}`;
 }

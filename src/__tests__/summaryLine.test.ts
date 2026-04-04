@@ -13,9 +13,9 @@ describe('buildSummaryLine', () => {
     assert.equal(result, '2 ערים');
   });
 
-  it('returns "N ערים" for single city with no zone data', () => {
+  it('returns "1 עיר" for single city with no zone data', () => {
     const result = buildSummaryLine(['עיר_לא_קיימת_xyz']);
-    assert.equal(result, '1 ערים');
+    assert.equal(result, '1 עיר');
   });
 
   it('returns "N ערים" when all cities share one zone', () => {

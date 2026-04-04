@@ -114,8 +114,9 @@ export function formatAlertMessageFE(
   const zoneCt = [...new Set(
     cities.map(c => cityDataMap.get(c)?.zone).filter((z): z is string => !!z)
   )].length;
+  const cityWord = cities.length === 1 ? 'עיר' : 'ערים';
   const summaryLine = cities.length > 0
-    ? (zoneCt > 1 ? `${zoneCt} אזורים · ${cities.length} ערים` : `${cities.length} ערים`)
+    ? (zoneCt > 1 ? `${zoneCt} אזורים · ${cities.length} ${cityWord}` : `${cities.length} ${cityWord}`)
     : null;
   const headerLines = [`${template.emoji} <b>${escapeHtml(template.titleHe)}</b>`, `⏰ ${timeStr}`];
   if (summaryLine) headerLines.push(summaryLine);
