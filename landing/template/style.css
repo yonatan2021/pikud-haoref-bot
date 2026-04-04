@@ -1701,7 +1701,7 @@ img {
   inset-inline-start: 0;
   inset-inline-end: 0;
   top: 100%;
-  background: #1a2332;
+  background: #0e1822;
   border: 1px solid var(--accent);
   border-top: none;
   border-end-start-radius: var(--radius-btn);
@@ -1711,7 +1711,7 @@ img {
   list-style: none;
   margin: 0;
   padding: 0.25rem 0;
-  z-index: 100;
+  z-index: 9999;
   scrollbar-width: thin;
   scrollbar-color: rgba(34, 158, 217, 0.4) transparent;
 }
