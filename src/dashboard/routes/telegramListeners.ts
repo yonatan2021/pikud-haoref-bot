@@ -86,7 +86,7 @@ export function createTelegramListenerRouter(
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       log('error', 'TG Listener', `startPhoneAuth נכשל: ${msg}`);
-      res.status(500).json({ error: msg });
+      res.status(500).json({ error: 'הפעולה נכשלה — בדוק יומנים' });
     }
   });
 
@@ -113,7 +113,7 @@ export function createTelegramListenerRouter(
         return;
       }
       log('error', 'TG Listener', `submitCode נכשל: ${msg}`);
-      res.status(500).json({ error: msg });
+      res.status(500).json({ error: 'הפעולה נכשלה — בדוק יומנים' });
     }
   });
 
@@ -133,7 +133,7 @@ export function createTelegramListenerRouter(
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       log('error', 'TG Listener', `submitPassword נכשל: ${msg}`);
-      res.status(500).json({ error: msg });
+      res.status(500).json({ error: 'הפעולה נכשלה — בדוק יומנים' });
     }
   });
 
@@ -146,7 +146,7 @@ export function createTelegramListenerRouter(
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       log('error', 'TG Listener', `disconnect נכשל: ${msg}`);
-      res.status(500).json({ error: msg });
+      res.status(500).json({ error: 'הפעולה נכשלה — בדוק יומנים' });
     }
   });
 
@@ -173,7 +173,7 @@ export function createTelegramListenerRouter(
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       log('error', 'TG Listener', `שגיאה ברענון chats: ${msg}`);
-      res.status(500).json({ error: msg });
+      res.status(500).json({ error: 'הפעולה נכשלה — בדוק יומנים' });
     }
   });
 
