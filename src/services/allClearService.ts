@@ -27,7 +27,13 @@ export function createAllClearService(deps: AllClearServiceDeps) {
     const topicId = topicIdStr ? Number(topicIdStr) : undefined;
 
     for (const { zone, alertType } of events) {
-      const text = deps.renderTemplate(zone, alertType);
+      let text: string;
+      try {
+        text = deps.renderTemplate(zone, alertType);
+      } catch (renderErr) {
+        log('error', 'AllClear', `שגיאה ב-renderTemplate zone="${zone}": ${String(renderErr)}`);
+        continue;
+      }
 
       if (mode === 'dm' || mode === 'both') {
         const userIds = deps.getUserIdsByZone([zone]);
