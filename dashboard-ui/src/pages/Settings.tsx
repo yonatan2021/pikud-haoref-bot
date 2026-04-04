@@ -18,6 +18,8 @@ interface Settings {
   telegram_invite_link?: string;
   whatsapp_enabled?: string;
   whatsapp_map_debounce_seconds?: string;
+  all_clear_mode?: string;
+  all_clear_topic_id?: string;
   health_port?: string;
   dashboard_port?: string;
   bot_version?: string;
@@ -63,6 +65,8 @@ export function Settings() {
         telegram_invite_link:    settings.telegram_invite_link ?? '',
         whatsapp_enabled:        settings.whatsapp_enabled ?? 'false',
         whatsapp_map_debounce_seconds: settings.whatsapp_map_debounce_seconds ?? '15',
+        all_clear_mode:          settings.all_clear_mode ?? 'dm',
+        all_clear_topic_id:      settings.all_clear_topic_id ?? '',
       });
       setDirty(false);
     }
@@ -79,6 +83,8 @@ export function Settings() {
         telegram_invite_link:    form.telegram_invite_link ?? '',
         whatsapp_enabled:        form.whatsapp_enabled ?? 'false',
         whatsapp_map_debounce_seconds: form.whatsapp_map_debounce_seconds ?? '15',
+        all_clear_mode:          form.all_clear_mode ?? 'dm',
+        all_clear_topic_id:      form.all_clear_topic_id ?? '',
       };
       return api.patch('/api/settings', body);
     },
@@ -262,6 +268,45 @@ export function Settings() {
               הקישור שמוצג בכפתור &quot;הצטרף לערוץ&quot; בבוט. עדכון ייכנס לתוקף בהודעה הבאה ללא הפעלה מחדש.
             </p>
           </div>
+        </GlassCard>
+
+        {/* All-Clear Settings */}
+        <GlassCard className="p-4 space-y-5">
+          <h2 className="font-semibold text-text-primary border-b border-border pb-3">הגדרות שקט חזר</h2>
+
+          <div>
+            <label className="text-text-secondary text-sm block mb-1">אופן שליחת הודעת שקט חזר</label>
+            <select
+              value={form.all_clear_mode ?? 'dm'}
+              onChange={e => updateField('all_clear_mode', e.target.value)}
+              className="bg-base border border-border rounded-lg px-4 py-2.5 text-sm text-text-primary outline-none focus:border-amber"
+            >
+              <option value="dm">הודעה פרטית (DM) — למנויי האזור</option>
+              <option value="channel">ערוץ/נושא — שידור ציבורי</option>
+              <option value="both">שניהם — DM + ערוץ</option>
+            </select>
+            <p className="text-text-muted text-xs mt-1">
+              לאחר 10 דקות ללא התראות חדשות באזור, ישלח &quot;שקט חזר&quot; לפי ההגדרה שנבחרה
+            </p>
+          </div>
+
+          {(form.all_clear_mode === 'channel' || form.all_clear_mode === 'both') && (
+            <div>
+              <label className="text-text-secondary text-sm block mb-1">מזהה נושא להודעות שקט חזר</label>
+              <input
+                type="number"
+                min={2}
+                value={form.all_clear_topic_id ?? ''}
+                onChange={e => updateField('all_clear_topic_id', e.target.value)}
+                placeholder="מזהה topic ב-Telegram"
+                className="bg-base border border-border rounded-lg px-4 py-2.5 text-sm text-text-primary outline-none focus:border-amber w-48"
+                dir="ltr"
+              />
+              <p className="text-text-muted text-xs mt-1">
+                מזהה הנושא (Topic ID) בערוץ הטלגרם לשידור הודעות שקט חזר. ריק = שידור לערוץ הראשי.
+              </p>
+            </div>
+          )}
         </GlassCard>
 
         {/* WhatsApp Settings */}
