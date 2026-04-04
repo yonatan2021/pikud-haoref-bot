@@ -2,6 +2,7 @@ import { getDb } from './schema.js';
 import { upsertUser } from './userRepository.js';
 import type { NotificationFormat } from './userRepository.js';
 import { log } from '../logger.js';
+import { getCitiesByZone } from '../cityLookup.js';
 
 export interface SubscriberInfo {
   chat_id: number;
@@ -217,6 +218,36 @@ export function updateSubscriberData(chatId: number, patch: Partial<CachedSubscr
   if (!cacheInitialized) return;
   const current = subscriberData.get(chatId);
   if (current) subscriberData.set(chatId, { ...current, ...patch });
+}
+
+// Returns the chat IDs of all DM-active subscribers whose subscriptions
+// overlap with at least one city in the given zones. Used by allClearService
+// to dispatch "שקט חזר" messages to only the relevant zone subscribers.
+export function getUserIdsByZone(zones: string[]): number[] {
+  if (zones.length === 0) return [];
+
+  const cityNames = zones.flatMap((zone) => getCitiesByZone(zone).map((c) => c.name));
+  if (cityNames.length === 0) return [];
+
+  if (!cacheInitialized) {
+    const placeholders = cityNames.map(() => '?').join(', ');
+    const rows = getDb()
+      .prepare(
+        `SELECT DISTINCT s.chat_id FROM subscriptions s
+         JOIN users u ON u.chat_id = s.chat_id
+         WHERE s.city_name IN (${placeholders}) AND u.is_dm_active = 1`
+      )
+      .all(...cityNames) as { chat_id: number }[];
+    return rows.map((r) => r.chat_id);
+  }
+
+  const chatIds = new Set<number>();
+  for (const city of cityNames) {
+    cityToSubscribers.get(city)?.forEach((id) => {
+      if (subscriberData.get(id)?.is_dm_active) chatIds.add(id);
+    });
+  }
+  return Array.from(chatIds);
 }
 
 export function evictSubscriberFromCache(chatId: number, cityName?: string): void {
