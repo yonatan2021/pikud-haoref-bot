@@ -92,6 +92,10 @@ export async function broadcastToWhatsAppGroups(
       log('warn', 'WA Broadcast',
         'אין קבוצות WhatsApp מוגדרות עם alert type "whatsappForward" — לא נשלח. ' +
         'הוסף "whatsappForward" ל-alert_types של הקבוצה בדשבורד → WhatsApp Groups.');
+    } else {
+      // All groups were filtered out because they match sourceGroupId — echo prevention working.
+      log('info', 'WA Broadcast',
+        `כל ${groupIds.length} קבוצות נפסלו — כולן תואמות ל-sourceGroupId "${sourceGroupId}" (מניעת אקו)`);
     }
     return;
   }
@@ -121,8 +125,10 @@ export async function broadcastToWhatsAppGroups(
     })
   );
 
-  if (sent > 0) {
-    log('info', 'WA→WA', `הועבר ל-${sent} קבוצות WhatsApp (whatsappForward)`);
+  if (sent === 0 && targets.length > 0) {
+    log('warn', 'WA→WA', `שידור נכשל לכל ${targets.length} קבוצות (0/${targets.length} הושלמו)`);
+  } else if (sent > 0) {
+    log('info', 'WA→WA', `הועבר ל-${sent}/${targets.length} קבוצות WhatsApp (whatsappForward)`);
   }
 }
 

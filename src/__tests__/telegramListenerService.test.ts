@@ -526,4 +526,24 @@ describe('createMessageHandler — General-topic normalization', () => {
     await new Promise<void>((r) => setTimeout(r, 10));
     assert.equal(calls.length, 1, 'sourceTopicId=null means forward all topics');
   });
+
+  it('chat===null (not in DB), sourceTopicId=1, topicId=null → message is NOT forwarded (unknown chat, topic filter applies)', async () => {
+    // chat NOT inserted into telegram_known_chats — simulates stale/cleared table
+    createListener(db, { ...BASE, chatId: FORUM_CHAT_ID, sourceTopicId: 1 });
+    const { bot, calls } = makeBot();
+    const h = createMessageHandler(db, bot);
+    await h(makeMsg(FORUM_CHAT_ID, 'unknown chat msg', { topicId: null }) as any);
+    await new Promise<void>((r) => setTimeout(r, 10));
+    assert.equal(calls.length, 0, 'unknown chat: effectiveTopicId stays null, does not match sourceTopicId=1');
+  });
+
+  it('chat===null (not in DB), sourceTopicId=1, topicId=2 → message is NOT forwarded', async () => {
+    // chat NOT inserted — topicId=2 clearly does not match sourceTopicId=1
+    createListener(db, { ...BASE, chatId: FORUM_CHAT_ID, sourceTopicId: 1 });
+    const { bot, calls } = makeBot();
+    const h = createMessageHandler(db, bot);
+    await h(makeMsg(FORUM_CHAT_ID, 'topic 2 unknown chat', { topicId: 2 }) as any);
+    await new Promise<void>((r) => setTimeout(r, 10));
+    assert.equal(calls.length, 0, 'unknown chat + topicId=2: topic filter correctly rejects');
+  });
 });

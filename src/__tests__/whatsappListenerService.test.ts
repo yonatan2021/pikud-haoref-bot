@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
 import { initSchema } from '../db/schema.js';
 import { createListener } from '../db/whatsappListenerRepository.js';
-import { createMessageHandler, type IncomingWhatsAppMsg } from '../whatsapp/whatsappListenerService.js';
+import { createMessageHandler, broadcastToWhatsAppGroups, type IncomingWhatsAppMsg } from '../whatsapp/whatsappListenerService.js';
 
 process.env['TELEGRAM_CHAT_ID'] = '-1001234567890';
 
@@ -330,5 +330,24 @@ describe('TELEGRAM_TOPIC_ID_WHATSAPP fallback', () => {
     h(makeMsg('nan@g.us', 'msg'));
     await new Promise(r => setTimeout(r, 10));
     assert.equal(calls[0]!.threadId, undefined, 'non-numeric env var should be treated as unset');
+  });
+});
+
+describe('broadcastToWhatsAppGroups — no configured groups', () => {
+  it('returns without calling getClientFn when groupIds is empty', async () => {
+    const getClientFn = mock.fn(() => null);
+    const broadcastDeps = {
+      getStatusFn: () => 'ready',
+      getClientFn,
+      getEnabledGroupsFn: (_db: unknown, _type: string) => [] as string[],
+    };
+
+    await broadcastToWhatsAppGroups(db, 'test message', 'source@g.us', broadcastDeps as any);
+
+    assert.equal(
+      (getClientFn as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
+      0,
+      'should return before reaching getClientFn when no groups are configured'
+    );
   });
 });

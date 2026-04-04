@@ -274,9 +274,11 @@ function attachMessageListener(db: Database.Database): void {
       // Extract forum topic thread ID (replyToTopId is set for messages inside a topic)
       const topicId = (message.replyTo as { replyToTopId?: number } | undefined)?.replyToTopId ?? null;
 
-      // Diagnostic: log every incoming group/channel message to confirm receipt and chatId format
-      const bodyPreview = message.message?.slice(0, 60) ?? '[מדיה בלבד]';
-      log('info', 'TG Listener', `הודעה מ-${chatId} · נושא=${topicId ?? 'ללא'} · "${bodyPreview}"`);
+      // Verbose diagnostic: log incoming message receipt — enable with TELEGRAM_LISTENER_VERBOSE=true
+      if (process.env['TELEGRAM_LISTENER_VERBOSE'] === 'true') {
+        const bodyPreview = message.message?.slice(0, 60) ?? '[מדיה בלבד]';
+        log('info', 'TG Listener', `הודעה מ-${chatId} · נושא=${topicId ?? 'ללא'} · "${bodyPreview}"`);
+      }
 
       // Get chat name from the event's input chat
       let chatName = chatId;
@@ -362,13 +364,19 @@ function attachMessageListener(db: Database.Database): void {
 
   // Monitor connection state changes for observability (reconnect detection)
   client.addEventHandler((update: unknown) => {
-    const upd = update as { className?: string; state?: number } | undefined;
-    if (upd?.className === 'UpdateConnectionState') {
-      const stateLabel = upd.state === 1 ? 'מחובר' : upd.state === 2 ? 'מתחבר...' : `state=${upd.state}`;
-      log('info', 'TG Listener', `שינוי מצב חיבור: ${stateLabel}`);
-      if (upd.state === 1) {
-        log('success', 'TG Listener', 'חיבור מחדש הצליח — מאזין פעיל');
+    try {
+      const upd = update as { className?: string; state?: number } | undefined;
+      if (upd?.className === 'UpdateConnectionState') {
+        const stateLabel = upd.state === 1 ? 'מחובר' : upd.state === 2 ? 'מתחבר...' : `state=${upd.state}`;
+        log('info', 'TG Listener', `שינוי מצב חיבור: ${stateLabel}`);
+        if (upd.state === 1) {
+          log('success', 'TG Listener', 'חיבור מחדש הצליח — מאזין פעיל');
+        }
       }
+    } catch (err: unknown) {
+      // Never let a logging error disrupt the GramJS update pipeline
+      // eslint-disable-next-line no-console
+      console.error('[TG Listener] Raw handler error:', err);
     }
   }, new Raw({}));
 
