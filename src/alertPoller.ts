@@ -48,13 +48,28 @@ function groupAlertsByType(alerts: Alert[]): Alert[] {
 export class AlertPoller extends EventEmitter {
   private seenFingerprints = new Set<string>();
   private citylessFingerprints = new Set<string>();
+  private _stopped = false;
+  private _scheduleHandle: NodeJS.Timeout | null = null;
 
   start(intervalMs = 2000): void {
     log('info', 'Poller', `מתחיל polling כל ${intervalMs / 1000} שניות`);
     const schedule = (): void => {
-      this.poll().finally(() => setTimeout(schedule, intervalMs));
+      if (this._stopped) return;
+      this.poll().finally(() => {
+        if (!this._stopped) {
+          this._scheduleHandle = setTimeout(schedule, intervalMs);
+        }
+      });
     };
     schedule();
+  }
+
+  stop(): void {
+    this._stopped = true;
+    if (this._scheduleHandle) {
+      clearTimeout(this._scheduleHandle);
+      this._scheduleHandle = null;
+    }
   }
 
   private async poll(): Promise<void> {
