@@ -766,6 +766,60 @@ describe('whatsappBroadcaster — TTL expiry', () => {
   });
 });
 
+describe('whatsappBroadcaster — one map per alert', () => {
+  beforeEach(() => clearTrackedMessages());
+
+  it('does not schedule a second debounce after the map has already been sent', async () => {
+    const db = makeDb();
+    upsertGroup(db, 'group1', 'Test', true, ['missiles']);
+
+    const mockMsg = makeMockMessage(null);
+    const sendMessageFn: SendMessageFn = mock.fn(async () => mockMsg);
+    const mockClient = { getChatById: mock.fn(async () => ({ sendMessage: sendMessageFn })) };
+
+    const { scheduleFn, cancelScheduleFn, scheduleMock } = makeScheduler();
+
+    const deps: BroadcasterDeps = {
+      getStatusFn: () => 'ready',
+      getClientFn: () => mockClient as unknown as ReturnType<BroadcasterDeps['getClientFn']>,
+      getEnabledGroupsFn: () => ['group1'],
+      formatFn: () => 'alert text',
+      scheduleFn,
+      cancelScheduleFn,
+    };
+
+    const broadcast = createBroadcaster(db, deps);
+    const image = Buffer.from('fake-image');
+    const alert: Alert = { type: 'missiles', cities: ['תל אביב'] };
+
+    // Wave 1 — fresh send: map debounce is scheduled
+    await broadcast(alert, image);
+    assert.equal(scheduleMock.mock.calls.length, 1, 'wave 1 should schedule map debounce');
+
+    // Simulate wave 1 debounce firing — sets mapSent = true internally
+    const wave1Callback = scheduleMock.mock.calls[0].arguments[0] as () => void;
+    wave1Callback();
+    // Give the async sendDebouncedMap a tick to complete
+    await new Promise((r) => setTimeout(r, 0));
+
+    // Wave 2 — edit path: map should NOT be scheduled again
+    await broadcast({ ...alert, cities: ['תל אביב', 'רמת גן'] }, image);
+    assert.equal(
+      scheduleMock.mock.calls.length,
+      1,
+      'wave 2 should NOT schedule a new map debounce after map was already sent',
+    );
+
+    // Wave 3 — same result
+    await broadcast({ ...alert, cities: ['תל אביב', 'רמת גן', 'חולון'] }, image);
+    assert.equal(
+      scheduleMock.mock.calls.length,
+      1,
+      'wave 3 should NOT schedule a map debounce either',
+    );
+  });
+});
+
 describe('whatsappBroadcaster — no enabled groups', () => {
   beforeEach(() => clearTrackedMessages());
 

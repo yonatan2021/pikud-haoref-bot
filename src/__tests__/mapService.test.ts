@@ -7,7 +7,8 @@ import path from 'path';
 const dataDir = path.join(process.cwd(), 'data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
-import { maxCacheSize, clearImageCache, _seedCache, generateMapImage, _buildMarkersUrl, _buildUnionedPolygonsUrl, initializeCache, SIMPLIFY_TOLERANCE, SIMPLIFY_TOLERANCE_AGGRESSIVE, getAlertColor, ALERT_TYPE_COLOR, getCurrentMapStyle, getAdaptivePadding } from '../mapService';
+import { maxCacheSize, clearImageCache, _seedCache, generateMapImage, _buildMarkersUrl, _buildUnionedPolygonsUrl, initializeCache, SIMPLIFY_TOLERANCE, SIMPLIFY_TOLERANCE_AGGRESSIVE, getAlertColor, ALERT_TYPE_COLOR, getCurrentMapStyle, getAdaptivePadding, clampFeatureCollectionToIsrael } from '../mapService';
+import type { FeatureCollection, Polygon } from 'geojson';
 import { buildGeoJSON, expandGeoJSONBounds } from '../cityLookup';
 import { initDb, getDb } from '../db/schema';
 import { getMonthlyCount, incrementMonthlyCount, isMonthlyLimitReached } from '../db/mapboxUsageRepository';
@@ -498,6 +499,58 @@ describe('buildMarkersWithPaddingUrl — min-span guarantee (Strategy 0)', () =>
 
   it('_buildMarkersUrl returns null for an empty city list', () => {
     assert.equal(_buildMarkersUrl([], 'missiles', 'mapbox/streets-v12', 80), null);
+  });
+});
+
+describe('clampFeatureCollectionToIsrael', () => {
+  it('clips a polygon that extends north into Lebanon', () => {
+    const fc = {
+      type: 'FeatureCollection' as const,
+      features: [{
+        type: 'Feature' as const,
+        properties: {},
+        geometry: {
+          type: 'Polygon' as const,
+          coordinates: [[
+            [34.5, 29.0],   // south-west (inside Israel)
+            [36.0, 29.0],   // south-east (east of Golan — outside)
+            [36.0, 34.0],   // north-east (inside Lebanon + east of border)
+            [34.5, 34.0],   // north-west (inside Lebanon)
+            [34.5, 29.0],
+          ]],
+        },
+      }],
+    };
+
+    const clamped = clampFeatureCollectionToIsrael(fc as FeatureCollection<Polygon>);
+    for (const feature of clamped.features) {
+      for (const ring of feature.geometry.coordinates) {
+        for (const [lng, lat] of ring as [number, number][]) {
+          assert.ok(lat <= 33.27, `lat ${lat} exceeds Israel north bound 33.27`);
+          assert.ok(lat >= 29.45, `lat ${lat} below Israel south bound 29.45`);
+          assert.ok(lng <= 35.90, `lng ${lng} exceeds Israel east bound 35.90`);
+          assert.ok(lng >= 34.25, `lng ${lng} below Israel west bound 34.25`);
+        }
+      }
+    }
+  });
+
+  it('leaves coordinates already inside Israel unchanged', () => {
+    const coord = [34.8, 31.5] as [number, number];
+    const fc = {
+      type: 'FeatureCollection' as const,
+      features: [{
+        type: 'Feature' as const,
+        properties: {},
+        geometry: {
+          type: 'Polygon' as const,
+          coordinates: [[coord, [35.0, 31.5], [35.0, 32.0], [34.8, 32.0], coord]],
+        },
+      }],
+    };
+    const clamped = clampFeatureCollectionToIsrael(fc as FeatureCollection<Polygon>);
+    const firstCoord = clamped.features[0].geometry.coordinates[0][0] as [number, number];
+    assert.deepEqual(firstCoord, coord);
   });
 });
 

@@ -238,6 +238,45 @@ function buildBboxFeatureCollection(
   return featureCollection([bboxPoly]) as FeatureCollection<Polygon>;
 }
 
+/** Israel geographic bounds — used to clamp map viewport for alerts near the northern border. */
+const ISRAEL_BOUNDS = {
+  minLng: 34.25,
+  maxLng: 35.90,
+  minLat: 29.45,
+  maxLat: 33.27,  // Metula (northernmost point)
+} as const;
+
+/**
+ * Clamps every coordinate in a FeatureCollection<Polygon> to Israel's geographic extent.
+ * Prevents the Mapbox viewport from spilling into Lebanon, Jordan, or Egypt when
+ * building a bounding-box fallback for alerts near the border.
+ *
+ * NOTE: Coordinate-wise clamping produces correct results only for rectangular (bbox)
+ * polygons. For arbitrary polygon shapes, independently clamping each coordinate can
+ * produce invalid geometry (e.g. collapsed edges or self-intersecting rings).
+ * Use this function only on axis-aligned bounding-box feature collections.
+ * Exported for testing.
+ */
+export function clampFeatureCollectionToIsrael(
+  fc: FeatureCollection<Polygon>,
+): FeatureCollection<Polygon> {
+  const { minLng, maxLng, minLat, maxLat } = ISRAEL_BOUNDS;
+  const clampLng = (v: number) => Math.max(minLng, Math.min(maxLng, v));
+  const clampLat = (v: number) => Math.max(minLat, Math.min(maxLat, v));
+
+  const features = fc.features.map((f) => ({
+    ...f,
+    geometry: {
+      ...f.geometry,
+      coordinates: f.geometry.coordinates.map((ring) =>
+        (ring as [number, number][]).map(([lng, lat]) => [clampLng(lng), clampLat(lat)])
+      ),
+    },
+  }));
+
+  return { ...fc, features } as FeatureCollection<Polygon>;
+}
+
 /** Merges all city polygons in `rawGeojson` into a minimal set of shapes via @turf/union,
  *  then simplifies the result and builds a Mapbox Static Images URL.
  *
@@ -253,6 +292,7 @@ export function _buildUnionedPolygonsUrl(
   color: string,
   style: string,
   padding: number,
+  isPreliminaryDerived: boolean = false,
 ): string | null {
   if (rawGeojson.features.length === 0) return null;
 
@@ -278,10 +318,11 @@ export function _buildUnionedPolygonsUrl(
 
   if (flatFeatures.length === 0) return null;
 
-  const simplified = simplifyFeatureCollection(
-    expandGeoJSONBounds({ type: 'FeatureCollection', features: flatFeatures }),
-    SIMPLIFY_TOLERANCE_AGGRESSIVE,
-  );
+  const baseFeatures: FeatureCollection<Polygon> = { type: 'FeatureCollection', features: flatFeatures };
+  const boundsAdjusted = isPreliminaryDerived
+    ? clampFeatureCollectionToIsrael(baseFeatures)
+    : expandGeoJSONBounds(baseFeatures);
+  const simplified = simplifyFeatureCollection(boundsAdjusted, SIMPLIFY_TOLERANCE_AGGRESSIVE);
 
   const url = buildMapboxUrl(simplified, style, padding);
   return url.length <= MAPBOX_URL_MAX_LENGTH ? url : null;
@@ -315,11 +356,14 @@ export async function generateMapImage(alert: Alert): Promise<Buffer | null> {
       cityIds.push(cityData.id);
     }
 
+    let isPreliminaryDerived = false;
+
     // Pre-warning path: no cities → derive zone polygons from instructions text
     if (cityIds.length === 0 && isPreliminaryAlert(alert.instructions)) {
       const zoneNames = extractZoneNamesFromText(alert.instructions ?? '');
       if (zoneNames.length > 0) {
         cityIds.push(...getCityIdsByZones(zoneNames));
+        isPreliminaryDerived = true;
         log('info', 'MapService', `Pre-warning: derived ${cityIds.length} city IDs from zones: ${zoneNames.join(', ')}`);
       }
     }
@@ -346,8 +390,9 @@ export async function generateMapImage(alert: Alert): Promise<Buffer | null> {
       return await fetchAndCacheImage(markersUrl, cacheKey);
     }
 
-    // Expand bounding box to guarantee ~50 km of geographic context
-    const geojson = expandGeoJSONBounds(rawGeojson);
+    // Skip bounds expansion for preliminary-derived alerts — they already span hundreds of km,
+    // and expansion pushes the northern edge into Lebanon.
+    const geojson = isPreliminaryDerived ? rawGeojson : expandGeoJSONBounds(rawGeojson);
 
     // ניסיון 1: פוליגונים מפושטים
     const simplified = simplifyFeatureCollection(geojson);
@@ -362,7 +407,7 @@ export async function generateMapImage(alert: Alert): Promise<Buffer | null> {
     // ניסיון 2.5: איחוד פוליגונים חופפים → כמה כתמים מאוחדים במקום מאות צורות נפרדות
     if (url.length > MAPBOX_URL_MAX_LENGTH) {
       log('warn', 'MapService', 'URL still too long — trying polygon union');
-      const unionUrl = _buildUnionedPolygonsUrl(rawGeojson, color, style, padding);
+      const unionUrl = _buildUnionedPolygonsUrl(rawGeojson, color, style, padding, isPreliminaryDerived);
       if (unionUrl) url = unionUrl;
     }
 
@@ -376,7 +421,11 @@ export async function generateMapImage(alert: Alert): Promise<Buffer | null> {
     // ניסיון 4: bounding box
     if (url.length > MAPBOX_URL_MAX_LENGTH) {
       log('warn', 'MapService', 'URL still too long — falling back to bounding box');
-      url = buildMapboxUrl(buildBboxFeatureCollection(geojson, color), style, padding);
+      const bboxFc = buildBboxFeatureCollection(geojson, color);
+      // Clamp bbox to Israel's extent for preliminary alerts near the northern border —
+      // prevents the fallback rectangle from including Lebanese territory.
+      const finalFc = isPreliminaryDerived ? clampFeatureCollectionToIsrael(bboxFc) : bboxFc;
+      url = buildMapboxUrl(finalFc, style, padding);
     }
 
     // ניסיון 5: אין תמונה

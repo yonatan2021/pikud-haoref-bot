@@ -61,9 +61,16 @@ export function buildAlertDmMessage(alert: Alert, homeCity?: string | null): str
   const relevance = getRelevanceIndicator(homeCity ?? null, alert.cities);
   if (relevance) parts.push(relevance);
 
+  // Only say "באזורך" when the home city is actually in the alert,
+  // or when the subscriber has no home city set (relevance = null).
+  // "🟡 באזור קרוב" and "🟢 לא באזורך" get a plain title — the
+  // relevance indicator already tells the full story.
+  const homeInAlert = relevance === '🔴 באזורך' || homeCity == null;
   const titleLine = isNationwide
     ? `${emoji} ${title}`
-    : `${emoji} ${title} באזורך`;
+    : homeInAlert
+      ? `${emoji} ${title} באזורך`
+      : `${emoji} ${title}`;
   parts.push(titleLine);
 
   const locationLine = isNationwide
@@ -121,14 +128,17 @@ export function buildNewsFlashDmMessage(alert: Alert, homeCity?: string | null):
 
   const allLabels = [...zones, ...noZoneCities];
 
-  const headline = isPreliminary
-    ? `⚠️ התראה מקדימה${allLabels.length > 0 ? ' באזורך' : ''}`
-    : `📢 הודעה מיוחדת`;
-
   const parts: string[] = [];
 
   const relevance = getRelevanceIndicator(homeCity ?? null, alert.cities);
   if (relevance) parts.push(relevance);
+
+  // Only say "באזורך" in the preliminary headline when home city is in the alert
+  // or when no home city is set — mirrors the fix in buildAlertDmMessage.
+  const homeInAlert = relevance === '🔴 באזורך' || homeCity == null;
+  const headline = isPreliminary
+    ? `⚠️ התראה מקדימה${allLabels.length > 0 && homeInAlert ? ' באזורך' : ''}`
+    : `📢 הודעה מיוחדת`;
 
   parts.push(headline);
 
