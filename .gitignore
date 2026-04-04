@@ -25,3 +25,5 @@ package-lock.json
 .superpowers/*
 AGENTS.md
 .agents/*
+.claude-flow/*
+.mcp.json

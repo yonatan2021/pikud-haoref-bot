@@ -177,7 +177,7 @@ describe('POST /api/telegram/connect', () => {
     startPhoneAuthShouldThrow = 'PHONE_NUMBER_INVALID';
     const res = await request(app).post('/api/telegram/connect').send({ phone: '+000' });
     assert.equal(res.status, 500);
-    assert.ok(res.body.error.includes('PHONE_NUMBER_INVALID'));
+    assert.ok(res.body.error); // generic error — raw GramJS message not exposed to client
   });
 });
 
@@ -212,7 +212,7 @@ describe('POST /api/telegram/verify', () => {
     submitCodeShouldThrow = 'NETWORK_ERROR';
     const res = await request(app).post('/api/telegram/verify').send({ code: '12345', phoneCodeHash: 'abc' });
     assert.equal(res.status, 500);
-    assert.ok(res.body.error.includes('NETWORK_ERROR'));
+    assert.ok(res.body.error); // generic error — raw GramJS message not exposed to client
   });
 });
 
@@ -236,7 +236,7 @@ describe('POST /api/telegram/verify-password', () => {
     submitPasswordShouldThrow = 'PASSWORD_HASH_INVALID';
     const res = await request(app).post('/api/telegram/verify-password').send({ password: 'wrong' });
     assert.equal(res.status, 500);
-    assert.ok(res.body.error.includes('PASSWORD_HASH_INVALID'));
+    assert.ok(res.body.error); // generic error — raw GramJS message not exposed to client
   });
 });
 

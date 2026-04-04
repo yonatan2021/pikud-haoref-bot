@@ -482,7 +482,7 @@ export function createMessagesRouter(db: Database.Database, bot: Bot, whatsappDe
       res.json({ ok: true, messageId: sent.message_id });
     } catch (err) {
       log('error', 'Messages', `שליחת הודעת מערכת נכשלה: ${String(err)}`);
-      res.status(500).json({ error: String(err) });
+      res.status(500).json({ error: 'שליחת ההודעה נכשלה' });
     }
   });
 

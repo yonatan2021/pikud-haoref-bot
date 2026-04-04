@@ -71,7 +71,7 @@ export function createLandingRouter(db: Database.Database): Router {
       if (!response.ok) {
         const detail = await response.text();
         log('error', 'Dashboard', `GitHub API error ${response.status}: ${detail}`);
-        res.status(502).json({ error: 'GitHub API נכשל', status: response.status, detail });
+        res.status(502).json({ error: 'GitHub API נכשל', status: response.status });
         return;
       }
       res.json({ ok: true });
