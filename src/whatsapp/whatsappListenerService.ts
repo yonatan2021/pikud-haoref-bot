@@ -85,7 +85,20 @@ export async function broadcastToWhatsAppGroups(
   const groupIds = deps.getEnabledGroupsFn(db, 'whatsappForward');
   // Exclude the source group to avoid echoing the message back
   const targets = groupIds.filter(id => id !== sourceGroupId);
-  if (targets.length === 0) return;
+  if (targets.length === 0) {
+    if (groupIds.length === 0) {
+      // No groups at all have 'whatsappForward' in their alert_types — common misconfiguration.
+      // Go to WhatsApp Groups in the dashboard and add 'whatsappForward' to the target group.
+      log('warn', 'WA Broadcast',
+        'אין קבוצות WhatsApp מוגדרות עם alert type "whatsappForward" — לא נשלח. ' +
+        'הוסף "whatsappForward" ל-alert_types של הקבוצה בדשבורד → WhatsApp Groups.');
+    } else {
+      // All groups were filtered out because they match sourceGroupId — echo prevention working.
+      log('info', 'WA Broadcast',
+        `כל ${groupIds.length} קבוצות נפסלו — כולן תואמות ל-sourceGroupId "${sourceGroupId}" (מניעת אקו)`);
+    }
+    return;
+  }
 
   const client = deps.getClientFn();
   if (!client) return;
@@ -112,8 +125,10 @@ export async function broadcastToWhatsAppGroups(
     })
   );
 
-  if (sent > 0) {
-    log('info', 'WA→WA', `הועבר ל-${sent} קבוצות WhatsApp (whatsappForward)`);
+  if (sent === 0 && targets.length > 0) {
+    log('warn', 'WA→WA', `שידור נכשל לכל ${targets.length} קבוצות (0/${targets.length} הושלמו)`);
+  } else if (sent > 0) {
+    log('info', 'WA→WA', `הועבר ל-${sent}/${targets.length} קבוצות WhatsApp (whatsappForward)`);
   }
 }
 

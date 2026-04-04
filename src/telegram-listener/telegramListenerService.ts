@@ -90,12 +90,20 @@ export function createMessageHandler(
       // Telegram forum groups: the General topic (id=1) sends messages without
       // replyToTopId, so topicId arrives as null. Normalise null → 1 for forum groups.
       const chat = getKnownChatById(db, msg.chatId);
+      if (!chat) {
+        log('warn', 'TG Listener',
+          `chatId ${msg.chatId} לא נמצא ב-telegram_known_chats — ייתכן שהרשימה לא מעודכנת (רענן דרך הדשבורד)`);
+      }
       const effectiveTopicId = (chat?.isForum && msg.topicId === null) ? 1 : msg.topicId;
+
+      log('info', 'TG Listener',
+        `בודק ${listeners.length} כלל/ים עבור ${msg.chatId} · effectiveTopicId=${effectiveTopicId ?? 'null'}`);
 
       for (const listener of listeners) {
         // Topic filter: if a specific source topic is configured, only forward messages from that topic
         if (listener.sourceTopicId !== null && effectiveTopicId !== listener.sourceTopicId) {
-          log('info', 'TG Listener', `listener ${listener.id}: נושא לא תואם (נדרש ${listener.sourceTopicId}, התקבל ${effectiveTopicId})`);
+          log('info', 'TG Listener',
+            `listener ${listener.id}: נושא לא תואם (נדרש ${listener.sourceTopicId}, התקבל ${effectiveTopicId ?? 'null'})`);
           continue;
         }
 
