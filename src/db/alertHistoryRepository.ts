@@ -1,7 +1,7 @@
 import { getDb } from './schema.js';
 import type { Alert } from '../types.js';
 import { log } from '../logger.js';
-import { israelMidnight, israelMonthStart } from '../dashboard/israelDate.js';
+import { israelMidnight, israelMidnightDaysAgo, israelMonthStart } from '../dashboard/israelDate.js';
 
 export interface AlertHistoryRow {
   id: number;
@@ -83,13 +83,14 @@ export function countAlertsToday(): number {
 
 export function getDailyAverageAlerts(days: number): number {
   if (days <= 0) return 0;
+  const cutoff = israelMidnightDaysAgo(days);
   const row = getDb()
     .prepare(
       `SELECT CAST(COUNT(*) AS REAL) / ? as avg
        FROM alert_history
-       WHERE fired_at >= datetime('now', '-' || ? || ' days')`
+       WHERE fired_at >= ?`
     )
-    .get(days, days) as { avg: number } | undefined;
+    .get(days, cutoff) as { avg: number } | undefined;
   return row?.avg ?? 0;
 }
 
