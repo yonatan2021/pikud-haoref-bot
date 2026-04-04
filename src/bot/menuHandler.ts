@@ -2,7 +2,7 @@ import { Bot, InlineKeyboard } from 'grammy';
 import type { Context } from 'grammy';
 import type Database from 'better-sqlite3';
 import { getSubscriptionCount } from '../db/subscriptionRepository.js';
-import { upsertUser, isOnboardingCompleted, getProfile, setOnboardingStep } from '../db/userRepository.js';
+import { upsertUser, isOnboardingCompleted, getProfile, setOnboardingStep, setDmActive } from '../db/userRepository.js';
 import { getRecentAlerts } from '../db/alertHistoryRepository.js';
 import { sendStepMessage } from './onboardingHandler.js';
 import { getSetting } from '../dashboard/settingsRepository.js';
@@ -54,6 +54,8 @@ export function registerMenuHandler(bot: Bot): void {
     const chatId = ctx.chat.id;
     try {
       upsertUser(chatId);
+      // Re-enable DM delivery — user is active again (may have previously blocked and unblocked).
+      setDmActive(chatId, true);
 
       // Gate new users into onboarding
       if (!isOnboardingCompleted(chatId)) {

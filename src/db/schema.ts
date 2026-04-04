@@ -212,6 +212,11 @@ export function initSchema(database: Database.Database): void {
   addColumnIfMissing(database, 'ALTER TABLE telegram_listeners ADD COLUMN source_topic_id INTEGER');
   addColumnIfMissing(database, 'ALTER TABLE telegram_known_chats ADD COLUMN is_forum INTEGER NOT NULL DEFAULT 0');
 
+  // v0.4.5 — soft-delete DM channel: is_dm_active=0 suspends DM delivery without
+  // deleting subscriptions. Resets to 1 on next /start. Default 1 (active) so all
+  // existing users remain subscribed after migration.
+  addColumnIfMissing(database, 'ALTER TABLE users ADD COLUMN is_dm_active INTEGER NOT NULL DEFAULT 1');
+
   database.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_connection_code ON users(connection_code) WHERE connection_code IS NOT NULL').run();
 }
 

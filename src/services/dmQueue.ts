@@ -1,5 +1,5 @@
 import { getBot } from '../telegramBot.js';
-import { deleteUser } from '../db/userRepository.js';
+import { deleteUser, setDmActive } from '../db/userRepository.js';
 import { log } from '../logger.js';
 
 export interface DmTask {
@@ -87,30 +87,69 @@ export class DmQueue {
       return;
     }
 
-    const isBlocked =
+    // Only permanently remove users for states that are truly unrecoverable.
+    // "bot was blocked" and "user is deactivated" are permanent — the user actively blocked
+    // the bot or their account no longer exists.
+    // "chat not found" is intentionally excluded: it can be a transient Telegram error
+    // (API outage, network hiccup) and should NOT trigger user deletion, which cascades
+    // to wipe all their subscriptions. The cost of retrying a dead chat is negligible
+    // compared to the cost of silently deleting an active subscriber.
+    const isPermanentlyBlocked =
       msg.includes('bot was blocked') ||
-      msg.includes('user is deactivated') ||
-      msg.includes('chat not found');
+      msg.includes('user is deactivated');
 
-    if (isBlocked) {
-      const reason = msg.includes('bot was blocked')
-        ? 'blocked'
-        : msg.includes('user is deactivated')
-          ? 'deactivated'
-          : 'chat not found';
-      log('info', 'DM', `משתמש ${task.chatId} לא נגיש (${reason}) — מסיר`);
+    if (isPermanentlyBlocked) {
+      const isBlocked = msg.includes('bot was blocked');
+      const reason = isBlocked ? 'blocked' : 'deactivated';
+      if (!safeMassDeleteGuard()) {
+        log('error', 'DM', `⛔ עצירת פעולה: ${massDeleteCount} פעולות ב-${MASS_DELETE_WINDOW_MS / 1000}ש — ייתכן Telegram outage. chatId=${task.chatId} לא טופל.`);
+        return;
+      }
       const chatIdNum = parseInt(task.chatId, 10);
       if (!isNaN(chatIdNum)) {
         try {
-          deleteUser(chatIdNum);
+          if (isBlocked) {
+            // Soft-delete: preserve subscriptions, user may unblock later.
+            // DMs resume when the user sends /start.
+            setDmActive(chatIdNum, false);
+            log('info', 'DM', `משתמש ${task.chatId} חסם את הבוט — DM מושבת (מנויים נשמרים)`);
+          } else {
+            // Hard-delete: account truly gone from Telegram (user is deactivated).
+            deleteUser(chatIdNum);
+            log('info', 'DM', `משתמש ${task.chatId} חשבון מבוטל (${reason}) — נמחק`);
+          }
         } catch (dbErr) {
-          log('error', 'DM', `כישלון בהסרת משתמש חסום ${task.chatId}: ${dbErr}`);
+          log('error', 'DM', `כישלון בטיפול במשתמש ${task.chatId}: ${dbErr}`);
         }
       }
+    } else if (msg.includes('chat not found')) {
+      // Transient or permanent — log as warning but do NOT delete.
+      // If a user truly deleted their Telegram account the error will eventually
+      // switch to "user is deactivated", which IS handled above.
+      log('warn', 'DM', `chat not found עבור ${task.chatId} — מדלג (לא מוחק, עשוי להיות זמני)`);
     } else {
       log('error', 'DM', `שגיאה בשליחה ל-${task.chatId}: ${err}`);
     }
   }
+}
+
+// Mass-delete guard: if more than MAX_MASS_DELETES users are deleted within
+// MASS_DELETE_WINDOW_MS, halt further deletions and log an error.
+// This protects against a Telegram outage causing a wave of "bot was blocked"
+// errors that would wipe all active subscribers in a single alert cycle.
+const MAX_MASS_DELETES = 5;
+const MASS_DELETE_WINDOW_MS = 60_000; // 1 minute
+let massDeleteCount = 0;
+let massDeleteWindowStart = 0;
+
+function safeMassDeleteGuard(): boolean {
+  const now = Date.now();
+  if (now - massDeleteWindowStart > MASS_DELETE_WINDOW_MS) {
+    massDeleteCount = 0;
+    massDeleteWindowStart = now;
+  }
+  massDeleteCount++;
+  return massDeleteCount <= MAX_MASS_DELETES;
 }
 
 const MAX_PAUSE_SECONDS = 300;

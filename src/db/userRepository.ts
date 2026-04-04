@@ -17,6 +17,7 @@ export interface User {
   onboarding_completed: boolean;
   connection_code: string | null;
   onboarding_step: OnboardingStep | null;
+  is_dm_active: boolean;
   created_at: string;
 }
 
@@ -38,6 +39,7 @@ interface RawUserRow {
   onboarding_completed: number;
   connection_code: string | null;
   onboarding_step: string | null;
+  is_dm_active: number;
   created_at: string;
 }
 
@@ -46,6 +48,7 @@ function mapRowToUser(raw: RawUserRow): User {
     ...raw,
     quiet_hours_enabled: raw.quiet_hours_enabled === 1,
     onboarding_completed: raw.onboarding_completed === 1,
+    is_dm_active: raw.is_dm_active !== 0,
     muted_until: raw.muted_until ?? null,
     display_name: raw.display_name ?? null,
     home_city: raw.home_city ?? null,
@@ -99,6 +102,18 @@ export function isMuted(chatId: number, now: Date = new Date()): boolean {
   const user = getUser(chatId);
   if (!user?.muted_until) return false;
   return new Date(user.muted_until) > now;
+}
+
+/**
+ * Soft-disable DM delivery for a user (e.g. bot was blocked).
+ * Subscriptions are preserved. DMs resume automatically when active=true is
+ * set (e.g. on next /start).  Does NOT cascade-delete subscriptions.
+ */
+export function setDmActive(chatId: number, active: boolean): void {
+  getDb().prepare('UPDATE users SET is_dm_active = ? WHERE chat_id = ?').run(active ? 1 : 0, chatId);
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  (require('./subscriptionRepository.js') as { updateSubscriberData: (id: number, patch: object) => void })
+    .updateSubscriberData(chatId, { is_dm_active: active });
 }
 
 export function deleteUser(chatId: number): void {
