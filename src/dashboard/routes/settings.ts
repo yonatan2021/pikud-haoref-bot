@@ -29,6 +29,8 @@ const ALLOWED_KEYS = new Set([
   'telegram_invite_link', 'mapbox_image_cache_size', 'whatsapp_enabled',
   'whatsapp_map_debounce_seconds',
   'privacy_defaults',
+  'all_clear_mode',
+  'all_clear_topic_id',
 ]);
 
 export function createSettingsRouter(db: Database.Database): Router {
