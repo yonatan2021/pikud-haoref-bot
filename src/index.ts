@@ -103,7 +103,7 @@ for (const envVar of REQUIRED_ENV_VARS) {
       await initializeTelegramListener(getDb(), bot);
     }
   } catch (err) {
-    log('warn', 'Init', `Telegram Listener אתחול נכשל — ממשיך ללא: ${err}`);
+    log('warn', 'Init', `Telegram Listener אתחול נכשל — ממשיך ללא: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
   }
 
   // Wire WhatsApp→Telegram listener. setMessageCallback is safe to call even when

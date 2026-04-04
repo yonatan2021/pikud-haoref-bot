@@ -174,6 +174,9 @@ export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Prom
     // Spread original `alert` (not `finalAlert`): DM subscribers receive the incoming
     // alert's type/instructions with only the NEW cities (dmCities). `finalAlert` is
     // the merged channel state used for Telegram channel edits only.
+    if (!sentToGroup) {
+      log('warn', 'AlertHandler', `DM נשלח למרות כישלון ערוץ — type=${alert.type}, ${dmCities.length} ערים`);
+    }
     notifySubscribers({ ...alert, cities: dmCities });
   }
 

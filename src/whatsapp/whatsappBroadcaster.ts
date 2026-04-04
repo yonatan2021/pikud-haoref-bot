@@ -208,8 +208,8 @@ export function createBroadcaster(
                 updatedMessage = await sendFreshText(chat, text);
                 sendCount++;
               }
-            } catch {
-              // Edit failed — send fresh text as fallback
+            } catch (editErr: unknown) {
+              log('warn', 'WhatsApp', `עריכת הודעה נכשלה בקבוצה ${groupId} — שולח הודעה חדשה: ${editErr instanceof Error ? editErr.message : String(editErr)}`);
               updatedMessage = await sendFreshText(chat, text);
               sendCount++;
             }

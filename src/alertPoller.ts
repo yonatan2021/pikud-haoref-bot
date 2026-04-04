@@ -58,12 +58,15 @@ export class AlertPoller extends EventEmitter {
   }
 
   private async poll(): Promise<void> {
-    await Promise.all([this.pollViaLibrary(), this.pollCitylessNewsFlash()]);
-    updateLastPollAt();
+    const results = await Promise.allSettled([this.pollViaLibrary(), this.pollCitylessNewsFlash()]);
+    const anySucceeded = results.some((r) => r.status === 'fulfilled');
+    if (anySucceeded) {
+      updateLastPollAt();
+    }
   }
 
   private pollViaLibrary(): Promise<void> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const options: Record<string, string> = {};
       if (process.env.PROXY_URL) {
         options.proxy = process.env.PROXY_URL;
@@ -72,8 +75,8 @@ export class AlertPoller extends EventEmitter {
       pikudHaoref.getActiveAlerts(
         (err: Error | null, alerts: Alert[]) => {
           if (err) {
-            log('error', 'Poller', `שגיאה בשליפת התראות: ${err}`);
-            return resolve();
+            log('error', 'Poller', `שגיאה בשליפת התראות: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
+            return reject(err);
           }
 
           const groupedAlerts = groupAlertsByType(alerts ?? []);
@@ -205,7 +208,8 @@ export class AlertPoller extends EventEmitter {
         this.emit('newAlert', { ...alert, receivedAt: Date.now() });
       }
     } catch (err) {
-      log('error', 'Poller', `שגיאה בבדיקת newsFlash ארצי: ${err}`);
+      log('error', 'Poller', `שגיאה בבדיקת newsFlash ארצי: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
+      throw err;
     }
   }
 
