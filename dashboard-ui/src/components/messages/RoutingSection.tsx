@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
+import toast from 'react-hot-toast';
 import { GlassCard } from '../ui/GlassCard';
 import { api } from '../../api/client';
 import { ORDERED_CATEGORIES, CATEGORY_META } from '../../utils/categoryConfig';
@@ -58,7 +59,9 @@ export function RoutingSection() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings'] });
       setDirty(false);
+      toast.success('ניתוב עודכן');
     },
+    onError: (err) => toast.error(`שגיאה בשמירת ניתוב: ${err instanceof Error ? err.message : 'פעולה נכשלה'}`),
   });
 
   const updateValue = (cat: AlertCategory, val: string) => {

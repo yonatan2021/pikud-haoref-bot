@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import { api } from '../../api/client';
 
 interface HistoryRow {
@@ -58,10 +59,12 @@ export function VersionHistoryPanel({
     mutationFn: (versionId: number) =>
       api.post<{ ok: boolean }>(`/api/messages/${alertType}/rollback`, { versionId }),
     onSuccess: () => {
+      toast.success('גרסה שוחזרה');
       queryClient.invalidateQueries({ queryKey: ['messages'] });
       queryClient.invalidateQueries({ queryKey: ['template-history', alertType] });
       onClose();
     },
+    onError: (err) => toast.error(`שגיאה בשחזור: ${err instanceof Error ? err.message : 'פעולה נכשלה'}`),
   });
 
   return (

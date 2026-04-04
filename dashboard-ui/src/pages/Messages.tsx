@@ -62,13 +62,14 @@ export default function Messages() {
       queryClient.invalidateQueries({ queryKey: ['messages'] });
       toast.success('תבניות נשמרו');
     },
-    onError: (err) => toast.error(`שגיאה: ${String(err)}`),
+    onError: (err) => toast.error(`שגיאה בשמירה: ${err instanceof Error ? err.message : 'פעולה נכשלה'}`),
   });
 
   // Reset single type
   const resetMutation = useMutation({
     mutationFn: (alertType: string) => api.delete(`/api/messages/${alertType}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['messages'] }),
+    onError: (err) => toast.error(`שגיאה באיפוס: ${err instanceof Error ? err.message : 'פעולה נכשלה'}`),
   });
 
   // Reset all customized
@@ -82,6 +83,7 @@ export default function Messages() {
       queryClient.invalidateQueries({ queryKey: ['messages'] });
       toast.success('כל התבניות אופסו');
     },
+    onError: (err) => toast.error(`שגיאה באיפוס: ${err instanceof Error ? err.message : 'פעולה נכשלה'}`),
   });
 
   // Import mutation
@@ -94,7 +96,7 @@ export default function Messages() {
       setImportModalOpen(false);
       toast.success(`יובאו ${data.count} תבניות`);
     },
-    onError: (err) => toast.error(`שגיאה בייבוא: ${String(err)}`),
+    onError: (err) => toast.error(`שגיאה בייבוא: ${err instanceof Error ? err.message : 'פעולה נכשלה'}`),
   });
 
   // Field change handler
@@ -162,7 +164,7 @@ export default function Messages() {
       URL.revokeObjectURL(url);
       toast.success('ייצוא הושלם');
     } catch (err) {
-      toast.error(`שגיאה בייצוא: ${String(err)}`);
+      toast.error(`שגיאה בייצוא: ${err instanceof Error ? err.message : 'פעולה נכשלה'}`);
     }
   }, []);
 
