@@ -695,3 +695,56 @@ describe('notifySubscribers', () => {
     assert.ok(text.includes('התראה מקדימה'), `Should include preliminary text: ${text}`);
   });
 });
+
+describe('buildNewsFlashDmMessage — headline location suffix', () => {
+  it('omits "באזורך" from preliminary headline when home city is outside the alert', () => {
+    // Preliminary alert text
+    const alert: Alert = {
+      type: 'newsFlash',
+      cities: ['מעלות תרשיחא'],
+      instructions: 'בדקות הקרובות צפויות להתקבל התרעות באזורך',
+    };
+    const msg = buildNewsFlashDmMessage(alert, 'תל אביב');
+    const lines = msg.split('\n');
+    // First line is relevance indicator
+    assert.ok(lines[0].includes('🟢'), `expected 🟢 relevance, got: ${lines[0]}`);
+    // Headline must NOT say "באזורך"
+    assert.ok(!lines[1].includes('באזורך'), `headline should not say "באזורך", got: ${lines[1]}`);
+  });
+
+  it('includes "באזורך" in preliminary headline when home city IS in the alert', () => {
+    const alert: Alert = {
+      type: 'newsFlash',
+      cities: ['תל אביב'],
+      instructions: 'בדקות הקרובות צפויות להתקבל התרעות באזורך',
+    };
+    const msg = buildNewsFlashDmMessage(alert, 'תל אביב');
+    const lines = msg.split('\n');
+    assert.ok(lines[0].includes('🔴'), `expected 🔴 relevance, got: ${lines[0]}`);
+    assert.ok(lines[1].includes('באזורך'), `headline should say "באזורך", got: ${lines[1]}`);
+  });
+
+  it('includes "באזורך" in preliminary headline when no home city is set', () => {
+    const alert: Alert = {
+      type: 'newsFlash',
+      cities: ['מעלות תרשיחא'],
+      instructions: 'בדקות הקרובות צפויות להתקבל התרעות באזורך',
+    };
+    const msg = buildNewsFlashDmMessage(alert, null);
+    // No relevance line when homeCity is null — first line is the headline
+    const firstLine = msg.split('\n')[0];
+    assert.ok(firstLine.includes('באזורך'), `headline should say "באזורך" when no home city, got: ${firstLine}`);
+  });
+
+  it('non-preliminary newsFlash never says "באזורך" in headline', () => {
+    const alert: Alert = {
+      type: 'newsFlash',
+      cities: ['תל אביב'],
+      instructions: 'הודעה רגילה',
+    };
+    const msg = buildNewsFlashDmMessage(alert, null);
+    // Non-preliminary headline is always "📢 הודעה מיוחדת"
+    assert.ok(msg.includes('📢 הודעה מיוחדת'), `expected non-preliminary headline, got: ${msg}`);
+    assert.ok(!msg.includes('באזורך') || msg.split('\n').some(l => l.includes('📢')), 'non-preliminary headline must not say "באזורך"');
+  });
+});
