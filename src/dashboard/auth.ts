@@ -85,13 +85,14 @@ export function createSessionStore(db: Database.Database, secret: string) {
       clearLoginAttempts(ip);
       const token = randomUUID();
       db.prepare(
-        `INSERT INTO sessions (token, expires_at) VALUES (?, datetime('now', '+${SESSION_TTL_DAYS} days'))`
-      ).run(token);
+        "INSERT INTO sessions (token, expires_at) VALUES (?, datetime('now', '+' || cast(? as text) || ' days'))"
+      ).run(token, SESSION_TTL_DAYS);
+      const secureCookie = process.env['DASHBOARD_SECURE_COOKIE'] === 'true' || process.env.NODE_ENV === 'production';
       res.cookie(COOKIE_NAME, token, {
         httpOnly: true,
         sameSite: 'strict',
         maxAge: SESSION_TTL_DAYS * 24 * 60 * 60 * 1000,
-        secure: process.env.NODE_ENV === 'production',
+        secure: secureCookie,
       });
       res.json({ ok: true });
     } catch (err) {
