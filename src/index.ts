@@ -25,6 +25,7 @@ import { initialize as initWhatsApp, disconnect as disconnectWhatsApp, setMessag
 import { createBroadcaster } from './whatsapp/whatsappBroadcaster.js';
 import { createMessageHandler } from './whatsapp/whatsappListenerService.js';
 import { initializeTelegramListener } from './telegram-listener/telegramListenerService.js';
+import { disconnect as disconnectTelegramListener } from './telegram-listener/telegramListenerClient.js';
 import { InputFile } from 'grammy';
 import { initSubscriptionCache } from './db/subscriptionRepository.js';
 import { initUsageCache } from './db/mapboxUsageRepository.js';
@@ -170,14 +171,30 @@ for (const envVar of REQUIRED_ENV_VARS) {
   });
 
   // Graceful shutdown — stop accepting work, drain in-flight, close storage
+  let shuttingDown = false;
   async function shutdown(signal: string): Promise<void> {
+    if (shuttingDown) return;
+    shuttingDown = true;
+
+    // Force exit after 10s if cleanup hangs (e.g. stuck WA or bot.stop())
+    const forceTimer = setTimeout(() => {
+      log('warn', 'Init', 'Shutdown timeout — יוצא בכוח');
+      process.exit(1);
+    }, 10_000);
+    forceTimer.unref();
+
     log('info', 'Init', `${signal} — מבצע כיבוי מסודר...`);
+    clearInterval(contactCleanupInterval);
     allClearTracker.clearAll();
+    poller.stop();
     try { await bot.stop(); } catch { /* ignore */ }
     healthServer.close();
     if (dashboardHttpServer) { dashboardHttpServer.close(); }
     if (process.env.WHATSAPP_ENABLED === 'true') {
       try { await disconnectWhatsApp(); } catch { /* ignore */ }
+    }
+    if (process.env.TELEGRAM_LISTENER_ENABLED === 'true') {
+      try { await disconnectTelegramListener(getDb()); } catch { /* ignore */ }
     }
     try { closeDb(); } catch { /* ignore */ }
     process.exit(0);
@@ -219,7 +236,7 @@ for (const envVar of REQUIRED_ENV_VARS) {
 
   // Prune expired pending contact requests every 6 hours
   const CONTACT_CLEANUP_INTERVAL_MS = 6 * 60 * 60 * 1000;
-  setInterval(() => {
+  const contactCleanupInterval = setInterval(() => {
     const pruned = pruneExpiredContacts();
     if (pruned > 0) {
       log('info', 'Cleanup', `הוסרו ${pruned} בקשות קשר שפגו`);
