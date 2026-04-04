@@ -1,6 +1,7 @@
 import type { Feature, FeatureCollection, Polygon, Position } from 'geojson';
 import { CityEntry, PolygonCoords, PolygonsMap } from './types';
 import { normalizeCityName } from './alertPoller';
+import { SUPER_REGIONS } from './config/zones.js';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const citiesData: CityEntry[] = require('pikud-haoref-api/cities.json');
@@ -64,13 +65,17 @@ export function getPolygonCoords(cityId: number): PolygonCoords | null {
 
 export function buildGeoJSON(
   cityIds: number[],
-  color: string = '#FF0000'
+  color: string = '#FF0000',
+  colorFn?: (zoneName: string) => string
 ): FeatureCollection<Polygon> {
   const features: Feature<Polygon>[] = [];
 
   for (const id of cityIds) {
     const coords = getPolygonCoords(id);
     if (!coords || coords.length < 3) continue;
+
+    const city = byId.get(id);
+    const fillColor = colorFn && city ? colorFn(city.zone) : color;
 
     // pikud-haoref stores [lat, lng]; GeoJSON requires [lng, lat]
     const ring: [number, number][] = coords.map(([lat, lng]) => [lng, lat]);
@@ -85,9 +90,9 @@ export function buildGeoJSON(
     features.push({
       type: 'Feature',
       properties: {
-        fill: color,
+        fill: fillColor,
         'fill-opacity': 0.5,
-        stroke: color,
+        stroke: fillColor,
         'stroke-width': 4,
         'stroke-opacity': 0.8,
       },
@@ -162,4 +167,21 @@ export function expandGeoJSONBounds(
   };
 
   return { ...geojson, features: [...geojson.features, paddingBox] };
+}
+
+/** Returns all city IDs for the given zone names. */
+export function getCityIdsByZones(zoneNames: string[]): number[] {
+  const ids: number[] = [];
+  for (const zone of zoneNames) {
+    for (const city of getCitiesByZone(zone)) {
+      ids.push(city.id);
+    }
+  }
+  return ids;
+}
+
+/** Searches text for any of the 33 known zone names (substring match). */
+export function extractZoneNamesFromText(text: string): string[] {
+  const allZoneNames = SUPER_REGIONS.flatMap((sr) => sr.zones);
+  return allZoneNames.filter((zone) => text.includes(zone));
 }

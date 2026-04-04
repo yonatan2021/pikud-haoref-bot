@@ -127,6 +127,48 @@ describe('buildAlertDmMessage', () => {
     const msg = buildAlertDmMessage(alert);
     assert.ok(msg.includes('ועוד 5'));
   });
+
+  it('includes 🔴🔴🔴🔴🔴 countdown bar for city with 15s countdown (אבשלום)', () => {
+    // אבשלום has countdown=15 in cities.json → מיידי urgency → full red bar
+    const alert: Alert = { type: 'missiles', cities: ['אבשלום'] };
+    const msg = buildAlertDmMessage(alert);
+    assert.ok(msg.includes('🔴🔴🔴🔴🔴'), `expected full red bar in: ${msg}`);
+    assert.ok(msg.includes('⏱'), 'expected ⏱ countdown indicator alongside bar');
+  });
+
+  it('includes 🟢🟢⬜⬜⬜ countdown bar for city with 90s countdown (אבו גוש)', () => {
+    // אבו גוש has countdown=90 in cities.json → מתון urgency → 2/5 green bar
+    const alert: Alert = { type: 'missiles', cities: ['אבו גוש'] };
+    const msg = buildAlertDmMessage(alert);
+    assert.ok(msg.includes('🟢🟢⬜⬜⬜'), `expected green bar in: ${msg}`);
+  });
+
+  it('omits countdown bar when countdown = 0 (confrontation-line city)', () => {
+    // City with countdown=0 → getMinCountdown returns 0 → no bar rendered
+    const alert: Alert = { type: 'missiles', cities: ['עיר_לא_קיימת_בכלל'] };
+    const msg = buildAlertDmMessage(alert);
+    assert.ok(!msg.includes('🔴🔴'), 'no bar for unknown/zero-countdown city');
+    assert.ok(!msg.includes('🟢🟢'), 'no bar for unknown/zero-countdown city');
+  });
+});
+
+describe('buildAlertDmMessage — minimum-urgency regression (#90)', () => {
+  it('DM bar reflects the minimum countdown across all cities (most urgent city wins)', () => {
+    // אבשלום=15s (מיידי → 🔴🔴🔴🔴🔴), אבו גוש=90s (מתון → 🟢🟢⬜⬜⬜)
+    // When both appear, the bar must use 15s (most urgent) — not 90s.
+    // Regression guard: if getMinCountdown changes logic to use max instead of min, this test fails.
+    const alert: Alert = { type: 'missiles', cities: ['אבו גוש', 'אבשלום'] };
+    const msg = buildAlertDmMessage(alert);
+    assert.ok(msg.includes('🔴🔴🔴🔴🔴'), `expected red bar (15s min) not green in: ${msg}`);
+    assert.ok(!msg.includes('🟢🟢⬜⬜⬜'), 'must not show the less-urgent 90s bar');
+  });
+
+  it('DM countdown shows the minimum seconds value when multiple cities', () => {
+    const alert: Alert = { type: 'missiles', cities: ['אבו גוש', 'אבשלום'] };
+    const msg = buildAlertDmMessage(alert);
+    assert.ok(msg.includes('15 שניות'), `expected 15s in: ${msg}`);
+    assert.ok(!msg.includes('90 שניות'), 'must not show 90s when 15s is the minimum');
+  });
 });
 
 describe('buildNewsFlashDmMessage', () => {
@@ -365,6 +407,7 @@ describe('notifySubscribers', () => {
   let upsertUser: (chatId: number) => void;
   let setQuietHours: (chatId: number, enabled: boolean) => void;
   let setMutedUntil: (chatId: number, until: Date | null) => void;
+  let updateProfile: (chatId: number, patch: { home_city?: string }) => void;
 
   const CHAT_A = 777001;
   // 'אבו גוש' (id=511) — reliable test fixture with zone data
@@ -381,6 +424,7 @@ describe('notifySubscribers', () => {
     upsertUser = userRepo.upsertUser;
     setQuietHours = userRepo.setQuietHours;
     setMutedUntil = userRepo.setMutedUntil;
+    updateProfile = userRepo.updateProfile;
     initDb();
   });
 
@@ -526,5 +570,93 @@ describe('notifySubscribers', () => {
     assert.equal(captured.length, 2, 'security alert must reach both muted and active subscribers');
     const ids = captured.map((t) => t.chatId).sort();
     assert.deepEqual(ids, [String(CHAT_MUTED), String(CHAT_ACTIVE)].sort());
+  });
+
+  it('relevance indicator: each subscriber gets correct indicator based on their home_city', () => {
+    // אור יהודה (zone: דן), בני ברק (zone: דן) — same zone
+    // All 3 are subscribed to the same city so matchedCities = ['אור יהודה'] for all
+    const CHAT_RED = 888001;   // home_city = אור יהודה (directly in alert)
+    const CHAT_YELLOW = 888002; // home_city = בני ברק (same zone דן as אור יהודה)
+    const CHAT_GREEN = 888003;  // home_city = אילת (different zone)
+
+    [CHAT_RED, CHAT_YELLOW, CHAT_GREEN].forEach((id) => {
+      upsertUser(id);
+      addSubscription(id, 'אור יהודה');
+    });
+    updateProfile(CHAT_RED, { home_city: 'אור יהודה' });
+    updateProfile(CHAT_YELLOW, { home_city: 'בני ברק' });
+    updateProfile(CHAT_GREEN, { home_city: 'אילת' });
+
+    const captured: DmTask[] = [];
+    const alert: Alert = { type: 'missiles', cities: ['אור יהודה'] };
+    notifySubscribers(alert, (tasks) => captured.push(...tasks));
+
+    assert.equal(captured.length, 3);
+
+    const byId = new Map(captured.map((t) => [t.chatId, t.text]));
+
+    assert.ok(byId.get(String(CHAT_RED))?.startsWith('🔴 באזורך'),
+      `User with home_city in alert should get 🔴: ${byId.get(String(CHAT_RED))}`);
+    assert.ok(byId.get(String(CHAT_YELLOW))?.startsWith('🟡 באזור קרוב'),
+      `User with same zone should get 🟡: ${byId.get(String(CHAT_YELLOW))}`);
+    assert.ok(byId.get(String(CHAT_GREEN))?.startsWith('🟢 לא באזורך'),
+      `User with different zone should get 🟢: ${byId.get(String(CHAT_GREEN))}`);
+  });
+
+  it('relevance indicator: subscriber with home_city null receives DM without indicator', () => {
+    const CHAT_NO_HOME = 888004;
+    upsertUser(CHAT_NO_HOME);
+    addSubscription(CHAT_NO_HOME, 'אור יהודה');
+    // home_city remains null (not set)
+
+    const captured: DmTask[] = [];
+    const alert: Alert = { type: 'missiles', cities: ['אור יהודה'] };
+    notifySubscribers(alert, (tasks) => captured.push(...tasks));
+
+    assert.equal(captured.length, 1);
+    const firstLine = captured[0].text.split('\n')[0];
+    assert.ok(firstLine !== '🔴 באזורך' && firstLine !== '🟡 באזור קרוב' && firstLine !== '🟢 לא באזורך',
+      `DM without home_city should not start with relevance indicator: ${firstLine}`);
+  });
+
+  it('relevance indicator: nationwide alert (empty cities) produces no indicator even with home_city', () => {
+    const CHAT_NATION = 888005;
+    upsertUser(CHAT_NATION);
+    // No city subscription — nationwide alert reaches all (cities=[])
+    // Subscribe to a city so the test subscriber is matched
+    addSubscription(CHAT_NATION, TEST_CITY);
+    updateProfile(CHAT_NATION, { home_city: 'אור יהודה' });
+
+    const captured: DmTask[] = [];
+    // Nationwide alert has no cities — matchedCities = [TEST_CITY] (the subscriber's city)
+    // But alert.cities = [] → getRelevanceIndicator returns null
+    const alert: Alert = { type: 'missiles', cities: [TEST_CITY] };
+    notifySubscribers(alert, (tasks) => captured.push(...tasks));
+    // The alert has cities here, but we test via getRelevanceIndicator directly for the empty case
+    // To test truly empty-cities alert: subscriber gets it via matchedCities which IS empty if alert.cities=[]
+    // So we test the pure function directly
+    const { getRelevanceIndicator: gri } = require('../services/dmDispatcher');
+    assert.equal(gri('אור יהודה', []), null, 'nationwide (empty cities) alert should produce null indicator');
+  });
+
+  it('preliminary newsFlash + relevance indicator combined: indicator and ⚠️ both appear', () => {
+    const CHAT_PRELIM = 888006;
+    upsertUser(CHAT_PRELIM);
+    addSubscription(CHAT_PRELIM, 'אור יהודה');
+    updateProfile(CHAT_PRELIM, { home_city: 'אור יהודה' });
+
+    const captured: DmTask[] = [];
+    const alert: Alert = {
+      type: 'newsFlash',
+      cities: ['אור יהודה'],
+      instructions: 'בדקות הקרובות צפויות להתקבל התרעות',
+    };
+    notifySubscribers(alert, (tasks) => captured.push(...tasks));
+
+    assert.equal(captured.length, 1);
+    const text = captured[0].text;
+    assert.ok(text.startsWith('🔴 באזורך'), `Should start with relevance indicator: ${text}`);
+    assert.ok(text.includes('⚠️'), `Should include preliminary warning emoji ⚠️: ${text}`);
+    assert.ok(text.includes('התראה מקדימה'), `Should include preliminary text: ${text}`);
   });
 });

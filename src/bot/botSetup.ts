@@ -9,10 +9,14 @@ import { registerStatsHandler } from './statsHandler.js';
 import { registerHistoryHandler } from './historyHandler.js';
 import { registerConnectHandler } from './connectHandler.js';
 import { registerPrivacyHandler } from './privacyHandler.js';
+import { registerTodayHandler } from './todayHandler.js';
+import { registerLegendHandler } from './legendHandler.js';
 import { log } from '../logger.js';
 
 export async function setupBotHandlers(bot: Bot): Promise<void> {
-  // Onboarding text handler must be registered BEFORE other text handlers
+  // CRITICAL: onboarding must be first — its bot.on('message:text') handler
+  // calls next() for non-onboarding messages so downstream handlers run.
+  // Reordering this will silently swallow text input during onboarding.
   registerOnboardingHandler(bot);
   registerProfileHandler(bot);
   registerMenuHandler(bot);
@@ -23,6 +27,8 @@ export async function setupBotHandlers(bot: Bot): Promise<void> {
   registerHistoryHandler(bot);
   registerConnectHandler(bot);
   registerPrivacyHandler(bot);
+  registerTodayHandler(bot);
+  registerLegendHandler(bot);
 
   bot.catch((err) => {
     log('error', 'Bot', `Unhandled error: ${String(err)}`);
@@ -40,5 +46,7 @@ export async function setupBotHandlers(bot: Bot): Promise<void> {
     { command: 'connect',  description: 'חיבור עם חברים' },
     { command: 'contacts', description: 'אנשי הקשר שלי' },
     { command: 'privacy',  description: 'הגדרות פרטיות' },
+    { command: 'today',    description: 'סיכום יומי' },
+    { command: 'legend',   description: 'מקרא אזורי ההתראה' },
   ]);
 }

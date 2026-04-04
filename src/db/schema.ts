@@ -125,6 +125,7 @@ export function initSchema(database: Database.Database): void {
       created_at          TEXT    NOT NULL DEFAULT (datetime('now'))
     );
 
+
     CREATE TABLE IF NOT EXISTS telegram_listeners (
       id                  INTEGER PRIMARY KEY AUTOINCREMENT,
       chat_id             TEXT    NOT NULL UNIQUE,
@@ -154,6 +155,7 @@ export function initSchema(database: Database.Database): void {
       PRIMARY KEY (chat_id, topic_id)
     );
 
+
     CREATE TABLE IF NOT EXISTS contacts (
       id          INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id     INTEGER NOT NULL,
@@ -161,6 +163,7 @@ export function initSchema(database: Database.Database): void {
       status      TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected')),
       created_at  TEXT NOT NULL DEFAULT (datetime('now')),
       UNIQUE(user_id, contact_id),
+      CHECK(user_id != contact_id),
       FOREIGN KEY (user_id) REFERENCES users(chat_id) ON DELETE CASCADE,
       FOREIGN KEY (contact_id) REFERENCES users(chat_id) ON DELETE CASCADE
     );

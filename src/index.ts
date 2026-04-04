@@ -28,6 +28,10 @@ import { initializeTelegramListener } from './telegram-listener/telegramListener
 import { InputFile } from 'grammy';
 import { initSubscriptionCache } from './db/subscriptionRepository.js';
 import { initUsageCache } from './db/mapboxUsageRepository.js';
+import { createAllClearTracker } from './services/allClearTracker.js';
+import { formatAllClearMessage } from './telegramBot.js';
+import { getCityData } from './cityLookup.js';
+import { initAlertSerial, getNextAlertSerial } from './config/alertSerial.js';
 import { pruneExpiredContacts } from './db/contactRepository.js';
 
 // Prevent broken-pipe errors from crashing the bot when a stdout consumer exits.
@@ -57,6 +61,7 @@ for (const envVar of REQUIRED_ENV_VARS) {
     loadRoutingCache(getDb());
     setMenuHandlerDb(getDb());
     alertsToday = countAlertsToday();
+    initAlertSerial(alertsToday);
   } catch (err) {
     log('error', 'Init', `כישלון אתחול מסד נתונים — הבוט לא יכול להתחיל: ${err}`);
     process.exit(1);
@@ -150,9 +155,38 @@ for (const envVar of REQUIRED_ENV_VARS) {
     ? createBroadcaster(getDb())
     : undefined;
 
+  const allClearChatId = process.env.TELEGRAM_CHAT_ID!;
+  const allClearTracker = createAllClearTracker({
+    onAllClear: async (zones) => {
+      for (const zone of zones) {
+        try {
+          const message = formatAllClearMessage(zone);
+          await bot.api.sendMessage(allClearChatId, message, { parse_mode: 'HTML' });
+        } catch (err) {
+          log('error', 'AllClear', `שליחת הודעת סיום כשלה עבור אזור "${zone}": ${String(err)}`);
+        }
+      }
+    },
+  });
+
+  // Clear all-clear timers on graceful shutdown to avoid dangling timer handles
+  process.once('SIGTERM', () => { allClearTracker.clearAll(); process.exit(0); });
+  process.once('SIGINT',  () => { allClearTracker.clearAll(); process.exit(0); });
+
   poller.on('newAlert', async (alert: Alert) => {
     updateLastAlertAt();
     const chatId = process.env.TELEGRAM_CHAT_ID!;
+
+    // Extract unique zones from the alert cities for all-clear tracking
+    const alertZones = [...new Set(
+      alert.cities
+        .map((city) => getCityData(city)?.zone)
+        .filter((z): z is string => z != null)
+    )];
+    if (alertZones.length > 0) {
+      allClearTracker.recordAlert(alertZones);
+    }
+
     await handleNewAlert(alert, {
       chatId,
       generateMapImage,
@@ -165,6 +199,7 @@ for (const envVar of REQUIRED_ENV_VARS) {
       getTopicId,
       insertAlertHistory,
       broadcastToWhatsApp,
+      getNextSerial: getNextAlertSerial,
     });
   });
 
@@ -179,7 +214,7 @@ for (const envVar of REQUIRED_ENV_VARS) {
     }
   }, CONTACT_CLEANUP_INTERVAL_MS);
 
-  logStartupHeader('0.4.3', [
+  logStartupHeader('0.4.4', [
     { name: 'Health Server', detail: healthOk ? toVisualRtl(`פורט ${resolvedHealthPort}`) : toVisualRtl('נכשל בהפעלה'), ok: healthOk, url: healthOk ? `http://localhost:${resolvedHealthPort}/health` : undefined },
     { name: 'Alert Poller',  detail: toVisualRtl('כל 2 שניות'),                                                ok: true },
     { name: 'Dashboard',     detail: dashboardSecret ? toVisualRtl(`פורט ${dashboardPort}`) : toVisualRtl('כבוי (אין DASHBOARD_SECRET)'), ok: !!dashboardSecret, url: dashboardSecret ? `http://localhost:${dashboardPort}/dashboard` : undefined },

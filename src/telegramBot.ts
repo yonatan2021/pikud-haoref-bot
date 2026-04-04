@@ -3,10 +3,28 @@ import { autoRetry } from '@grammyjs/auto-retry';
 import { Alert } from './types';
 import { getCityData } from './cityLookup';
 import { getEmoji, getTitleHe, getInstructionsPrefix } from './config/templateCache.js';
+import { getUrgencyForCountdown } from './config/urgency.js';
+import { getSuperRegionByZone } from './config/zones.js';
 import { log } from './logger.js';
 export { DEFAULT_ALERT_TYPE_HE as ALERT_TYPE_HE, DEFAULT_ALERT_TYPE_EMOJI as ALERT_TYPE_EMOJI } from './config/alertTypeDefaults.js';
 
 const MAX_CITIES_DISPLAYED = 25;
+
+/** Alert types that require shelter action (excludes newsFlash, generalDrill, general, unknown). */
+const SHELTER_TYPES = new Set([
+  'missiles', 'terroristInfiltration', 'earthQuake', 'tsunami',
+  'hazardousMaterials', 'radiologicalEvent', 'unconventionalWeapons', 'hostileAircraftIntrusion',
+  'missilesDrill', 'terroristInfiltrationDrill', 'earthQuakeDrill', 'tsunamiDrill',
+  'hazardousMaterialsDrill', 'radiologicalEventDrill', 'unconventionalWeaponsDrill',
+  'hostileAircraftIntrusionDrill',
+]);
+
+/** Returns a shelter action card line for alert types that require immediate action, or null. */
+export function buildActionCard(alertType: string): string | null {
+  if (!SHELTER_TYPES.has(alertType)) return null;
+  const prefix = getInstructionsPrefix(alertType);
+  return `🛡 <b>${prefix ? escapeHtml(prefix) + ' ' : ''}היכנסו למרחב מוגן!</b>`;
+}
 
 /** Telegram's hard caption limit for photo messages (sendPhoto / editMessageCaption). */
 export const TELEGRAM_CAPTION_MAX = 1024;
@@ -67,14 +85,23 @@ export function buildZonedCityList(cities: string[]): string {
     }
   }
 
+  // Sort zones by urgency: most urgent (lowest countdown) first; stable for equal values
+  const sortedZones = [...zoneMap.entries()].sort(
+    (a, b) => a[1].minCountdown - b[1].minCountdown
+  );
+
   const sections: string[] = [];
 
-  for (const [zone, { cities: zoneCities, minCountdown }] of zoneMap) {
+  for (const [zone, { cities: zoneCities, minCountdown }] of sortedZones) {
     const sorted = [...zoneCities].sort((a, b) => a.localeCompare(b, 'he'));
+    const urgency = getUrgencyForCountdown(minCountdown);
+    const urgencyPrefix = minCountdown > 0 && isFinite(minCountdown) ? `${urgency.emoji} ` : '';
     const countdownSuffix =
       minCountdown > 0 && isFinite(minCountdown) ? `  ⏱ <b>${minCountdown} שנ׳</b>` : '';
     const zoneCount = ` (${sorted.length})`;
-    sections.push(`▸ <b>${escapeHtml(zone)}</b>${zoneCount}${countdownSuffix}\n${buildCityList(sorted)}`);
+    const srEmoji = getSuperRegionByZone(zone)?.name.split(' ')[0] ?? '';
+    const srPrefix = srEmoji ? `${srEmoji} ` : '';
+    sections.push(`▸ ${srPrefix}${urgencyPrefix}<b>${escapeHtml(zone)}</b>${zoneCount}${countdownSuffix}\n${buildCityList(sorted)}`);
   }
 
   if (noZone.length > 0) {
@@ -110,13 +137,16 @@ export function buildZoneOnlyList(cities: string[]): string {
   for (const [zone, { count, minCountdown }] of zoneMap) {
     const countdownSuffix =
       minCountdown > 0 && isFinite(minCountdown) ? `  ⏱ <b>${minCountdown} שנ׳</b>` : '';
-    sections.push(`▸ <b>${escapeHtml(zone)}</b> (${count})${countdownSuffix}`);
+    const srEmoji = getSuperRegionByZone(zone)?.name.split(' ')[0] ?? '';
+    const srPrefix = srEmoji ? `${srEmoji} ` : '';
+    sections.push(`▸ ${srPrefix}<b>${escapeHtml(zone)}</b> (${count})${countdownSuffix}`);
   }
 
   return sections.join('\n');
 }
 
-export function formatAlertMessage(alert: Alert): string {
+export function formatAlertMessage(alert: Alert, serial?: number): string {
+  const actionCard = buildActionCard(alert.type);
   const emoji = getEmoji(alert.type);
   const title = getTitleHe(alert.type);
 
@@ -129,9 +159,13 @@ export function formatAlertMessage(alert: Alert): string {
   });
 
   const cityCountSuffix = alert.cities.length > 0 ? `  ·  ${alert.cities.length} ערים` : '';
-  const parts: string[] = [
-    `${emoji} <b>${escapeHtml(title)}</b>\n⏰ ${escapeHtml(timeStr)}${cityCountSuffix}`,
-  ];
+  const parts: string[] = [];
+
+  if (actionCard) parts.push(actionCard);
+
+  parts.push(
+    `${emoji} <b>${escapeHtml(title)}</b>\n\u23F0 ${escapeHtml(timeStr)}${cityCountSuffix}`,
+  );
 
   let instructionsPart: string | null = null;
   if (alert.instructions) {
@@ -150,7 +184,22 @@ export function formatAlertMessage(alert: Alert): string {
   if (instructionsPart) parts.push(instructionsPart);
   if (cityList) parts.push(cityList);
 
+  if (serial != null) {
+    const dateStr = now.toLocaleDateString('he-IL', {
+      timeZone: 'Asia/Jerusalem',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+    parts.push(`<i>#${serial} \u00B7 ${escapeHtml(dateStr)}</i>`);
+  }
+
   return parts.join('\n\n');
+}
+
+/** Formats an all-clear closure message for a zone. */
+export function formatAllClearMessage(zoneName: string): string {
+  return `✅ <b>הסתיים</b>\nהאזהרה באזור הבא הסתיימה:\n📍 ${escapeHtml(zoneName)}`;
 }
 
 let botInstance: Bot | null = null;
@@ -173,13 +222,14 @@ export interface SentMessage {
 export async function sendAlert(
   alert: Alert,
   imageBuffer: Buffer | null,
-  messageThreadId?: number
+  messageThreadId?: number,
+  serial?: number
 ): Promise<SentMessage> {
   const bot = getBot();
   const chatId = process.env.TELEGRAM_CHAT_ID;
   if (!chatId) throw new Error('TELEGRAM_CHAT_ID חסר בקובץ .env');
 
-  const message = formatAlertMessage(alert);
+  const message = formatAlertMessage(alert, serial);
   const threadOptions = messageThreadId ? { message_thread_id: messageThreadId } : {};
   const topicStr = messageThreadId ? ` → topic ${messageThreadId}` : '';
   const payload = buildSendPayload(message, imageBuffer);
@@ -280,9 +330,10 @@ export async function _editAlertChain(
   api: EditBotApi,
   tracked: { messageId: number; chatId: string; hasPhoto: boolean },
   alert: Alert,
-  imageBuffer: Buffer | null
+  imageBuffer: Buffer | null,
+  serial?: number
 ): Promise<void> {
-  const message = formatAlertMessage(alert);
+  const message = formatAlertMessage(alert, serial);
   const method = selectEditMethod(tracked.hasPhoto, imageBuffer);
 
   if (method === 'media') {
@@ -355,8 +406,9 @@ export async function _editAlertChain(
 export async function editAlert(
   tracked: { messageId: number; chatId: string; hasPhoto: boolean },
   alert: Alert,
-  imageBuffer: Buffer | null
+  imageBuffer: Buffer | null,
+  serial?: number
 ): Promise<void> {
   const bot = getBot();
-  await _editAlertChain(bot.api as unknown as EditBotApi, tracked, alert, imageBuffer);
+  await _editAlertChain(bot.api as unknown as EditBotApi, tracked, alert, imageBuffer, serial);
 }

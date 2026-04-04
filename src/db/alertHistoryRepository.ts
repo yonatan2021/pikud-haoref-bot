@@ -81,6 +81,18 @@ export function countAlertsToday(): number {
   return row?.cnt ?? 0;
 }
 
+export function getDailyAverageAlerts(days: number): number {
+  if (days <= 0) return 0;
+  const row = getDb()
+    .prepare(
+      `SELECT CAST(COUNT(*) AS REAL) / ? as avg
+       FROM alert_history
+       WHERE fired_at >= datetime('now', '-' || ? || ' days')`
+    )
+    .get(days, days) as { avg: number } | undefined;
+  return row?.avg ?? 0;
+}
+
 export function getAlertsForCities(cities: string[], limit: number): AlertHistoryRow[] {
   if (cities.length === 0) return [];
   const placeholders = cities.map(() => '?').join(', ');

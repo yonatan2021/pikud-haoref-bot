@@ -26,18 +26,39 @@
 
 <div dir="rtl">
 
+</div>
+
+---
+
+## [0.4.4] — 2026-04-04
+
+<div dir="rtl">
+
 ### ✨ תכונות חדשות
 
-- **Forum topics support** — GramJS listener תומך כעת בנושאים (threads) בתוך קבוצות forum; יכול לסנן הודעות מוגדלות לנושא מסוים דרך `sourceTopicId`
+- **חזותיות אזורים חכמה** — 33 צבעים ייחודיים לאזורים במפות Mapbox; ספריית `zoneColors.ts` עם runtime assertion שמגן מפני אי-התאמה
+- **אינדיקטור רלוונטיות** — `getRelevanceIndicator()` מציין בכותרת ערוץ אם ההתרעה נוגעת לאזורים שנבחרו
+- **סרגל ספירה לאחור ב-DM** — `renderCountdownBar()` מייצר סרגל ויזואלי (🟥🟥🟥🟥🟥 עד 🔵⬜⬜⬜⬜) בהודעות DM
+- **allClearTracker** — מעקב all-clear per-zone: הודעת "הסתיימה ההתרעה" עם חלון שקט למניעת הצפה; injectable deps; timers מנוקים בעת SIGTERM/SIGINT
+- **פקודת `/today`** — סיכום יומי של כל ההתרעות עם פירוט לפי קטגוריות (alertsToday handler)
+- **פקודת `/legend`** — פלטת צבעי האזורים לפי 6 סופר-אזורים (legendHandler)
+- **Forum topics support** — GramJS listener תומך בנושאים (threads) בקבוצות forum; סינון לפי `sourceTopicId`
+- **פורמט משותף Telegram + WhatsApp** — `buildSummaryLine()` כמקור יחיד לספירת ערים/אזורים; תיקון דקדוקי "1 עיר" לעומת "N ערים"
 
 ### 🐛 תיקוני באגים
 
-- **Empty chat list on fresh GramJS session** — כאשר GramJS מתחיל לאחר authentication, cache הentity היה ריק וגרם לכל chats להתדלות. כעת יש fallback ל-`client.getEntity()` ו-retry עם השהיה של 2 שניות בעת 0 תוצאות
-- **GetForumTopics not paginated** — groups עם יותר מ-100 נושאים היו מפסידים נושאים. כעת יש pagination loop
+- **alertSerial — timezone ישראל** — מספרי אינדקס התרעות מחושבים לפי `Asia/Jerusalem` (UTC+2/+3); האינדקס מתאפס בחצות המקומית ולא בחצות UTC
+- **Empty chat list on fresh GramJS session** — fallback ל-`client.getEntity()` ו-retry עם השהיה של 2 שניות בעת 0 תוצאות
+- **GetForumTopics not paginated** — pagination loop לקבוצות עם יותר מ-100 נושאים
 
 ### 🗑️ הוסר
 
 - **Docker Hub / GHCR פרסום ציבורי** — הוסרה אוטומציית פרסום Docker image ל-GHCR ו-Docker Hub; הדרך המומלצת להתקנה היא `npx @haoref-boti/pikud-haoref-bot`. ה-Dockerfile נשמר לבנייה מקומית.
+- **alertLayout.ts** — הוסר עקב circular import; הלוגיקה הועברה ל-`telegramBot.ts`
+
+### 🧪 בדיקות
+
+- **+199 בדיקות חדשות** — כיסוי מלא לחזותיות אזורים, accessibility, allClearTracker, todayHandler, legendHandler, zoneColors, crossChannelFormat, summaryLine
 
 </div>
 
@@ -849,7 +870,8 @@
 
 <div dir="rtl">
 
-[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.3...HEAD
+[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.4...HEAD
+[0.4.4]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.0...v0.4.1

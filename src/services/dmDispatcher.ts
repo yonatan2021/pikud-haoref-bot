@@ -5,6 +5,30 @@ import { getCityData } from '../cityLookup.js';
 import { ALERT_TYPE_CATEGORY } from '../topicRouter.js';
 import { dmQueue, type DmTask } from './dmQueue.js';
 import { log } from '../logger.js';
+import { renderCountdownBar } from '../config/urgency.js';
+
+/**
+ * Returns a personal relevance indicator based on the subscriber's home city.
+ * - 🔴 באזורך — home_city is directly in the alert
+ * - 🟡 באזור קרוב — home_city shares a zone with an alert city
+ * - 🟢 לא באזורך — no geographic match
+ * Returns null if home_city is not set or alert has no cities.
+ */
+export function getRelevanceIndicator(homeCity: string | null, alertCities: string[]): string | null {
+  if (!homeCity || alertCities.length === 0) return null;
+
+  if (alertCities.includes(homeCity)) return '🔴 באזורך';
+
+  const homeCityData = getCityData(homeCity);
+  if (homeCityData?.zone) {
+    for (const city of alertCities) {
+      const cityData = getCityData(city);
+      if (cityData?.zone === homeCityData.zone) return '🟡 באזור קרוב';
+    }
+  }
+
+  return '🟢 לא באזורך';
+}
 
 function getMinCountdown(cityNames: string[]): number {
   let min = Infinity;
@@ -25,22 +49,26 @@ export function buildShortMessage(alert: Alert): string {
   return `${emoji} ${title} | ${cities}${more}${cdSuffix}`;
 }
 
-export function buildAlertDmMessage(alert: Alert): string {
+export function buildAlertDmMessage(alert: Alert, homeCity?: string | null): string {
   const emoji = getEmoji(alert.type);
   const title = getTitleHe(alert.type);
   const category = ALERT_TYPE_CATEGORY[alert.type] ?? 'general';
   const isDrill = category === 'drills';
   const isNationwide = alert.cities.length === 0;
 
+  const parts: string[] = [];
+
+  const relevance = getRelevanceIndicator(homeCity ?? null, alert.cities);
+  if (relevance) parts.push(relevance);
+
   const titleLine = isNationwide
     ? `${emoji} ${title}`
     : `${emoji} ${title} באזורך`;
+  parts.push(titleLine);
 
   const locationLine = isNationwide
     ? '📍 ברחבי הארץ'
     : `📍 ${alert.cities.slice(0, 10).join(', ')}${alert.cities.length > 10 ? ` ועוד ${alert.cities.length - 10}` : ''}`;
-
-  const parts: string[] = [titleLine];
 
   const cd = getMinCountdown(alert.cities);
   if (!cd && alert.instructions) {
@@ -51,7 +79,9 @@ export function buildAlertDmMessage(alert: Alert): string {
 
   if (cd > 0) {
     const drillSuffix = isDrill ? ' (תרגיל)' : '';
-    parts.push(`⏱ יש לך ${cd} שניות להיכנס למרחב מוגן${drillSuffix}`);
+    const bar = renderCountdownBar(cd);
+    const barPrefix = bar ? `${bar}  ` : '';
+    parts.push(`${barPrefix}⏱ יש לך ${cd} שניות להיכנס למרחב מוגן${drillSuffix}`);
   }
 
   return parts.join('\n');
@@ -66,7 +96,7 @@ function isPreliminaryAlert(instructions?: string): boolean {
   );
 }
 
-export function buildNewsFlashDmMessage(alert: Alert): string {
+export function buildNewsFlashDmMessage(alert: Alert, homeCity?: string | null): string {
   const isPreliminary = isPreliminaryAlert(alert.instructions);
 
   const seenZones = new Set<string>();
@@ -95,7 +125,12 @@ export function buildNewsFlashDmMessage(alert: Alert): string {
     ? `⚠️ התראה מקדימה${allLabels.length > 0 ? ' באזורך' : ''}`
     : `📢 הודעה מיוחדת`;
 
-  const parts: string[] = [headline];
+  const parts: string[] = [];
+
+  const relevance = getRelevanceIndicator(homeCity ?? null, alert.cities);
+  if (relevance) parts.push(relevance);
+
+  parts.push(headline);
 
   if (alert.instructions) {
     parts.push(alert.instructions);
@@ -110,9 +145,9 @@ export function buildNewsFlashDmMessage(alert: Alert): string {
 
 // Issue 3: format param removed — DM format was unified; short/detailed produce identical output.
 // NotificationFormat is still stored in the DB and shown in the UI settings panel.
-export function buildDmText(alert: Alert): string {
-  if (alert.type === 'newsFlash') return buildNewsFlashDmMessage(alert);
-  return buildAlertDmMessage(alert);
+export function buildDmText(alert: Alert, homeCity?: string | null): string {
+  if (alert.type === 'newsFlash') return buildNewsFlashDmMessage(alert, homeCity);
+  return buildAlertDmMessage(alert, homeCity);
 }
 
 function getIsraelHour(now: Date): number {
@@ -173,9 +208,9 @@ export function notifySubscribers(
       ? afterQuietHours.filter(({ muted_until }) => !muted_until || new Date(muted_until) <= now)
       : afterQuietHours;
 
-    const tasks = afterMute.map(({ chat_id, matchedCities }) => {
+    const tasks = afterMute.map(({ chat_id, matchedCities, home_city }) => {
       const personalAlert: Alert = { ...alert, cities: matchedCities };
-      return { chatId: String(chat_id), text: buildDmText(personalAlert) };
+      return { chatId: String(chat_id), text: buildDmText(personalAlert, home_city) };
     });
 
     const skippedQH = subscribers.length - afterQuietHours.length;
