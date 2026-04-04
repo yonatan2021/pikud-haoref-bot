@@ -5,6 +5,7 @@ import { getCityData } from './cityLookup';
 import { getEmoji, getTitleHe, getInstructionsPrefix } from './config/templateCache.js';
 import { getUrgencyForCountdown } from './config/urgency.js';
 import { getSuperRegionByZone } from './config/zones.js';
+import { buildSummaryLine } from './utils/summaryLine.js';
 import { log } from './logger.js';
 export { DEFAULT_ALERT_TYPE_HE as ALERT_TYPE_HE, DEFAULT_ALERT_TYPE_EMOJI as ALERT_TYPE_EMOJI } from './config/alertTypeDefaults.js';
 
@@ -158,14 +159,14 @@ export function formatAlertMessage(alert: Alert, serial?: number): string {
     hour12: false,
   });
 
-  const cityCountSuffix = alert.cities.length > 0 ? `  ·  ${alert.cities.length} ערים` : '';
+  const summaryLine = buildSummaryLine(alert.cities);
   const parts: string[] = [];
 
   if (actionCard) parts.push(actionCard);
 
-  parts.push(
-    `${emoji} <b>${escapeHtml(title)}</b>\n\u23F0 ${escapeHtml(timeStr)}${cityCountSuffix}`,
-  );
+  const headerLines = [`${emoji} <b>${escapeHtml(title)}</b>`, `⏰ ${escapeHtml(timeStr)}`];
+  if (summaryLine) headerLines.push(summaryLine);
+  parts.push(headerLines.join('\n'));
 
   let instructionsPart: string | null = null;
   if (alert.instructions) {
