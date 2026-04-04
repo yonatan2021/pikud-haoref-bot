@@ -231,34 +231,46 @@
 
       <!-- Interactive city preview -->
       <div class="city-preview reveal" style="--reveal-delay: 0.25s">
-        <label for="city-select" class="city-preview-label">
+        <label class="city-preview-label">
           בחר את העיר שלך וראה איך ההתראה תיראה:
         </label>
-        <select id="city-select" class="city-select" aria-label="בחירת עיר">
-          <option value="">— בחר עיר —</option>
-          <option value="תל אביב|שפלה|45">תל אביב</option>
-          <option value="ירושלים|ירושלים|90">ירושלים</option>
-          <option value="חיפה|חיפה|60">חיפה</option>
-          <option value="באר שבע|הנגב|180">באר שבע</option>
-          <option value="ראשון לציון|שפלה|45">ראשון לציון</option>
-          <option value="פתח תקווה|שפלה|45">פתח תקווה</option>
-          <option value="אשדוד|שפלה|45">אשדוד</option>
-          <option value="נתניה|השרון|60">נתניה</option>
-          <option value="רמת גן|שפלה|45">רמת גן</option>
-          <option value="חולון|שפלה|45">חולון</option>
-          <option value="בני ברק|שפלה|45">בני ברק</option>
-          <option value="רחובות|שפלה|45">רחובות</option>
-          <option value="הרצליה|השרון|60">הרצליה</option>
-          <option value="כפר סבא|השרון|60">כפר סבא</option>
-          <option value="מודיעין|ירושלים|90">מודיעין</option>
-          <option value="אשקלון|שפלה|45">אשקלון</option>
-          <option value="נצרת|הצפון|30">נצרת</option>
-          <option value="טבריה|הצפון|30">טבריה</option>
-          <option value="אילת|הנגב|180">אילת</option>
-          <option value="צפת|הצפון|30">צפת</option>
-          <option value="קריית שמונה|הצפון|30">קריית שמונה</option>
-          <option value="דימונה|הנגב|180">דימונה</option>
-        </select>
+
+        <!-- Custom styled dropdown (native <select> can't be styled in open state) -->
+        <div class="city-dropdown" id="city-dropdown"
+             role="combobox" aria-expanded="false" aria-haspopup="listbox"
+             aria-label="בחירת עיר">
+          <button class="city-dropdown-btn" id="city-dropdown-btn" type="button">
+            <span class="city-dropdown-value" id="city-dropdown-value">— בחר עיר —</span>
+            <span class="city-dropdown-arrow" aria-hidden="true">▾</span>
+          </button>
+          <ul class="city-dropdown-list" id="city-dropdown-list"
+              role="listbox" aria-label="רשימת ערים">
+            <li class="city-dropdown-item city-dropdown-item--placeholder"
+                role="option" aria-selected="true" data-value="">— בחר עיר —</li>
+            <li class="city-dropdown-item" role="option" data-value="תל אביב|שפלה|45">תל אביב</li>
+            <li class="city-dropdown-item" role="option" data-value="ירושלים|ירושלים|90">ירושלים</li>
+            <li class="city-dropdown-item" role="option" data-value="חיפה|חיפה|60">חיפה</li>
+            <li class="city-dropdown-item" role="option" data-value="באר שבע|הנגב|180">באר שבע</li>
+            <li class="city-dropdown-item" role="option" data-value="ראשון לציון|שפלה|45">ראשון לציון</li>
+            <li class="city-dropdown-item" role="option" data-value="פתח תקווה|שפלה|45">פתח תקווה</li>
+            <li class="city-dropdown-item" role="option" data-value="אשדוד|שפלה|45">אשדוד</li>
+            <li class="city-dropdown-item" role="option" data-value="נתניה|השרון|60">נתניה</li>
+            <li class="city-dropdown-item" role="option" data-value="רמת גן|שפלה|45">רמת גן</li>
+            <li class="city-dropdown-item" role="option" data-value="חולון|שפלה|45">חולון</li>
+            <li class="city-dropdown-item" role="option" data-value="בני ברק|שפלה|45">בני ברק</li>
+            <li class="city-dropdown-item" role="option" data-value="רחובות|שפלה|45">רחובות</li>
+            <li class="city-dropdown-item" role="option" data-value="הרצליה|השרון|60">הרצליה</li>
+            <li class="city-dropdown-item" role="option" data-value="כפר סבא|השרון|60">כפר סבא</li>
+            <li class="city-dropdown-item" role="option" data-value="מודיעין|ירושלים|90">מודיעין</li>
+            <li class="city-dropdown-item" role="option" data-value="אשקלון|שפלה|45">אשקלון</li>
+            <li class="city-dropdown-item" role="option" data-value="נצרת|הצפון|30">נצרת</li>
+            <li class="city-dropdown-item" role="option" data-value="טבריה|הצפון|30">טבריה</li>
+            <li class="city-dropdown-item" role="option" data-value="אילת|הנגב|180">אילת</li>
+            <li class="city-dropdown-item" role="option" data-value="צפת|הצפון|30">צפת</li>
+            <li class="city-dropdown-item" role="option" data-value="קריית שמונה|הצפון|30">קריית שמונה</li>
+            <li class="city-dropdown-item" role="option" data-value="דימונה|הנגב|180">דימונה</li>
+          </ul>
+        </div>
 
         <div class="city-preview-bubble" id="city-preview-bubble" hidden aria-live="polite">
           <div class="preview-bubble-header">DM אישי — @phalaret_bot</div>
@@ -901,39 +913,77 @@
       fabObserver.observe(ctaSection);
     }
 
-    // ── 7. Interactive city preview ──────────────────────────────────────────
-    var citySelect = document.getElementById('city-select');
-    var cityBubble = document.getElementById('city-preview-bubble');
+    // ── 7. Interactive city preview — custom dropdown ────────────────────────
+    var cityBubble     = document.getElementById('city-preview-bubble');
     var previewCity    = document.getElementById('preview-city');
     var previewZone    = document.getElementById('preview-zone');
     var previewSeconds = document.getElementById('preview-seconds');
     var previewBar     = document.getElementById('preview-bar');
 
     function buildBar(seconds) {
-      // Map seconds to a 5-block countdown bar (each block ≈ seconds/5)
-      var blocks = Math.max(1, Math.min(5, Math.round(seconds / (seconds / 5))));
       var bar = '';
-      for (var b = 0; b < blocks; b++) { bar += '🟥'; }
+      for (var b = 0; b < 5; b++) { bar += '🟥'; }
       return bar;
     }
 
-    if (citySelect && cityBubble) {
-      citySelect.addEventListener('change', function() {
-        var val = citySelect.value;
-        if (!val) { cityBubble.hidden = true; return; }
-        var parts = val.split('|');
-        var city = parts[0] || '';
-        var zone = parts[1] || '';
-        var secs = parseInt(parts[2], 10) || 45;
-        if (previewCity)    { previewCity.textContent    = city; }
-        if (previewZone)    { previewZone.textContent    = zone; }
-        if (previewSeconds) { previewSeconds.textContent = String(secs); }
-        if (previewBar)     { previewBar.textContent     = buildBar(secs) + ' ▸ ' + zone + ' (1)'; }
+    function showCityPreview(val) {
+      if (!val) { if (cityBubble) cityBubble.hidden = true; return; }
+      var parts = val.split('|');
+      var city = parts[0] || '';
+      var zone = parts[1] || '';
+      var secs = parseInt(parts[2], 10) || 45;
+      if (previewCity)    previewCity.textContent    = city;
+      if (previewZone)    previewZone.textContent    = zone;
+      if (previewSeconds) previewSeconds.textContent = String(secs);
+      if (previewBar)     previewBar.textContent     = buildBar(secs) + ' ▸ ' + zone + ' (1)';
+      if (cityBubble) {
         cityBubble.hidden = false;
         cityBubble.classList.add('city-preview-bubble--animate');
         setTimeout(function() { cityBubble.classList.remove('city-preview-bubble--animate'); }, 400);
+      }
+    }
+
+    var cityDropdown     = document.getElementById('city-dropdown');
+    var cityDropdownBtn  = document.getElementById('city-dropdown-btn');
+    var cityDropdownList = document.getElementById('city-dropdown-list');
+    var cityDropdownVal  = document.getElementById('city-dropdown-value');
+
+    function closeCityDd() { if (cityDropdown) cityDropdown.setAttribute('aria-expanded','false'); }
+    function openCityDd()  { if (cityDropdown) cityDropdown.setAttribute('aria-expanded','true');  }
+
+    if (cityDropdownBtn) {
+      cityDropdownBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        cityDropdown.getAttribute('aria-expanded') === 'true' ? closeCityDd() : openCityDd();
       });
     }
+
+    if (cityDropdownList) {
+      cityDropdownList.querySelectorAll('.city-dropdown-item').forEach(function(item) {
+        item.addEventListener('click', function() {
+          var val  = item.dataset.value;
+          var text = item.textContent.trim();
+          if (cityDropdownVal) cityDropdownVal.textContent = val ? text : '— בחר עיר —';
+          cityDropdownList.querySelectorAll('.city-dropdown-item').forEach(function(i) {
+            i.classList.remove('city-dropdown-item--selected');
+            i.setAttribute('aria-selected', 'false');
+          });
+          item.classList.add('city-dropdown-item--selected');
+          item.setAttribute('aria-selected', 'true');
+          closeCityDd();
+          showCityPreview(val);
+        });
+      });
+    }
+
+    document.addEventListener('click', function(e) {
+      if (cityDropdown && !cityDropdown.contains(e.target)) closeCityDd();
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && cityDropdown && cityDropdown.getAttribute('aria-expanded') === 'true') {
+        closeCityDd();
+      }
+    });
 
     // ── 8. FAQ chat bubbles ───────────────────────────────────────────────────
     document.querySelectorAll('.faq-item').forEach(function(item) {
