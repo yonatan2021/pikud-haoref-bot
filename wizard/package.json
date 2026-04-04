@@ -1,6 +1,6 @@
 {
   "name": "@haoref-boti/pikud-haoref-bot",
-  "version": "0.4.0",
+  "version": "0.4.2",
   "description": "אשף הגדרה אינטרקטיבי לבוט התראות פיקוד העורף",
   "type": "module",
   "bin": {
@@ -31,6 +31,7 @@
     "typescript": "^5.8.0"
   },
   "scripts": {
+    "prepublishOnly": "npm run build",
     "build": "tsc",
     "build:watch": "tsc --watch",
     "test": "npm run build && node --test --test-concurrency=1 'dist/__tests__/*.test.js'",

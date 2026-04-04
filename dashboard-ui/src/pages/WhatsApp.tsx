@@ -201,14 +201,23 @@ export function WhatsApp() {
   const queryClient = useQueryClient();
   const debounceMapRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const [showReconnectConfirm, setShowReconnectConfirm] = useState(false);
+  // Tracks whether we've already auto-triggered init on this page visit.
+  // Prevents re-firing after the user explicitly disconnects.
+  const hasAutoInitRef = useRef(false);
 
   const { data: statusData, isError: statusError } = useQuery<WhatsAppStatus>({
     queryKey: ['whatsapp-status'],
     queryFn: () => api.get('/api/whatsapp/status'),
     refetchInterval: (query) => {
       const s = query.state.data?.status;
-      if (s === 'ready' || s === 'disconnected') return false;
-      if (query.state.errorUpdateCount >= 5) return false;
+      if (s === 'ready') return false;
+      // Fast poll while waiting for QR — expires in ~60s so 1s is needed to catch it
+      if (s === 'qr') return 1000;
+      // Keep polling while disconnected until auto-init has fired, so we catch
+      // the transition to 'connecting' immediately without waiting for user action.
+      if (s === 'disconnected') return hasAutoInitRef.current ? false : 3000;
+      // Back off on errors but keep polling — don't go dark if server restarts
+      if (query.state.errorUpdateCount >= 5) return 10_000;
       return 3000;
     },
   });
@@ -231,10 +240,24 @@ export function WhatsApp() {
     },
   });
 
+  const clearSessionMutation = useMutation({
+    mutationFn: () => api.post('/api/whatsapp/clear-session', {}),
+    onSuccess: () => {
+      toast.success('Session נמחק — ממתין לקוד QR');
+      queryClient.invalidateQueries({ queryKey: ['whatsapp-status'] });
+      queryClient.invalidateQueries({ queryKey: ['whatsapp-groups'] });
+    },
+    onError: () => {
+      toast.error('שגיאה במחיקת session');
+    },
+  });
+
   const disconnectMutation = useMutation({
     mutationFn: () => api.post('/api/whatsapp/disconnect', {}),
     onSuccess: () => {
       toast.success('WhatsApp נותק');
+      // Reset auto-init so the user can manually reconnect after explicit disconnect
+      hasAutoInitRef.current = true;
       queryClient.invalidateQueries({ queryKey: ['whatsapp-status'] });
       queryClient.invalidateQueries({ queryKey: ['whatsapp-groups'] });
     },
@@ -242,6 +265,18 @@ export function WhatsApp() {
       toast.error('שגיאה בניתוק');
     },
   });
+
+  // Auto-trigger initialization the first time the page loads with 'disconnected'
+  // status. This means the QR will start appearing without the user having to
+  // click "התחבר" manually. Reset the flag when the user explicitly disconnects.
+  useEffect(() => {
+    const s = statusData?.status;
+    if (s === 'disconnected' && !hasAutoInitRef.current && !statusError) {
+      hasAutoInitRef.current = true;
+      reconnectMutation.mutate();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusData?.status, statusError]);
 
   const handleGroupUpdate = useCallback((groupId: string, patch: Partial<WhatsAppGroup>) => {
     const current = queryClient.getQueryData<WhatsAppGroup[]>(['whatsapp-groups'])?.find(g => g.groupId === groupId);
@@ -325,9 +360,26 @@ export function WhatsApp() {
               )}
 
               {status === 'connecting' && (
-                <div className="flex items-center gap-2 text-text-muted text-sm">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  מתחבר ל-WhatsApp...
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2 text-text-muted text-sm">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    מתחבר ל-WhatsApp...
+                  </div>
+                  <p className="text-text-muted text-xs">
+                    תקוע? ייתכן שה-session הישן פג תוקף. מחק אותו כדי לקבל QR חדש.
+                  </p>
+                  <button
+                    onClick={() => clearSessionMutation.mutate()}
+                    disabled={clearSessionMutation.isPending}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-border hover:bg-white/10 text-text-muted text-xs rounded-lg transition-colors disabled:opacity-40 w-fit whitespace-nowrap"
+                  >
+                    {clearSessionMutation.isPending ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <RefreshCw size={12} />
+                    )}
+                    מחק session וקבל QR חדש
+                  </button>
                 </div>
               )}
 
@@ -348,7 +400,7 @@ export function WhatsApp() {
                   <button
                     onClick={() => disconnectMutation.mutate()}
                     disabled={disconnectMutation.isPending}
-                    className="flex items-center gap-2 px-4 py-2 bg-red/10 border border-red/30 hover:bg-red/20 text-red text-sm rounded-lg transition-colors disabled:opacity-40 w-fit"
+                    className="flex items-center gap-2 px-4 py-2 bg-red/10 border border-red/30 hover:bg-red/20 text-red text-sm rounded-lg transition-colors disabled:opacity-40 w-fit whitespace-nowrap"
                   >
                     {disconnectMutation.isPending ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -360,8 +412,8 @@ export function WhatsApp() {
                 )}
                 <button
                   onClick={() => status === 'ready' ? setShowReconnectConfirm(true) : reconnectMutation.mutate()}
-                  disabled={reconnectMutation.isPending}
-                  className="flex items-center gap-2 px-4 py-2 bg-surface border border-border hover:bg-base text-text-secondary text-sm rounded-lg transition-colors disabled:opacity-40 w-fit"
+                  disabled={reconnectMutation.isPending || clearSessionMutation.isPending}
+                  className="flex items-center gap-2 px-4 py-2 bg-surface border border-border hover:bg-base text-text-secondary text-sm rounded-lg transition-colors disabled:opacity-40 w-fit whitespace-nowrap"
                 >
                   {reconnectMutation.isPending ? (
                     <Loader2 className="w-4 h-4 animate-spin" />

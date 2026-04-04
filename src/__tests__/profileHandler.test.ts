@@ -100,4 +100,28 @@ describe('profileHandler', () => {
       assert.equal(getProfile(8013)?.onboarding_completed, true);
     });
   });
+
+  describe('buildProfileSummary with connectionCode', () => {
+    it('renders connection code inside <code> tag', () => {
+      const { text } = buildProfileSummary('יונתן', 'תל אביב', 'he', '123456');
+      assert.ok(text.includes('<code>123456</code>'), 'should wrap code in <code> tag');
+    });
+
+    it('shows dash when connectionCode is null', () => {
+      const { text } = buildProfileSummary('יונתן', 'תל אביב', 'he', null);
+      assert.ok(text.includes('—'), 'should show dash for null code');
+      assert.ok(!text.includes('<code>'), 'should not render <code> tag for null');
+    });
+
+    it('shows dash when connectionCode is undefined (not passed)', () => {
+      const { text } = buildProfileSummary('יונתן', 'תל אביב', 'he');
+      assert.ok(text.includes('—'), 'should show dash when code is not provided');
+    });
+
+    it('escapes HTML special chars in connectionCode', () => {
+      const { text } = buildProfileSummary('יונתן', 'תל אביב', 'he', '<script>alert(1)</script>');
+      assert.ok(!text.includes('<script>'), 'should not contain raw <script> tag');
+      assert.ok(text.includes('&lt;script&gt;'), 'should HTML-escape special chars');
+    });
+  });
 });

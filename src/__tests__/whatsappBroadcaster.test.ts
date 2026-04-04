@@ -539,6 +539,99 @@ describe('whatsappBroadcaster — debounced map', () => {
   });
 });
 
+describe('whatsappBroadcaster — duplicate map prevention', () => {
+  beforeEach(() => clearTrackedMessages());
+
+  it('stale debounce timer does not send map after new wave supersedes it', async () => {
+    const db = makeDb();
+    const textMsg = makeMockMessage();
+    const editedMsg = makeMockMessage(textMsg);
+    const firstMsg = makeMockMessage(editedMsg);
+    let sendCount = 0;
+    const sendMessage = mock.fn(async () => {
+      sendCount++;
+      return sendCount === 1 ? firstMsg : makeMockMessage();
+    });
+    const getChatById = mock.fn(async () => ({ sendMessage }));
+    const getClientFn = mock.fn(() => ({ getChatById }));
+    const scheduler = makeScheduler();
+    const deps = makeDeps({
+      getEnabledGroupsFn: mock.fn(() => ['group1']) as unknown as BroadcasterDeps['getEnabledGroupsFn'],
+      getClientFn: getClientFn as unknown as BroadcasterDeps['getClientFn'],
+      scheduleFn: scheduler.scheduleFn,
+      cancelScheduleFn: scheduler.cancelScheduleFn,
+    });
+
+    const broadcast = createBroadcaster(db, deps);
+
+    // Wave 1: fresh text + schedule map
+    await broadcast(BASE_ALERT, Buffer.from('img1'));
+    assert.equal(scheduler.captured.length, 1, 'wave 1 debounce scheduled');
+
+    // Wave 2: edit text + reschedule map (cancels wave 1 timer via cancelScheduleFn)
+    await broadcast({ type: 'missiles', cities: ['תל אביב', 'חיפה'] }, Buffer.from('img2'));
+    assert.equal(scheduler.captured.length, 2, 'wave 2 debounce scheduled');
+
+    // Simulate stale timer firing (wave 1's callback) — should be a no-op
+    // because waveId in the closure won't match the current state's waveId
+    scheduler.captured[0].callback();
+    await new Promise(resolve => setTimeout(resolve, 10));
+
+    // Only the initial text send should have happened — no map from stale timer
+    assert.equal(
+      (sendMessage as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
+      1,
+      'stale wave 1 timer must not send map'
+    );
+
+    // Now fire wave 2's timer — should send the map
+    scheduler.captured[1].callback();
+    await new Promise(resolve => setTimeout(resolve, 10));
+
+    assert.equal(
+      (sendMessage as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
+      2,
+      'wave 2 timer should send map'
+    );
+  });
+
+  it('does not send map twice if debounce fires after map already sent', async () => {
+    const db = makeDb();
+    const msgObj = makeMockMessage();
+    const sendMessage = mock.fn(async () => msgObj);
+    const getChatById = mock.fn(async () => ({ sendMessage }));
+    const getClientFn = mock.fn(() => ({ getChatById }));
+    const scheduler = makeScheduler();
+    const deps = makeDeps({
+      getEnabledGroupsFn: mock.fn(() => ['group1']) as unknown as BroadcasterDeps['getEnabledGroupsFn'],
+      getClientFn: getClientFn as unknown as BroadcasterDeps['getClientFn'],
+      scheduleFn: scheduler.scheduleFn,
+      cancelScheduleFn: scheduler.cancelScheduleFn,
+    });
+
+    const broadcast = createBroadcaster(db, deps);
+    await broadcast(BASE_ALERT, Buffer.from('img'));
+
+    // Fire debounce — sends map (call #2)
+    scheduler.fireLatest();
+    await new Promise(resolve => setTimeout(resolve, 10));
+    assert.equal(
+      (sendMessage as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
+      2,
+      'map should be sent once'
+    );
+
+    // Fire again (simulating duplicate timer) — mapSent guard should prevent
+    scheduler.fireLatest();
+    await new Promise(resolve => setTimeout(resolve, 10));
+    assert.equal(
+      (sendMessage as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
+      2,
+      'duplicate fire must not send map again (mapSent guard)'
+    );
+  });
+});
+
 describe('whatsappBroadcaster — partial failure', () => {
   beforeEach(() => clearTrackedMessages());
 
@@ -617,6 +710,59 @@ describe('whatsappBroadcaster — null client despite ready', () => {
       0,
       'sendMessage must not be called when formatter throws'
     );
+  });
+});
+
+describe('whatsappBroadcaster — TTL expiry', () => {
+  beforeEach(() => clearTrackedMessages());
+
+  it('sends fresh message (not edit) after the edit window expires', async () => {
+    const db = makeDb();
+    const firstMsg = makeMockMessage();
+    let sendCount = 0;
+    const sendMessage = mock.fn(async () => {
+      sendCount++;
+      return sendCount === 1 ? firstMsg : makeMockMessage();
+    });
+    const getChatById = mock.fn(async () => ({ sendMessage }));
+    const getClientFn = mock.fn(() => ({ getChatById }));
+    const deps = makeDeps({
+      getEnabledGroupsFn: mock.fn(() => ['group1']) as unknown as BroadcasterDeps['getEnabledGroupsFn'],
+      getClientFn: getClientFn as unknown as BroadcasterDeps['getClientFn'],
+    });
+
+    const broadcast = createBroadcaster(db, deps);
+
+    // First broadcast — creates tracked entry (sentAt = Date.now())
+    await broadcast(BASE_ALERT);
+    assert.equal(
+      (sendMessage as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
+      1,
+      'first broadcast should send'
+    );
+
+    // Advance Date.now 130 seconds into the future (beyond the 120s default window)
+    const origNow = Date.now;
+    Date.now = () => origNow() + 130_000;
+
+    try {
+      const updatedAlert: Alert = { type: 'missiles', cities: ['חיפה'] };
+      await broadcast(updatedAlert);
+
+      // Window expired → getTracked returns null → fresh send, NOT edit
+      assert.equal(
+        (sendMessage as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
+        2,
+        'second broadcast after TTL expiry should send a fresh message'
+      );
+      assert.equal(
+        (firstMsg.edit as unknown as ReturnType<typeof mock.fn>).mock.calls.length,
+        0,
+        'edit() must NOT be called after the TTL window expires'
+      );
+    } finally {
+      Date.now = origNow;
+    }
   });
 });
 

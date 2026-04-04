@@ -7,16 +7,13 @@ import {
   completeOnboarding,
   upsertUser,
 } from '../db/userRepository.js';
+import type { OnboardingStep } from '../db/userRepository.js';
 import { searchCities, getCityData, getCityById } from '../cityLookup.js';
 import { addSubscription } from '../db/subscriptionRepository.js';
 import { log } from '../logger.js';
+import { stripHtml, escapeHtml } from '../textUtils.js';
 
 const MAX_NAME_LENGTH = 50;
-
-/** Strip HTML tags from user input */
-function stripHtml(text: string): string {
-  return text.replace(/<[^>]*>/g, '');
-}
 
 /** Build welcome message for the name step */
 export function buildNamePrompt(): { text: string; keyboard: InlineKeyboard } {
@@ -91,7 +88,7 @@ export function buildConfirmPrompt(
 /** Send the appropriate step message based on current onboarding state */
 export async function sendStepMessage(
   ctx: Context,
-  step: string | null,
+  step: OnboardingStep | null,
   chatId: number
 ): Promise<void> {
   if (step === 'name') {
@@ -107,6 +104,8 @@ export async function sendStepMessage(
       profile?.home_city ?? null
     );
     await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard });
+  } else {
+    log('warn', 'Onboarding', `Unrecognized onboarding step: ${step} for chat ${chatId}`);
   }
 }
 
@@ -120,61 +119,72 @@ export function isInOnboarding(chatId: number): boolean {
 export function registerOnboardingHandler(bot: Bot): void {
   // Handle all onboarding callback queries
   bot.callbackQuery(/^ob:/, async (ctx: Context) => {
-    await ctx.answerCallbackQuery();
+    await ctx.answerCallbackQuery().catch((e) => log('warn', 'Onboarding', `answerCallbackQuery: ${e}`));
     const chatId = ctx.chat?.id;
     if (!chatId || ctx.chat?.type !== 'private') return;
 
-    const data = ctx.callbackQuery?.data ?? '';
+    try {
+      const data = ctx.callbackQuery?.data ?? '';
 
-    if (data === 'ob:skip_name') {
-      setOnboardingStep(chatId, 'city');
-      await sendStepMessage(ctx, 'city', chatId);
-      return;
-    }
-
-    if (data === 'ob:skip_city') {
-      setOnboardingStep(chatId, 'confirm');
-      await sendStepMessage(ctx, 'confirm', chatId);
-      return;
-    }
-
-    if (data === 'ob:restart') {
-      setOnboardingStep(chatId, 'name');
-      await sendStepMessage(ctx, 'name', chatId);
-      return;
-    }
-
-    if (data === 'ob:confirm') {
-      const profile = getProfile(chatId);
-      completeOnboarding(chatId);
-      // Auto-subscribe to home city if set
-      if (profile?.home_city) {
-        const cityData = getCityData(profile.home_city);
-        if (cityData) {
-          addSubscription(chatId, cityData.name);
-          log('info', 'Onboarding', `Auto-subscribed ${chatId} to ${cityData.name}`);
-        }
-      }
-      log('info', 'Onboarding', `User ${chatId} completed onboarding`);
-      await ctx.reply(
-        '🎉 <b>ההרשמה הושלמה!</b>\n\nלחץ /start לפתיחת התפריט הראשי.',
-        { parse_mode: 'HTML' }
-      );
-      return;
-    }
-
-    // ob:city:{id} — city selection
-    const cityMatch = data.match(/^ob:city:(\d+)$/);
-    if (cityMatch) {
-      const city = getCityById(parseInt(cityMatch[1]));
-      if (!city) {
-        await ctx.reply('❌ עיר לא נמצאה, נסה שוב.');
+      if (data === 'ob:skip_name') {
+        setOnboardingStep(chatId, 'city');
+        await sendStepMessage(ctx, 'city', chatId);
         return;
       }
-      updateProfile(chatId, { home_city: city.name });
-      setOnboardingStep(chatId, 'confirm');
-      await sendStepMessage(ctx, 'confirm', chatId);
-      return;
+
+      if (data === 'ob:skip_city') {
+        setOnboardingStep(chatId, 'confirm');
+        await sendStepMessage(ctx, 'confirm', chatId);
+        return;
+      }
+
+      if (data === 'ob:restart') {
+        setOnboardingStep(chatId, 'name');
+        await sendStepMessage(ctx, 'name', chatId);
+        return;
+      }
+
+      if (data === 'ob:confirm') {
+        const profile = getProfile(chatId);
+        completeOnboarding(chatId);
+        // Auto-subscribe to home city if set
+        if (profile?.home_city) {
+          const cityData = getCityData(profile.home_city);
+          if (cityData) {
+            try {
+              addSubscription(chatId, cityData.name);
+              log('info', 'Onboarding', `Auto-subscribed ${chatId} to ${cityData.name}`);
+            } catch (subErr) {
+              log('error', 'Onboarding', `Auto-subscription failed for ${chatId} to ${cityData.name}: ${subErr}`);
+              await ctx.reply(
+                '⚠️ ההרשמה הושלמה, אך לא הצלחנו לרשום אותך להתראות. נסה להוסיף ערים דרך התפריט.'
+              ).catch((e) => log('error', 'Onboarding', `Failed to send subscription warning: ${e}`));
+            }
+          }
+        }
+        log('info', 'Onboarding', `User ${chatId} completed onboarding`);
+        await ctx.reply(
+          '🎉 <b>ההרשמה הושלמה!</b>\n\nלחץ /start לפתיחת התפריט הראשי.',
+          { parse_mode: 'HTML' }
+        );
+        return;
+      }
+
+      // ob:city:{id} — city selection
+      const cityMatch = data.match(/^ob:city:(\d+)$/);
+      if (cityMatch) {
+        const city = getCityById(parseInt(cityMatch[1]));
+        if (!city) {
+          await ctx.reply('❌ עיר לא נמצאה, נסה שוב.');
+          return;
+        }
+        updateProfile(chatId, { home_city: city.name });
+        setOnboardingStep(chatId, 'confirm');
+        await sendStepMessage(ctx, 'confirm', chatId);
+        return;
+      }
+    } catch (err) {
+      log('error', 'Onboarding', `Callback failed for ${chatId}: ${err}`);
     }
   });
 
@@ -189,68 +199,75 @@ export function registerOnboardingHandler(bot: Bot): void {
     // Let commands through
     if (text.startsWith('/')) { await next(); return; }
 
-    const profile = getProfile(chatId);
-    const step = profile?.onboarding_step;
+    try {
+      const profile = getProfile(chatId);
+      const step = profile?.onboarding_step;
 
-    if (step === 'name') {
-      const cleaned = stripHtml(text).trim();
-      if (cleaned.length === 0 || cleaned.length > MAX_NAME_LENGTH) {
-        await ctx.reply(
-          `❌ השם חייב להיות בין 1 ל-${MAX_NAME_LENGTH} תווים. נסה שוב:`,
-          { parse_mode: 'HTML' }
-        );
-        return;
-      }
-      updateProfile(chatId, { display_name: cleaned });
-      setOnboardingStep(chatId, 'city');
-      await sendStepMessage(ctx, 'city', chatId);
-      return;
-    }
-
-    if (step === 'city') {
-      const query = text.trim();
-      if (query.length < 2) {
-        await ctx.reply('❌ הקלד לפחות 2 תווים לחיפוש.');
+      if (step === 'name') {
+        const cleaned = stripHtml(text).trim();
+        if (cleaned.length === 0 || cleaned.length > MAX_NAME_LENGTH) {
+          await ctx.reply(
+            `❌ השם חייב להיות בין 1 ל-${MAX_NAME_LENGTH} תווים. נסה שוב:`,
+            { parse_mode: 'HTML' }
+          );
+          return;
+        }
+        updateProfile(chatId, { display_name: cleaned });
+        setOnboardingStep(chatId, 'city');
+        await sendStepMessage(ctx, 'city', chatId);
         return;
       }
 
-      // Check for exact match first
-      const exact = getCityData(query);
-      if (exact) {
-        updateProfile(chatId, { home_city: exact.name });
-        setOnboardingStep(chatId, 'confirm');
+      if (step === 'city') {
+        const query = text.trim();
+        if (query.length < 2) {
+          await ctx.reply('❌ הקלד לפחות 2 תווים לחיפוש.');
+          return;
+        }
+
+        // Check for exact match first
+        const exact = getCityData(query);
+        if (exact) {
+          updateProfile(chatId, { home_city: exact.name });
+          setOnboardingStep(chatId, 'confirm');
+          await sendStepMessage(ctx, 'confirm', chatId);
+          return;
+        }
+
+        // Search for partial matches
+        const results = searchCities(query);
+        if (results.length === 0) {
+          await ctx.reply(
+            `🔍 לא נמצאו ערים עבור "<b>${escapeHtml(query)}</b>". נסה שוב:`,
+            { parse_mode: 'HTML' }
+          );
+          return;
+        }
+
+        if (results.length === 1) {
+          updateProfile(chatId, { home_city: results[0].name });
+          setOnboardingStep(chatId, 'confirm');
+          await sendStepMessage(ctx, 'confirm', chatId);
+          return;
+        }
+
+        const { text: resultText, keyboard } = buildCityResults(results);
+        await ctx.reply(resultText, { parse_mode: 'HTML', reply_markup: keyboard });
+        return;
+      }
+
+      // If in confirm step but got text, just remind them
+      if (step === 'confirm') {
         await sendStepMessage(ctx, 'confirm', chatId);
         return;
       }
 
-      // Search for partial matches
-      const results = searchCities(query);
-      if (results.length === 0) {
-        await ctx.reply(
-          `🔍 לא נמצאו ערים עבור "<b>${query}</b>". נסה שוב:`,
-          { parse_mode: 'HTML' }
-        );
-        return;
-      }
-
-      if (results.length === 1) {
-        updateProfile(chatId, { home_city: results[0].name });
-        setOnboardingStep(chatId, 'confirm');
-        await sendStepMessage(ctx, 'confirm', chatId);
-        return;
-      }
-
-      const { text: resultText, keyboard } = buildCityResults(results);
-      await ctx.reply(resultText, { parse_mode: 'HTML', reply_markup: keyboard });
-      return;
+      await next();
+    } catch (err) {
+      log('error', 'Onboarding', `Text handler failed for ${chatId}: ${err}`);
+      await ctx.reply('אירעה שגיאה. נסה שוב מאוחר יותר.').catch((e) =>
+        log('error', 'Onboarding', `Failed to send error reply: ${e}`)
+      );
     }
-
-    // If in confirm step but got text, just remind them
-    if (step === 'confirm') {
-      await sendStepMessage(ctx, 'confirm', chatId);
-      return;
-    }
-
-    await next();
   });
 }

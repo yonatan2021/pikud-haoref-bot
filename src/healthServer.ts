@@ -2,14 +2,13 @@ import http from 'node:http';
 import { getMetrics } from './metrics.js';
 import { getDb } from './db/schema.js';
 import { log } from './logger.js';
+import { israelMidnight } from './dashboard/israelDate.js';
 
-// 'start of day' boundary is UTC midnight — alertsToday may be off by 2–3h
-// vs. Israel local time (UTC+2/+3); acceptable for monitoring purposes.
 function alertsToday(): { count: number; error: boolean } {
   try {
     const row = getDb()
-      .prepare("SELECT COUNT(*) as cnt FROM alert_history WHERE fired_at >= datetime('now','start of day')")
-      .get() as { cnt: number };
+      .prepare('SELECT COUNT(*) as cnt FROM alert_history WHERE fired_at >= ?')
+      .get(israelMidnight()) as { cnt: number };
     return { count: row.cnt, error: false };
   } catch (err) {
     log('error', 'Health', `כישלון בשאילתת alertsToday: ${err}`);

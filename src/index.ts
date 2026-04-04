@@ -24,6 +24,7 @@ import { setMenuHandlerDb } from './bot/menuHandler.js';
 import { initialize as initWhatsApp, setMessageCallback } from './whatsapp/whatsappService.js';
 import { createBroadcaster } from './whatsapp/whatsappBroadcaster.js';
 import { createMessageHandler } from './whatsapp/whatsappListenerService.js';
+import { initializeTelegramListener } from './telegram-listener/telegramListenerService.js';
 import { InputFile } from 'grammy';
 import { initSubscriptionCache } from './db/subscriptionRepository.js';
 import { initUsageCache } from './db/mapboxUsageRepository.js';
@@ -31,6 +32,7 @@ import { createAllClearTracker } from './services/allClearTracker.js';
 import { formatAllClearMessage } from './telegramBot.js';
 import { getCityData } from './cityLookup.js';
 import { initAlertSerial, getNextAlertSerial } from './config/alertSerial.js';
+import { pruneExpiredContacts } from './db/contactRepository.js';
 
 // Prevent broken-pipe errors from crashing the bot when a stdout consumer exits.
 process.stdout.on('error', (err: NodeJS.ErrnoException) => {
@@ -90,6 +92,20 @@ for (const envVar of REQUIRED_ENV_VARS) {
   const bot = getBot();
   await setupBotHandlers(bot);
 
+  if (process.env.TELEGRAM_LISTENER_ENABLED === 'true') {
+    for (const key of ['TELEGRAM_API_ID', 'TELEGRAM_API_HASH']) {
+      if (!process.env[key]) throw new Error(`${key} is required when TELEGRAM_LISTENER_ENABLED=true`);
+    }
+  }
+
+  try {
+    if (process.env.TELEGRAM_LISTENER_ENABLED === 'true') {
+      await initializeTelegramListener(getDb(), bot);
+    }
+  } catch (err) {
+    log('warn', 'Init', `Telegram Listener אתחול נכשל — ממשיך ללא: ${err}`);
+  }
+
   // Wire WhatsApp→Telegram listener. setMessageCallback is safe to call even when
   // WHATSAPP_ENABLED=false — the callback is stored but the message event never fires.
   const sendMediaToTelegram = async (
@@ -141,15 +157,21 @@ for (const envVar of REQUIRED_ENV_VARS) {
 
   const allClearChatId = process.env.TELEGRAM_CHAT_ID!;
   const allClearTracker = createAllClearTracker({
-    onAllClear: (zones) => {
+    onAllClear: async (zones) => {
       for (const zone of zones) {
-        const message = formatAllClearMessage(zone);
-        bot.api.sendMessage(allClearChatId, message, { parse_mode: 'HTML' }).catch((err) => {
-          log('error', 'AllClear', `Failed to send all-clear for zone "${zone}": ${String(err)}`);
-        });
+        try {
+          const message = formatAllClearMessage(zone);
+          await bot.api.sendMessage(allClearChatId, message, { parse_mode: 'HTML' });
+        } catch (err) {
+          log('error', 'AllClear', `שליחת הודעת סיום כשלה עבור אזור "${zone}": ${String(err)}`);
+        }
       }
     },
   });
+
+  // Clear all-clear timers on graceful shutdown to avoid dangling timer handles
+  process.once('SIGTERM', () => { allClearTracker.clearAll(); process.exit(0); });
+  process.once('SIGINT',  () => { allClearTracker.clearAll(); process.exit(0); });
 
   poller.on('newAlert', async (alert: Alert) => {
     updateLastAlertAt();
@@ -183,12 +205,22 @@ for (const envVar of REQUIRED_ENV_VARS) {
 
   poller.start(2000);
 
-  logStartupHeader('0.4.0', [
+  // Prune expired pending contact requests every 6 hours
+  const CONTACT_CLEANUP_INTERVAL_MS = 6 * 60 * 60 * 1000;
+  setInterval(() => {
+    const pruned = pruneExpiredContacts();
+    if (pruned > 0) {
+      log('info', 'Cleanup', `הוסרו ${pruned} בקשות קשר שפגו`);
+    }
+  }, CONTACT_CLEANUP_INTERVAL_MS);
+
+  logStartupHeader('0.4.4', [
     { name: 'Health Server', detail: healthOk ? toVisualRtl(`פורט ${resolvedHealthPort}`) : toVisualRtl('נכשל בהפעלה'), ok: healthOk, url: healthOk ? `http://localhost:${resolvedHealthPort}/health` : undefined },
     { name: 'Alert Poller',  detail: toVisualRtl('כל 2 שניות'),                                                ok: true },
     { name: 'Dashboard',     detail: dashboardSecret ? toVisualRtl(`פורט ${dashboardPort}`) : toVisualRtl('כבוי (אין DASHBOARD_SECRET)'), ok: !!dashboardSecret, url: dashboardSecret ? `http://localhost:${dashboardPort}/dashboard` : undefined },
     { name: 'Database',      detail: toVisualRtl('מאותחל'),                                                ok: true },
     { name: 'WhatsApp',      detail: toVisualRtl(process.env.WHATSAPP_ENABLED === 'true' ? 'מופעל' : 'כבוי'), ok: process.env.WHATSAPP_ENABLED === 'true' },
+    { name: 'TG Listener',  detail: toVisualRtl(process.env.TELEGRAM_LISTENER_ENABLED === 'true' ? 'מופעל' : 'כבוי'), ok: process.env.TELEGRAM_LISTENER_ENABLED === 'true' },
   ], alertsToday);
 
   logSectionDivider();

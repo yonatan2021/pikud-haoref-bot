@@ -26,19 +26,147 @@
 
 <div dir="rtl">
 
+</div>
+
+---
+
+## [0.4.4] — 2026-04-04
+
+<div dir="rtl">
+
 ### ✨ תכונות חדשות
 
-- **WhatsApp — טקסט מיידי + מפה מושהית** — בתוך חלון העדכון, הודעת טקסט נשלחת מיידית ונערכת בזמן אמת (`msg.edit`); תמונת המפה נשלחת פעם אחת אחרי debounce (ברירת מחדל: 15 שניות) עם כל הערים המעודכנות. מונע כפילויות ומחיקות בקבוצות WhatsApp.
-- **הגדרת עיכוב מפה בדשבורד** — `whatsapp_map_debounce_seconds` — ניתן לשנות מהדשבורד ללא הפעלה מחדש (hot-configurable); נתמך גם דרך משתנה סביבה `WHATSAPP_MAP_DEBOUNCE_SECONDS`
+- **חזותיות אזורים חכמה** — 33 צבעים ייחודיים לאזורים במפות Mapbox; ספריית `zoneColors.ts` עם runtime assertion שמגן מפני אי-התאמה
+- **אינדיקטור רלוונטיות** — `getRelevanceIndicator()` מציין בכותרת ערוץ אם ההתרעה נוגעת לאזורים שנבחרו
+- **סרגל ספירה לאחור ב-DM** — `renderCountdownBar()` מייצר סרגל ויזואלי (🟥🟥🟥🟥🟥 עד 🔵⬜⬜⬜⬜) בהודעות DM
+- **allClearTracker** — מעקב all-clear per-zone: הודעת "הסתיימה ההתרעה" עם חלון שקט למניעת הצפה; injectable deps; timers מנוקים בעת SIGTERM/SIGINT
+- **פקודת `/today`** — סיכום יומי של כל ההתרעות עם פירוט לפי קטגוריות (alertsToday handler)
+- **פקודת `/legend`** — פלטת צבעי האזורים לפי 6 סופר-אזורים (legendHandler)
+- **Forum topics support** — GramJS listener תומך בנושאים (threads) בקבוצות forum; סינון לפי `sourceTopicId`
+- **פורמט משותף Telegram + WhatsApp** — `buildSummaryLine()` כמקור יחיד לספירת ערים/אזורים; תיקון דקדוקי "1 עיר" לעומת "N ערים"
 
 ### 🐛 תיקוני באגים
 
-- **תמונת מפה בהתרעות מרובות ערים (#101)** — בטלגרם: תמונת המפה נשלחת תמיד כשהיא זמינה (כיתוב מקוצר במקום ביטול התמונה כשהטקסט ארוך); ב-WhatsApp: נשלחת הודעה חדשה עם מפה מעודכנת כשיש שינוי בערים (במקום עריכת טקסט בלבד שמשאירה מפה ישנה)
+- **alertSerial — timezone ישראל** — מספרי אינדקס התרעות מחושבים לפי `Asia/Jerusalem` (UTC+2/+3); האינדקס מתאפס בחצות המקומית ולא בחצות UTC
+- **Empty chat list on fresh GramJS session** — fallback ל-`client.getEntity()` ו-retry עם השהיה של 2 שניות בעת 0 תוצאות
+- **GetForumTopics not paginated** — pagination loop לקבוצות עם יותר מ-100 נושאים
+
+### 🗑️ הוסר
+
+- **Docker Hub / GHCR פרסום ציבורי** — הוסרה אוטומציית פרסום Docker image ל-GHCR ו-Docker Hub; הדרך המומלצת להתקנה היא `npx @haoref-boti/pikud-haoref-bot`. ה-Dockerfile נשמר לבנייה מקומית.
+- **alertLayout.ts** — הוסר עקב circular import; הלוגיקה הועברה ל-`telegramBot.ts`
 
 ### 🧪 בדיקות
 
-- **+8 בדיקות WhatsApp debounce** — תזמון/ביטול debounce, קריאת הגדרות מ-DB/env, ניקוי טיימרים, עריכת טקסט + תזמון מפה
-- **+7 בדיקות** — 3 בדיקות `buildSendPayload` (מצב תמונה / טקסט, קיצור כיתוב), 3 בדיקות WhatsApp edit-with-image (שליחה חדשה / עריכה / מעקב), בדיקת אינטגרציה ב-alertHandler
+- **+199 בדיקות חדשות** — כיסוי מלא לחזותיות אזורים, accessibility, allClearTracker, todayHandler, legendHandler, zoneColors, crossChannelFormat, summaryLine
+
+</div>
+
+---
+
+## [0.4.3] — 2026-04-03
+
+<div dir="rtl">
+
+### ✨ תכונות חדשות
+
+- **Telegram Listener** — האזנה לקבוצות/ערוצים Telegram דרך GramJS MTProto (חשבון משתמש), סינון לפי מילות מפתח, והעברה לנושאים בערוץ ו-WhatsApp; ניהול מלא מלוח הבקרה עם auth flow (טלפון → OTP → 2FA)
+- **הגדרות פרטיות** — פקודה חדשה `/privacy` לניהול מדיניות פרטיות ברירת המחדל לחיבורים חדשים
+- **שליטה per-contact** — ניתן לשנות בנפרד אילו שדות (סטטוס ביטחוני, עיר בית, זמן עדכון) כל איש קשר יכול לראות
+- **תבנית ברירת מחדל** — הגדרות הפרטיות שנבחרו מוחלות אוטומטית על כל חיבור חדש
+- **שיפור UX חיבור חברים** — זרימה אינטראקטיבית לא-טכנית עם תפריט, קוד בתיבה tappable, ובחירת הרשאות מפורשת לפני שליחת בקשה
+- **סיכום הרשאות בעת אישור** — כשחבר מאשר בקשת חיבור, הם רואים בדיוק אילו שדות שותפו (עיר בית, זמן עדכון אחרון)
+- **ניסוח משופר** — כל הודעות שגיאה וחיבור כתובות בעברית יומיומית, לא טכנית
+
+### 🐛 תיקוני באגים
+
+- **Telegram Listener — pagination** — לולאת `refreshKnownChats` עצרה אחרי 100 צ'אטים ראשונים בגלל תנאי break הפוך (`>=` במקום `<=`)
+- **Telegram Listener — סיווג supergroup** — קבוצות-ערוץ (megagroup) אוחסנו בטעות כ-`group` במקום `supergroup`
+- **Telegram Listener — race condition** — `startPhoneAuth()` יכול היה לרוץ במקביל ל-`initialize()` וליצור שתי TelegramClient instances
+- **Telegram Listener — env validation** — אפליקציה עלתה ללא `TELEGRAM_API_ID`/`TELEGRAM_API_HASH` ונכשלה מאוחר יותר בלי הודעת שגיאה ברורה
+- **Telegram Listener — chatId null** — שימוש ב-`!` non-null assertion על `TELEGRAM_CHAT_ID` גרם לקריסה כש-env var לא הוגדר
+- **Privacy — update_time** — `createContactWithPermissions` נקרא ללא `update_time`, כך שתמיד ברירת המחדל הייתה `true` ללא קשר להגדרות `/privacy`
+- **Privacy — error handling** — חריגות לא-נתפסות ב-`updatePermissions()` ו-`editMessageText()` גרמו לקריסת callback handlers
+
+### 🧪 בדיקות
+
+- **כיסוי הרשאות פרטיות** — טסטים מלאים ל-`/privacy`, `pv:toggle`, `cx:perm`, `cp:toggle` ו-`getPrivacyDefaults`
+- **rendering test לבדיקת הרשאות** — בדיקה שעיר הבית מוצגת/מוסתרת בהתאם להרשאת `home_city`
+- **+8 בדיקות connectHandler** — כיסוי של תפריט ה-connect, קולבקי toggle הרשאות, ו-cx:confirm/cx:cancel
+- **+81 בדיקות Telegram Listener** — repository, service, ו-dashboard routes; injectable deps לבידוד מ-GramJS
+
+</div>
+
+---
+
+## [0.4.2] — 2026-04-03
+
+<div dir="rtl">
+
+### ✨ תכונות חדשות
+
+- **אנשי קשר** — חברו חברים ומשפחה עם קוד בן 6 ספרות, אשרו בקשות, ונהלו רשימת קשרים
+- **הגנה מפני שימוש לרעה** — המערכת מגבילה בקשות חריגות ומנקה בקשות ישנות באופן אוטומטי
+- **קוד חיבור בפרופיל** — הקוד האישי שלכם מופיע גם בעמוד הפרופיל
+- **אנשי קשר בלוח הבקרה** — מנהלים רואים קודי חיבור, מספר קשרים, ורשימת אנשי קשר לכל מנוי
+
+### 🧪 בדיקות
+
+- **+11 בדיקות** — כיסוי מלא למערכת אנשי הקשר, לוח הבקרה, וניקוי אוטומטי
+
+</div>
+
+---
+
+## [0.4.1a] — 2026-04-03
+
+<div dir="rtl">
+
+### ✨ תכונות חדשות
+
+- **פרופיל מנויים בדשבורד** — עמוד מנויים מציג כעת שם תצוגה, עיר מגורים, וסטטוס onboarding; חיפוש לפי שם ועיר; עריכת שם ועיר מהדשבורד; ייצוא CSV כולל שדות פרופיל
+
+### 🧪 בדיקות
+
+- **+8 בדיקות dashboard/subscribers** — חיפוש לפי שם ועיר, עדכון display_name/home_city, CSV עם שדות פרופיל
+
+</div>
+
+---
+
+## [0.4.1] — 2026-04-02
+
+<div dir="rtl">
+
+### ✨ תכונות חדשות
+
+#### Onboarding
+- **Onboarding wizard ב-`/start`** — משתמש חדש נכנס לתהליך הגדרה מונחה: שם תצוגה → עיר מגורים → אישור. מצב נשמר ב-SQLite (`onboarding_step`) ושורד ריסטארט; אפשרות דילוג בכל שלב
+- **הרשמה אוטומטית לעיר מגורים** — בסיום ה-onboarding, המשתמש נרשם אוטומטית להתראות על עיר המגורים שבחר
+
+#### פרופיל
+- **פקודת `/profile`** — צפייה ועריכה של שם תצוגה, עיר מגורים ושפה במקום אחד; כפתורי עריכה inline עם ולידציית קלט
+- **בחירת שפה** — תמיכה ב-locale (כרגע עברית בלבד); מוכן ל-i18n עתידי
+
+#### תשתית
+- **הרחבת טבלת `users`** — 6 עמודות חדשות: `display_name`, `home_city`, `locale`, `onboarding_completed`, `connection_code`, `onboarding_step`; מיגרציה בטוחה עם `addColumnIfMissing`
+- **WhatsApp — טקסט מיידי + מפה מושהית** — בתוך חלון העדכון, הודעת טקסט נשלחת מיידית ונערכת בזמן אמת (`msg.edit`); תמונת המפה נשלחת פעם אחת אחרי debounce (ברירת מחדל: 15 שניות)
+- **הגדרת עיכוב מפה בדשבורד** — `whatsapp_map_debounce_seconds` — ניתן לשנות מהדשבורד ללא הפעלה מחדש
+
+### 🐛 תיקוני באגים
+
+- **תמונת מפה בהתרעות מרובות ערים (#101)** — בטלגרם: תמונת המפה נשלחת תמיד כשהיא זמינה; ב-WhatsApp: נשלחת הודעה חדשה עם מפה מעודכנת כשיש שינוי בערים
+
+### 🧪 בדיקות
+
+- **+48 בדיקות Onboarding + Profile** — 21 בדיקות userRepository (מיגרציה, פרופיל, onboarding, connection code), 16 בדיקות onboardingHandler (מעברי שלבים, דילוג, ולידציה), 11 בדיקות profileHandler (סיכום, עריכה, ברירות מחדל)
+- **+15 בדיקות WhatsApp** — 8 debounce, 7 buildSendPayload + edit-with-image
+
+### 🔧 תחזוקה
+
+- **`src/bot/onboardingHandler.ts`** — handler חדש ל-wizard onboarding
+- **`src/bot/profileHandler.ts`** — handler חדש לפקודת `/profile`
+- **הרחבת `userRepository.ts`** — `getProfile`, `updateProfile`, `completeOnboarding`, `isOnboardingCompleted`, `setOnboardingStep`, `setConnectionCode`, `findUserByConnectionCode`
 
 </div>
 
@@ -742,7 +870,11 @@
 
 <div dir="rtl">
 
-[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.4...HEAD
+[0.4.4]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.3...v0.4.4
+[0.4.3]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.2...v0.4.3
+[0.4.2]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.1...v0.4.2
+[0.4.1]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.3.3...v0.4.0
 [0.3.3]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.3.1...v0.3.2
