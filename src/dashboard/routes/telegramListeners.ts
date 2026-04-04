@@ -81,7 +81,8 @@ export function createTelegramListenerRouter(
 
     try {
       const { phoneCodeHash } = await clientDeps.startPhoneAuth(db, phone);
-      log('info', 'TG Listener', `OTP נשלח ל-${phone}`);
+      const maskedPhone = phone.length > 6 ? `${phone.slice(0, 4)}****${phone.slice(-2)}` : '****';
+      log('info', 'TG Listener', `OTP נשלח ל-${maskedPhone}`);
       res.json({ phoneCodeHash });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
