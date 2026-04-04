@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import { mkdirSync } from 'fs';
 import path from 'path';
+import { log } from '../logger.js';
 
 const DB_PATH = process.env.DB_PATH ?? path.join(process.cwd(), 'data', 'subscriptions.db');
 
@@ -229,4 +230,15 @@ export function initDb(): void {
     database.prepare('DELETE FROM login_attempts WHERE reset_at < (unixepoch() * 1000)').run();
     database.prepare(`DELETE FROM contacts WHERE status = 'pending' AND created_at < datetime('now', '-7 days')`).run();
   })();
+
+  // Integrity check — warn if users table is empty but alert history exists (possible data loss)
+  const { count: userCount } = database
+    .prepare('SELECT COUNT(*) as count FROM users')
+    .get() as { count: number };
+  const { count: historyCount } = database
+    .prepare('SELECT COUNT(*) as count FROM alert_history')
+    .get() as { count: number };
+  if (userCount === 0 && historyCount > 0) {
+    log('warn', 'DB', `⚠️ 0 משתמשים אך ${historyCount} התראות בהיסטוריה — ייתכן שאירע איבוד נתונים`);
+  }
 }

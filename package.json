@@ -5,8 +5,10 @@
   "license": "Apache-2.0",
   "description": "בוט טלגרם להתראות פיקוד העורף בזמן אמת עם מפות Mapbox",
   "scripts": {
+    "prestart": "tsx scripts/backup-db.ts",
     "start": "tsx src/index.ts",
     "build": "tsc -p tsconfig.json && npm run build:dashboard",
+    "predev": "tsx scripts/backup-db.ts",
     "dev": "tsx watch src/index.ts",
     "test": "DB_PATH=:memory: tsx --test src/__tests__/*.test.ts",
     "build:dashboard": "cd dashboard-ui && npm ci && npm run build",
