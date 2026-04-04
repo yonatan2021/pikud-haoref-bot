@@ -128,25 +128,43 @@ function parseLatestChangelog(changelogContent) {
 
     // Sub-section header like "#### WhatsApp Listener Bridge (חדש)"
     if (trimmed.startsWith('#### ')) {
-      items.push(trimmed.slice(5).trim());
+      items.push({ title: trimmed.slice(5).trim(), desc: '' });
       continue;
     }
     // Bullet like "- **Feature Name** — description"
     if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
       let text = trimmed.slice(2).trim();
-      const boldMatch = text.match(/^\*\*([^*]+)\*\*/);
-      if (boldMatch) {
-        text = boldMatch[1].replace(/`/g, '');
+      let title = '';
+      let desc = '';
+      const withDesc = text.match(/^\*\*([^*]+)\*\*\s*[—\-]\s*(.+)/);
+      if (withDesc) {
+        title = withDesc[1].replace(/`/g, '').trim();
+        desc  = withDesc[2].replace(/`/g, '').replace(/\*\*/g, '').trim();
       } else {
-        const sepIdx = text.indexOf(' — ');
-        if (sepIdx > 0) text = text.slice(0, sepIdx);
-        text = text.replace(/\*\*/g, '').replace(/`/g, '');
+        const boldOnly = text.match(/^\*\*([^*]+)\*\*/);
+        if (boldOnly) {
+          title = boldOnly[1].replace(/`/g, '').trim();
+        } else {
+          const sepIdx = text.indexOf(' — ');
+          title = (sepIdx > 0 ? text.slice(0, sepIdx) : text)
+            .replace(/\*\*/g, '').replace(/`/g, '').trim();
+        }
       }
-      if (text.length > 2) items.push(text);
+      if (title.length > 2) items.push({ title, desc });
     }
   }
 
-  const html = items.map((item) => `<li>${escapeHtml(item)}</li>`).join('\n');
+  const html = items.map(({ title, desc }) => {
+    const descPart = desc
+      ? `\n  <span class="wn-desc">${escapeHtml(desc)}</span>`
+      : '';
+    return (
+      `<div class="wn-card">` +
+      `\n  <span class="wn-title">${escapeHtml(title)}</span>` +
+      descPart +
+      `\n</div>`
+    );
+  }).join('\n');
   return { version: latestVersion, html };
 }
 
@@ -230,9 +248,13 @@ function buildPathsHtml(paths) {
             </button>
           </div>` : '';
 
+    const badgeHtml = p.style === 'join'
+      ? `<div class="path-badge">&#11088; מומלץ</div>`
+      : '';
+
     return `
         <div class="path-card path-card--${escapeHtml(p.style)} glass-card reveal"${delay}>
-          <div class="path-icon" aria-hidden="true">${p.icon}</div>
+          ${badgeHtml}<div class="path-icon" aria-hidden="true">${p.icon}</div>
           <h3 class="path-title">${escapeHtml(p.title)}</h3>
           <p class="path-desc">${escapeHtml(p.desc)}</p>
           <ul class="path-features">
@@ -310,76 +332,110 @@ const buildDate = new Date().toLocaleDateString('he-IL', {
   day: 'numeric',
 });
 
-// Step 5: Read template and replace placeholders
-const template = fs.readFileSync('landing/template/index.html', 'utf8');
-let output = template
-  .replaceAll('{{VERSION}}', version)
-  .replaceAll('{{USER_FEATURES_HTML}}', userFeaturesHtml)
-  .replaceAll('{{DEV_FEATURES_HTML}}', devFeaturesHtml)
-  .replaceAll('{{BUILD_DATE}}', buildDate)
-  .replaceAll('{{WHATS_NEW_HTML}}', whatsNewHtml)
-  .replaceAll('{{CHANGELOG_VERSION}}', changelogVersion || version)
-  .replaceAll('{{STAT_CITIES}}', escapeHtml(statCities))
-  .replaceAll('{{STAT_ZONES}}',  escapeHtml(statZones))
-  .replaceAll('{{STAT_CATS}}',   escapeHtml(statCats))
-  .replaceAll('{{STAT_TESTS}}',  escapeHtml(statTests))
-  .replaceAll('{{PATHS_HTML}}', pathsHtml)
-  .replaceAll('{{PATHS_SECTION_TITLE}}', escapeHtml(pathsSectionTitle))
-  .replaceAll('{{WHATSAPP_LINK}}', escapeHtml(whatsappLink));
+// Step 5: All file I/O runs inside async main() to allow GitHub stars fetch
+async function main() {
+  // Fetch GitHub star count at build time (no browser exposure, no rate-limit risk)
+  let statStars = '—';
+  try {
+    const https = require('https');
+    const ghData = await new Promise((resolve, reject) => {
+      const req = https.get(
+        {
+          hostname: 'api.github.com',
+          path: '/repos/yonatan2021/pikud-haoref-bot',
+          headers: { 'User-Agent': 'pikud-haoref-landing-build' },
+        },
+        (res) => {
+          let body = '';
+          res.on('data', (chunk) => { body += chunk; });
+          res.on('end', () => {
+            try { resolve(JSON.parse(body)); } catch (e) { reject(e); }
+          });
+        }
+      );
+      req.on('error', reject);
+    });
+    if (typeof ghData.stargazers_count === 'number') {
+      statStars = ghData.stargazers_count.toLocaleString('he-IL');
+    }
+  } catch (e) {
+    console.warn('[build.js] GitHub stars fetch failed — using fallback:', e.message);
+  }
 
-// Inject GA4 tracking script if measurement ID is configured
-const GA4_PATTERN = /^G-[A-Z0-9]{4,12}$/;
-let ga4Id = process.env.GA4_MEASUREMENT_ID || '';
-if (ga4Id && !GA4_PATTERN.test(ga4Id)) {
-  console.warn(`[landing] Invalid GA4_MEASUREMENT_ID format: ${ga4Id} — skipping GA4 injection`);
-  ga4Id = ''; // treat as unset, no injection
-}
-const ga4Script = ga4Id
-  ? `<script async src="https://www.googletagmanager.com/gtag/js?id=${ga4Id}"></script>
+  // Read template and replace all placeholders
+  const template = fs.readFileSync('landing/template/index.html', 'utf8');
+  let output = template
+    .replaceAll('{{VERSION}}', version)
+    .replaceAll('{{USER_FEATURES_HTML}}', userFeaturesHtml)
+    .replaceAll('{{DEV_FEATURES_HTML}}', devFeaturesHtml)
+    .replaceAll('{{BUILD_DATE}}', buildDate)
+    .replaceAll('{{WHATS_NEW_HTML}}', whatsNewHtml)
+    .replaceAll('{{CHANGELOG_VERSION}}', changelogVersion || version)
+    .replaceAll('{{STAT_CITIES}}', escapeHtml(statCities))
+    .replaceAll('{{STAT_ZONES}}',  escapeHtml(statZones))
+    .replaceAll('{{STAT_CATS}}',   escapeHtml(statCats))
+    .replaceAll('{{STAT_TESTS}}',  escapeHtml(statTests))
+    .replaceAll('{{STAT_STARS}}',  escapeHtml(statStars))
+    .replaceAll('{{PATHS_HTML}}', pathsHtml)
+    .replaceAll('{{PATHS_SECTION_TITLE}}', escapeHtml(pathsSectionTitle))
+    .replaceAll('{{WHATSAPP_LINK}}', escapeHtml(whatsappLink));
+
+  // Inject GA4 tracking script if measurement ID is configured
+  const GA4_PATTERN = /^G-[A-Z0-9]{4,12}$/;
+  let ga4Id = process.env.GA4_MEASUREMENT_ID || '';
+  if (ga4Id && !GA4_PATTERN.test(ga4Id)) {
+    console.warn(`[landing] Invalid GA4_MEASUREMENT_ID format: ${ga4Id} — skipping GA4 injection`);
+    ga4Id = ''; // treat as unset, no injection
+  }
+  const ga4Script = ga4Id
+    ? `<script async src="https://www.googletagmanager.com/gtag/js?id=${ga4Id}"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${ga4Id}');</script>`
-  : '';
-if (!output.includes('<!-- GA4_PLACEHOLDER -->')) {
-  throw new Error('landing/template/index.html is missing <!-- GA4_PLACEHOLDER --> — cannot inject GA4 script');
-}
-output = output.replace('<!-- GA4_PLACEHOLDER -->', ga4Script);
+    : '';
+  if (!output.includes('<!-- GA4_PLACEHOLDER -->')) {
+    throw new Error('landing/template/index.html is missing <!-- GA4_PLACEHOLDER --> — cannot inject GA4 script');
+  }
+  output = output.replace('<!-- GA4_PLACEHOLDER -->', ga4Script);
 
-// Create output directories
-fs.mkdirSync('landing/dist/screenshots', { recursive: true });
+  // Create output directories
+  fs.mkdirSync('landing/dist/screenshots', { recursive: true });
 
-// Write index.html
-fs.writeFileSync('landing/dist/index.html', output, 'utf8');
+  // Write index.html
+  fs.writeFileSync('landing/dist/index.html', output, 'utf8');
 
-// Step 5: Copy style.css
-fs.copyFileSync('landing/template/style.css', 'landing/dist/style.css');
+  // Copy style.css
+  fs.copyFileSync('landing/template/style.css', 'landing/dist/style.css');
 
-// Step 6: Copy logo — use pre-optimized version from template/ (18KB vs 674KB original)
-const logoSrc = fs.existsSync('landing/template/logo.jpg')
-  ? 'landing/template/logo.jpg'
-  : 'logo.jpg';
-fs.copyFileSync(logoSrc, 'landing/dist/logo.jpg');
+  // Copy logo — use pre-optimized version from template/ (18KB vs 674KB original)
+  const logoSrc = fs.existsSync('landing/template/logo.jpg')
+    ? 'landing/template/logo.jpg'
+    : 'logo.jpg';
+  fs.copyFileSync(logoSrc, 'landing/dist/logo.jpg');
 
-// Step 7: Copy screenshots — prefer pre-optimized from landing/template/screenshots/
-const optimizedScreenshots = 'landing/template/screenshots';
-const originalScreenshots = 'docs/screenshots';
-const screenshotsDir = fs.existsSync(optimizedScreenshots)
-  ? optimizedScreenshots
-  : originalScreenshots;
-if (!fs.existsSync(screenshotsDir)) {
-  throw new Error(`Screenshots source directory not found. Checked: ${optimizedScreenshots}, ${originalScreenshots}`);
-}
-if (fs.existsSync(screenshotsDir)) {
-  const screenshotFiles = fs.readdirSync(screenshotsDir);
-  for (const file of screenshotFiles) {
-    if (path.extname(file).toLowerCase() === '.jpg') {
-      const src = path.join(screenshotsDir, file);
-      const dst = path.join('landing/dist/screenshots', file);
-      try {
-        fs.copyFileSync(src, dst);
-      } catch (err) {
-        throw new Error(`Failed to copy screenshot "${file}" from ${src}: ${err.message}`);
+  // Copy screenshots — prefer pre-optimized from landing/template/screenshots/
+  const optimizedScreenshots = 'landing/template/screenshots';
+  const originalScreenshots = 'docs/screenshots';
+  const screenshotsDir = fs.existsSync(optimizedScreenshots)
+    ? optimizedScreenshots
+    : originalScreenshots;
+  if (!fs.existsSync(screenshotsDir)) {
+    throw new Error(`Screenshots source directory not found. Checked: ${optimizedScreenshots}, ${originalScreenshots}`);
+  }
+  if (fs.existsSync(screenshotsDir)) {
+    const screenshotFiles = fs.readdirSync(screenshotsDir);
+    for (const file of screenshotFiles) {
+      if (path.extname(file).toLowerCase() === '.jpg') {
+        const src = path.join(screenshotsDir, file);
+        const dst = path.join('landing/dist/screenshots', file);
+        try {
+          fs.copyFileSync(src, dst);
+        } catch (err) {
+          throw new Error(`Failed to copy screenshot "${file}" from ${src}: ${err.message}`);
+        }
       }
     }
   }
+
+  console.log('✅  Built landing page v' + version + ' → landing/dist/');
 }
 
-console.log('✅  Built landing page v' + version + ' → landing/dist/');
+main().catch((err) => { console.error(err); process.exit(1); });
