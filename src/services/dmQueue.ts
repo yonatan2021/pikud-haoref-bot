@@ -69,7 +69,7 @@ export class DmQueue {
       const MAX_RETRIES = 5;
       const attempts = (task.retries ?? 0) + 1;
       if (attempts > MAX_RETRIES) {
-        log('error', 'DM', `מוותר על ${task.chatId} אחרי ${MAX_RETRIES} ניסיונות — מוחק משימה`);
+        log('error', 'DM', `מוותר על chatId=${task.chatId} אחרי ${MAX_RETRIES} ניסיונות (תוכן: ${task.text.slice(0, 80)}...)`);
         return;
       }
       log('warn', 'DM', `⏳ Rate limit — מפסיק ${retryAfter}ש (ניסיון ${attempts}/${MAX_RETRIES}). תור: ${this.queue.length + 1}`);

@@ -75,8 +75,12 @@ async function forceKillByPid(c: Client): Promise<void> {
       process.kill(pid, 'SIGKILL');
       log('info', 'WhatsApp', `Chromium (PID ${pid}) נהרג בכוח`);
     }
-  } catch {
-    // process already dead — fine
+  } catch (killErr: unknown) {
+    const msg = killErr instanceof Error ? killErr.message : String(killErr);
+    // ESRCH = process already dead — expected, not worth logging
+    if (!msg.includes('ESRCH')) {
+      log('warn', 'WhatsApp', `forceKillByPid נכשל עבור PID: ${msg}`);
+    }
   }
 }
 
