@@ -217,7 +217,10 @@ export function createBroadcaster(
             // Cancel existing debounce and reschedule if image available
             if (tracked.debounceTimer) cancelSchedule(tracked.debounceTimer);
             const waveId = nextWaveId++;
-            const newTimer = imageBuffer
+            // Only schedule a new map send if the map has not been sent yet for this alert.
+            // Once mapSent = true, no further map images are sent — the text message
+            // keeps updating via msg.edit(), but we send only one map per alert event.
+            const newTimer = (!tracked.mapSent && imageBuffer)
               ? schedule(() => { sendDebouncedMap(groupId, alert.type, getClientFn, waveId); }, debounceDelay)
               : undefined;
 
@@ -227,7 +230,7 @@ export function createBroadcaster(
               debounceTimer: newTimer,
               latestImageBuffer: imageBuffer ?? tracked.latestImageBuffer,
               waveId,
-              mapSent: false,
+              mapSent: tracked.mapSent,  // preserve: once sent, never resend for this alert
             });
             if (newTimer) mapScheduledCount++;
           } else {
