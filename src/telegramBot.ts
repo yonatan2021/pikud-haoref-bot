@@ -355,7 +355,7 @@ export async function _editAlertChain(
       return;
     } catch (err) {
       if (isUnmodifiedError(err)) {
-        log('warn', 'Bot', `Message ${tracked.messageId} not modified (media step) — treating as success`);
+        log('info', 'Bot', `Message ${tracked.messageId} not modified (media step) — treating as success`);
         return;
       }
       if (isMessageGoneError(err)) {
@@ -379,7 +379,7 @@ export async function _editAlertChain(
       return;
     } catch (err) {
       if (isUnmodifiedError(err)) {
-        log('warn', 'Bot', `Message ${tracked.messageId} not modified (caption step) — treating as success`);
+        log('info', 'Bot', `Message ${tracked.messageId} not modified (caption step) — treating as success`);
         return;
       }
       if (isMessageGoneError(err)) {
@@ -400,7 +400,7 @@ export async function _editAlertChain(
     );
   } catch (err) {
     if (isUnmodifiedError(err)) {
-      log('warn', 'Bot', `Message ${tracked.messageId} not modified (text step) — treating as success`);
+      log('info', 'Bot', `Message ${tracked.messageId} not modified (text step) — treating as success`);
       return;
     }
     throw err;
