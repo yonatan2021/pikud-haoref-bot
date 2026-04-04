@@ -646,9 +646,35 @@ img {
   display: none;
 }
 
-/* "Show more" buttons — hidden on desktop */
+/* "Show more" buttons — visible on all viewports */
+.features-grid .feature-card:nth-child(n+7) { display: none; }
+.features-grid.expanded .feature-card:nth-child(n+7) { display: flex; }
+
 .features-show-more {
-  display: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin-top: 0.75rem;
+  padding: 0.65rem 1rem;
+  min-height: 44px;
+  font-family: var(--font);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition:
+    border-color var(--transition),
+    color var(--transition),
+    background var(--transition);
+}
+.features-show-more:hover {
+  border-color: var(--border-hover);
+  color: var(--accent);
+  background: var(--surface-hover);
 }
 
 /* Two-column layout: user panel | dev panel */
@@ -1290,39 +1316,7 @@ img {
     transform: translateY(-50%) rotate(90deg);
   }
 
-  /* ── Show more / truncation ── */
-  .features-grid .feature-card:nth-child(n+7) {
-    display: none;
-  }
-  .features-grid.expanded .feature-card:nth-child(n+7) {
-    display: flex;
-  }
-  .features-show-more {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    margin-top: 0.75rem;
-    padding: 0.65rem 1rem;
-    min-height: 44px;
-    font-family: var(--font);
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--text-secondary);
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    cursor: pointer;
-    transition:
-      border-color var(--transition),
-      color var(--transition),
-      background var(--transition);
-  }
-  .features-show-more:hover {
-    border-color: var(--border-hover);
-    color: var(--accent);
-    background: var(--surface-hover);
-  }
+  /* Show-more button + truncation now global — see above desktop rules */
 
   /* ── What's New truncation ── */
   .changelog-list li:nth-child(n+4) {
