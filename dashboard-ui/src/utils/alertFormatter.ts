@@ -52,9 +52,14 @@ export function buildZonedCityListFE(
     }
   }
 
+  // Sort zones by urgency: most urgent (lowest countdown) first
+  const sortedZones = [...zoneMap.entries()].sort(
+    (a, b) => a[1].minCountdown - b[1].minCountdown
+  );
+
   const sections: string[] = [];
 
-  for (const [zone, { cities: zoneCities, minCountdown }] of zoneMap) {
+  for (const [zone, { cities: zoneCities, minCountdown }] of sortedZones) {
     const sorted = [...zoneCities].sort((a, b) => a.localeCompare(b, 'he'));
     const countdownSuffix =
       minCountdown > 0 && isFinite(minCountdown) ? `  ⏱ <b>${minCountdown} שנ׳</b>` : '';
@@ -85,8 +90,15 @@ export function formatAlertMessageFE(
     hour12: false,
   }).format(date);
 
-  const cityCountPart = cities.length > 0 ? `  ·  ${cities.length} ערים` : '';
-  const header = `${template.emoji} <b>${escapeHtml(template.titleHe)}</b>\n⏰ ${timeStr}${cityCountPart}`;
+  const zoneCt = [...new Set(
+    cities.map(c => cityDataMap.get(c)?.zone).filter((z): z is string => !!z)
+  )].length;
+  const summaryLine = cities.length > 0
+    ? (zoneCt > 1 ? `${zoneCt} אזורים · ${cities.length} ערים` : `${cities.length} ערים`)
+    : null;
+  const headerLines = [`${template.emoji} <b>${escapeHtml(template.titleHe)}</b>`, `⏰ ${timeStr}`];
+  if (summaryLine) headerLines.push(summaryLine);
+  const header = headerLines.join('\n');
 
   const parts: string[] = [header];
 
