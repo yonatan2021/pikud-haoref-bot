@@ -106,7 +106,7 @@ describe('formatAlertForWhatsApp — zone header with countdown', () => {
     const alert: Alert = { type: 'missiles', cities: ['אבו גוש'] };
     const result = formatAlertForWhatsApp(alert);
 
-    assert.ok(result.includes('▸ *בית שמש*'), `expected ▸ zone header for אבו גוש, got:\n${result}`);
+    assert.ok(/▸ .*\*בית שמש\*/.test(result), `expected ▸ zone header for אבו גוש, got:\n${result}`);
     assert.ok(!result.includes('📍'), 'should not use 📍 pin emoji for zone headers');
     assert.ok(result.includes('⏱'), 'expected countdown indicator for known city');
     assert.ok(result.includes("שנ׳"), "expected שנ׳ countdown unit");
@@ -116,7 +116,7 @@ describe('formatAlertForWhatsApp — zone header with countdown', () => {
   it('includes zone city count (N) in zone header', () => {
     const alert: Alert = { type: 'missiles', cities: ['אבו גוש', 'בית שמש'] };
     const result = formatAlertForWhatsApp(alert);
-    assert.ok(result.includes('▸ *בית שמש* (2)'), `expected zone count (2), got:\n${result}`);
+    assert.ok(/▸ .*\*בית שמש\* \(2\)/.test(result), `expected zone count (2), got:\n${result}`);
   });
 
   it('includes all cities under the same zone with exactly one zone header', () => {
@@ -124,7 +124,7 @@ describe('formatAlertForWhatsApp — zone header with countdown', () => {
     const alert: Alert = { type: 'missiles', cities: ['אבו גוש', 'בית שמש'] };
     const result = formatAlertForWhatsApp(alert);
 
-    const zoneHeaderCount = (result.match(/▸ \*בית שמש\*/g) ?? []).length;
+    const zoneHeaderCount = (result.match(/▸ .*\*בית שמש\*/g) ?? []).length;
     assert.equal(zoneHeaderCount, 1, 'should have exactly one zone header');
     assert.ok(result.includes('אבו גוש'), 'city 1 should appear');
     assert.ok(result.includes('בית שמש'), 'city 2 should appear');
@@ -134,7 +134,7 @@ describe('formatAlertForWhatsApp — zone header with countdown', () => {
     // בית שמש and אבו גוש — alphabetically אבו גוש comes first
     const alert: Alert = { type: 'missiles', cities: ['בית שמש', 'אבו גוש'] };
     const result = formatAlertForWhatsApp(alert);
-    const zoneSection = result.split('\n\n').find((s) => s.includes('▸ *בית שמש*')) ?? '';
+    const zoneSection = result.split('\n\n').find((s) => /▸ .*\*בית שמש\*/.test(s)) ?? '';
     const cityLine = zoneSection.split('\n').slice(1).join('');
     assert.ok(cityLine.indexOf('אבו גוש') < cityLine.indexOf('בית שמש'), 'cities should be sorted Hebrew-alphabetically');
   });
@@ -158,7 +158,7 @@ describe('formatAlertForWhatsApp — unzoned cities', () => {
     const alert: Alert = { type: 'missiles', cities: ['אבו גוש', unknownCity] };
     const result = formatAlertForWhatsApp(alert);
 
-    const zoneHeaderIndex = result.indexOf('▸ *');
+    const zoneHeaderIndex = result.indexOf('▸ ');
     const unknownCityIndex = result.indexOf(unknownCity);
 
     assert.ok(zoneHeaderIndex !== -1, 'should have ▸ zone header for אבו גוש');
@@ -202,7 +202,7 @@ describe('formatAlertForWhatsApp — instructions', () => {
     };
     const result = formatAlertForWhatsApp(alert);
     const instrPos = result.indexOf('🛡');
-    const zonePos  = result.indexOf('▸ *');
+    const zonePos  = result.indexOf('▸ ');
     assert.ok(instrPos !== -1, 'should contain 🛡 instructions prefix');
     assert.ok(zonePos  !== -1, 'should contain ▸ zone header');
     assert.ok(
@@ -318,5 +318,67 @@ describe('formatAlertForWhatsApp — unknown alert type fallback', () => {
     const result = formatAlertForWhatsApp(alert);
 
     assert.ok(result.startsWith('⚠️ *התרעה*'), `expected fallback title, got: ${result}`);
+  });
+});
+
+describe('formatAlertForWhatsApp — summary line', () => {
+  it('shows "N ערים" for single-zone alert', () => {
+    // אבו גוש + בית שמש → both in בית שמש zone
+    const alert: Alert = { type: 'missiles', cities: ['אבו גוש', 'בית שמש'] };
+    const result = formatAlertForWhatsApp(alert);
+    assert.ok(result.includes('2 ערים'), `Expected "2 ערים" in: ${result}`);
+  });
+
+  it('shows "N אזורים · M ערים" for multi-zone alert', () => {
+    // אור יהודה → דן, החותרים → חיפה → 2 zones
+    const alert: Alert = { type: 'missiles', cities: ['אור יהודה', 'החותרים'] };
+    const result = formatAlertForWhatsApp(alert);
+    assert.ok(result.includes('2 אזורים · 2 ערים'), `Expected zone+city count: ${result}`);
+  });
+
+  it('omits summary line when cities array is empty', () => {
+    const alert: Alert = { type: 'missiles', cities: [] };
+    const result = formatAlertForWhatsApp(alert);
+    assert.ok(!result.includes('ערים'), `Should not show summary for empty cities: ${result}`);
+  });
+});
+
+describe('formatAlertForWhatsApp — urgency sorting', () => {
+  it('sorts zones by urgency (most urgent first)', () => {
+    // החותרים → חיפה (60s), אור יהודה → דן (90s) — חיפה must appear first
+    const alert: Alert = { type: 'missiles', cities: ['אור יהודה', 'החותרים'] };
+    const result = formatAlertForWhatsApp(alert);
+    const haifaIdx = result.indexOf('חיפה');
+    const danIdx = result.indexOf('דן');
+    assert.ok(haifaIdx < danIdx, `חיפה (60s) must precede דן (90s): ${result}`);
+  });
+
+  it('zone header includes urgency emoji', () => {
+    // החותרים → חיפה (60s) → 🟡
+    const alert: Alert = { type: 'missiles', cities: ['החותרים'] };
+    const result = formatAlertForWhatsApp(alert);
+    assert.ok(result.includes('🟡'), `Expected urgency emoji 🟡: ${result}`);
+  });
+});
+
+describe('formatAlertForWhatsApp — zone header format', () => {
+  it('uses ▸ prefix', () => {
+    const alert: Alert = { type: 'missiles', cities: ['אבו גוש'] };
+    const result = formatAlertForWhatsApp(alert);
+    assert.ok(result.includes('▸'), 'should use ▸ zone prefix');
+  });
+
+  it('includes city count (N) in zone header', () => {
+    // אבו גוש + בית שמש → both in בית שמש → (2)
+    const alert: Alert = { type: 'missiles', cities: ['אבו גוש', 'בית שמש'] };
+    const result = formatAlertForWhatsApp(alert);
+    assert.ok(result.includes('(2)'), `Expected "(2)" in zone header: ${result}`);
+  });
+
+  it('uses ⏰ clock icon', () => {
+    const alert: Alert = { type: 'missiles', cities: [] };
+    const result = formatAlertForWhatsApp(alert);
+    assert.ok(result.includes('⏰'), 'should use ⏰ clock icon');
+    assert.ok(!result.includes('🕐'), 'should not use old 🕐 clock icon');
   });
 });

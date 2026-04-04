@@ -355,7 +355,7 @@ describe('formatAlertMessage with receivedAt timestamp', () => {
 });
 
 describe('formatAlertMessage city count', () => {
-  it('shows city count in header when cities present', () => {
+  it('shows city count in summary line when cities present', () => {
     const alert = {
       type: 'missiles',
       cities: ['עיר א', 'עיר ב', 'עיר ג'],
@@ -364,13 +364,33 @@ describe('formatAlertMessage city count', () => {
     assert.ok(result.includes('3 ערים'), `Expected "3 ערים" in: ${result}`);
   });
 
-  it('omits city count suffix when cities array is empty', () => {
+  it('shows summary on a dedicated line — not embedded in the ⏰ time line', () => {
+    const alert = {
+      type: 'missiles',
+      cities: ['עיר א', 'עיר ב', 'עיר ג'],
+    };
+    const result = formatAlertMessage(alert);
+    const timeLine = result.split('\n').find(l => l.startsWith('⏰')) ?? '';
+    assert.ok(!timeLine.includes('·'), `Time line must not embed city count: "${timeLine}"`);
+  });
+
+  it('omits summary line when cities array is empty', () => {
     const alert = {
       type: 'missiles',
       cities: [],
     };
     const result = formatAlertMessage(alert);
     assert.ok(!result.includes('ערים'), `Should not show city count for empty cities: ${result}`);
+  });
+
+  it('shows "N אזורים · M ערים" when cities span multiple zones', () => {
+    // אור יהודה → דן, החותרים → חיפה → 2 distinct zones
+    const alert = {
+      type: 'missiles',
+      cities: ['אור יהודה', 'החותרים'],
+    };
+    const result = formatAlertMessage(alert);
+    assert.ok(result.includes('2 אזורים · 2 ערים'), `Expected zone+city summary: ${result}`);
   });
 });
 

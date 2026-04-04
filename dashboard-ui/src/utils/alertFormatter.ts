@@ -1,5 +1,21 @@
 // NOTE: Parallel backend implementation in src/dashboard/routes/messages.ts (formatWithTemplate).
 // Changes to the format must be applied to both files.
+//
+// URGENCY_EMOJIS mirrors URGENCY_LEVELS in src/config/urgency.ts.
+// Cannot import directly — this file runs in the browser (no Node modules).
+// Keep in sync manually when urgency thresholds change.
+const URGENCY_EMOJIS = [
+  { maxSeconds: 15, emoji: '🔴' },
+  { maxSeconds: 30, emoji: '🟠' },
+  { maxSeconds: 60, emoji: '🟡' },
+  { maxSeconds: 180, emoji: '🟢' },
+  { maxSeconds: Infinity, emoji: '🔵' },
+] as const;
+
+function getUrgencyEmoji(seconds: number): string {
+  if (!seconds || !isFinite(seconds)) return '';
+  return URGENCY_EMOJIS.find((u) => seconds <= u.maxSeconds)?.emoji ?? '🔵';
+}
 
 export interface CityData {
   name: string;
@@ -52,14 +68,21 @@ export function buildZonedCityListFE(
     }
   }
 
+  // Sort zones by urgency: most urgent (lowest countdown) first
+  const sortedZones = [...zoneMap.entries()].sort(
+    (a, b) => a[1].minCountdown - b[1].minCountdown
+  );
+
   const sections: string[] = [];
 
-  for (const [zone, { cities: zoneCities, minCountdown }] of zoneMap) {
+  for (const [zone, { cities: zoneCities, minCountdown }] of sortedZones) {
     const sorted = [...zoneCities].sort((a, b) => a.localeCompare(b, 'he'));
     const countdownSuffix =
       minCountdown > 0 && isFinite(minCountdown) ? `  ⏱ <b>${minCountdown} שנ׳</b>` : '';
+    const urgencyPrefix = minCountdown > 0 && isFinite(minCountdown)
+      ? `${getUrgencyEmoji(minCountdown)} ` : '';
     const zoneCount = ` (${sorted.length})`;
-    sections.push(`▸ <b>${escapeHtml(zone)}</b>${zoneCount}${countdownSuffix}\n${buildCityListForZone(sorted)}`);
+    sections.push(`▸ ${urgencyPrefix}<b>${escapeHtml(zone)}</b>${zoneCount}${countdownSuffix}\n${buildCityListForZone(sorted)}`);
   }
 
   if (noZone.length > 0) {
@@ -85,8 +108,19 @@ export function formatAlertMessageFE(
     hour12: false,
   }).format(date);
 
-  const cityCountPart = cities.length > 0 ? `  ·  ${cities.length} ערים` : '';
-  const header = `${template.emoji} <b>${escapeHtml(template.titleHe)}</b>\n⏰ ${timeStr}${cityCountPart}`;
+  // NOTE: Intentionally duplicates buildSummaryLine() from src/utils/summaryLine.ts.
+  // Cannot import that module here — it uses getCityData() (Node-only, reads cities.json).
+  // Keep in sync if summary line format changes.
+  const zoneCt = [...new Set(
+    cities.map(c => cityDataMap.get(c)?.zone).filter((z): z is string => !!z)
+  )].length;
+  const cityWord = cities.length === 1 ? 'עיר' : 'ערים';
+  const summaryLine = cities.length > 0
+    ? (zoneCt > 1 ? `${zoneCt} אזורים · ${cities.length} ${cityWord}` : `${cities.length} ${cityWord}`)
+    : null;
+  const headerLines = [`${template.emoji} <b>${escapeHtml(template.titleHe)}</b>`, `⏰ ${timeStr}`];
+  if (summaryLine) headerLines.push(summaryLine);
+  const header = headerLines.join('\n');
 
   const parts: string[] = [header];
 

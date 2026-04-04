@@ -1,6 +1,8 @@
 import type { Alert } from '../types.js';
 import { getCityData } from '../cityLookup.js';
 import { getEmoji, getTitleHe, getInstructionsPrefix } from '../config/templateCache.js';
+import { getUrgencyForCountdown } from '../config/urgency.js';
+import { buildSummaryLine } from '../utils/summaryLine.js';
 
 const MAX_CITIES_PER_ZONE = 25;
 
@@ -50,11 +52,19 @@ export function buildWAZonedCityList(cities: string[]): string {
     }
   }
 
+  // Sort zones by urgency: most urgent (lowest countdown) first
+  const sortedZones = [...zoneMap.entries()].sort(
+    (a, b) => a[1].minCountdown - b[1].minCountdown
+  );
+
   const sections: string[] = [];
 
-  for (const [zone, { cities: zoneCities, minCountdown }] of zoneMap) {
+  for (const [zone, { cities: zoneCities, minCountdown }] of sortedZones) {
     const countdown = isFinite(minCountdown) && minCountdown > 0 ? minCountdown : null;
-    const header = buildWAZoneHeader(zone, zoneCities.length, countdown);
+    const urgencyEmoji = countdown !== null ? `${getUrgencyForCountdown(countdown).emoji} ` : '';
+    const baseHeader = buildWAZoneHeader(zone, zoneCities.length, countdown);
+    // Inject urgency emoji after the ▸ prefix: "▸ urgencyEmoji *zone* (count)  ⏱ X שנ׳"
+    const header = urgencyEmoji ? baseHeader.replace('▸ ', `▸ ${urgencyEmoji}`) : baseHeader;
     sections.push(`${header}\n${buildWACityList(zoneCities)}`);
   }
 
@@ -109,8 +119,9 @@ export function formatAlertForWhatsApp(alert: Alert): string {
     hour12: false,
   });
 
-  const cityCountSuffix = alert.cities.length > 0 ? `  ·  ${alert.cities.length} ערים` : '';
-  const parts: string[] = [`${emoji} *${title}*\n⏰ ${timeStr}${cityCountSuffix}`];
+  const summaryLine = buildSummaryLine(alert.cities);
+  const summaryPart = summaryLine ? `\n${summaryLine}` : '';
+  const parts: string[] = [`${emoji} *${title}*\n⏰ ${timeStr}${summaryPart}`];
 
   if (alert.instructions) {
     const prefix = getInstructionsPrefix(alert.type);
