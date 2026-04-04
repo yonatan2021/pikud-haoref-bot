@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
+import { MessageSquare } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -195,8 +196,14 @@ export default function Messages() {
     <PageTransition>
       <div className="space-y-4">
         {/* Page header */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-text-primary">ניהול תבניות</h1>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <MessageSquare size={22} className="text-[var(--color-tg)] flex-shrink-0" />
+            <div>
+              <h1 className="text-2xl font-bold text-text-primary leading-tight">תבניות הודעות</h1>
+              <p className="text-sm text-text-muted mt-0.5">עריכת תוכן ועיצוב ההתראות לכל סוג</p>
+            </div>
+          </div>
           <div className="flex items-center gap-2">
             <button
               type="button"

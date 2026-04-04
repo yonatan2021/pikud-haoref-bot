@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Loader2, Phone, Unplug } from 'lucide-react';
+import { Loader2, Phone, Unplug, MessageCircle } from 'lucide-react';
 import { api } from '../api/client';
 import { GlassCard } from '../components/ui/GlassCard';
 import { PageTransition } from '../components/ui/PageTransition';
@@ -449,7 +449,13 @@ export function TelegramListeners() {
   return (
     <PageTransition>
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-text-primary">כללי האזנה — Telegram</h1>
+        <div className="flex items-center gap-3">
+          <MessageCircle size={22} className="text-[var(--color-tg)] flex-shrink-0" />
+          <div>
+            <h1 className="text-2xl font-bold text-text-primary leading-tight">מאזיני Telegram</h1>
+            <p className="text-sm text-text-muted mt-0.5">כללי העברת הודעות מקבוצות Telegram לערוץ</p>
+          </div>
+        </div>
 
         {/* Connection section */}
         <ConnectionSection
