@@ -13,6 +13,16 @@ async function getHealth(port: number): Promise<Record<string, unknown>> {
   });
 }
 
+async function getHealthWithStatus(port: number): Promise<{ status: number; body: Record<string, unknown> }> {
+  return new Promise((resolve, reject) => {
+    http.get(`http://localhost:${port}/health`, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => resolve({ status: res.statusCode ?? 0, body: JSON.parse(data) }));
+    }).on('error', reject);
+  });
+}
+
 describe('metrics', () => {
   it('returns null lastAlertAt before any update', async () => {
     const { getMetrics } = await import('../metrics.js');
@@ -39,6 +49,41 @@ describe('healthServer', () => {
     assert.ok('lastAlertAt' in body);
     assert.ok('lastPollAt' in body);
     assert.ok(typeof body.alertsToday === 'number');
+    assert.ok('pollStuck' in body, 'pollStuck must be present');
+    assert.ok(typeof body.memoryMb === 'number', 'memoryMb must be a number');
+    assert.ok(typeof body.dmQueueDepth === 'number', 'dmQueueDepth must be a number');
+    server.close();
+  });
+
+  it('GET /health returns 200 when poll is not stuck', async () => {
+    const { updateLastPollAt } = await import('../metrics.js');
+    updateLastPollAt(); // mark poll as recent
+    const { startHealthServer } = await import('../healthServer.js');
+    const server = startHealthServer(0);
+    const port = (server.address() as { port: number }).port;
+    const { status, body } = await getHealthWithStatus(port);
+    assert.equal(status, 200);
+    assert.equal(body.pollStuck, false);
+    server.close();
+  });
+
+  it('GET /health returns 503 when lastPollAt is older than 30s', async () => {
+    const { startHealthServer } = await import('../healthServer.js');
+    const { getMetrics } = await import('../metrics.js');
+    const server = startHealthServer(0);
+    const port = (server.address() as { port: number }).port;
+    // Verify the stuck path by fast-forwarding Date.now past the 30s threshold.
+    // lastPollAt was set in the previous test — advance time by 35 seconds.
+    const metrics = getMetrics();
+    const origNow = Date.now;
+    Date.now = () => (metrics.lastPollAt ? metrics.lastPollAt.getTime() + 35_000 : origNow());
+    try {
+      const { status, body } = await getHealthWithStatus(port);
+      assert.equal(status, 503);
+      assert.equal(body.pollStuck, true);
+    } finally {
+      Date.now = origNow;
+    }
     server.close();
   });
 
