@@ -218,6 +218,23 @@ export function upsertKnownChat(
   `).run(chat.chatId, chat.chatName, chat.chatType, chat.isForum ? 1 : 0);
 }
 
+export function getKnownChatById(
+  db: Database.Database,
+  chatId: string
+): TelegramKnownChat | null {
+  const row = db
+    .prepare('SELECT * FROM telegram_known_chats WHERE chat_id = ?')
+    .get(chatId) as TelegramKnownChatRow | undefined;
+  if (!row) return null;
+  return {
+    chatId: row.chat_id,
+    chatName: row.chat_name,
+    chatType: row.chat_type,
+    isForum: row.is_forum === 1,
+    updatedAt: row.updated_at,
+  };
+}
+
 export function getAllKnownChats(db: Database.Database): TelegramKnownChat[] {
   const rows = db
     .prepare('SELECT * FROM telegram_known_chats ORDER BY chat_name ASC')

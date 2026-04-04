@@ -1,7 +1,7 @@
 import type { Bot } from 'grammy';
 import { InputFile } from 'grammy';
 import type Database from 'better-sqlite3';
-import { getActiveListenersForChat } from '../db/telegramListenerRepository.js';
+import { getActiveListenersForChat, getKnownChatById } from '../db/telegramListenerRepository.js';
 import { isRoutingCacheLoaded, getWhatsAppTopicIdCached } from '../config/routingCache.js';
 import { truncateToCaptionLimit } from '../telegramBot.js';
 import {
@@ -87,10 +87,15 @@ export function createMessageHandler(
       let anyForwarded = false;
       let anyWAForward = false;
 
+      // Telegram forum groups: the General topic (id=1) sends messages without
+      // replyToTopId, so topicId arrives as null. Normalise null → 1 for forum groups.
+      const chat = getKnownChatById(db, msg.chatId);
+      const effectiveTopicId = (chat?.isForum && msg.topicId === null) ? 1 : msg.topicId;
+
       for (const listener of listeners) {
         // Topic filter: if a specific source topic is configured, only forward messages from that topic
-        if (listener.sourceTopicId !== null && msg.topicId !== listener.sourceTopicId) {
-          log('info', 'TG Listener', `listener ${listener.id}: נושא לא תואם (נדרש ${listener.sourceTopicId}, התקבל ${msg.topicId})`);
+        if (listener.sourceTopicId !== null && effectiveTopicId !== listener.sourceTopicId) {
+          log('info', 'TG Listener', `listener ${listener.id}: נושא לא תואם (נדרש ${listener.sourceTopicId}, התקבל ${effectiveTopicId})`);
           continue;
         }
 
@@ -169,10 +174,12 @@ export async function initializeTelegramListener(
   db: Database.Database,
   bot: Bot
 ): Promise<void> {
-  await initialize(db);
-
+  // Set the callback BEFORE initialize() calls attachMessageListener(), so no message
+  // can arrive between handler registration and callback assignment.
   const broadcastToWAFn: WaBroadcastFn = (text) =>
     broadcastToWhatsAppGroups(db, text, 'telegram-listener', defaultWABroadcastDeps, null);
 
   setMessageCallback(createMessageHandler(db, bot, broadcastToWAFn));
+
+  await initialize(db);
 }
