@@ -11,7 +11,7 @@ import { setupBotHandlers } from './bot/botSetup';
 import { notifySubscribers } from './services/dmDispatcher';
 import { shouldSkipMap } from './alertHelpers';
 import { handleNewAlert } from './alertHandler';
-import { insertAlert as insertAlertHistory, countAlertsToday } from './db/alertHistoryRepository.js';
+import { insertAlert as insertAlertHistory, countAlertsToday, getDailyCountsForMonth } from './db/alertHistoryRepository.js';
 import { startHealthServer } from './healthServer.js';
 import { updateLastAlertAt } from './metrics.js';
 import { startDashboardServer } from './dashboard/server.js';
@@ -33,6 +33,7 @@ import { createAllClearTracker } from './services/allClearTracker.js';
 import { formatAllClearMessage } from './telegramBot.js';
 import { getCityData } from './cityLookup.js';
 import { initAlertSerial, getNextAlertSerial } from './config/alertSerial.js';
+import { getDensityLabel } from './config/alertDensity.js';
 import { pruneExpiredContacts } from './db/contactRepository.js';
 
 // Prevent broken-pipe errors from crashing the bot when a stdout consumer exits.
@@ -229,6 +230,7 @@ for (const envVar of REQUIRED_ENV_VARS) {
       insertAlertHistory,
       broadcastToWhatsApp,
       getNextSerial: getNextAlertSerial,
+      getDensityHint: () => getDensityLabel(countAlertsToday(), getDailyCountsForMonth()),
     });
   });
 

@@ -394,6 +394,37 @@ describe('formatAlertMessage city count', () => {
   });
 });
 
+// ─── formatAlertMessage density footer ───────────────────────────────────────
+
+describe('formatAlertMessage — density in footer', () => {
+  const BASE: Alert = { type: 'missiles', cities: ['תל אביב'], receivedAt: '2026-04-05T14:32:00.000Z' };
+
+  it('appends ⚠️ חריג to footer when density is "חריג"', () => {
+    const msg = formatAlertMessage(BASE, 5, 'חריג');
+    assert.ok(msg.includes('חריג'), `Expected חריג in footer: ${msg}`);
+    assert.ok(msg.includes('#5'), `Expected serial in footer: ${msg}`);
+  });
+
+  it('does NOT append density text when density is "רגיל"', () => {
+    const msg = formatAlertMessage(BASE, 5, 'רגיל');
+    assert.ok(!msg.includes('רגיל'), `Should omit רגיל from footer: ${msg}`);
+    assert.ok(msg.includes('#5'), `Expected serial in footer: ${msg}`);
+  });
+
+  it('does NOT append density text when density is null', () => {
+    const msg = formatAlertMessage(BASE, 5, null);
+    assert.ok(msg.includes('#5'), `Expected serial: ${msg}`);
+    const footerMatch = msg.match(/<i>(.+?)<\/i>/);
+    assert.ok(footerMatch, 'Expected italic footer');
+    assert.ok(!footerMatch![1]!.includes('חריג') && !footerMatch![1]!.includes('רגיל'));
+  });
+
+  it('has no density footer when serial is undefined', () => {
+    const msg = formatAlertMessage(BASE, undefined, 'חריג');
+    assert.ok(!msg.includes('<i>#'), `Should have no serial footer when serial undefined: ${msg}`);
+  });
+});
+
 // ─── Error classifier pure-function tests ────────────────────────────────────
 
 describe('isUnmodifiedError', () => {
