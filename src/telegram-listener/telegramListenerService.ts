@@ -92,11 +92,26 @@ export function createMessageHandler(
       const chat = getKnownChatById(db, msg.chatId);
       const effectiveTopicId = (chat?.isForum && msg.topicId === null) ? 1 : msg.topicId;
 
+      log('info', 'TG Listener',
+        `בודק ${listeners.length} כלל/ים עבור ${msg.chatId} · effectiveTopicId=${effectiveTopicId ?? 'null'}`);
+
       for (const listener of listeners) {
         // Topic filter: if a specific source topic is configured, only forward messages from that topic
         if (listener.sourceTopicId !== null && effectiveTopicId !== listener.sourceTopicId) {
-          log('info', 'TG Listener', `listener ${listener.id}: נושא לא תואם (נדרש ${listener.sourceTopicId}, התקבל ${effectiveTopicId})`);
-          continue;
+          // Special case: listener targets General topic (id=1) and message has no topicId,
+          // AND the chat is not in telegram_known_chats (chat===null — e.g. after a failed
+          // refreshKnownChats that cleared the table mid-way).
+          // When the chat IS known (isForum=false), null topicId is legitimate — don't allow through.
+          // Since sourceTopicId=1 is only settable on forum groups via the dashboard, this is safe.
+          if (listener.sourceTopicId === 1 && msg.topicId === null && chat === null) {
+            log('info', 'TG Listener',
+              `listener ${listener.id}: קבוצה לא ממופה בכלל-נושאים, מניח General topic (1 = null)`);
+            // Fall through — don't skip
+          } else {
+            log('info', 'TG Listener',
+              `listener ${listener.id}: נושא לא תואם (נדרש ${listener.sourceTopicId}, התקבל ${effectiveTopicId ?? 'null'})`);
+            continue;
+          }
         }
 
         const shouldForward =
