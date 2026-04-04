@@ -1,7 +1,7 @@
 import { describe, it, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Alert } from '../types';
-import { buildShortMessage, buildAlertDmMessage, buildNewsFlashDmMessage, buildDmText, shouldSkipForQuietHours, notifySubscribers } from '../services/dmDispatcher';
+import { buildShortMessage, buildAlertDmMessage, buildNewsFlashDmMessage, buildDmText, shouldSkipForQuietHours, notifySubscribers, getRelevanceIndicator } from '../services/dmDispatcher';
 import type { DmTask } from '../services/dmQueue';
 
 // Use in-memory DB for all notifySubscribers integration tests
@@ -366,6 +366,7 @@ describe('notifySubscribers', () => {
   let setQuietHours: (chatId: number, enabled: boolean) => void;
   let setMutedUntil: (chatId: number, until: Date | null) => void;
   let updateProfile: (chatId: number, patch: { home_city?: string }) => void;
+  let updateSubscriberData: (chatId: number, patch: { home_city?: string | null }) => void;
 
   const CHAT_A = 777001;
   // 'אבו גוש' (id=511) — reliable test fixture with zone data
@@ -379,6 +380,7 @@ describe('notifySubscribers', () => {
     getDb = schema.getDb;
     closeDb = schema.closeDb;
     addSubscription = subRepo.addSubscription;
+    updateSubscriberData = subRepo.updateSubscriberData;
     upsertUser = userRepo.upsertUser;
     setQuietHours = userRepo.setQuietHours;
     setMutedUntil = userRepo.setMutedUntil;
@@ -542,8 +544,11 @@ describe('notifySubscribers', () => {
       addSubscription(id, 'אור יהודה');
     });
     updateProfile(CHAT_RED, { home_city: 'אור יהודה' });
+    updateSubscriberData(CHAT_RED, { home_city: 'אור יהודה' });
     updateProfile(CHAT_YELLOW, { home_city: 'בני ברק' });
+    updateSubscriberData(CHAT_YELLOW, { home_city: 'בני ברק' });
     updateProfile(CHAT_GREEN, { home_city: 'אילת' });
+    updateSubscriberData(CHAT_GREEN, { home_city: 'אילת' });
 
     const captured: DmTask[] = [];
     const alert: Alert = { type: 'missiles', cities: ['אור יהודה'] };
@@ -584,6 +589,7 @@ describe('notifySubscribers', () => {
     // Subscribe to a city so the test subscriber is matched
     addSubscription(CHAT_NATION, TEST_CITY);
     updateProfile(CHAT_NATION, { home_city: 'אור יהודה' });
+    updateSubscriberData(CHAT_NATION, { home_city: 'אור יהודה' });
 
     const captured: DmTask[] = [];
     // Nationwide alert has no cities — matchedCities = [TEST_CITY] (the subscriber's city)
@@ -593,7 +599,7 @@ describe('notifySubscribers', () => {
     // The alert has cities here, but we test via getRelevanceIndicator directly for the empty case
     // To test truly empty-cities alert: subscriber gets it via matchedCities which IS empty if alert.cities=[]
     // So we test the pure function directly
-    const { getRelevanceIndicator: gri } = require('../services/dmDispatcher');
+    const gri = getRelevanceIndicator;
     assert.equal(gri('אור יהודה', []), null, 'nationwide (empty cities) alert should produce null indicator');
   });
 
@@ -602,6 +608,7 @@ describe('notifySubscribers', () => {
     upsertUser(CHAT_PRELIM);
     addSubscription(CHAT_PRELIM, 'אור יהודה');
     updateProfile(CHAT_PRELIM, { home_city: 'אור יהודה' });
+    updateSubscriberData(CHAT_PRELIM, { home_city: 'אור יהודה' });
 
     const captured: DmTask[] = [];
     const alert: Alert = {
