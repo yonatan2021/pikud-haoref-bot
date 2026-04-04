@@ -527,29 +527,34 @@ export function createMessagesRouter(db: Database.Database, bot: Bot, whatsappDe
       return;
     }
 
-    // Save current state to history BEFORE upserting
-    const current = getAllCached()[alertType];
-    if (current) {
-      insertHistory(db, {
+    try {
+      // Save current state to history BEFORE upserting
+      const current = getAllCached()[alertType];
+      if (current) {
+        insertHistory(db, {
+          alert_type: alertType,
+          emoji: current.emoji,
+          title_he: current.titleHe,
+          instructions_prefix: current.instructionsPrefix,
+        });
+        pruneHistory(db, alertType, 10);
+      }
+
+      // Merge with current cached values to avoid zeroing out unprovided fields.
+      upsertTemplate(db, {
         alert_type: alertType,
-        emoji: current.emoji,
-        title_he: current.titleHe,
-        instructions_prefix: current.instructionsPrefix,
+        emoji: emoji ?? current.emoji,
+        title_he: titleHe ?? current.titleHe,
+        instructions_prefix: instructionsPrefix ?? current.instructionsPrefix,
       });
-      pruneHistory(db, alertType, 10);
+
+      loadTemplateCache();
+      log('info', 'Messages', `תבנית עודכנה: ${alertType}`);
+      res.json({ ok: true });
+    } catch (err: unknown) {
+      log('error', 'Messages', `שגיאת DB בעדכון תבנית ${alertType}: ${err instanceof Error ? err.message : String(err)}`);
+      res.status(500).json({ error: 'שגיאת מסד נתונים' });
     }
-
-    // Merge with current cached values to avoid zeroing out unprovided fields.
-    upsertTemplate(db, {
-      alert_type: alertType,
-      emoji: emoji ?? current.emoji,
-      title_he: titleHe ?? current.titleHe,
-      instructions_prefix: instructionsPrefix ?? current.instructionsPrefix,
-    });
-
-    loadTemplateCache();
-    log('info', 'Messages', `תבנית עודכנה: ${alertType}`);
-    res.json({ ok: true });
   });
 
   // DELETE /api/messages/:alertType — reset to defaults
@@ -559,10 +564,15 @@ export function createMessagesRouter(db: Database.Database, bot: Bot, whatsappDe
       res.status(400).json({ error: `סוג התראה לא מוכר: ${alertType}` });
       return;
     }
-    deleteTemplate(db, alertType);
-    loadTemplateCache();
-    log('info', 'Messages', `תבנית אופסה: ${alertType}`);
-    res.json({ ok: true, reset: true });
+    try {
+      deleteTemplate(db, alertType);
+      loadTemplateCache();
+      log('info', 'Messages', `תבנית אופסה: ${alertType}`);
+      res.json({ ok: true, reset: true });
+    } catch (err: unknown) {
+      log('error', 'Messages', `שגיאת DB באיפוס תבנית ${alertType}: ${err instanceof Error ? err.message : String(err)}`);
+      res.status(500).json({ error: 'שגיאת מסד נתונים' });
+    }
   });
 
   // GET /api/messages/:alertType/history — template version history
@@ -600,28 +610,33 @@ export function createMessagesRouter(db: Database.Database, bot: Bot, whatsappDe
       return;
     }
 
-    // Save current state to history first (so rollback is undoable)
-    const current = getAllCached()[alertType];
-    if (current) {
-      insertHistory(db, {
+    try {
+      // Save current state to history first (so rollback is undoable)
+      const current = getAllCached()[alertType];
+      if (current) {
+        insertHistory(db, {
+          alert_type: alertType,
+          emoji: current.emoji,
+          title_he: current.titleHe,
+          instructions_prefix: current.instructionsPrefix,
+        });
+        pruneHistory(db, alertType, 10);
+      }
+
+      upsertTemplate(db, {
         alert_type: alertType,
-        emoji: current.emoji,
-        title_he: current.titleHe,
-        instructions_prefix: current.instructionsPrefix,
+        emoji: historyRow.emoji,
+        title_he: historyRow.title_he,
+        instructions_prefix: historyRow.instructions_prefix,
       });
-      pruneHistory(db, alertType, 10);
+
+      loadTemplateCache();
+      log('info', 'Messages', `שוחזרה תבנית ${alertType} לגרסה ${versionId}`);
+      res.json({ ok: true });
+    } catch (err: unknown) {
+      log('error', 'Messages', `שגיאת DB בשחזור תבנית ${alertType}: ${err instanceof Error ? err.message : String(err)}`);
+      res.status(500).json({ error: 'שגיאת מסד נתונים' });
     }
-
-    upsertTemplate(db, {
-      alert_type: alertType,
-      emoji: historyRow.emoji,
-      title_he: historyRow.title_he,
-      instructions_prefix: historyRow.instructions_prefix,
-    });
-
-    loadTemplateCache();
-    log('info', 'Messages', `שוחזרה תבנית ${alertType} לגרסה ${versionId}`);
-    res.json({ ok: true });
   });
 
   return router;

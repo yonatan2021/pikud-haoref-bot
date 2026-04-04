@@ -447,6 +447,11 @@ async function fetchAndCacheImage(url: string, cacheKey: string): Promise<Buffer
     responseType: 'arraybuffer',
     timeout: 10_000,
   });
+  const contentType = (response.headers['content-type'] as string | undefined) ?? '';
+  if (!contentType.startsWith('image/')) {
+    log('error', 'MapService', `Mapbox החזיר content-type לא תקין: "${contentType}" — ייתכן שהתקבלה שגיאת HTML`);
+    throw new Error(`Invalid Mapbox content-type: ${contentType}`);
+  }
   const buffer = Buffer.from(response.data);
 
   // Cache the result (FIFO eviction: Map iterates in insertion order)

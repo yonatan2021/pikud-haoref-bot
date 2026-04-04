@@ -161,11 +161,7 @@ export function createMessageHandler(
         const plainHeader = `📡 ${listeners[0]?.chatName ?? ''}\n🕐 ${timeStr}`;
         const plainBody = truncatedBody ? `\n\n${truncatedBody}` : '';
         broadcastToWAFn(`${plainHeader}${plainBody}`).catch((err: unknown) => {
-          try {
-            log('error', 'TG→WA', `שגיאה בשידור: ${String(err)}`);
-          } catch {
-            // prevent log failure from becoming an unhandled rejection
-          }
+          log('error', 'TG→WA', `שגיאה בשידור: ${err instanceof Error ? err.message : String(err)}`);
         });
       }
     } catch (err: unknown) {
