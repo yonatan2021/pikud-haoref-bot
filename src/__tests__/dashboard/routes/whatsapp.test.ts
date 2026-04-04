@@ -220,6 +220,47 @@ describe('PATCH /api/whatsapp/groups/:id', () => {
   });
 });
 
+describe('POST /api/whatsapp/clear-session', () => {
+  before(() => { process.env['WHATSAPP_ENABLED'] = 'true'; });
+  after(() => { delete process.env['WHATSAPP_ENABLED']; });
+
+  it('returns { ok: true } and calls clearSession() + initialize()', async () => {
+    let clearSessionCalled = false;
+    initializeCalled = false;
+    const origClearSession = mockSvc.clearSession;
+    (mockSvc as any).clearSession = async () => {
+      clearSessionCalled = true;
+      mockStatus = 'disconnected';
+      mockPhone = null;
+      mockCachedGroups = [];
+    };
+    const res = await request(app).post('/api/whatsapp/clear-session');
+    (mockSvc as any).clearSession = origClearSession;
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body, { ok: true });
+    assert.equal(clearSessionCalled, true, 'clearSession() must be called');
+    assert.equal(initializeCalled, true, 'initialize() must be called after clearSession');
+  });
+
+  it('returns 400 when WHATSAPP_ENABLED is not true', async () => {
+    const prev = process.env['WHATSAPP_ENABLED'];
+    delete process.env['WHATSAPP_ENABLED'];
+    const res = await request(app).post('/api/whatsapp/clear-session');
+    process.env['WHATSAPP_ENABLED'] = prev!;
+    assert.equal(res.status, 400);
+    assert.ok(res.body.error);
+  });
+
+  it('returns 500 when clearSession() throws', async () => {
+    const origClearSession = mockSvc.clearSession;
+    (mockSvc as any).clearSession = async () => { throw new Error('disk full'); };
+    const res = await request(app).post('/api/whatsapp/clear-session');
+    (mockSvc as any).clearSession = origClearSession;
+    assert.equal(res.status, 500);
+    assert.ok(res.body.error);
+  });
+});
+
 describe('POST /api/whatsapp/reconnect', () => {
   before(() => { process.env['WHATSAPP_ENABLED'] = 'true'; });
   after(() => { delete process.env['WHATSAPP_ENABLED']; });
