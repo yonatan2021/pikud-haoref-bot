@@ -4,13 +4,13 @@ import { getSetting, setSetting } from '../settingsRepository.js';
 import { log } from '../../logger.js';
 import { createRateLimitMiddleware } from '../rateLimiter.js';
 
-const deployLimiter = createRateLimitMiddleware({
+export const deployLimiter = createRateLimitMiddleware({
   maxRequests: 3,
   windowMs: 3_600_000,
   message: 'יותר מדי בקשות deploy — נסה שוב בעוד שעה',
 });
 
-const landingConfigLimiter = createRateLimitMiddleware({
+export const landingConfigLimiter = createRateLimitMiddleware({
   maxRequests: 10,
   windowMs: 60_000,
   message: 'יותר מדי שינויי config — נסה שוב בעוד דקה',

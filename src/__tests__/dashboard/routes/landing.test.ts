@@ -4,7 +4,7 @@ import Database from 'better-sqlite3';
 import express from 'express';
 import request from 'supertest';
 import { initSchema } from '../../../db/schema.js';
-import { createLandingRouter } from '../../../dashboard/routes/landing.js';
+import { createLandingRouter, landingConfigLimiter, deployLimiter } from '../../../dashboard/routes/landing.js';
 
 let db: Database.Database;
 let app: express.Express;
@@ -23,6 +23,8 @@ after(() => db.close());
 beforeEach(() => {
   // Reset settings between tests for isolation
   db.prepare("DELETE FROM settings WHERE key IN ('ga4_measurement_id', 'landing_url', 'last_landing_deploy')").run();
+  landingConfigLimiter.clearStore();
+  deployLimiter.clearStore();
 });
 
 describe('GET /api/landing/config', () => {
