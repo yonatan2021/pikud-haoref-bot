@@ -189,7 +189,7 @@ for (const envVar of REQUIRED_ENV_VARS) {
 
   poller.start(2000);
 
-  logStartupHeader('0.4.0', [
+  logStartupHeader('0.4.4', [
     { name: 'Health Server', detail: healthOk ? toVisualRtl(`פורט ${resolvedHealthPort}`) : toVisualRtl('נכשל בהפעלה'), ok: healthOk, url: healthOk ? `http://localhost:${resolvedHealthPort}/health` : undefined },
     { name: 'Alert Poller',  detail: toVisualRtl('כל 2 שניות'),                                                ok: true },
     { name: 'Dashboard',     detail: dashboardSecret ? toVisualRtl(`פורט ${dashboardPort}`) : toVisualRtl('כבוי (אין DASHBOARD_SECRET)'), ok: !!dashboardSecret, url: dashboardSecret ? `http://localhost:${dashboardPort}/dashboard` : undefined },
