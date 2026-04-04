@@ -355,7 +355,9 @@ function attachMessageListener(db: Database.Database): void {
   }, new NewMessage({}));
 
   // Refresh known chats in background (non-blocking)
-  void refreshKnownChats(db);
+  refreshKnownChats(db).catch((err: unknown) => {
+    log('error', 'TG Listener', `refreshKnownChats background נכשל: ${err instanceof Error ? err.message : String(err)}`);
+  });
 }
 
 export async function initialize(db: Database.Database): Promise<void> {

@@ -128,7 +128,9 @@ export function createMessageHandler(
               })
               .catch((err: unknown) => {
                 log('error', 'TG→TG', `שגיאה בשליחת תמונה מ-${msg.chatId}: ${err instanceof Error ? err.message : String(err)}`);
-                bot.api.sendMessage(targetChatId, caption, { parse_mode: 'HTML', ...sendOpts }).catch(() => {});
+                bot.api.sendMessage(targetChatId, caption, { parse_mode: 'HTML', ...sendOpts }).catch((fallbackErr: unknown) => {
+                  log('error', 'TG→TG', `fallback sendMessage נכשל מ-${msg.chatId}: ${fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr)}`);
+                });
               });
           } else {
             bot.api
@@ -137,7 +139,9 @@ export function createMessageHandler(
               })
               .catch((err: unknown) => {
                 log('error', 'TG→TG', `שגיאה בשליחת קובץ מ-${msg.chatId}: ${err instanceof Error ? err.message : String(err)}`);
-                bot.api.sendMessage(targetChatId, caption, { parse_mode: 'HTML', ...sendOpts }).catch(() => {});
+                bot.api.sendMessage(targetChatId, caption, { parse_mode: 'HTML', ...sendOpts }).catch((fallbackErr: unknown) => {
+                  log('error', 'TG→TG', `fallback sendMessage נכשל מ-${msg.chatId}: ${fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr)}`);
+                });
               });
           }
         } else {

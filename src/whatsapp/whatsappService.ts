@@ -227,7 +227,9 @@ export function initialize(): void {
 
   if (client !== null) {
     log('info', 'WhatsApp', 'כבר מחובר — מרענן קבוצות');
-    refreshGroups().catch(() => {});
+    refreshGroups().catch((err: unknown) => {
+      log('warn', 'WhatsApp', `refreshGroups retry נכשל: ${err instanceof Error ? err.message : String(err)}`);
+    });
     return;
   }
 
@@ -257,7 +259,10 @@ export function initialize(): void {
     initTimeoutHandle = null;
     if (status === 'connecting') {
       log('warn', 'WhatsApp', 'אתחול פג זמן (90s) — מנתק ומאפס');
-      disconnect().catch(() => {});
+      disconnect().catch((err: unknown) => {
+        isInitializing = false;
+        log('error', 'WhatsApp', `ניתוק אחרי timeout נכשל: ${err instanceof Error ? err.message : String(err)}`);
+      });
     }
   }, 90_000);
 
@@ -294,7 +299,11 @@ export function initialize(): void {
     await refreshGroups();
     if (cachedGroups.length === 0) {
       log('info', 'WhatsApp', 'לא נמצאו קבוצות — מנסה שוב בעוד 3 שניות');
-      setTimeout(() => { refreshGroups().catch(() => {}); }, 3000);
+      setTimeout(() => {
+        refreshGroups().catch((err: unknown) => {
+          log('warn', 'WhatsApp', `refreshGroups retry נכשל: ${err instanceof Error ? err.message : String(err)}`);
+        });
+      }, 3000);
     }
   });
 
