@@ -250,6 +250,11 @@ const ISRAEL_BOUNDS = {
  * Clamps every coordinate in a FeatureCollection<Polygon> to Israel's geographic extent.
  * Prevents the Mapbox viewport from spilling into Lebanon, Jordan, or Egypt when
  * building a bounding-box fallback for alerts near the border.
+ *
+ * NOTE: Coordinate-wise clamping produces correct results only for rectangular (bbox)
+ * polygons. For arbitrary polygon shapes, independently clamping each coordinate can
+ * produce invalid geometry (e.g. collapsed edges or self-intersecting rings).
+ * Use this function only on axis-aligned bounding-box feature collections.
  * Exported for testing.
  */
 export function clampFeatureCollectionToIsrael(
@@ -287,6 +292,7 @@ export function _buildUnionedPolygonsUrl(
   color: string,
   style: string,
   padding: number,
+  isPreliminaryDerived: boolean = false,
 ): string | null {
   if (rawGeojson.features.length === 0) return null;
 
@@ -312,10 +318,11 @@ export function _buildUnionedPolygonsUrl(
 
   if (flatFeatures.length === 0) return null;
 
-  const simplified = simplifyFeatureCollection(
-    expandGeoJSONBounds({ type: 'FeatureCollection', features: flatFeatures }),
-    SIMPLIFY_TOLERANCE_AGGRESSIVE,
-  );
+  const baseFeatures: FeatureCollection<Polygon> = { type: 'FeatureCollection', features: flatFeatures };
+  const boundsAdjusted = isPreliminaryDerived
+    ? clampFeatureCollectionToIsrael(baseFeatures)
+    : expandGeoJSONBounds(baseFeatures);
+  const simplified = simplifyFeatureCollection(boundsAdjusted, SIMPLIFY_TOLERANCE_AGGRESSIVE);
 
   const url = buildMapboxUrl(simplified, style, padding);
   return url.length <= MAPBOX_URL_MAX_LENGTH ? url : null;
@@ -400,7 +407,7 @@ export async function generateMapImage(alert: Alert): Promise<Buffer | null> {
     // ניסיון 2.5: איחוד פוליגונים חופפים → כמה כתמים מאוחדים במקום מאות צורות נפרדות
     if (url.length > MAPBOX_URL_MAX_LENGTH) {
       log('warn', 'MapService', 'URL still too long — trying polygon union');
-      const unionUrl = _buildUnionedPolygonsUrl(rawGeojson, color, style, padding);
+      const unionUrl = _buildUnionedPolygonsUrl(rawGeojson, color, style, padding, isPreliminaryDerived);
       if (unionUrl) url = unionUrl;
     }
 
