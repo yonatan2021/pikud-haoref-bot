@@ -15,6 +15,7 @@ import {
   isMessageGoneError,
   type EditBotApi,
 } from '../telegramBot.js';
+import type { Alert } from '../types.js';
 
 test('escapeHtml escapes ampersand', () => {
   assert.equal(escapeHtml('a & b'), 'a &amp; b');
@@ -397,7 +398,7 @@ describe('formatAlertMessage city count', () => {
 // ─── formatAlertMessage density footer ───────────────────────────────────────
 
 describe('formatAlertMessage — density in footer', () => {
-  const BASE: Alert = { type: 'missiles', cities: ['תל אביב'], receivedAt: '2026-04-05T14:32:00.000Z' };
+  const BASE: Alert = { type: 'missiles', cities: ['תל אביב'], receivedAt: new Date('2026-04-05T14:32:00.000Z').getTime() };
 
   it('appends ⚠️ חריג to footer when density is "חריג"', () => {
     const msg = formatAlertMessage(BASE, 5, 'חריג');
