@@ -1,7 +1,7 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle, Loader2 } from 'lucide-react';
+import { CheckCircle, Loader2, SlidersHorizontal } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
@@ -126,8 +126,14 @@ export function Settings() {
   return (
     <PageTransition>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-text-primary">הגדרות</h1>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <SlidersHorizontal size={22} className="text-[var(--color-tg)] flex-shrink-0" />
+            <div>
+              <h1 className="text-2xl font-bold text-text-primary leading-tight">הגדרות</h1>
+              <p className="text-sm text-text-muted mt-0.5">הגדרות בוט, מפות, ערוצים וחיבורים</p>
+            </div>
+          </div>
           <button
             disabled={!dirty || saveState === 'loading'}
             onClick={() => saveMutation.mutate()}

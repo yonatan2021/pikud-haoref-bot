@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { RefreshCw, Loader2, Unplug, Search, MessageSquare, Rss } from 'lucide-react';
+import { RefreshCw, Loader2, Unplug, Search, MessageSquare, Rss, Phone } from 'lucide-react';
 import QRCode from 'qrcode';
 import { api } from '../api/client';
 import { GlassCard } from '../components/ui/GlassCard';
@@ -324,7 +324,13 @@ export function WhatsApp() {
   return (
     <PageTransition>
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-text-primary">WhatsApp</h1>
+        <div className="flex items-center gap-3">
+          <Phone size={22} className="text-[var(--color-tg)] flex-shrink-0" />
+          <div>
+            <h1 className="text-2xl font-bold text-text-primary leading-tight">WhatsApp</h1>
+            <p className="text-sm text-text-muted mt-0.5">חיבור, הגדרת קבוצות ושידור דרך WhatsApp</p>
+          </div>
+        </div>
 
         {/* Connection Panel */}
         <GlassCard className="p-6">

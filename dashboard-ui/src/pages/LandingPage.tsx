@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Rocket, Loader2, CheckCircle, AlertCircle, ExternalLink } from 'lucide-react';
+import { Rocket, Loader2, CheckCircle, AlertCircle, ExternalLink, Globe } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '../api/client';
 import { GlassCard } from '../components/ui/GlassCard';
@@ -85,7 +85,13 @@ export function LandingPage() {
   return (
     <PageTransition>
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-text-primary">אתר נחיתה</h1>
+        <div className="flex items-center gap-3">
+          <Globe size={22} className="text-[var(--color-tg)] flex-shrink-0" />
+          <div>
+            <h1 className="text-2xl font-bold text-text-primary leading-tight">אתר נחיתה</h1>
+            <p className="text-sm text-text-muted mt-0.5">תצורה ופריסה של דף הנחיתה הציבורי</p>
+          </div>
+        </div>
 
         {/* Info callout */}
         <div className="bg-[var(--color-glow-blue)] border border-blue/20 rounded-xl p-4 flex gap-3">

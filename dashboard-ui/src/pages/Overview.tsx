@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { Users, Bell, MapPin, Map, BarChart2 } from 'lucide-react';
+import { Users, Bell, MapPin, Map, BarChart2, LayoutDashboard } from 'lucide-react';
 import { api } from '../api/client';
 import { KpiCard } from '../components/KpiCard';
 import { EmptyState } from '../components/EmptyState';
@@ -180,7 +180,13 @@ export function Overview() {
   return (
     <PageTransition>
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-text-primary">לוח בקרה</h1>
+        <div className="flex items-center gap-3">
+          <LayoutDashboard size={22} className="text-[var(--color-tg)] flex-shrink-0" />
+          <div>
+            <h1 className="text-2xl font-bold text-text-primary leading-tight">לוח בקרה</h1>
+            <p className="text-sm text-text-muted mt-0.5">סקירה כללית של פעילות הבוט בזמן אמת</p>
+          </div>
+        </div>
 
         {/* KPI Cards */}
         {statsLoading ? (
