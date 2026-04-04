@@ -1,15 +1,11 @@
 import { strict as assert } from 'node:assert';
-import { describe, it, beforeEach, afterEach, mock } from 'node:test';
+import { describe, it } from 'node:test';
 import type { Alert } from '../types.js';
 
-// Suppress logger stdout so test output stays clean
-let stdoutSpy: ReturnType<typeof mock.method>;
-beforeEach(() => {
-  stdoutSpy = mock.method(process.stdout, 'write', () => true);
-});
-afterEach(() => {
-  stdoutSpy.mock.restore();
-});
+// NOTE: Logger output is intentionally not suppressed here.
+// Never use mock.method(process.stdout, 'write') in node:test — it silently
+// swallows TAP output, causing all tests to appear as "1 pass" even when
+// assertions fail. Accept the log noise instead (see src/CLAUDE.md gotchas).
 
 import { formatAlertMessage } from '../telegramBot.js';
 import { formatAlertForWhatsApp } from '../whatsapp/whatsappFormatter.js';

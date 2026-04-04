@@ -90,7 +90,7 @@ export function formatAlertForWhatsApp(alert: Alert): string {
     const urgency = getUrgencyForCountdown(group.minCountdown ?? Infinity);
     const urgencyPrefix = group.minCountdown !== null ? `${urgency.emoji} ` : '';
     const countdownSuffix =
-      group.minCountdown !== null ? `  ⏱ ${group.minCountdown} שנ׳` : '';
+      group.minCountdown !== null && isFinite(group.minCountdown) ? `  ⏱ ${group.minCountdown} שנ׳` : '';
     const srEmoji = getSuperRegionByZone(group.zone)?.name.split(' ')[0] ?? '';
     const srPrefix = srEmoji ? `${srEmoji} ` : '';
     const sorted = [...group.cities].sort((a, b) => a.localeCompare(b, 'he'));
