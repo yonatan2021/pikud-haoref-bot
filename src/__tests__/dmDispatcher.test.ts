@@ -298,6 +298,41 @@ describe('buildNewsFlashDmMessage — preliminary alert detection', () => {
   });
 });
 
+describe('buildAlertDmMessage — title location suffix', () => {
+  it('omits "באזורך" from title when home city is outside the alert zone', () => {
+    // תל אביב and מעלות תרשיחא are in different zones
+    const alert: Alert = { type: 'missiles', cities: ['מעלות תרשיחא'] };
+    const msg = buildAlertDmMessage(alert, 'תל אביב');
+    const lines = msg.split('\n');
+    // Relevance indicator line
+    assert.ok(lines[0].includes('🟢'), `expected 🟢 relevance, got: ${lines[0]}`);
+    // Title line must NOT say "באזורך"
+    assert.ok(!lines[1].includes('באזורך'), `title should not say "באזורך", got: ${lines[1]}`);
+  });
+
+  it('includes "באזורך" in title when home city IS in the alert', () => {
+    const alert: Alert = { type: 'missiles', cities: ['תל אביב'] };
+    const msg = buildAlertDmMessage(alert, 'תל אביב');
+    const lines = msg.split('\n');
+    assert.ok(lines[0].includes('🔴'), `expected 🔴 relevance, got: ${lines[0]}`);
+    assert.ok(lines[1].includes('באזורך'), `title should say "באזורך", got: ${lines[1]}`);
+  });
+
+  it('includes "באזורך" in title when no home city is set', () => {
+    const alert: Alert = { type: 'missiles', cities: ['מעלות תרשיחא'] };
+    const msg = buildAlertDmMessage(alert, null);
+    // No relevance indicator when homeCity is null
+    const firstLine = msg.split('\n')[0];
+    assert.ok(firstLine.includes('באזורך'), `title should say "באזורך" when no home city, got: ${firstLine}`);
+  });
+
+  it('never adds "באזורך" to nationwide alert title', () => {
+    const alert: Alert = { type: 'missiles', cities: [] };
+    const msg = buildAlertDmMessage(alert, null);
+    assert.ok(!msg.includes('באזורך'), `nationwide title should not say "באזורך", got: ${msg}`);
+  });
+});
+
 describe('buildDmText — unified format (format param removed)', () => {
   it('missiles: buildDmText produces personal format output', () => {
     const alert: Alert = { type: 'missiles', cities: ['אבו גוש'] };
