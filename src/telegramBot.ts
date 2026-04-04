@@ -175,11 +175,14 @@ export function formatAlertMessage(alert: Alert, serial?: number): string {
       : `<i>${escapeHtml(alert.instructions)}</i>`;
   }
 
-  const zonedList = buildZonedCityList(alert.cities);
+  const cityList =
+    alert.type === 'newsFlash'
+      ? buildZoneOnlyList(alert.cities)
+      : buildZonedCityList(alert.cities);
 
   // Instructions appear before cities so they are visible in push notification previews
   if (instructionsPart) parts.push(instructionsPart);
-  if (zonedList) parts.push(zonedList);
+  if (cityList) parts.push(cityList);
 
   if (serial != null) {
     const dateStr = now.toLocaleDateString('he-IL', {

@@ -1,4 +1,6 @@
 import { describe, it, before, after, beforeEach, afterEach, mock } from 'node:test';
+// NOTE: stdout spy was intentionally removed — mocking process.stdout.write interferes with
+// node:test's TAP output, causing tests to appear missing in reports.
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
 import { initSchema } from '../db/schema.js';
@@ -8,13 +10,11 @@ import { createMessageHandler, type IncomingWhatsAppMsg } from '../whatsapp/what
 process.env['TELEGRAM_CHAT_ID'] = '-1001234567890';
 
 let db: Database.Database;
-let stdoutSpy: ReturnType<typeof mock.method>;
 
 before(() => { db = new Database(':memory:'); initSchema(db); });
 after(() => db.close());
 beforeEach(() => {
   db.prepare('DELETE FROM whatsapp_listeners').run();
-  stdoutSpy = mock.method(process.stdout, 'write', () => true);
 });
 
 const BASE = {
@@ -229,6 +229,40 @@ describe('createMessageHandler', () => {
     h(makeMsg('html@g.us', 'body'));
     await new Promise(r => setTimeout(r, 10));
     assert.ok(calls[0]!.text.includes('<b>TestChannel</b>'), 'channel name should be wrapped in HTML bold');
+  });
+});
+
+describe('WA→WA broadcast source group exclusion', () => {
+  it('excludes source group from WA→WA forward targets', async () => {
+    const sourceGroupId = 'source@g.us';
+    createListener(db, { ...BASE, channelId: sourceGroupId, keywords: [] });
+
+    const waGroupSendMessage = mock.fn(async () => {});
+    const getChatById = mock.fn(async () => ({ sendMessage: waGroupSendMessage }));
+    const broadcastDeps = {
+      getStatusFn: () => 'ready',
+      getClientFn: () => ({ getChatById }),
+      getEnabledGroupsFn: (_db: unknown, _type: string) => [sourceGroupId, 'target@g.us'],
+    };
+
+    const { fn: sendFn } = makeSend();
+    const h = createMessageHandler(db, sendFn as any, undefined, broadcastDeps as any);
+    h(makeMsg(sourceGroupId, 'alert message'));
+
+    // Wait long enough for the async fire-and-forget to complete
+    await new Promise(r => setTimeout(r, 50));
+
+    const calledWithIds = (getChatById as unknown as ReturnType<typeof mock.fn>).mock.calls.map(
+      (c) => c.arguments[0]
+    );
+    assert.ok(
+      calledWithIds.includes('target@g.us'),
+      'should forward to target group'
+    );
+    assert.ok(
+      !calledWithIds.includes(sourceGroupId),
+      'should NOT echo back to the source group'
+    );
   });
 });
 

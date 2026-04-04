@@ -37,7 +37,15 @@ interface TrackedWhatsAppState {
   sentAt: number;
   debounceTimer?: ReturnType<typeof setTimeout>;
   latestImageBuffer?: Buffer;
+  /** Monotonically increasing counter — incremented on each alert wave.
+   *  Debounce callbacks capture the waveId at schedule time and skip if
+   *  it no longer matches the current state (stale timer guard). */
+  waveId: number;
+  /** Set to true after map image is sent for this wave; reset on each new wave. */
+  mapSent: boolean;
 }
+
+let nextWaveId = 1;
 
 // Key: `${groupId}:${alertType}`
 const activeMessages = new Map<string, TrackedWhatsAppState>();
@@ -48,11 +56,16 @@ function windowMs(): number {
   return (isNaN(parsed) || parsed <= 0 ? 120 : parsed) * 1000;
 }
 
+const MAX_DEBOUNCE_SECONDS = 300;
+
 function mapDebounceMs(db: Database.Database): number {
   const dbVal = getSetting(db, 'whatsapp_map_debounce_seconds');
   if (dbVal) {
     const parsed = parseInt(dbVal, 10);
-    if (!isNaN(parsed) && parsed > 0) return parsed * 1000;
+    if (!isNaN(parsed) && parsed > 0 && parsed <= MAX_DEBOUNCE_SECONDS) return parsed * 1000;
+    if (!isNaN(parsed)) {
+      log('warn', 'WhatsApp', `debounce ${parsed}s out of range [1, ${MAX_DEBOUNCE_SECONDS}] — using default`);
+    }
   }
   const envVal = parseInt(process.env.WHATSAPP_MAP_DEBOUNCE_SECONDS ?? '', 10);
   return (isNaN(envVal) || envVal <= 0 ? 15 : envVal) * 1000;
@@ -95,10 +108,17 @@ async function sendDebouncedMap(
   groupId: string,
   alertType: string,
   getClientFn: BroadcasterDeps['getClientFn'],
+  expectedWaveId: number,
 ): Promise<void> {
   const key = `${groupId}:${alertType}`;
   const state = activeMessages.get(key);
   if (!state?.latestImageBuffer) return;
+
+  // Stale timer guard — skip if a newer wave has superseded this one
+  if (state.waveId !== expectedWaveId) return;
+
+  // Already sent for this wave — skip duplicate
+  if (state.mapSent) return;
 
   const client = getClientFn();
   if (!client) return;
@@ -111,8 +131,12 @@ async function sendDebouncedMap(
       'alert-map.png',
     );
     await chat.sendMessage(media);
-    state.latestImageBuffer = undefined;
-    state.debounceTimer = undefined;
+    track(groupId, alertType, {
+      ...state,
+      latestImageBuffer: undefined,
+      debounceTimer: undefined,
+      mapSent: true,
+    });
   } catch (err: unknown) {
     log('error', 'WhatsApp', `שגיאה בשליחת מפה מושהית לקבוצה ${groupId}: ${err instanceof Error ? err.message : String(err)}`);
   }
@@ -192,16 +216,18 @@ export function createBroadcaster(
 
             // Cancel existing debounce and reschedule if image available
             if (tracked.debounceTimer) cancelSchedule(tracked.debounceTimer);
+            const waveId = nextWaveId++;
             const newTimer = imageBuffer
-              ? schedule(() => { sendDebouncedMap(groupId, alert.type, getClientFn); }, debounceDelay)
+              ? schedule(() => { sendDebouncedMap(groupId, alert.type, getClientFn, waveId); }, debounceDelay)
               : undefined;
 
             track(groupId, alert.type, {
               textMessage: updatedMessage,
-              sentAt: tracked.sentAt,
+              sentAt: Date.now(),
               debounceTimer: newTimer,
-
               latestImageBuffer: imageBuffer ?? tracked.latestImageBuffer,
+              waveId,
+              mapSent: false,
             });
             if (newTimer) mapScheduledCount++;
           } else {
@@ -209,16 +235,18 @@ export function createBroadcaster(
             const sent = await sendFreshText(chat, text);
             sendCount++;
 
+            const waveId = nextWaveId++;
             const timer = imageBuffer
-              ? schedule(() => { sendDebouncedMap(groupId, alert.type, getClientFn); }, debounceDelay)
+              ? schedule(() => { sendDebouncedMap(groupId, alert.type, getClientFn, waveId); }, debounceDelay)
               : undefined;
 
             track(groupId, alert.type, {
               textMessage: sent,
               sentAt: Date.now(),
               debounceTimer: timer,
-
               latestImageBuffer: imageBuffer ?? undefined,
+              waveId,
+              mapSent: false,
             });
             if (timer) mapScheduledCount++;
           }

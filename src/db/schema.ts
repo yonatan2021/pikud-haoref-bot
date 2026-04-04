@@ -125,11 +125,42 @@ export function initSchema(database: Database.Database): void {
       created_at          TEXT    NOT NULL DEFAULT (datetime('now'))
     );
 
+
+    CREATE TABLE IF NOT EXISTS telegram_listeners (
+      id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat_id             TEXT    NOT NULL UNIQUE,
+      chat_name           TEXT    NOT NULL,
+      chat_type           TEXT    NOT NULL DEFAULT 'group',
+      keywords            TEXT    NOT NULL DEFAULT '[]',
+      telegram_topic_id   INTEGER,
+      telegram_topic_name TEXT,
+      forward_to_whatsapp INTEGER NOT NULL DEFAULT 0,
+      is_active           INTEGER NOT NULL DEFAULT 1,
+      created_at          TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS telegram_known_chats (
+      chat_id    TEXT PRIMARY KEY,
+      chat_name  TEXT NOT NULL,
+      chat_type  TEXT NOT NULL,
+      is_forum   INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS telegram_known_topics (
+      topic_id   INTEGER NOT NULL,
+      chat_id    TEXT    NOT NULL REFERENCES telegram_known_chats(chat_id) ON DELETE CASCADE,
+      topic_name TEXT    NOT NULL,
+      updated_at TEXT    NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (chat_id, topic_id)
+    );
+
+
     CREATE TABLE IF NOT EXISTS contacts (
       id          INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id     INTEGER NOT NULL,
       contact_id  INTEGER NOT NULL,
-      status      TEXT NOT NULL DEFAULT 'pending',
+      status      TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected')),
       created_at  TEXT NOT NULL DEFAULT (datetime('now')),
       UNIQUE(user_id, contact_id),
       CHECK(user_id != contact_id),
@@ -138,8 +169,10 @@ export function initSchema(database: Database.Database): void {
     );
     CREATE INDEX IF NOT EXISTS idx_contacts_user ON contacts(user_id);
     CREATE INDEX IF NOT EXISTS idx_contacts_contact ON contacts(contact_id);
+    CREATE INDEX IF NOT EXISTS idx_contacts_status ON contacts(status);
 
     CREATE TABLE IF NOT EXISTS contact_permissions (
+      -- contact_id references contacts(id) surrogate PK (the relationship row), not a user
       contact_id    INTEGER PRIMARY KEY,
       safety_status INTEGER NOT NULL DEFAULT 1,
       home_city     INTEGER NOT NULL DEFAULT 0,
@@ -175,16 +208,20 @@ export function initSchema(database: Database.Database): void {
   addColumnIfMissing(database, 'ALTER TABLE users ADD COLUMN connection_code TEXT');
   addColumnIfMissing(database, 'ALTER TABLE users ADD COLUMN onboarding_step TEXT');
 
-  database.prepare('CREATE INDEX IF NOT EXISTS idx_users_connection_code ON users(connection_code)').run();
+  // v0.4.4 — telegram listener topic support
+  addColumnIfMissing(database, 'ALTER TABLE telegram_listeners ADD COLUMN source_topic_id INTEGER');
+  addColumnIfMissing(database, 'ALTER TABLE telegram_known_chats ADD COLUMN is_forum INTEGER NOT NULL DEFAULT 0');
+
+  database.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_connection_code ON users(connection_code) WHERE connection_code IS NOT NULL').run();
 }
 
 export function initDb(): void {
   const database = getDb();
   initSchema(database);
-  // Prune alert history older than 7 days on startup
-  database.exec(`DELETE FROM alert_history WHERE fired_at < datetime('now', '-7 days')`);
-  // Prune expired login attempt records on startup
-  database.exec('DELETE FROM login_attempts WHERE reset_at < (unixepoch() * 1000)');
-  // Prune expired pending contact requests on startup
-  database.exec(`DELETE FROM contacts WHERE status = 'pending' AND created_at < datetime('now', '-7 days')`);
+  // Prune stale data atomically on startup
+  database.transaction(() => {
+    database.prepare(`DELETE FROM alert_history WHERE fired_at < datetime('now', '-7 days')`).run();
+    database.prepare('DELETE FROM login_attempts WHERE reset_at < (unixepoch() * 1000)').run();
+    database.prepare(`DELETE FROM contacts WHERE status = 'pending' AND created_at < datetime('now', '-7 days')`).run();
+  })();
 }

@@ -870,8 +870,7 @@
 
 <div dir="rtl">
 
-[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.3...HEAD
-[0.4.3]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.2...v0.4.3
+[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.4...HEAD
 [0.4.4]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.1...v0.4.2

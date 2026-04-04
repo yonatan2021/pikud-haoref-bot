@@ -4,6 +4,7 @@ import {
   escapeHtml,
   buildCityList,
   buildZonedCityList,
+  buildZoneOnlyList,
   selectEditMethod,
   truncateToCaptionLimit,
   buildSendPayload,
@@ -170,6 +171,77 @@ describe('buildZonedCityList — urgency sorting', () => {
     const result = buildZonedCityList(['עיר לא קיימת בכלל']);
     assert.ok(!result.includes('🔴') && !result.includes('🟠') && !result.includes('🟡') && !result.includes('🟢') && !result.includes('⚪'),
       `Should not show urgency emoji for unknown city zones: ${result}`);
+  });
+});
+
+describe('buildZoneOnlyList', () => {
+  it('returns empty string for no cities', () => {
+    assert.equal(buildZoneOnlyList([]), '');
+  });
+
+  it('shows zone names without listing individual cities', () => {
+    // אור יהודה and בני ברק are both in zone "דן"
+    const result = buildZoneOnlyList(['אור יהודה', 'בני ברק']);
+    assert.ok(result.includes('▸'), 'should include arrow');
+    assert.ok(result.includes('דן'), 'should show zone name');
+    assert.ok(!result.includes('אור יהודה'), 'must NOT list individual cities');
+    assert.ok(!result.includes('בני ברק'), 'must NOT list individual cities');
+  });
+
+  it('shows one line per unique zone', () => {
+    // אור יהודה → "דן", החותרים → "חיפה", באר שבע - דרום → "מרכז הנגב"
+    const result = buildZoneOnlyList(['אור יהודה', 'החותרים', 'באר שבע - דרום']);
+    assert.equal((result.match(/▸/g) ?? []).length, 3, 'one arrow per zone');
+    assert.ok(result.includes('דן'));
+    assert.ok(result.includes('חיפה'));
+    assert.ok(result.includes('מרכז הנגב'));
+  });
+
+  it('shows city count per zone', () => {
+    const result = buildZoneOnlyList(['אור יהודה', 'בני ברק']); // both in דן
+    assert.ok(result.includes('(2)'), `Expected "(2)" count: ${result}`);
+  });
+
+  it('shows countdown per zone when available', () => {
+    // אור יהודה → דן, countdown 90s
+    const result = buildZoneOnlyList(['אור יהודה']);
+    assert.ok(result.includes('90 שנ׳'), `Expected countdown in: ${result}`);
+  });
+
+  it('escapes HTML in zone names', () => {
+    // Zone names come from cities.json — they are safe, but the function must escape them anyway
+    const result = buildZoneOnlyList(['אור יהודה']); // דן zone — safe name, verifies no crash
+    assert.ok(result.includes('דן'));
+  });
+
+  it('omits "ערים נוספות" for unrecognised cities — unknown cities are silently skipped', () => {
+    // For newsFlash we only care about known zones — unrecognised cities add no zone info
+    const result = buildZoneOnlyList(['עיר_לא_קיימת_123xyz']);
+    assert.equal(result, '', 'unknown-only input should return empty string');
+  });
+
+  it('ignores unrecognised cities when mixed with known zones', () => {
+    const result = buildZoneOnlyList(['אור יהודה', 'עיר_לא_קיימת_123xyz']);
+    assert.ok(result.includes('דן'), 'known zone should appear');
+    assert.ok(!result.includes('עיר_לא_קיימת_123xyz'), 'unknown city must not appear');
+  });
+});
+
+describe('formatAlertMessage newsFlash', () => {
+  it('shows zone names only — no individual cities — for newsFlash alerts', () => {
+    // אור יהודה and בני ברק are both in zone "דן"
+    const alert = { type: 'newsFlash', cities: ['אור יהודה', 'בני ברק'] };
+    const result = formatAlertMessage(alert);
+    assert.ok(result.includes('דן'), 'zone name must appear');
+    assert.ok(!result.includes('אור יהודה'), 'individual city must NOT appear for newsFlash');
+    assert.ok(!result.includes('בני ברק'), 'individual city must NOT appear for newsFlash');
+  });
+
+  it('still shows full zone+city list for non-newsFlash alerts', () => {
+    const alert = { type: 'missiles', cities: ['אור יהודה', 'בני ברק'] };
+    const result = formatAlertMessage(alert);
+    assert.ok(result.includes('אור יהודה'), 'cities should appear for missiles alert');
+    assert.ok(result.includes('בני ברק'), 'cities should appear for missiles alert');
   });
 });
 

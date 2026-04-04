@@ -32,13 +32,25 @@ import {
   escapeHtml,
   buildZonedCityList,
 } from '../../telegramBot.js';
+import {
+  buildWAZonedCityList,
+  buildWAZoneOnlyList,
+} from '../../whatsapp/whatsappFormatter.js';
 import { getRecentAlerts } from '../../db/alertHistoryRepository.js';
 import { createRateLimitMiddleware } from '../rateLimiter.js';
 import { log } from '../../logger.js';
 import type { Alert } from '../../types.js';
 
-// ─── Local formatter — never mutates global template cache ─────────────────
-// NOTE: Parallel frontend implementation in dashboard-ui/src/utils/alertFormatter.ts.
+// ─── WhatsApp deps interface ───────────────────────────────────────────────
+
+export interface WhatsAppDeps {
+  getStatus: () => string;
+  getClient: () => { getChatById: (id: string) => Promise<{ sendMessage: (text: string) => Promise<unknown> }> } | null;
+  getEnabledGroups: (db: Database.Database, alertType: string) => string[];
+}
+
+// ─── Local formatters — never mutate global template cache ─────────────────
+// NOTE: Parallel frontend implementations in dashboard-ui/src/utils/alertFormatter.ts.
 // Changes to the format must be applied to both files.
 
 function formatWithTemplate(
@@ -74,6 +86,39 @@ function formatWithTemplate(
   return parts.join('\n\n');
 }
 
+/** Plain-text WhatsApp formatter — mirrors formatWithTemplate but without HTML.
+ *  NOTE: Parallel frontend implementation in dashboard-ui/src/utils/alertFormatter.ts. */
+function formatWithTemplateWA(
+  alertType: string,
+  cities: string[],
+  instructions: string | undefined,
+  template: { emoji: string; titleHe: string; instructionsPrefix: string },
+): string {
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('he-IL', {
+    timeZone: 'Asia/Jerusalem',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+
+  const cityCountSuffix = cities.length > 0 ? `  ·  ${cities.length} ערים` : '';
+  const parts: string[] = [
+    `${template.emoji} *${template.titleHe}*\n⏰ ${timeStr}${cityCountSuffix}`,
+  ];
+
+  if (instructions) {
+    const prefix = template.instructionsPrefix;
+    parts.push(prefix ? `${prefix} ${instructions}` : instructions);
+  }
+
+  const cityList =
+    alertType === 'newsFlash' ? buildWAZoneOnlyList(cities) : buildWAZonedCityList(cities);
+  if (cityList) parts.push(cityList);
+
+  return parts.join('\n\n');
+}
+
 // ─── Rate limiters ─────────────────────────────────────────────────────────
 
 export const testFireLimiter = createRateLimitMiddleware({
@@ -96,7 +141,7 @@ export const systemMessageLimiter = createRateLimitMiddleware({
 
 // ─── Router ────────────────────────────────────────────────────────────────
 
-export function createMessagesRouter(db: Database.Database, bot: Bot): Router {
+export function createMessagesRouter(db: Database.Database, bot: Bot, whatsappDeps?: WhatsAppDeps): Router {
   const router = Router();
 
   // ── Static routes FIRST (before :type param routes) ──────────────────
@@ -249,17 +294,19 @@ export function createMessagesRouter(db: Database.Database, bot: Bot): Router {
     };
 
     const html = formatWithTemplate(raw.type, cities, raw.instructions ?? undefined, template);
-    res.json({ html, charCount: html.length });
+    const waText = formatWithTemplateWA(raw.type, cities, raw.instructions ?? undefined, template);
+    res.json({ html, telegramHtml: html, whatsappText: waText, charCount: html.length, waCharCount: waText.length });
   });
 
-  // POST /api/messages/test-fire — send a real test alert to Telegram
+  // POST /api/messages/test-fire — send a real test alert to Telegram and/or WhatsApp
   router.post('/test-fire', testFireLimiter, async (req, res) => {
-    const { alertType, cities, instructions, templateOverride, topicOverride } = req.body as {
+    const { alertType, cities, instructions, templateOverride, topicOverride, platform = 'telegram' } = req.body as {
       alertType?: string;
       cities?: string[];
       instructions?: string;
       templateOverride?: { emoji?: string; titleHe?: string; instructionsPrefix?: string };
       topicOverride?: number;
+      platform?: 'telegram' | 'whatsapp' | 'both';
     };
 
     if (!alertType || !ALL_ALERT_TYPES.includes(alertType)) {
@@ -270,8 +317,11 @@ export function createMessagesRouter(db: Database.Database, bot: Bot): Router {
       res.status(400).json({ error: 'cities חסר או לא מערך' });
       return;
     }
+    if (platform !== 'telegram' && platform !== 'whatsapp' && platform !== 'both') {
+      res.status(400).json({ error: `platform לא חוקי: ${platform}` });
+      return;
+    }
 
-    const topicId = topicOverride ?? getTopicIdCached(alertType);
     const cached = getAllCached()[alertType];
     const template = {
       emoji: templateOverride?.emoji ?? cached.emoji,
@@ -279,36 +329,85 @@ export function createMessagesRouter(db: Database.Database, bot: Bot): Router {
       instructionsPrefix: templateOverride?.instructionsPrefix ?? cached.instructionsPrefix,
     };
 
-    // Build the formatted message using local formatter
-    const formattedMessage = formatWithTemplate(alertType, cities, instructions, template);
+    const results: { telegram?: number; whatsappGroups?: number } = {};
+    const errors: string[] = [];
 
-    // Truncate to stay within Telegram's 4096-char text message limit
-    const TEST_PREFIX = '🧪 <b>בדיקת תבנית</b>\n\n';
-    const maxBody = 4096 - TEST_PREFIX.length;
-    const truncatedMessage = formattedMessage.length > maxBody
-      ? formattedMessage.slice(0, formattedMessage.lastIndexOf('\n\n', maxBody)) + '\n\n<i>…קוצר</i>'
-      : formattedMessage;
+    // ── Telegram ──────────────────────────────────────────────────────────────
+    if (platform === 'telegram' || platform === 'both') {
+      const formattedMessage = formatWithTemplate(alertType, cities, instructions, template);
+      const TEST_PREFIX = '🧪 <b>בדיקת תבנית</b>\n\n';
+      const maxBody = 4096 - TEST_PREFIX.length;
+      const truncatedMessage = formattedMessage.length > maxBody
+        ? formattedMessage.slice(0, formattedMessage.lastIndexOf('\n\n', maxBody)) + '\n\n<i>…קוצר</i>'
+        : formattedMessage;
 
-    // Send as text-only (no map) via bot.api directly
-    const chatId = process.env.TELEGRAM_CHAT_ID;
-    if (!chatId) {
-      res.status(500).json({ error: 'TELEGRAM_CHAT_ID לא מוגדר' });
+      const chatId = process.env.TELEGRAM_CHAT_ID;
+      if (!chatId) {
+        errors.push('TELEGRAM_CHAT_ID לא מוגדר');
+      } else {
+        try {
+          const topicId = topicOverride ?? getTopicIdCached(alertType);
+          const threadOptions = topicId ? { message_thread_id: topicId } : {};
+          const sent = await bot.api.sendMessage(
+            chatId,
+            `${TEST_PREFIX}${truncatedMessage}`,
+            { parse_mode: 'HTML', ...threadOptions },
+          );
+          log('info', 'Messages', `Test-fire Telegram: ${alertType} → message ${sent.message_id}`);
+          results.telegram = sent.message_id;
+        } catch (err) {
+          errors.push(`Telegram: ${String(err)}`);
+        }
+      }
+    }
+
+    // ── WhatsApp ──────────────────────────────────────────────────────────────
+    if (platform === 'whatsapp' || platform === 'both') {
+      if (!whatsappDeps) {
+        res.status(400).json({ error: 'WhatsApp לא זמין' });
+        return;
+      }
+
+      if (whatsappDeps.getStatus() !== 'ready') {
+        errors.push('WhatsApp לא מחובר');
+      } else {
+        const waText = formatWithTemplateWA(alertType, cities, instructions, template);
+        const WA_TEST_PREFIX = '🧪 *בדיקת תבנית*\n\n';
+        const groupIds = whatsappDeps.getEnabledGroups(db, alertType);
+
+        if (groupIds.length === 0) {
+          errors.push('אין קבוצות WhatsApp מופעלות לסוג התרעה זה');
+        } else {
+          const client = whatsappDeps.getClient();
+          if (!client) {
+            errors.push('WhatsApp client לא זמין');
+          } else {
+            let sentCount = 0;
+            for (const groupId of groupIds) {
+              try {
+                const chat = await client.getChatById(groupId);
+                await chat.sendMessage(`${WA_TEST_PREFIX}${waText}`);
+                sentCount++;
+              } catch (err) {
+                errors.push(`WhatsApp קבוצה ${groupId}: ${String(err)}`);
+                log('error', 'Messages', `Test-fire WhatsApp group ${groupId} failed: ${String(err)}`);
+              }
+            }
+            if (sentCount > 0) {
+              log('info', 'Messages', `Test-fire WhatsApp: ${alertType} → ${sentCount} קבוצות`);
+              results.whatsappGroups = sentCount;
+            }
+          }
+        }
+      }
+    }
+
+    if (errors.length > 0 && Object.keys(results).length === 0) {
+      res.status(500).json({ error: errors.join('; ') });
       return;
     }
 
-    try {
-      const threadOptions = topicId ? { message_thread_id: topicId } : {};
-      const sent = await bot.api.sendMessage(
-        chatId,
-        `${TEST_PREFIX}${truncatedMessage}`,
-        { parse_mode: 'HTML', ...threadOptions },
-      );
-      log('info', 'Messages', `Test-fire: ${alertType} → message ${sent.message_id}`);
-      res.json({ ok: true, messageId: sent.message_id });
-    } catch (err) {
-      log('error', 'Messages', `Test-fire failed: ${String(err)}`);
-      res.status(500).json({ error: String(err) });
-    }
+    res.json({ ok: true, ...results, ...(errors.length > 0 ? { warnings: errors } : {}) });
   });
 
   // GET /api/messages/zones — full super-region → zone → cities hierarchy

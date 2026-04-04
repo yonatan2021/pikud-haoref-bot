@@ -47,6 +47,7 @@ function decodePermissions(raw: RawPermissions): ContactPermissions {
   };
 }
 
+/** @internal — use createContactWithPermissions for all public flows to ensure permissions row is created atomically */
 export function createContact(userId: number, contactId: number): Contact {
   if (userId === contactId) {
     throw new Error('Cannot create a contact with yourself');
@@ -56,6 +57,20 @@ export function createContact(userId: number, contactId: number): Contact {
   );
   const raw = stmt.get(userId, contactId) as RawContact;
   return decodeContact(raw);
+}
+
+/** Creates a contact AND its default permissions atomically in a single transaction. */
+export function createContactWithPermissions(
+  userId: number,
+  contactId: number,
+  defaults?: Partial<ContactPermissions>,
+): Contact {
+  const db = getDb();
+  return db.transaction(() => {
+    const contact = createContact(userId, contactId);
+    createDefaultPermissions(contact.id, defaults);
+    return contact;
+  })();
 }
 
 export function getContactById(id: number): Contact | undefined {
@@ -73,33 +88,41 @@ export function getContactByPair(userId: number, contactId: number): Contact | u
 }
 
 export function acceptContact(id: number): void {
-  getDb()
+  const result = getDb()
     .prepare("UPDATE contacts SET status = 'accepted' WHERE id = ?")
     .run(id);
+  if (result.changes === 0) throw new Error(`Contact ${id} not found`);
 }
 
 export function rejectContact(id: number): void {
-  getDb()
+  const result = getDb()
     .prepare("UPDATE contacts SET status = 'rejected' WHERE id = ?")
     .run(id);
+  if (result.changes === 0) throw new Error(`Contact ${id} not found`);
 }
 
 export function removeContact(id: number): void {
-  getDb()
+  const result = getDb()
     .prepare('DELETE FROM contacts WHERE id = ?')
     .run(id);
+  if (result.changes === 0) throw new Error(`Contact ${id} not found`);
 }
 
 export function listContacts(userId: number, status?: string): Contact[] {
   const base = 'SELECT * FROM contacts WHERE (user_id = ? OR contact_id = ?)';
   const params: unknown[] = [userId, userId];
 
-  const raw = status
-    ? getDb().prepare(`${base} AND status = ?`).all(...params, status)
-    : getDb().prepare(base).all(...params);
+  if (status) {
+    const rows = getDb()
+      .prepare(`${base} AND status = ?`)
+      .all(...params, status) as RawContact[];
+    return rows.map(decodeContact);
+  }
 
-  if (!Array.isArray(raw)) throw new Error('contactRepository.listContacts: unexpected DB result shape');
-  return (raw as RawContact[]).map(decodeContact);
+  const rows = getDb()
+    .prepare(base)
+    .all(...params) as RawContact[];
+  return rows.map(decodeContact);
 }
 
 export function getPendingCountForUser(userId: number): number {
@@ -124,11 +147,22 @@ export function createDefaultPermissions(
   const homeCity = defaults?.home_city !== undefined ? (defaults.home_city ? 1 : 0) : 0;
   const updateTime = defaults?.update_time !== undefined ? (defaults.update_time ? 1 : 0) : 1;
 
-  getDb()
+  const result = getDb()
     .prepare(
       'INSERT INTO contact_permissions (contact_id, safety_status, home_city, update_time) VALUES (?, ?, ?, ?)'
     )
     .run(contactRowId, safetyStatus, homeCity, updateTime);
+  if (result.changes === 0) {
+    throw new Error(`Failed to create permissions for contact_id ${contactRowId}`);
+  }
+}
+
+/** Delete pending contacts older than 7 days. Called on a recurring interval. */
+export function pruneExpiredContacts(): number {
+  const result = getDb()
+    .prepare("DELETE FROM contacts WHERE status = 'pending' AND created_at < datetime('now', '-7 days')")
+    .run();
+  return result.changes;
 }
 
 export function updatePermissions(
@@ -154,7 +188,10 @@ export function updatePermissions(
   if (setClauses.length === 0) return;
 
   values.push(contactRowId);
-  getDb()
+  const result = getDb()
     .prepare(`UPDATE contact_permissions SET ${setClauses.join(', ')} WHERE contact_id = ?`)
     .run(...values);
+  if (result.changes === 0) {
+    throw new Error(`Contact permissions not found for contact_id ${contactRowId}`);
+  }
 }

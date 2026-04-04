@@ -16,6 +16,20 @@ interface User {
   quiet_hours_enabled: number;
   created_at: string;
   city_count: number;
+  display_name: string | null;
+  home_city: string | null;
+  locale: string;
+  onboarding_completed: number;
+  connection_code: string | null;
+  contact_count: number;
+}
+
+interface ContactEntry {
+  id: number;
+  status: string;
+  created_at: string;
+  other_id: number;
+  other_name: string | null;
 }
 
 interface UserDetail {
@@ -24,6 +38,11 @@ interface UserDetail {
   quiet_hours_enabled: number;
   created_at: string;
   cities: string[];
+  display_name: string | null;
+  home_city: string | null;
+  locale: string;
+  onboarding_completed: number;
+  contacts: ContactEntry[];
 }
 
 interface SubscribersResponse {
@@ -34,6 +53,8 @@ interface SubscribersResponse {
 interface EditForm {
   format: string;
   quiet_hours_enabled: boolean;
+  display_name: string;
+  home_city: string;
 }
 
 function relDate(iso: string): string {
@@ -61,7 +82,7 @@ export function Subscribers() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
-  const [editForm, setEditForm] = useState<EditForm>({ format: 'short', quiet_hours_enabled: false });
+  const [editForm, setEditForm] = useState<EditForm>({ format: 'short', quiet_hours_enabled: false, display_name: '', home_city: '' });
 
   const debouncedSearch = useDebounce(search, 400);
 
@@ -77,7 +98,7 @@ export function Subscribers() {
     },
   });
 
-  const { data: expandedDetail } = useQuery<UserDetail>({
+  const { data: expandedDetail, isLoading: isDetailLoading, isError: isDetailError } = useQuery<UserDetail>({
     queryKey: ['subscriber-detail', expandedId],
     queryFn: () => api.get<UserDetail>(`/api/subscribers/${expandedId}`),
     enabled: expandedId !== null,
@@ -111,6 +132,16 @@ export function Subscribers() {
       qc.invalidateQueries({ queryKey: ['subscriber-detail', expandedId] });
     },
     onError: () => toast.error('שגיאה בהסרת עיר'),
+  });
+
+  const removeContactMutation = useMutation({
+    mutationFn: ({ id, contactId }: { id: number; contactId: number }) =>
+      api.delete(`/api/subscribers/${id}/contacts/${contactId}`),
+    onSuccess: () => {
+      toast.success('קשר הוסר');
+      qc.invalidateQueries({ queryKey: ['subscriber-detail', expandedId] });
+    },
+    onError: () => toast.error('שגיאה בהסרת קשר'),
   });
 
   const bulkDeleteMutation = useMutation({
@@ -160,6 +191,8 @@ export function Subscribers() {
     setEditForm({
       format: user.format,
       quiet_hours_enabled: !!user.quiet_hours_enabled,
+      display_name: user.display_name ?? '',
+      home_city: user.home_city ?? '',
     });
   };
 
@@ -168,6 +201,8 @@ export function Subscribers() {
     const body: Record<string, unknown> = {
       format: editForm.format,
       quiet_hours_enabled: editForm.quiet_hours_enabled,
+      display_name: editForm.display_name || null,
+      home_city: editForm.home_city || null,
     };
     patchMutation.mutate(
       { id: editUser.chat_id, body },
@@ -180,9 +215,9 @@ export function Subscribers() {
     setPage(0);
   };
 
-  const handleCopy = (e: React.MouseEvent, chatId: number) => {
+  const handleCopy = (e: React.MouseEvent, text: string | number) => {
     e.stopPropagation();
-    navigator.clipboard.writeText(String(chatId));
+    navigator.clipboard.writeText(String(text));
     toast.success('הועתק');
   };
 
@@ -225,7 +260,7 @@ export function Subscribers() {
             type="text"
             value={search}
             onChange={handleSearchChange}
-            placeholder="חיפוש לפי מזהה או עיר..."
+            placeholder="חיפוש לפי מזהה, שם, או עיר..."
             className="flex-1 bg-[var(--color-glass)] backdrop-blur-md border border-[var(--color-border)] rounded-lg px-4 py-2.5 text-sm text-text-primary outline-none focus:border-amber-500/60 focus:ring-2 focus:ring-amber-500/40 transition-all"
           />
           <span className="flex items-center text-text-muted text-sm whitespace-nowrap">
@@ -256,7 +291,11 @@ export function Subscribers() {
                       />
                     </th>
                     <th className="px-4 py-2 text-right font-medium">מזהה</th>
+                    <th className="px-4 py-2 text-right font-medium">שם</th>
+                    <th className="px-4 py-2 text-right font-medium">עיר</th>
                     <th className="px-4 py-2 text-right font-medium">ערים</th>
+                    <th className="px-4 py-2 text-right font-medium">קוד חיבור</th>
+                    <th className="px-4 py-2 text-right font-medium">קשרים</th>
                     <th className="px-4 py-2 text-right font-medium">פורמט</th>
                     <th className="px-4 py-2 text-right font-medium">Quiet Hours</th>
                     <th className="px-4 py-2 text-right font-medium">הצטרף</th>
@@ -294,10 +333,47 @@ export function Subscribers() {
                             </button>
                           </div>
                         </td>
+                        <td className="px-4 py-3 text-text-secondary text-xs max-w-[120px] truncate" title={user.display_name ?? ''}>
+                          {user.display_name ? (
+                            <span className="flex items-center gap-1">
+                              {user.display_name}
+                              {!user.onboarding_completed && (
+                                <span className="text-amber-400" title="לא השלים onboarding">⏳</span>
+                              )}
+                            </span>
+                          ) : (
+                            <span className="text-text-muted">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-text-secondary text-xs max-w-[120px] truncate" title={user.home_city ?? ''}>
+                          {user.home_city ?? <span className="text-text-muted">—</span>}
+                        </td>
                         <td className="px-4 py-3">
                           <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded-full">
                             {user.city_count}
                           </span>
+                        </td>
+                        <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                          {user.connection_code ? (
+                            <button
+                              onClick={e => handleCopy(e, user.connection_code!)}
+                              className="font-mono text-xs text-text-secondary bg-[var(--color-glass)] border border-[var(--color-border)] rounded px-2 py-0.5 hover:border-amber-500/60 transition-colors"
+                              title="העתק קוד חיבור"
+                            >
+                              {user.connection_code}
+                            </button>
+                          ) : (
+                            <span className="text-text-muted text-xs">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          {user.contact_count > 0 ? (
+                            <span className="bg-purple-500/20 text-purple-400 text-xs px-2 py-0.5 rounded-full">
+                              {user.contact_count}
+                            </span>
+                          ) : (
+                            <span className="text-text-muted text-xs">0</span>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <span
@@ -354,7 +430,7 @@ export function Subscribers() {
                       <AnimatePresence key={`${user.chat_id}-presence`}>
                         {expandedId === user.chat_id && (
                           <tr key={`${user.chat_id}-exp`} className="bg-white/5">
-                            <td colSpan={7} className="p-0 overflow-hidden">
+                            <td colSpan={11} className="p-0 overflow-hidden">
                               <motion.div
                                 initial={{ height: 0, opacity: 0 }}
                                 animate={{ height: 'auto', opacity: 1 }}
@@ -363,6 +439,14 @@ export function Subscribers() {
                                 className="overflow-hidden"
                               >
                                 <div className="px-6 py-4">
+                                  {expandedDetail && (
+                                    <div className="flex flex-wrap gap-4 mb-3 text-xs text-text-muted">
+                                      <span>👤 {expandedDetail.display_name ?? 'ללא שם'}</span>
+                                      <span>🏠 {expandedDetail.home_city ?? 'ללא עיר'}</span>
+                                      <span>🌐 {expandedDetail.locale === 'he' ? 'עברית' : expandedDetail.locale}</span>
+                                      <span>{expandedDetail.onboarding_completed ? '✅ Onboarding הושלם' : '⏳ לא השלים onboarding'}</span>
+                                    </div>
+                                  )}
                                   <p className="text-text-muted text-xs mb-2">ערים מנויות:</p>
                                   {expandedDetail ? (
                                     <div className="flex flex-wrap gap-2">
@@ -390,6 +474,48 @@ export function Subscribers() {
                                     </div>
                                   ) : (
                                     <Skeleton className="h-8 w-48" />
+                                  )}
+                                  {/* Contacts section */}
+                                  {isDetailLoading && (
+                                    <p className="text-text-secondary text-xs mt-4">טוען קשרים...</p>
+                                  )}
+                                  {isDetailError && (
+                                    <p className="text-red-400 text-xs mt-4">שגיאה בטעינת פרטי מנוי</p>
+                                  )}
+                                  {!isDetailLoading && !isDetailError && expandedDetail && (expandedDetail.contacts ?? []).length > 0 && (
+                                    <>
+                                      <p className="text-text-muted text-xs mb-2 mt-4">אנשי קשר:</p>
+                                      <div className="flex flex-wrap gap-2">
+                                        {(expandedDetail.contacts ?? []).map(c => (
+                                          <div
+                                            key={c.id}
+                                            className={`flex items-center gap-1 border rounded-full px-3 py-1 text-xs group cursor-pointer transition-opacity hover:opacity-75 ${
+                                              c.status === 'accepted'
+                                                ? 'bg-green-500/10 border-green-500/30 text-green-400'
+                                                : c.status === 'pending'
+                                                  ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                                                  : 'bg-[var(--color-glass)] border-[var(--color-border)] text-text-muted'
+                                            }`}
+                                          >
+                                            {c.other_name ?? c.other_id}
+                                            <span className="text-[10px] opacity-60">
+                                              {c.status === 'accepted' ? '✓' : c.status === 'pending' ? '⏳' : '✗'}
+                                            </span>
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                removeContactMutation.mutate({ id: expandedId ?? 0, contactId: c.id });
+                                              }}
+                                              disabled={removeContactMutation.isPending}
+                                              className="text-[10px] opacity-0 group-hover:opacity-100 transition-opacity hover:text-red-400 disabled:opacity-50"
+                                              title="הסר קשר"
+                                            >
+                                              ✕
+                                            </button>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </>
                                   )}
                                 </div>
                               </motion.div>
@@ -455,6 +581,27 @@ export function Subscribers() {
                 עריכת מנוי {editUser.chat_id}
               </h3>
               <div className="space-y-4">
+                <div>
+                  <label className="text-text-muted text-xs block mb-1">שם תצוגה</label>
+                  <input
+                    type="text"
+                    value={editForm.display_name}
+                    onChange={e => setEditForm(f => ({ ...f, display_name: e.target.value }))}
+                    placeholder="ללא שם"
+                    maxLength={50}
+                    className="w-full bg-[var(--color-glass)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-text-primary outline-none focus:border-amber-500/60"
+                  />
+                </div>
+                <div>
+                  <label className="text-text-muted text-xs block mb-1">עיר מגורים</label>
+                  <input
+                    type="text"
+                    value={editForm.home_city}
+                    onChange={e => setEditForm(f => ({ ...f, home_city: e.target.value }))}
+                    placeholder="ללא עיר"
+                    className="w-full bg-[var(--color-glass)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-text-primary outline-none focus:border-amber-500/60"
+                  />
+                </div>
                 <div>
                   <label className="text-text-muted text-xs block mb-1">פורמט הודעות</label>
                   <select
