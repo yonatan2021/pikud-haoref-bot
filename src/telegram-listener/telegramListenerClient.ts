@@ -279,8 +279,9 @@ function attachMessageListener(db: Database.Database): void {
       try {
         const entity = await client!.getEntity(message.peerId!);
         chatName = (entity as { title?: string }).title ?? chatId;
-      } catch {
-        // non-fatal — use chatId as fallback name
+      } catch (entityErr: unknown) {
+        // non-fatal — chatId used as fallback name
+        log('info', 'TG Listener', `getEntity נכשל עבור ${chatId}: ${entityErr instanceof Error ? entityErr.message : String(entityErr)}`);
       }
 
       // Build sender info
@@ -294,8 +295,9 @@ function attachMessageListener(db: Database.Database): void {
           const sender = await client!.getEntity(fromId);
           const s = sender as { firstName?: string; lastName?: string; username?: string };
           senderName = [s.firstName, s.lastName].filter(Boolean).join(' ') || s.username || senderId;
-        } catch {
-          // non-fatal
+        } catch (senderErr: unknown) {
+          // non-fatal — senderId used as fallback name
+          log('info', 'TG Listener', `getEntity (sender) נכשל עבור ${senderId}: ${senderErr instanceof Error ? senderErr.message : String(senderErr)}`);
         }
       }
 
