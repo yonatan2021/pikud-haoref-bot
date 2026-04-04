@@ -13,6 +13,7 @@ import {
   isUnmodifiedError,
   isMediaEditError,
   isMessageGoneError,
+  renderAllClearTemplate,
   type EditBotApi,
 } from '../telegramBot.js';
 import type { Alert } from '../types.js';
@@ -657,5 +658,37 @@ describe('editAlert degraded chain (_editAlertChain)', () => {
     assert.equal(api.editMessageMedia.mock.calls.length, 0, 'Step 1 (media) must not be called when no image');
     assert.equal(api.editMessageCaption.mock.calls.length, 1, 'caption attempted');
     assert.equal(api.editMessageText.mock.calls.length, 1, 'text fallback used on caption failure');
+  });
+});
+
+describe('renderAllClearTemplate', () => {
+  it('renders default template when cache has no all_clear entry', () => {
+    const result = renderAllClearTemplate('גליל עליון', 'missiles');
+    assert.ok(result.includes('גליל עליון'), 'Zone name must appear');
+    assert.ok(result.includes('✅'), 'Default emoji must appear');
+    assert.ok(result.includes('שקט חזר'), 'Default title must appear');
+    assert.ok(result.includes('התרעת טילים'), 'Hebrew alert type must appear');
+    assert.ok(result.includes('🔴'), 'Alert type emoji must appear');
+    assert.ok(result.includes('נשמו'), 'Default closing text must appear');
+  });
+
+  it('HTML-escapes zone name to prevent injection', () => {
+    const result = renderAllClearTemplate('<script>alert(1)</script>', 'missiles');
+    assert.ok(!result.includes('<script>'), 'Raw script tag must not appear');
+    assert.ok(result.includes('&lt;script&gt;'), 'Zone must be HTML-escaped');
+  });
+
+  it('falls back to raw alertType string when no Hebrew name registered', () => {
+    const result = renderAllClearTemplate('דן', 'unknownFutureType');
+    assert.ok(result.includes('דן'));
+    assert.ok(result.includes('unknownFutureType'), 'Raw alertType used as fallback');
+  });
+
+  it('returns valid HTML structure with three parts separated by double newlines', () => {
+    const result = renderAllClearTemplate('שרון', 'missiles');
+    const parts = result.split('\n\n');
+    assert.ok(parts.length >= 2, 'Message must have at least two parts');
+    assert.ok(parts[0].startsWith('✅'), 'First part is the emoji+title');
+    assert.ok(parts[1].includes('שרון'), 'Second part contains zone');
   });
 });
