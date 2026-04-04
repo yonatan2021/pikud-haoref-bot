@@ -82,11 +82,18 @@ function makeDb(): Database.Database {
   return db;
 }
 
+// Helper — excludes the seeded all_clear row so repository tests stay focused on
+// user-managed templates (initSchema seeds all_clear via INSERT OR IGNORE).
+function userTemplates(db: Database.Database) {
+  return getAllTemplates(db).filter((r) => r.alert_type !== 'all_clear');
+}
+
 describe('messageTemplateRepository', () => {
-  it('getAllTemplates on empty DB returns []', () => {
+  it('getAllTemplates on empty DB returns only the seeded all_clear row', () => {
     const db = makeDb();
     const rows = getAllTemplates(db);
-    assert.deepEqual(rows, []);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].alert_type, 'all_clear');
     db.close();
   });
 
@@ -98,7 +105,7 @@ describe('messageTemplateRepository', () => {
       title_he: 'בדיקה',
       instructions_prefix: '📌',
     });
-    const rows = getAllTemplates(db);
+    const rows = userTemplates(db);
     assert.equal(rows.length, 1);
     assert.equal(rows[0].alert_type, 'missiles');
     assert.equal(rows[0].emoji, '🚀');
@@ -121,7 +128,7 @@ describe('messageTemplateRepository', () => {
       title_he: 'עדכני',
       instructions_prefix: '🛡',
     });
-    const rows = getAllTemplates(db);
+    const rows = userTemplates(db);
     assert.equal(rows.length, 1);
     assert.equal(rows[0].emoji, '🔴');
     assert.equal(rows[0].title_he, 'עדכני');
@@ -143,7 +150,7 @@ describe('messageTemplateRepository', () => {
       instructions_prefix: '🛡',
     });
     deleteTemplate(db, 'missiles');
-    const rows = getAllTemplates(db);
+    const rows = userTemplates(db);
     assert.equal(rows.length, 1);
     assert.equal(rows[0].alert_type, 'earthQuake');
     db.close();

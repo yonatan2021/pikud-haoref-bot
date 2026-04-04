@@ -219,6 +219,14 @@ export function initSchema(database: Database.Database): void {
   addColumnIfMissing(database, 'ALTER TABLE users ADD COLUMN is_dm_active INTEGER NOT NULL DEFAULT 1');
 
   database.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_connection_code ON users(connection_code) WHERE connection_code IS NOT NULL').run();
+
+  // Seed the all-clear template so it appears in the dashboard Messages page on first run.
+  // INSERT OR IGNORE — never overwrites admin customisations.
+  // instructions_prefix holds the editable closing text shown after the zone/alert-type line.
+  database.prepare(`
+    INSERT OR IGNORE INTO message_templates (alert_type, emoji, title_he, instructions_prefix)
+    VALUES ('all_clear', '✅', 'שקט חזר', 'נשמו. אתם בטוחים. 🕊')
+  `).run();
 }
 
 export function initDb(): void {
