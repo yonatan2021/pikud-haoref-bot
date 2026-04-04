@@ -2,7 +2,7 @@ import { describe, it, before, after, beforeEach, afterEach, mock } from 'node:t
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
 import { initSchema } from '../db/schema.js';
-import { createListener } from '../db/telegramListenerRepository.js';
+import { createListener, upsertKnownChat } from '../db/telegramListenerRepository.js';
 import { createMessageHandler } from '../telegram-listener/telegramListenerService.js';
 
 process.env['TELEGRAM_CHAT_ID'] = '-1001234567890';
@@ -471,5 +471,59 @@ describe('createMessageHandler — diagnostic logging (no-listener warn)', () =>
     const h = createMessageHandler(db, bot);
     // Should resolve cleanly (the warning log is side-effect, hard to assert without mocking logger)
     await assert.doesNotReject(() => h(makeMsg('-100unknown', 'hello') as any));
+  });
+});
+
+// ─── General-topic (forum topic id=1) normalization ──────────────────────────
+// In Telegram forum supergroups, the "General" topic (id=1) sends messages
+// WITHOUT replyToTopId — they arrive with topicId=null. The service must
+// normalise null → 1 for forum groups so rules with sourceTopicId=1 match.
+
+describe('createMessageHandler — General-topic normalization', () => {
+  const FORUM_CHAT_ID = '-100forum';
+
+  beforeEach(() => {
+    db.prepare('DELETE FROM telegram_listeners').run();
+    db.prepare('DELETE FROM telegram_known_chats').run();
+  });
+
+  it('isForum=true, sourceTopicId=1, topicId=null → message IS forwarded (null normalised to 1)', async () => {
+    upsertKnownChat(db, { chatId: FORUM_CHAT_ID, chatName: 'Forum', chatType: 'supergroup', isForum: true });
+    createListener(db, { ...BASE, chatId: FORUM_CHAT_ID, sourceTopicId: 1 });
+    const { bot, calls } = makeBot();
+    const h = createMessageHandler(db, bot);
+    await h(makeMsg(FORUM_CHAT_ID, 'general topic msg', { topicId: null }) as any);
+    await new Promise<void>((r) => setTimeout(r, 10));
+    assert.equal(calls.length, 1, 'should forward because null is treated as topic 1 in forum groups');
+  });
+
+  it('isForum=true, sourceTopicId=1, topicId=2 → message is NOT forwarded (different topic)', async () => {
+    upsertKnownChat(db, { chatId: FORUM_CHAT_ID, chatName: 'Forum', chatType: 'supergroup', isForum: true });
+    createListener(db, { ...BASE, chatId: FORUM_CHAT_ID, sourceTopicId: 1 });
+    const { bot, calls } = makeBot();
+    const h = createMessageHandler(db, bot);
+    await h(makeMsg(FORUM_CHAT_ID, 'topic 2 msg', { topicId: 2 }) as any);
+    await new Promise<void>((r) => setTimeout(r, 10));
+    assert.equal(calls.length, 0, 'should NOT forward — topic 2 does not match sourceTopicId 1');
+  });
+
+  it('isForum=false, sourceTopicId=1, topicId=null → message is NOT forwarded (not a forum)', async () => {
+    upsertKnownChat(db, { chatId: FORUM_CHAT_ID, chatName: 'Non-Forum', chatType: 'supergroup', isForum: false });
+    createListener(db, { ...BASE, chatId: FORUM_CHAT_ID, sourceTopicId: 1 });
+    const { bot, calls } = makeBot();
+    const h = createMessageHandler(db, bot);
+    await h(makeMsg(FORUM_CHAT_ID, 'regular group msg', { topicId: null }) as any);
+    await new Promise<void>((r) => setTimeout(r, 10));
+    assert.equal(calls.length, 0, 'should NOT forward — not a forum group so null is not normalised to 1');
+  });
+
+  it('isForum=true, sourceTopicId=null (forward all), topicId=null → message IS forwarded', async () => {
+    upsertKnownChat(db, { chatId: FORUM_CHAT_ID, chatName: 'Forum', chatType: 'supergroup', isForum: true });
+    createListener(db, { ...BASE, chatId: FORUM_CHAT_ID, sourceTopicId: null });
+    const { bot, calls } = makeBot();
+    const h = createMessageHandler(db, bot);
+    await h(makeMsg(FORUM_CHAT_ID, 'any topic msg', { topicId: null }) as any);
+    await new Promise<void>((r) => setTimeout(r, 10));
+    assert.equal(calls.length, 1, 'sourceTopicId=null means forward all topics');
   });
 });

@@ -1,6 +1,6 @@
-import { describe, it } from 'node:test';
+import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { DmQueue, extractRetryAfter, validateChatId } from '../services/dmQueue.js';
+import { DmQueue, extractRetryAfter, validateChatId, _resetMassDeleteGuard, _safeMassDeleteGuard } from '../services/dmQueue.js';
 
 describe('DmQueue', () => {
   it('calls send for every enqueued task', async () => {
@@ -243,5 +243,44 @@ describe('validateChatId', () => {
 
   it('returns null for "-Infinity"', () => {
     assert.equal(validateChatId('-Infinity'), null);
+  });
+});
+
+// ─── safeMassDeleteGuard ──────────────────────────────────────────────────────
+
+describe('safeMassDeleteGuard', () => {
+  beforeEach(() => {
+    _resetMassDeleteGuard();
+  });
+
+  it('returns true for first MAX_MASS_DELETES (5) calls within the window', () => {
+    for (let i = 0; i < 5; i++) {
+      assert.equal(_safeMassDeleteGuard(), true, `call ${i + 1} should be allowed`);
+    }
+  });
+
+  it('returns false on the 6th call within the same window', () => {
+    for (let i = 0; i < 5; i++) _safeMassDeleteGuard();
+    assert.equal(_safeMassDeleteGuard(), false, '6th call within window should be blocked');
+  });
+
+  it('resets and returns true again after _resetMassDeleteGuard()', () => {
+    for (let i = 0; i < 6; i++) _safeMassDeleteGuard(); // exhaust
+    _resetMassDeleteGuard();
+    assert.equal(_safeMassDeleteGuard(), true, 'first call after reset should be allowed');
+  });
+
+  it('resets automatically when window expires (simulated via Date.now override)', () => {
+    for (let i = 0; i < 6; i++) _safeMassDeleteGuard(); // exhaust and block
+    assert.equal(_safeMassDeleteGuard(), false, 'should be blocked before time travel');
+
+    // Fast-forward time by 61 seconds — guard window should reset
+    const orig = Date.now;
+    Date.now = () => orig() + 61_000;
+    try {
+      assert.equal(_safeMassDeleteGuard(), true, 'should be allowed after window expires');
+    } finally {
+      Date.now = orig;
+    }
   });
 });

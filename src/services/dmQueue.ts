@@ -152,6 +152,15 @@ function safeMassDeleteGuard(): boolean {
   return massDeleteCount <= MAX_MASS_DELETES;
 }
 
+/** Exported for test isolation only — resets the mass-delete guard counters. */
+export function _resetMassDeleteGuard(): void {
+  massDeleteCount = 0;
+  massDeleteWindowStart = 0;
+}
+
+/** Exported for tests only — call the guard directly. */
+export { safeMassDeleteGuard as _safeMassDeleteGuard };
+
 const MAX_PAUSE_SECONDS = 300;
 
 export function extractRetryAfter(err: unknown): number | null {
