@@ -279,8 +279,8 @@ describe('allClearIntegration — alertType passed through', () => {
   });
 
   it('multiple zones with different alert types each pass their own alertType', async () => {
-    const { tracker, timers, renderCalls } = makeStack('dm', undefined, (zones) =>
-      zones.length > 0 ? [1] : []
+    const { tracker, timers, renderCalls } = makeStack('dm', undefined, (cities) =>
+      cities.length > 0 ? [makeSubscriber(1)] : []
     );
 
     tracker.recordAlert(['גליל עליון'], 'missiles');
