@@ -5,8 +5,10 @@ import { initSchema } from '../db/schema.js';
 import {
   insertSafetyPrompt,
   getSafetyPrompt,
+  getSafetyPromptById,
   markPromptResponded,
   hasPromptBeenSent,
+  updateSafetyPromptMessageId,
   deleteSafetyPromptsForUser,
   deleteUnrespondedPromptsByAlertType,
   pruneOldPrompts,
@@ -204,6 +206,47 @@ describe('safetyPromptRepository — pruneOldPrompts', () => {
     insertSafetyPrompt(db, 1, 'fp1');
     db.prepare(`UPDATE safety_prompts SET sent_at = datetime('now', '-2 hours') WHERE fingerprint = 'fp1'`).run();
     assert.equal(pruneOldPrompts(db, 1), 1, '2h-old row should be pruned with 1h cutoff');
+  });
+});
+
+describe('safetyPromptRepository — getSafetyPromptById', () => {
+  it('returns null for unknown ID', () => {
+    const db = makeDb();
+    assert.equal(getSafetyPromptById(db, 9999), null);
+  });
+
+  it('returns the prompt by primary key ID', () => {
+    const db = makeDb();
+    db.prepare('INSERT INTO users (chat_id) VALUES (1001)').run();
+    const id = insertSafetyPrompt(db, 1001, 'missiles:city1', undefined, 'missiles');
+    assert.ok(id !== null);
+
+    const result = getSafetyPromptById(db, id!);
+    assert.ok(result !== null);
+    assert.equal(result!.fingerprint, 'missiles:city1');
+    assert.equal(result!.chat_id, 1001);
+  });
+
+  it('decodes responded as boolean', () => {
+    const db = makeDb();
+    db.prepare('INSERT INTO users (chat_id) VALUES (1001)').run();
+    const id = insertSafetyPrompt(db, 1001, 'missiles:city1', undefined, 'missiles')!;
+    markPromptResponded(db, 1001, 'missiles:city1');
+
+    const result = getSafetyPromptById(db, id);
+    assert.equal(result!.responded, true);
+  });
+});
+
+describe('safetyPromptRepository — updateSafetyPromptMessageId', () => {
+  it('updates message_id on the row', () => {
+    const db = makeDb();
+    db.prepare('INSERT INTO users (chat_id) VALUES (1001)').run();
+    const id = insertSafetyPrompt(db, 1001, 'missiles:city1', undefined, 'missiles')!;
+    updateSafetyPromptMessageId(db, id, 555);
+
+    const result = getSafetyPromptById(db, id);
+    assert.equal(result!.message_id, 555);
   });
 });
 
