@@ -10,6 +10,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { createAllClearTracker } from '../services/allClearTracker.js';
 import { createAllClearService } from '../services/allClearService.js';
+import type { SubscriberInfo } from '../db/subscriptionRepository.js';
 import type Database from 'better-sqlite3';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -59,6 +60,17 @@ function fakeDb(settings: Record<string, string>): Database.Database {
  * @param topicId - all_clear_topic_id (optional)
  * @param getUserIdsByZone - spy for subscriber lookup
  */
+function makeSubscriber(chatId: number): SubscriberInfo {
+  return {
+    chat_id: chatId,
+    format: 'short',
+    quiet_hours_enabled: false,
+    muted_until: null,
+    home_city: null,
+    matchedCities: [],
+  };
+}
+
 function makeStack(
   mode: string,
   topicId?: number,
@@ -71,11 +83,17 @@ function makeStack(
   const telegramCalls: Array<{ chatId: string; topicId: number | undefined; text: string }> = [];
   const renderCalls: Array<{ zone: string; alertType: string }> = [];
 
+  // Bridge getUserIdsByZone to getUsersByHomeCityInCities for integration tests
+  const getUsersByHomeCityInCities = (_cities: string[]) =>
+    getUserIdsByZone([]).map((id) => makeSubscriber(id));
+
   const service = createAllClearService({
     db: fakeDb(settings),
     chatId: 'chan-test',
     sendTelegram: async (chatId, tid, text) => { telegramCalls.push({ chatId, topicId: tid, text }); },
     getUserIdsByZone,
+    getUsersByHomeCityInCities,
+    shouldSkipForQuietHours: () => false,
     sendDm: async (userId, text) => { dmCalls.push({ userId, text }); },
     renderTemplate: (zone, alertType) => {
       renderCalls.push({ zone, alertType });
@@ -190,6 +208,8 @@ describe('allClearIntegration — duplicate suppression', () => {
       chatId: 'c',
       sendTelegram: async () => {},
       getUserIdsByZone: () => [1],
+      getUsersByHomeCityInCities: () => [makeSubscriber(1)],
+      shouldSkipForQuietHours: () => false,
       sendDm: async () => { firedCount++; },
       renderTemplate: () => 'text',
     });
