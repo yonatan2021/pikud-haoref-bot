@@ -30,6 +30,36 @@
 
 ---
 
+## [0.4.5] — 2026-04-05
+
+<div dir="rtl">
+
+### ✨ תכונות חדשות
+
+- **all-clear** — שליחת הודעת "שקט חזר" אחרי אזעקה; תמיכה ב-DM, ערוץ, או שניהם (`all_clear_mode`); זיהוי מובנה של newsFlash רשמי "האירוע הסתיימה"; ניהול מלא מלוח הבקרה כולל בחירת נושא ייעודי (`all_clear_topic_id`)
+- **density indicator** — אינדיקטור צפיפות יומי בהתראות חיות: `רגיל / גבוה / חריג` על בסיס ממוצע 90 ימים; מחושב לפי timezone ישראל
+- **פקודת `/today`** — ציר זמן יומי מלא של ההתרעות עם density summary לכל קטגוריה
+- **dashboard sidebar** — sidebar RTL מתקפל עם היררכיית ניווט עברית
+- **dashboard settings trust** — badges להבחנת הגדרות ENV vs DB בממשק הניהול
+- **page headers** — כותרות אחידות לכל 10 עמודי dashboard
+
+### 🐛 תיקוני באגים
+
+- **density log level** — הודעות "message not modified" תויגו כ-`warn` במקום `info`; זהו מצב הצלחה
+- **allClearService renderTemplate** — שגיאה באחד האזורים כבתה את כל שאר האזורים; עכשיו עטוף ב-try-catch עם `continue`
+- **getDailyAverageAlerts timezone** — חישוב ממוצע אזעקות יומי השתמש ב-UTC במקום timezone ישראל (Asia/Jerusalem)
+- **all_clear_mode validation** — PATCH `/api/settings` עכשיו מאמת שהערך הוא אחד מ-`dm / channel / both`
+
+### 🧪 בדיקות
+
+- **allClearService** — test suite מלא עם injectable deps
+- **allClearIntegration** — integration tests מקצה לקצה לפיצ'ר all-clear
+- **density→editAlert** — test חסר לpath של `editAlert` (density מועבר כ-arg 5)
+
+</div>
+
+---
+
 ## [0.4.4] — 2026-04-04
 
 <div dir="rtl">
@@ -870,7 +900,8 @@
 
 <div dir="rtl">
 
-[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.4...HEAD
+[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.5...HEAD
+[0.4.5]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.4...v0.4.5
 [0.4.4]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.1...v0.4.2
