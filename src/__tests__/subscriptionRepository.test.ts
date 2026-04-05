@@ -13,6 +13,7 @@ import {
   removeAllSubscriptions,
   getUsersForCities,
   getUserIdsByZone,
+  getUsersByHomeCityInCities,
   initSubscriptionCache,
   updateSubscriberData,
 } from '../db/subscriptionRepository';
@@ -298,5 +299,75 @@ describe('subscriptionRepository — getUserIdsByZone', () => {
 
     const ids = getUserIdsByZone(['דן']);
     assert.ok(!ids.includes(1006), 'Inactive DM user should be excluded');
+  });
+});
+
+describe('subscriptionRepository — getUsersByHomeCityInCities', () => {
+  before(() => { initDb(); });
+  after(() => { closeDb(); });
+  beforeEach(() => {
+    getDb().prepare('DELETE FROM subscriptions').run();
+    getDb().prepare('DELETE FROM users').run();
+    initSubscriptionCache();
+  });
+
+  it('returns users whose home_city is in the provided list', () => {
+    getDb().prepare('INSERT OR IGNORE INTO users (chat_id, home_city) VALUES (?, ?)').run(2001, 'תל אביב');
+    getDb().prepare('INSERT OR IGNORE INTO subscriptions (chat_id, city_name) VALUES (?, ?)').run(2001, 'תל אביב');
+    getDb().prepare('INSERT OR IGNORE INTO users (chat_id, home_city) VALUES (?, ?)').run(2002, 'חיפה');
+    getDb().prepare('INSERT OR IGNORE INTO subscriptions (chat_id, city_name) VALUES (?, ?)').run(2002, 'חיפה');
+    initSubscriptionCache();
+
+    const results = getUsersByHomeCityInCities(['תל אביב', 'חיפה']);
+    const ids = results.map((r) => r.chat_id).sort();
+    assert.deepEqual(ids, [2001, 2002]);
+  });
+
+  it('excludes users whose home_city is NOT in the list', () => {
+    getDb().prepare('INSERT OR IGNORE INTO users (chat_id, home_city) VALUES (?, ?)').run(2003, 'באר שבע');
+    getDb().prepare('INSERT OR IGNORE INTO subscriptions (chat_id, city_name) VALUES (?, ?)').run(2003, 'באר שבע');
+    initSubscriptionCache();
+
+    const results = getUsersByHomeCityInCities(['תל אביב', 'חיפה']);
+    assert.equal(results.length, 0, 'User with home_city not in list should be excluded');
+  });
+
+  it('excludes users with is_dm_active = false', () => {
+    getDb().prepare('INSERT OR IGNORE INTO users (chat_id, home_city, is_dm_active) VALUES (?, ?, 0)').run(2004, 'תל אביב');
+    getDb().prepare('INSERT OR IGNORE INTO subscriptions (chat_id, city_name) VALUES (?, ?)').run(2004, 'תל אביב');
+    initSubscriptionCache();
+
+    const results = getUsersByHomeCityInCities(['תל אביב']);
+    assert.equal(results.length, 0, 'Inactive DM user should be excluded');
+  });
+
+  it('returns empty array when no home_city matches', () => {
+    getDb().prepare('INSERT OR IGNORE INTO users (chat_id, home_city) VALUES (?, ?)').run(2005, 'אילת');
+    getDb().prepare('INSERT OR IGNORE INTO subscriptions (chat_id, city_name) VALUES (?, ?)').run(2005, 'אילת');
+    initSubscriptionCache();
+
+    const results = getUsersByHomeCityInCities(['תל אביב', 'ירושלים']);
+    assert.deepEqual(results, []);
+  });
+
+  it('returns empty array for empty city list', () => {
+    getDb().prepare('INSERT OR IGNORE INTO users (chat_id, home_city) VALUES (?, ?)').run(2006, 'תל אביב');
+    getDb().prepare('INSERT OR IGNORE INTO subscriptions (chat_id, city_name) VALUES (?, ?)').run(2006, 'תל אביב');
+    initSubscriptionCache();
+
+    const results = getUsersByHomeCityInCities([]);
+    assert.deepEqual(results, []);
+  });
+
+  it('includes quiet_hours_enabled and muted_until in returned data', () => {
+    getDb().prepare('INSERT OR IGNORE INTO users (chat_id, home_city, quiet_hours_enabled, muted_until) VALUES (?, ?, 1, ?)').run(2007, 'תל אביב', '2099-01-01T00:00:00Z');
+    getDb().prepare('INSERT OR IGNORE INTO subscriptions (chat_id, city_name) VALUES (?, ?)').run(2007, 'תל אביב');
+    initSubscriptionCache();
+
+    const results = getUsersByHomeCityInCities(['תל אביב']);
+    assert.equal(results.length, 1);
+    assert.equal(results[0].quiet_hours_enabled, true);
+    assert.equal(results[0].muted_until, '2099-01-01T00:00:00Z');
+    assert.equal(results[0].home_city, 'תל אביב');
   });
 });

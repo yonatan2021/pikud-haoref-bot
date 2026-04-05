@@ -250,6 +250,58 @@ export function getUserIdsByZone(zones: string[]): number[] {
   return Array.from(chatIds);
 }
 
+// Returns DM-active subscribers whose home_city is in the provided city list.
+// Used by allClearService to dispatch "שקט חזר" messages only to users
+// whose home city was actually in the alert (not just any city in the zone).
+export function getUsersByHomeCityInCities(cityNames: string[]): SubscriberInfo[] {
+  if (cityNames.length === 0) return [];
+
+  if (!cacheInitialized) {
+    // DB fallback
+    const placeholders = cityNames.map(() => '?').join(', ');
+    const rows = getDb()
+      .prepare(
+        `SELECT DISTINCT u.chat_id, u.format, u.quiet_hours_enabled, u.muted_until, u.home_city
+         FROM users u
+         WHERE u.home_city IN (${placeholders}) AND u.is_dm_active = 1`
+      )
+      .all(...cityNames) as {
+        chat_id: number;
+        format: NotificationFormat;
+        quiet_hours_enabled: number;
+        muted_until: string | null;
+        home_city: string | null;
+      }[];
+
+    return rows.map((row) => ({
+      chat_id: row.chat_id,
+      format: row.format,
+      quiet_hours_enabled: row.quiet_hours_enabled === 1,
+      muted_until: row.muted_until ?? null,
+      home_city: row.home_city ?? null,
+      matchedCities: row.home_city ? [row.home_city] : [],
+    }));
+  }
+
+  const citySet = new Set(cityNames);
+  const results: SubscriberInfo[] = [];
+
+  for (const [chatId, data] of subscriberData) {
+    if (!data.is_dm_active) continue;
+    if (!data.home_city || !citySet.has(data.home_city)) continue;
+    results.push({
+      chat_id: chatId,
+      format: data.format,
+      quiet_hours_enabled: data.quiet_hours_enabled,
+      muted_until: data.muted_until,
+      home_city: data.home_city,
+      matchedCities: [data.home_city],
+    });
+  }
+
+  return results;
+}
+
 export function evictSubscriberFromCache(chatId: number, cityName?: string): void {
   if (!cacheInitialized) return;
   if (cityName !== undefined) {
