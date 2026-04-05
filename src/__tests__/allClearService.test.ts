@@ -1,6 +1,8 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { createAllClearService } from '../services/allClearService.js';
+import type { AllClearEvent } from '../services/allClearService.js';
+import type { SubscriberInfo } from '../db/subscriptionRepository.js';
 import type Database from 'better-sqlite3';
 
 // Builds a fake better-sqlite3 DB that returns settings from an in-memory map.
@@ -16,14 +18,27 @@ function fakeDb(settings: Record<string, string>): Database.Database {
   } as unknown as Database.Database;
 }
 
+function makeSubscriber(overrides: Partial<SubscriberInfo> & { chat_id: number }): SubscriberInfo {
+  return {
+    format: 'short',
+    quiet_hours_enabled: false,
+    muted_until: null,
+    home_city: null,
+    matchedCities: [],
+    ...overrides,
+  };
+}
+
 // Builds a service instance with controllable spies.
-function makeService(
-  mode: string,
-  topicId?: number,
-  getUserIdsByZone: (zones: string[]) => number[] = () => []
-) {
-  const settings: Record<string, string> = { all_clear_mode: mode };
-  if (topicId !== undefined) settings['all_clear_topic_id'] = String(topicId);
+function makeService(opts: {
+  mode: string;
+  topicId?: number;
+  getUserIdsByZone?: (zones: string[]) => number[];
+  getUsersByHomeCityInCities?: (cityNames: string[]) => SubscriberInfo[];
+  shouldSkipForQuietHours?: (alertType: string, quietEnabled: boolean, now: Date) => boolean;
+}) {
+  const settings: Record<string, string> = { all_clear_mode: opts.mode };
+  if (opts.topicId !== undefined) settings['all_clear_topic_id'] = String(opts.topicId);
 
   const dmCalls: Array<{ userId: number; text: string }> = [];
   const telegramCalls: Array<{ chatId: string; topicId: number | undefined; text: string }> = [];
@@ -32,7 +47,9 @@ function makeService(
     db: fakeDb(settings),
     chatId: 'chan-123',
     sendTelegram: async (chatId, tid, text) => { telegramCalls.push({ chatId, topicId: tid, text }); },
-    getUserIdsByZone,
+    getUserIdsByZone: opts.getUserIdsByZone ?? (() => []),
+    getUsersByHomeCityInCities: opts.getUsersByHomeCityInCities ?? (() => []),
+    shouldSkipForQuietHours: opts.shouldSkipForQuietHours ?? (() => false),
     sendDm: async (userId, text) => { dmCalls.push({ userId, text }); },
     renderTemplate: (zone, alertType) => `[${alertType}] ${zone}`,
   });
@@ -41,21 +58,30 @@ function makeService(
 }
 
 describe('allClearService — dm mode', () => {
-  it('sends DM to all subscribers of the zone', async () => {
-    const { service, dmCalls, telegramCalls } = makeService('dm', undefined, () => [10, 20]);
+  it('sends DM to subscribers whose home_city is in alertCities', async () => {
+    const { service, dmCalls, telegramCalls } = makeService({
+      mode: 'dm',
+      getUsersByHomeCityInCities: (cities) =>
+        cities.includes('תל אביב')
+          ? [makeSubscriber({ chat_id: 10, home_city: 'תל אביב' }), makeSubscriber({ chat_id: 20, home_city: 'תל אביב' })]
+          : [],
+    });
 
-    await service.handleAllClear([{ zone: 'גליל עליון', alertType: 'missiles' }]);
+    await service.handleAllClear([{ zone: 'דן', alertType: 'missiles', alertCities: ['תל אביב', 'רמת גן'] }]);
 
     assert.equal(dmCalls.length, 2);
     assert.equal(dmCalls[0].userId, 10);
     assert.equal(dmCalls[1].userId, 20);
-    assert.ok(dmCalls[0].text.includes('גליל עליון'), 'Rendered text passed to DM');
+    assert.ok(dmCalls[0].text.includes('דן'), 'Rendered text passed to DM');
     assert.equal(telegramCalls.length, 0, 'No channel message in dm mode');
   });
 
-  it('sends no DM when zone has no subscribers', async () => {
-    const { service, dmCalls } = makeService('dm', undefined, () => []);
-    await service.handleAllClear([{ zone: 'גולן', alertType: 'missiles' }]);
+  it('sends no DM when no subscribers have home_city in alertCities', async () => {
+    const { service, dmCalls } = makeService({
+      mode: 'dm',
+      getUsersByHomeCityInCities: () => [],
+    });
+    await service.handleAllClear([{ zone: 'גולן', alertType: 'missiles', alertCities: ['קצרין'] }]);
     assert.equal(dmCalls.length, 0);
   });
 
@@ -66,10 +92,12 @@ describe('allClearService — dm mode', () => {
       chatId: 'c',
       sendTelegram: async () => { throw new Error('should not be called'); },
       getUserIdsByZone: () => [99],
+      getUsersByHomeCityInCities: () => [makeSubscriber({ chat_id: 99, home_city: 'חיפה' })],
+      shouldSkipForQuietHours: () => false,
       sendDm: async (userId) => { dmCalls.push({ userId }); },
       renderTemplate: () => 'text',
     });
-    await service.handleAllClear([{ zone: 'דן', alertType: 'missiles' }]);
+    await service.handleAllClear([{ zone: 'דן', alertType: 'missiles', alertCities: ['חיפה'] }]);
     assert.equal(dmCalls.length, 1);
     assert.equal(dmCalls[0].userId, 99);
   });
@@ -77,9 +105,14 @@ describe('allClearService — dm mode', () => {
 
 describe('allClearService — channel mode', () => {
   it('sends to channel with configured topicId, no DMs', async () => {
-    const { service, dmCalls, telegramCalls } = makeService('channel', 555, () => [1, 2]);
+    const { service, dmCalls, telegramCalls } = makeService({
+      mode: 'channel',
+      topicId: 555,
+      getUserIdsByZone: () => [1, 2],
+      getUsersByHomeCityInCities: () => [makeSubscriber({ chat_id: 1 }), makeSubscriber({ chat_id: 2 })],
+    });
 
-    await service.handleAllClear([{ zone: 'שרון', alertType: 'missiles' }]);
+    await service.handleAllClear([{ zone: 'שרון', alertType: 'missiles', alertCities: ['נתניה'] }]);
 
     assert.equal(telegramCalls.length, 1);
     assert.equal(telegramCalls[0].chatId, 'chan-123');
@@ -89,17 +122,21 @@ describe('allClearService — channel mode', () => {
   });
 
   it('sends with undefined topicId when not configured', async () => {
-    const { service, telegramCalls } = makeService('channel'); // no topicId
-    await service.handleAllClear([{ zone: 'חיפה', alertType: 'missiles' }]);
+    const { service, telegramCalls } = makeService({ mode: 'channel' }); // no topicId
+    await service.handleAllClear([{ zone: 'חיפה', alertType: 'missiles', alertCities: ['חיפה'] }]);
     assert.equal(telegramCalls[0].topicId, undefined);
   });
 });
 
 describe('allClearService — both mode', () => {
   it('sends DM and channel message', async () => {
-    const { service, dmCalls, telegramCalls } = makeService('both', 777, () => [99]);
+    const { service, dmCalls, telegramCalls } = makeService({
+      mode: 'both',
+      topicId: 777,
+      getUsersByHomeCityInCities: () => [makeSubscriber({ chat_id: 99, home_city: 'ירושלים' })],
+    });
 
-    await service.handleAllClear([{ zone: 'ירושלים', alertType: 'missiles' }]);
+    await service.handleAllClear([{ zone: 'ירושלים', alertType: 'missiles', alertCities: ['ירושלים'] }]);
 
     assert.equal(dmCalls.length, 1);
     assert.equal(dmCalls[0].userId, 99);
@@ -110,13 +147,19 @@ describe('allClearService — both mode', () => {
 
 describe('allClearService — multiple events', () => {
   it('processes each zone event independently', async () => {
-    const { service, dmCalls } = makeService('dm', undefined, (zones) =>
-      zones.includes('דן') ? [1] : zones.includes('שרון') ? [2] : []
-    );
+    const { service, dmCalls } = makeService({
+      mode: 'dm',
+      getUsersByHomeCityInCities: (cities) =>
+        cities.includes('תל אביב')
+          ? [makeSubscriber({ chat_id: 1, home_city: 'תל אביב' })]
+          : cities.includes('נתניה')
+            ? [makeSubscriber({ chat_id: 2, home_city: 'נתניה' })]
+            : [],
+    });
 
     await service.handleAllClear([
-      { zone: 'דן', alertType: 'missiles' },
-      { zone: 'שרון', alertType: 'missiles' },
+      { zone: 'דן', alertType: 'missiles', alertCities: ['תל אביב'] },
+      { zone: 'שרון', alertType: 'missiles', alertCities: ['נתניה'] },
     ]);
 
     const userIds = dmCalls.map((c) => c.userId).sort();
@@ -131,7 +174,13 @@ describe('allClearService — error resilience', () => {
       db: fakeDb({ all_clear_mode: 'dm' }),
       chatId: 'c',
       sendTelegram: async () => {},
-      getUserIdsByZone: () => [1, 2, 3],
+      getUserIdsByZone: () => [],
+      getUsersByHomeCityInCities: () => [
+        makeSubscriber({ chat_id: 1 }),
+        makeSubscriber({ chat_id: 2 }),
+        makeSubscriber({ chat_id: 3 }),
+      ],
+      shouldSkipForQuietHours: () => false,
       sendDm: async (userId) => {
         if (userId === 2) throw new Error('Telegram 429');
         successfulIds.push(userId);
@@ -139,7 +188,7 @@ describe('allClearService — error resilience', () => {
       renderTemplate: () => 'text',
     });
 
-    await service.handleAllClear([{ zone: 'דן', alertType: 'missiles' }]);
+    await service.handleAllClear([{ zone: 'דן', alertType: 'missiles', alertCities: ['תל אביב'] }]);
 
     assert.deepEqual(successfulIds.sort(), [1, 3], 'Users 1 and 3 received DM despite failure for user 2');
   });
@@ -151,16 +200,110 @@ describe('allClearService — error resilience', () => {
       chatId: 'c',
       sendTelegram: async () => { callCount++; throw new Error('network error'); },
       getUserIdsByZone: () => [],
+      getUsersByHomeCityInCities: () => [],
+      shouldSkipForQuietHours: () => false,
       sendDm: async () => {},
       renderTemplate: () => 'text',
     });
 
     // Two events — both should be attempted even though the first throws
     await service.handleAllClear([
-      { zone: 'דן', alertType: 'missiles' },
-      { zone: 'שרון', alertType: 'missiles' },
+      { zone: 'דן', alertType: 'missiles', alertCities: ['תל אביב'] },
+      { zone: 'שרון', alertType: 'missiles', alertCities: ['נתניה'] },
     ]);
 
     assert.equal(callCount, 2, 'Both channel sends attempted despite first failure');
+  });
+});
+
+describe('allClearService — home_city filtering', () => {
+  it('user with home_city in alertCities receives all-clear', async () => {
+    const { service, dmCalls } = makeService({
+      mode: 'dm',
+      getUsersByHomeCityInCities: (cities) =>
+        cities.includes('חיפה')
+          ? [makeSubscriber({ chat_id: 42, home_city: 'חיפה' })]
+          : [],
+    });
+
+    await service.handleAllClear([{ zone: 'חיפה', alertType: 'missiles', alertCities: ['חיפה', 'קריית אתא'] }]);
+
+    assert.equal(dmCalls.length, 1);
+    assert.equal(dmCalls[0].userId, 42);
+  });
+
+  it('user with home_city NOT in alertCities does NOT receive all-clear', async () => {
+    const { service, dmCalls } = makeService({
+      mode: 'dm',
+      // getUsersByHomeCityInCities correctly returns empty when home_city not in list
+      getUsersByHomeCityInCities: () => [],
+    });
+
+    await service.handleAllClear([{ zone: 'דן', alertType: 'missiles', alertCities: ['תל אביב'] }]);
+
+    assert.equal(dmCalls.length, 0, 'No DM sent when home_city not in alertCities');
+  });
+});
+
+describe('allClearService — quiet hours and snooze', () => {
+  it('user in quiet hours does NOT receive all-clear for drills', async () => {
+    const { service, dmCalls } = makeService({
+      mode: 'dm',
+      getUsersByHomeCityInCities: () => [
+        makeSubscriber({ chat_id: 50, home_city: 'תל אביב', quiet_hours_enabled: true }),
+      ],
+      shouldSkipForQuietHours: (_alertType, quietEnabled) => quietEnabled,
+    });
+
+    await service.handleAllClear([{ zone: 'דן', alertType: 'drill', alertCities: ['תל אביב'] }]);
+
+    assert.equal(dmCalls.length, 0, 'DM skipped for quiet-hours user');
+  });
+
+  it('user in quiet hours DOES receive all-clear for security alerts', async () => {
+    const { service, dmCalls } = makeService({
+      mode: 'dm',
+      getUsersByHomeCityInCities: () => [
+        makeSubscriber({ chat_id: 51, home_city: 'תל אביב', quiet_hours_enabled: true }),
+      ],
+      // shouldSkipForQuietHours returns false for security alerts even when quiet is enabled
+      shouldSkipForQuietHours: () => false,
+    });
+
+    await service.handleAllClear([{ zone: 'דן', alertType: 'missiles', alertCities: ['תל אביב'] }]);
+
+    assert.equal(dmCalls.length, 1, 'DM sent for security alert despite quiet hours');
+    assert.equal(dmCalls[0].userId, 51);
+  });
+
+  it('snoozed user does NOT receive all-clear for general alerts', async () => {
+    const futureDate = new Date(Date.now() + 3600 * 1000).toISOString();
+    const { service, dmCalls } = makeService({
+      mode: 'dm',
+      getUsersByHomeCityInCities: () => [
+        makeSubscriber({ chat_id: 60, home_city: 'תל אביב', muted_until: futureDate }),
+      ],
+    });
+
+    // 'general' category is suppressible by snooze
+    await service.handleAllClear([{ zone: 'דן', alertType: 'newsFlash', alertCities: ['תל אביב'] }]);
+
+    assert.equal(dmCalls.length, 0, 'DM skipped for snoozed user');
+  });
+
+  it('snoozed user DOES receive all-clear for security alerts', async () => {
+    const futureDate = new Date(Date.now() + 3600 * 1000).toISOString();
+    const { service, dmCalls } = makeService({
+      mode: 'dm',
+      getUsersByHomeCityInCities: () => [
+        makeSubscriber({ chat_id: 61, home_city: 'תל אביב', muted_until: futureDate }),
+      ],
+    });
+
+    // 'missiles' maps to 'security' category — snooze does NOT apply
+    await service.handleAllClear([{ zone: 'דן', alertType: 'missiles', alertCities: ['תל אביב'] }]);
+
+    assert.equal(dmCalls.length, 1, 'DM sent for security alert despite snooze');
+    assert.equal(dmCalls[0].userId, 61);
   });
 });

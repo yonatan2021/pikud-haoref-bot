@@ -1,13 +1,10 @@
 import type Database from 'better-sqlite3';
 import { getSetting } from '../dashboard/settingsRepository.js';
 import { log } from '../logger.js';
-
-// Mirrors AllClearEvent from allClearTracker.ts (PR #133).
-// Import from there once that PR is merged.
-export interface AllClearEvent {
-  zone: string;
-  alertType: string;
-}
+import { ALERT_TYPE_CATEGORY } from '../topicRouter.js';
+import type { AllClearEvent } from './allClearTracker.js';
+import type { SubscriberInfo } from '../db/subscriptionRepository.js';
+export type { AllClearEvent };
 
 export type AllClearMode = 'dm' | 'channel' | 'both';
 
@@ -16,6 +13,8 @@ export interface AllClearServiceDeps {
   chatId: string;
   sendTelegram: (chatId: string, topicId: number | undefined, text: string) => Promise<void>;
   getUserIdsByZone: (zones: string[]) => number[];
+  getUsersByHomeCityInCities: (cityNames: string[]) => SubscriberInfo[];
+  shouldSkipForQuietHours: (alertType: string, quietEnabled: boolean, now: Date) => boolean;
   sendDm: (userId: number, text: string) => Promise<void>;
   renderTemplate: (zone: string, alertType: string) => string;
 }
@@ -26,7 +25,7 @@ export function createAllClearService(deps: AllClearServiceDeps) {
     const topicIdStr = getSetting(deps.db, 'all_clear_topic_id');
     const topicId = topicIdStr ? Number(topicIdStr) : undefined;
 
-    for (const { zone, alertType } of events) {
+    for (const { zone, alertType, alertCities } of events) {
       let text: string;
       try {
         text = deps.renderTemplate(zone, alertType);
@@ -36,12 +35,27 @@ export function createAllClearService(deps: AllClearServiceDeps) {
       }
 
       if (mode === 'dm' || mode === 'both') {
-        const userIds = deps.getUserIdsByZone([zone]);
-        for (const userId of userIds) {
+        const subscribers = deps.getUsersByHomeCityInCities(alertCities);
+        const now = new Date();
+
+        // Quiet-hours and snooze: only suppress drills/general categories.
+        // Security, nature, and environmental alerts always pass through.
+        const category = ALERT_TYPE_CATEGORY[alertType] ?? 'general';
+        const muteApplies = category === 'drills' || category === 'general';
+
+        for (const subscriber of subscribers) {
+          // Quiet-hours filter
+          if (deps.shouldSkipForQuietHours(alertType, subscriber.quiet_hours_enabled, now)) {
+            continue;
+          }
+          // Snooze filter
+          if (muteApplies && subscriber.muted_until && new Date(subscriber.muted_until) > now) {
+            continue;
+          }
           try {
-            await deps.sendDm(userId, text);
+            await deps.sendDm(subscriber.chat_id, text);
           } catch (err) {
-            log('error', 'AllClear', `DM נכשל למשתמש ${userId} (אזור "${zone}"): ${String(err)}`);
+            log('error', 'AllClear', `DM נכשל למשתמש ${subscriber.chat_id} (אזור "${zone}"): ${String(err)}`);
           }
         }
       }
