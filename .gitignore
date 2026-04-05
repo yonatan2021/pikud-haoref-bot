@@ -11,6 +11,7 @@ coverage/
 *.tsbuildinfo
 .DS_Store
 docs/superpowers/
+superpowers/*
 .worktrees/
 .worktree/
 logo.jpg
