@@ -89,6 +89,7 @@ describe('GET /api/messages/export', () => {
       emoji: '🚨',
       title_he: 'טילים',
       instructions_prefix: '🛡',
+      body_template: null,
     });
     const res = await request(app).get('/api/messages/export');
     assert.equal(res.status, 200);

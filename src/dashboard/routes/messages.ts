@@ -249,6 +249,7 @@ export function createMessagesRouter(db: Database.Database, bot: Bot, whatsappDe
         emoji: t.emoji!,
         title_he: t.titleHe!,
         instructions_prefix: t.instructionsPrefix ?? '🛡',
+        body_template: null,
       });
     }
 
@@ -651,6 +652,7 @@ export function createMessagesRouter(db: Database.Database, bot: Bot, whatsappDe
         emoji: historyRow.emoji,
         title_he: historyRow.title_he,
         instructions_prefix: historyRow.instructions_prefix,
+        body_template: null,
       });
 
       loadTemplateCache();
