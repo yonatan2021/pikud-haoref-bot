@@ -12,10 +12,12 @@ import {
   removeSubscription,
   removeAllSubscriptions,
   getUsersForCities,
+  getUserIdsByZone,
   initSubscriptionCache,
   updateSubscriberData,
 } from '../db/subscriptionRepository';
 import { setFormat, setQuietHours, setMutedUntil } from '../db/userRepository';
+import { getCitiesByZone } from '../cityLookup';
 
 describe('subscriptionRepository — in-memory cache', () => {
   before(() => {
@@ -225,5 +227,76 @@ describe('subscriptionRepository — cache invalidation via userRepository sette
     const results = getUsersForCities(['חיפה']);
     assert.equal(results.length, 1);
     assert.equal(results[0].home_city, null);
+  });
+});
+
+describe('subscriptionRepository — getUserIdsByZone', () => {
+  before(() => { initDb(); });
+  after(() => { closeDb(); });
+  beforeEach(() => {
+    getDb().prepare('DELETE FROM subscriptions').run();
+    getDb().prepare('DELETE FROM users').run();
+    initSubscriptionCache();
+  });
+
+  it('returns user IDs subscribed to cities in the given zone', () => {
+    // Use the first city in the 'דן' zone — resilient to data changes
+    const danCities = getCitiesByZone('דן');
+    assert.ok(danCities.length > 0, 'דן zone must have cities');
+    const firstCity = danCities[0].name;
+
+    addSubscription(1001, firstCity);
+
+    const ids = getUserIdsByZone(['דן']);
+    assert.ok(ids.includes(1001));
+  });
+
+  it('returns empty array when no users are subscribed to the zone', () => {
+    const ids = getUserIdsByZone(['גולן']);
+    assert.deepEqual(ids, []);
+  });
+
+  it('returns empty array for empty zones input', () => {
+    addSubscription(1002, 'תל אביב');
+    const ids = getUserIdsByZone([]);
+    assert.deepEqual(ids, []);
+  });
+
+  it('deduplicates users subscribed to multiple cities within the same zone', () => {
+    const danCities = getCitiesByZone('דן');
+    assert.ok(danCities.length >= 2, 'דן zone must have at least 2 cities for this test');
+
+    // Subscribe same user to 2 cities in the same zone
+    addSubscription(1003, danCities[0].name);
+    addSubscription(1003, danCities[1].name);
+
+    const ids = getUserIdsByZone(['דן']);
+    assert.equal(ids.filter((id) => id === 1003).length, 1, 'User should appear only once');
+  });
+
+  it('spans multiple zones — returns subscribers from all', () => {
+    const danCities = getCitiesByZone('דן');
+    const sharonCities = getCitiesByZone('שרון');
+    assert.ok(danCities.length > 0 && sharonCities.length > 0);
+
+    addSubscription(1004, danCities[0].name);
+    addSubscription(1005, sharonCities[0].name);
+
+    const ids = getUserIdsByZone(['דן', 'שרון']);
+    assert.ok(ids.includes(1004));
+    assert.ok(ids.includes(1005));
+  });
+
+  it('excludes users with is_dm_active = 0', () => {
+    const danCities = getCitiesByZone('דן');
+    assert.ok(danCities.length > 0);
+
+    // Insert user with is_dm_active = 0 directly
+    getDb().prepare('INSERT OR IGNORE INTO users (chat_id, is_dm_active) VALUES (?, 0)').run(1006);
+    getDb().prepare('INSERT OR IGNORE INTO subscriptions (chat_id, city_name) VALUES (?, ?)').run(1006, danCities[0].name);
+    initSubscriptionCache();
+
+    const ids = getUserIdsByZone(['דן']);
+    assert.ok(!ids.includes(1006), 'Inactive DM user should be excluded');
   });
 });
