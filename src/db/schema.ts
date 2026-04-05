@@ -221,6 +221,9 @@ export function initSchema(database: Database.Database): void {
   // Template body: nullable TEXT column; NULL = use default assembled structure
   addColumnIfMissing(database, 'ALTER TABLE message_templates ADD COLUMN body_template TEXT DEFAULT NULL');
 
+  // v0.4.6 — encrypted secrets support: flag column for settings table
+  addColumnIfMissing(database, 'ALTER TABLE settings ADD COLUMN encrypted INTEGER NOT NULL DEFAULT 0');
+
   database.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_connection_code ON users(connection_code) WHERE connection_code IS NOT NULL').run();
 
   // Seed the all-clear template so it appears in the dashboard Messages page on first run.
