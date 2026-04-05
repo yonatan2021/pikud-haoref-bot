@@ -36,9 +36,11 @@ function makeService(opts: {
   getUserIdsByZone?: (zones: string[]) => number[];
   getUsersByHomeCityInCities?: (cityNames: string[]) => SubscriberInfo[];
   shouldSkipForQuietHours?: (alertType: string, quietEnabled: boolean, now: Date) => boolean;
+  dmAllClearText?: string;
 }) {
   const settings: Record<string, string> = { all_clear_mode: opts.mode };
   if (opts.topicId !== undefined) settings['all_clear_topic_id'] = String(opts.topicId);
+  if (opts.dmAllClearText !== undefined) settings['dm_all_clear_text'] = opts.dmAllClearText;
 
   const dmCalls: Array<{ userId: number; text: string }> = [];
   const telegramCalls: Array<{ chatId: string; topicId: number | undefined; text: string }> = [];
@@ -305,5 +307,50 @@ describe('allClearService — quiet hours and snooze', () => {
 
     assert.equal(dmCalls.length, 1, 'DM sent for security alert despite snooze');
     assert.equal(dmCalls[0].userId, 61);
+  });
+});
+
+describe('allClearService — dm_all_clear_text setting', () => {
+  it('uses dm_all_clear_text when configured, substituting {{עיר}}', async () => {
+    const { service, dmCalls } = makeService({
+      mode: 'dm',
+      dmAllClearText: '🕊️ נשמו! ההתראה ב{{עיר}} הסתיימה.',
+      getUsersByHomeCityInCities: () => [
+        makeSubscriber({ chat_id: 70, home_city: 'חיפה' }),
+      ],
+    });
+
+    await service.handleAllClear([{ zone: 'קריות', alertType: 'missiles', alertCities: ['חיפה'] }]);
+
+    assert.equal(dmCalls.length, 1);
+    assert.equal(dmCalls[0].text, '🕊️ נשמו! ההתראה בחיפה הסתיימה.');
+  });
+
+  it('falls back to renderTemplate when dm_all_clear_text is not set', async () => {
+    const { service, dmCalls } = makeService({
+      mode: 'dm',
+      getUsersByHomeCityInCities: () => [
+        makeSubscriber({ chat_id: 71, home_city: 'תל אביב' }),
+      ],
+    });
+
+    await service.handleAllClear([{ zone: 'דן', alertType: 'missiles', alertCities: ['תל אביב'] }]);
+
+    assert.equal(dmCalls.length, 1);
+    assert.equal(dmCalls[0].text, '[missiles] דן', 'Falls back to renderTemplate output');
+  });
+
+  it('substitutes {{עיר}} with zone when subscriber has no home_city', async () => {
+    const { service, dmCalls } = makeService({
+      mode: 'dm',
+      dmAllClearText: 'נשמו ב{{עיר}}!',
+      getUsersByHomeCityInCities: () => [
+        makeSubscriber({ chat_id: 72, home_city: null }),
+      ],
+    });
+
+    await service.handleAllClear([{ zone: 'דן', alertType: 'missiles', alertCities: ['תל אביב'] }]);
+
+    assert.equal(dmCalls[0].text, 'נשמו בדן!', 'Falls back to zone name when home_city is null');
   });
 });

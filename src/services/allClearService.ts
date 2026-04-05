@@ -38,6 +38,9 @@ export function createAllClearService(deps: AllClearServiceDeps) {
         const subscribers = deps.getUsersByHomeCityInCities(alertCities);
         const now = new Date();
 
+        // DM-specific all-clear text (configurable via dashboard). Falls back to channel template.
+        const dmAllClearRaw = getSetting(deps.db, 'dm_all_clear_text') || null;
+
         // Quiet-hours and snooze: only suppress drills/general categories.
         // Security, nature, and environmental alerts always pass through.
         const category = ALERT_TYPE_CATEGORY[alertType] ?? 'general';
@@ -52,8 +55,12 @@ export function createAllClearService(deps: AllClearServiceDeps) {
           if (muteApplies && subscriber.muted_until && new Date(subscriber.muted_until) > now) {
             continue;
           }
+          // Personalize DM: substitute {{עיר}} with subscriber's home city
+          const dmText = dmAllClearRaw
+            ? dmAllClearRaw.replace(/\{\{עיר\}\}/g, subscriber.home_city ?? zone)
+            : text;
           try {
-            await deps.sendDm(subscriber.chat_id, text);
+            await deps.sendDm(subscriber.chat_id, dmText);
           } catch (err) {
             log('error', 'AllClear', `DM נכשל למשתמש ${subscriber.chat_id} (אזור "${zone}"): ${String(err)}`);
           }
