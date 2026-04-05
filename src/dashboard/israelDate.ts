@@ -69,3 +69,15 @@ export function israelMidnightDaysAgo(n: number, now?: Date): string {
   const pastUtc = new Date(Date.UTC(year!, month! - 1, day! - n));
   return israelMidnight(pastUtc);
 }
+
+/**
+ * Returns the UTC datetime string for midnight Israel time on the first day
+ * of the current Israel-timezone month.
+ * DST-safe: delegates to israelMidnight() which handles the UTC offset correctly.
+ */
+export function israelMonthStart(now?: Date): string {
+  const dateStr = israelDateString(now);
+  const [year, month] = dateStr.split('-').map(Number);
+  const monthStartUtc = new Date(Date.UTC(year!, month! - 1, 1));
+  return israelMidnight(monthStartUtc);
+}

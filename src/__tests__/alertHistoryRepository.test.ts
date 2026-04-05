@@ -13,6 +13,8 @@ import {
   getAlertsForCity,
   getAlertsForCities,
   countAlertsToday,
+  getAlertsToday,
+  getDailyCountsForMonth,
 } from '../db/alertHistoryRepository';
 import type { Alert } from '../types';
 
@@ -138,5 +140,55 @@ describe('alertHistoryRepository', () => {
 
   it('countAlertsToday returns 0 when no alerts today (T4)', () => {
     assert.equal(countAlertsToday(), 0, 'should return 0 for empty table');
+  });
+
+  // T5: getAlertsToday — chronological order, Israel timezone boundary
+  it('getAlertsToday returns alerts inserted now in ASC order', () => {
+    insertAlert(A_MISSILES);
+    insertAlert(A_NEWS);
+    const rows = getAlertsToday();
+    assert.equal(rows.length, 2, 'should return both alerts from today');
+    // ASC order: first inserted comes first
+    assert.equal(rows[0]!.type, 'missiles');
+    assert.equal(rows[1]!.type, 'newsFlash');
+  });
+
+  it('getAlertsToday excludes alerts from 48 hours ago', () => {
+    getDb()
+      .prepare(`INSERT INTO alert_history (type, cities, fired_at) VALUES (?, ?, datetime('now', '-48 hours'))`)
+      .run('missiles', '["תל אביב"]');
+    insertAlert(A_MISSILES);
+    const rows = getAlertsToday();
+    assert.equal(rows.length, 1, 'alert from 48h ago should be excluded');
+    assert.deepEqual(rows[0]!.cities, ['אבו גוש', 'אביעזר']);
+  });
+
+  it('getAlertsToday returns empty array when no alerts today', () => {
+    assert.deepEqual(getAlertsToday(), []);
+  });
+
+  // T6: getDailyCountsForMonth — per-day counts in current month
+  it('getDailyCountsForMonth returns empty array when no alerts this month', () => {
+    assert.deepEqual(getDailyCountsForMonth(), []);
+  });
+
+  it('getDailyCountsForMonth returns one entry per day with correct counts', () => {
+    // Insert 2 alerts now (same day)
+    insertAlert(A_MISSILES);
+    insertAlert(A_NEWS);
+    const counts = getDailyCountsForMonth();
+    assert.equal(counts.length, 1, 'both alerts on same day should produce one count entry');
+    assert.equal(counts[0], 2, 'count for today should be 2');
+  });
+
+  it('getDailyCountsForMonth excludes alerts from the previous month', () => {
+    // Insert alert 35 days ago — outside any month window
+    getDb()
+      .prepare(`INSERT INTO alert_history (type, cities, fired_at) VALUES (?, ?, datetime('now', '-35 days'))`)
+      .run('missiles', '["חיפה"]');
+    insertAlert(A_MISSILES); // today
+    const counts = getDailyCountsForMonth();
+    assert.equal(counts.length, 1, 'only current-month day should appear');
+    assert.equal(counts[0], 1);
   });
 });

@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { israelMidnight, israelYesterdayMidnight, israelMidnightDaysAgo } from '../../dashboard/israelDate';
+import { israelMidnight, israelYesterdayMidnight, israelMidnightDaysAgo, israelMonthStart } from '../../dashboard/israelDate';
 
 describe('israelMidnight', () => {
   it('returns a valid UTC datetime string in YYYY-MM-DD HH:MM:SS format', () => {
@@ -101,5 +101,36 @@ describe('israelMidnightDaysAgo', () => {
     const result = israelMidnightDaysAgo(7, ref);
     assert.equal(result, '2026-03-26 21:00:00',
       'should use calendar arithmetic, correctly resolving IDT offset for 2026-03-27');
+  });
+});
+
+describe('israelMonthStart', () => {
+  it('returns UTC midnight of the first day of the current Israel month (winter, IST)', () => {
+    // 2026-01-15 03:00 UTC → Israel date Jan 15 → month start = Jan 1
+    // Jan 1 midnight Israel (IST, UTC+2) = 2025-12-31 22:00:00 UTC
+    const ref = new Date('2026-01-15T03:00:00Z');
+    const result = israelMonthStart(ref);
+    assert.equal(result, '2025-12-31 22:00:00');
+  });
+
+  it('returns UTC midnight of the first day of the current Israel month (summer, IDT)', () => {
+    // 2026-07-15 03:00 UTC → Israel date Jul 15 → month start = Jul 1
+    // Jul 1 midnight Israel (IDT, UTC+3) = 2026-06-30 21:00:00 UTC
+    const ref = new Date('2026-07-15T03:00:00Z');
+    const result = israelMonthStart(ref);
+    assert.equal(result, '2026-06-30 21:00:00');
+  });
+
+  it('returns the same value when called on the first day of the month', () => {
+    // 2026-01-01 03:00 UTC → Israel date Jan 1 → month start = Jan 1
+    // Jan 1 midnight Israel (IST) = 2025-12-31 22:00:00 UTC
+    const ref = new Date('2026-01-01T03:00:00Z');
+    const result = israelMonthStart(ref);
+    assert.equal(result, '2025-12-31 22:00:00');
+  });
+
+  it('returns a valid UTC datetime string format', () => {
+    const result = israelMonthStart();
+    assert.match(result, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
   });
 });
