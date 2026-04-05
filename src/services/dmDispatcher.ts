@@ -24,7 +24,8 @@ export function getRelevanceStrings(): { inArea: string; nearby: string; notInAr
       nearby: getSetting(db, 'dm_relevance_nearby') ?? DEFAULT_RELEVANCE_NEARBY,
       notInArea: getSetting(db, 'dm_relevance_not_area') ?? DEFAULT_RELEVANCE_NOT_AREA,
     };
-  } catch {
+  } catch (err) {
+    log('warn', 'DM', `getRelevanceStrings: DB לא זמין — שימוש בברירות מחדל: ${String(err)}`);
     return {
       inArea: DEFAULT_RELEVANCE_IN_AREA,
       nearby: DEFAULT_RELEVANCE_NEARBY,
