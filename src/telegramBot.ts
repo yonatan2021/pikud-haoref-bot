@@ -2,7 +2,8 @@ import { Bot, InputFile } from 'grammy';
 import { autoRetry } from '@grammyjs/auto-retry';
 import { Alert } from './types';
 import { getCityData } from './cityLookup';
-import { getEmoji, getTitleHe, getInstructionsPrefix } from './config/templateCache.js';
+import { getEmoji, getTitleHe, getInstructionsPrefix, getAllCached } from './config/templateCache.js';
+import { DEFAULT_ALERT_TYPE_HE, DEFAULT_ALERT_TYPE_EMOJI } from './config/alertTypeDefaults.js';
 import { getUrgencyForCountdown } from './config/urgency.js';
 import { getSuperRegionByZone } from './config/zones.js';
 import { buildSummaryLine } from './utils/summaryLine.js';
@@ -199,9 +200,47 @@ export function formatAlertMessage(alert: Alert, serial?: number, density?: 'ח�
   return parts.join('\n\n');
 }
 
-/** Formats an all-clear closure message for a zone. */
+/** Formats an all-clear closure message for a zone.
+ * @deprecated Use renderAllClearTemplate instead — supports dashboard-managed template. */
 export function formatAllClearMessage(zoneName: string): string {
   return `✅ <b>הסתיים</b>\nהאזהרה באזור הבא הסתיימה:\n📍 ${escapeHtml(zoneName)}`;
+}
+
+// Fallback closing text when no template is seeded in the DB yet.
+const DEFAULT_ALL_CLEAR_CLOSING = 'נשמו. אתם בטוחים. 🕊';
+
+/**
+ * Renders the all-clear closure message using the dashboard-managed template.
+ *
+ * Reads emoji, title, and closing text from the `all_clear` entry in the
+ * template cache (editable via the dashboard Messages page). Falls back to
+ * built-in defaults when the template has not been seeded yet.
+ *
+ * Placeholders resolved:
+ *   {{zone}}          — zone name (e.g. "גליל עליון")
+ *   {{alertTypeHe}}   — Hebrew alert name (e.g. "התרעת טילים")
+ *   {{alertTypeEmoji}} — alert emoji (e.g. "🔴")
+ */
+export function renderAllClearTemplate(zone: string, alertType: string): string {
+  const entry = getAllCached()['all_clear'];
+
+  const emoji = entry?.emoji ?? '✅';
+  const titleHe = entry?.titleHe ?? 'שקט חזר';
+  const closingText = entry?.instructionsPrefix ?? DEFAULT_ALL_CLEAR_CLOSING;
+
+  const alertTypeEmoji = DEFAULT_ALERT_TYPE_EMOJI[alertType] ?? '⚠️';
+  const alertTypeHe = DEFAULT_ALERT_TYPE_HE[alertType] ?? alertType;
+
+  const parts = [
+    `${emoji} <b>${escapeHtml(titleHe)}</b>`,
+    `${alertTypeEmoji} <b>${escapeHtml(alertTypeHe)}</b> באזור <b>${escapeHtml(zone)}</b> הסתיימה.`,
+  ];
+
+  if (closingText) {
+    parts.push(escapeHtml(closingText));
+  }
+
+  return parts.join('\n\n');
 }
 
 let botInstance: Bot | null = null;
