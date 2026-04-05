@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
+import toast from 'react-hot-toast';
 import { GlassCard } from '../ui/GlassCard';
 import { TelegramBubblePreview } from './TelegramBubblePreview';
 import { ConfirmModal } from '../ConfirmModal';
@@ -43,6 +44,7 @@ export function SystemMessagePanel() {
       setText('');
       setConfirmOpen(false);
     },
+    onError: (err) => toast.error(`שגיאה בשליחה: ${err instanceof Error ? err.message : 'פעולה נכשלה'}`),
   });
 
   const handleTopicChange = (value: string) => {

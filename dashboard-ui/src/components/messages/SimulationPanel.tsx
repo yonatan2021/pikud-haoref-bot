@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
+import toast from 'react-hot-toast';
 import { GlassCard } from '../ui/GlassCard';
 import { CityMultiSelect } from './CityMultiSelect';
 import { TelegramBubblePreview } from './TelegramBubblePreview';
@@ -113,6 +114,7 @@ export function SimulationPanel({ targetEntry }: SimulationPanelProps) {
         alertHistoryId,
         templateOverride: mergedTemplate ?? undefined,
       }),
+    onError: (err) => toast.error(`שגיאה בטעינת תצוגה מקדימה: ${err instanceof Error ? err.message : 'פעולה נכשלה'}`),
   });
 
   // Telegram test-fire mutation
@@ -125,6 +127,7 @@ export function SimulationPanel({ targetEntry }: SimulationPanelProps) {
         templateOverride: mergedTemplate ?? undefined,
         platform: 'telegram',
       }),
+    onError: (err) => toast.error(`שגיאה בשליחת בדיקה: ${err instanceof Error ? err.message : 'פעולה נכשלה'}`),
   });
 
   // WhatsApp test-fire mutation
@@ -137,6 +140,7 @@ export function SimulationPanel({ targetEntry }: SimulationPanelProps) {
         templateOverride: mergedTemplate ?? undefined,
         platform: 'whatsapp',
       }),
+    onError: (err) => toast.error(`שגיאה בשליחת בדיקה: ${err instanceof Error ? err.message : 'פעולה נכשלה'}`),
   });
 
   const handleReplaySelect = (replayId: string) => {

@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
+import { MessageSquare } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -61,13 +62,14 @@ export default function Messages() {
       queryClient.invalidateQueries({ queryKey: ['messages'] });
       toast.success('תבניות נשמרו');
     },
-    onError: (err) => toast.error(`שגיאה: ${String(err)}`),
+    onError: (err) => toast.error(`שגיאה בשמירה: ${err instanceof Error ? err.message : 'פעולה נכשלה'}`),
   });
 
   // Reset single type
   const resetMutation = useMutation({
     mutationFn: (alertType: string) => api.delete(`/api/messages/${alertType}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['messages'] }),
+    onError: (err) => toast.error(`שגיאה באיפוס: ${err instanceof Error ? err.message : 'פעולה נכשלה'}`),
   });
 
   // Reset all customized
@@ -81,6 +83,7 @@ export default function Messages() {
       queryClient.invalidateQueries({ queryKey: ['messages'] });
       toast.success('כל התבניות אופסו');
     },
+    onError: (err) => toast.error(`שגיאה באיפוס: ${err instanceof Error ? err.message : 'פעולה נכשלה'}`),
   });
 
   // Import mutation
@@ -93,7 +96,7 @@ export default function Messages() {
       setImportModalOpen(false);
       toast.success(`יובאו ${data.count} תבניות`);
     },
-    onError: (err) => toast.error(`שגיאה בייבוא: ${String(err)}`),
+    onError: (err) => toast.error(`שגיאה בייבוא: ${err instanceof Error ? err.message : 'פעולה נכשלה'}`),
   });
 
   // Field change handler
@@ -161,7 +164,7 @@ export default function Messages() {
       URL.revokeObjectURL(url);
       toast.success('ייצוא הושלם');
     } catch (err) {
-      toast.error(`שגיאה בייצוא: ${String(err)}`);
+      toast.error(`שגיאה בייצוא: ${err instanceof Error ? err.message : 'פעולה נכשלה'}`);
     }
   }, []);
 
@@ -195,8 +198,14 @@ export default function Messages() {
     <PageTransition>
       <div className="space-y-4">
         {/* Page header */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-text-primary">ניהול תבניות</h1>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <MessageSquare size={22} className="text-[var(--color-tg)] flex-shrink-0" />
+            <div>
+              <h1 className="text-2xl font-bold text-text-primary leading-tight">תבניות הודעות</h1>
+              <p className="text-sm text-text-muted mt-0.5">עריכת תוכן ועיצוב ההתראות לכל סוג</p>
+            </div>
+          </div>
           <div className="flex items-center gap-2">
             <button
               type="button"

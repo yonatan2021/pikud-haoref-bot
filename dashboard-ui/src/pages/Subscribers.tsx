@@ -1,4 +1,5 @@
 import React from 'react';
+import { Users } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -240,8 +241,14 @@ export function Subscribers() {
   return (
     <PageTransition>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-text-primary">מנויים</h1>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <Users size={22} className="text-[var(--color-tg)] flex-shrink-0" />
+            <div>
+              <h1 className="text-2xl font-bold text-text-primary leading-tight">מנויים</h1>
+              <p className="text-sm text-text-muted mt-0.5">ניהול כל המנויים — חיפוש, עריכה, וייצוא</p>
+            </div>
+          </div>
           <div className="flex gap-3">
             <button
               onClick={() => {

@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, CheckCircle } from 'lucide-react';
+import { Loader2, CheckCircle, Radio } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '../api/client';
 import { ConfirmModal } from '../components/ConfirmModal';
@@ -126,7 +126,13 @@ export function Operations() {
   return (
     <PageTransition>
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-text-primary">מרכז פיקוד</h1>
+        <div className="flex items-center gap-3">
+          <Radio size={22} className="text-[var(--color-tg)] flex-shrink-0" />
+          <div>
+            <h1 className="text-2xl font-bold text-text-primary leading-tight">מרכז פיקוד</h1>
+            <p className="text-sm text-text-muted mt-0.5">פעולות מרכז: תור DM, חלון התראות, שידור וכלי בדיקה</p>
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Broadcast */}

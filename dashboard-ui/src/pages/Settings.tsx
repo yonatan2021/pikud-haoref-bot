@@ -1,13 +1,19 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle, Loader2 } from 'lucide-react';
+import { CheckCircle, Loader2, SlidersHorizontal } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
 import { GlassCard } from '../components/ui/GlassCard';
 import { PageTransition } from '../components/ui/PageTransition';
 import { ToggleSwitch } from '../components/ui/ToggleSwitch';
+
+interface SettingMeta {
+  value: string;
+  source: 'env' | 'db';
+  updatedAt?: string;
+}
 
 interface Settings {
   alert_window_seconds?: string;
@@ -22,6 +28,32 @@ interface Settings {
   dashboard_port?: string;
   bot_version?: string;
   db_size_bytes?: string;
+  _settingsMeta?: Record<string, SettingMeta>;
+}
+
+function SettingSourceBadge({ meta }: { meta?: SettingMeta }) {
+  if (!meta) return null;
+  if (meta.source === 'env') {
+    return (
+      <span
+        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono bg-blue-500/15 text-blue-400 border border-blue-500/30"
+        title="ערך מקובץ .env — דורש הפעלה מחדש לשינוי"
+      >
+        ENV
+      </span>
+    );
+  }
+  const date = meta.updatedAt
+    ? new Date(meta.updatedAt).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' })
+    : null;
+  return (
+    <span
+      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono bg-green-500/15 text-green-400 border border-green-500/30"
+      title={meta.updatedAt ? `נשמר ב-DB בתאריך ${meta.updatedAt}` : 'נשמר ב-DB'}
+    >
+      DB{date ? ` · ${date}` : ''}
+    </span>
+  );
 }
 
 interface Overview {
@@ -126,8 +158,14 @@ export function Settings() {
   return (
     <PageTransition>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-text-primary">הגדרות</h1>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <SlidersHorizontal size={22} className="text-[var(--color-tg)] flex-shrink-0" />
+            <div>
+              <h1 className="text-2xl font-bold text-text-primary leading-tight">הגדרות</h1>
+              <p className="text-sm text-text-muted mt-0.5">הגדרות בוט, מפות, ערוצים וחיבורים</p>
+            </div>
+          </div>
           <button
             disabled={!dirty || saveState === 'loading'}
             onClick={() => saveMutation.mutate()}
@@ -164,7 +202,10 @@ export function Settings() {
           <h2 className="font-semibold text-text-primary border-b border-border pb-3">הגדרות בוט</h2>
 
           <div>
-            <label className="text-text-secondary text-sm block mb-1">חלון כפילויות (שניות)</label>
+            <label className="text-text-secondary text-sm flex items-center gap-2 mb-1">
+              חלון כפילויות (שניות)
+              <SettingSourceBadge meta={settings?._settingsMeta?.['alert_window_seconds']} />
+            </label>
             <input
               type="number"
               min={30}
@@ -180,7 +221,10 @@ export function Settings() {
 
           <div className="flex items-center justify-between">
             <div>
-              <label className="text-text-secondary text-sm">שעות שקט גלובליות</label>
+              <label className="text-text-secondary text-sm flex items-center gap-2">
+                שעות שקט גלובליות
+                <SettingSourceBadge meta={settings?._settingsMeta?.['quiet_hours_global']} />
+              </label>
               <p className="text-text-muted text-xs">כבה התראות לכל המנויים בלילה</p>
             </div>
             <ToggleSwitch
@@ -195,7 +239,10 @@ export function Settings() {
           <h2 className="font-semibold text-text-primary border-b border-border pb-3">מפות ו-Mapbox</h2>
 
           <div>
-            <label className="text-text-secondary text-sm block mb-1">מכסת Mapbox חודשית</label>
+            <label className="text-text-secondary text-sm flex items-center gap-2 mb-1">
+              מכסת Mapbox חודשית
+              <SettingSourceBadge meta={settings?._settingsMeta?.['mapbox_monthly_limit']} />
+            </label>
             <input
               type="number"
               min={0}
@@ -218,7 +265,10 @@ export function Settings() {
           </div>
 
           <div>
-            <label className="text-text-secondary text-sm block mb-1">גודל מטמון מפות (מספר תמונות)</label>
+            <label className="text-text-secondary text-sm flex items-center gap-2 mb-1">
+              גודל מטמון מפות (מספר תמונות)
+              <SettingSourceBadge meta={settings?._settingsMeta?.['mapbox_image_cache_size']} />
+            </label>
             <input
               type="number"
               min={1}
@@ -234,7 +284,10 @@ export function Settings() {
 
           <div className="flex items-center justify-between">
             <div>
-              <label className="text-text-secondary text-sm">דלג על מפות לתרגילים</label>
+              <label className="text-text-secondary text-sm flex items-center gap-2">
+                דלג על מפות לתרגילים
+                <SettingSourceBadge meta={settings?._settingsMeta?.['mapbox_skip_drills']} />
+              </label>
               <p className="text-text-muted text-xs">לא להציג מפת Mapbox בהתראות תרגיל</p>
             </div>
             <ToggleSwitch
@@ -249,7 +302,10 @@ export function Settings() {
           <h2 className="font-semibold text-text-primary border-b border-border pb-3">ערוץ ו-Telegram</h2>
 
           <div>
-            <label className="text-text-secondary text-sm block mb-1">קישור הזמנה לערוץ</label>
+            <label className="text-text-secondary text-sm flex items-center gap-2 mb-1">
+              קישור הזמנה לערוץ
+              <SettingSourceBadge meta={settings?._settingsMeta?.['telegram_invite_link']} />
+            </label>
             <input
               type="url"
               value={form.telegram_invite_link ?? ''}
@@ -270,7 +326,10 @@ export function Settings() {
 
           <div className="flex items-center justify-between">
             <div>
-              <label className="text-text-secondary text-sm">WhatsApp פעיל</label>
+              <label className="text-text-secondary text-sm flex items-center gap-2">
+                WhatsApp פעיל
+                <SettingSourceBadge meta={settings?._settingsMeta?.['whatsapp_enabled']} />
+              </label>
               <p className="text-text-muted text-xs">הפעל/כבה את שירות הגישור מ-WhatsApp לטלגרם. שינוי ייכנס לתוקף לאחר הפעלה מחדש.</p>
             </div>
             <ToggleSwitch
@@ -280,7 +339,10 @@ export function Settings() {
           </div>
 
           <div>
-            <label className="text-text-secondary text-sm block mb-1">עיכוב שליחת מפה (שניות)</label>
+            <label className="text-text-secondary text-sm flex items-center gap-2 mb-1">
+              עיכוב שליחת מפה (שניות)
+              <SettingSourceBadge meta={settings?._settingsMeta?.['whatsapp_map_debounce_seconds']} />
+            </label>
             <input
               type="number"
               min={5}

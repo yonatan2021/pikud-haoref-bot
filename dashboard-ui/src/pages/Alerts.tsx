@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Bell } from 'lucide-react';
 import { api } from '../api/client';
 import { EmptyState } from '../components/EmptyState';
 import { Skeleton } from '../components/Skeleton';
@@ -155,7 +156,13 @@ export function Alerts() {
   return (
     <PageTransition>
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-text-primary">היסטוריית התראות</h1>
+        <div className="flex items-center gap-3">
+          <Bell size={22} className="text-[var(--color-tg)] flex-shrink-0" />
+          <div>
+            <h1 className="text-2xl font-bold text-text-primary leading-tight">היסטוריית התראות</h1>
+            <p className="text-sm text-text-muted mt-0.5">רשומות התראות פיקוד העורף לפי תקופה וקטגוריה</p>
+          </div>
+        </div>
 
         {/* Filters */}
         <GlassCard className="p-4">
