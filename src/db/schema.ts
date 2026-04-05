@@ -180,6 +180,14 @@ export function initSchema(database: Database.Database): void {
       update_time   INTEGER NOT NULL DEFAULT 1,
       FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS safety_status (
+      chat_id     INTEGER PRIMARY KEY,
+      status      TEXT CHECK (status IN ('ok', 'help', 'dismissed')) NOT NULL,
+      updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      expires_at  TEXT NOT NULL,
+      FOREIGN KEY (chat_id) REFERENCES users(chat_id) ON DELETE CASCADE
+    );
   `);
 
   database.exec(
@@ -243,6 +251,7 @@ export function initDb(): void {
     database.prepare(`DELETE FROM alert_history WHERE fired_at < datetime('now', '-7 days')`).run();
     database.prepare('DELETE FROM login_attempts WHERE reset_at < (unixepoch() * 1000)').run();
     database.prepare(`DELETE FROM contacts WHERE status = 'pending' AND created_at < datetime('now', '-7 days')`).run();
+    database.prepare(`DELETE FROM safety_status WHERE expires_at < datetime('now')`).run();
   })();
 
   // Integrity check — warn if users table is empty but alert history exists (possible data loss)
