@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
+import { ConfirmModal } from '../ConfirmModal';
 import { api } from '../../api/client';
 
 interface SettingsMap {
@@ -37,8 +38,9 @@ const DM_FIELDS = [
 export function DmTemplatesPanel() {
   const queryClient = useQueryClient();
   const [edits, setEdits] = useState<Record<string, string>>({});
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
-  const { data: settings } = useQuery<SettingsMap>({
+  const { data: settings, isLoading, isError } = useQuery<SettingsMap>({
     queryKey: ['settings'],
     queryFn: () => api.get<SettingsMap>('/api/settings'),
   });
@@ -58,6 +60,9 @@ export function DmTemplatesPanel() {
   });
 
   const hasEdits = Object.keys(edits).length > 0;
+
+  if (isLoading) return <div className="text-text-muted text-sm">טוען הגדרות...</div>;
+  if (isError) return <div className="text-red-400 text-sm">שגיאה בטעינת הגדרות</div>;
 
   return (
     <div className="space-y-5">
@@ -119,11 +124,7 @@ export function DmTemplatesPanel() {
         </button>
         <button
           type="button"
-          onClick={() => {
-            const resets: Record<string, string> = {};
-            for (const f of DM_FIELDS) resets[f.key] = '';
-            saveMutation.mutate(resets);
-          }}
+          onClick={() => setShowResetConfirm(true)}
           disabled={saveMutation.isPending}
           className="px-4 py-1.5 text-sm rounded-lg border border-border text-text-muted
                      hover:text-text-primary transition-colors disabled:opacity-40"
@@ -131,6 +132,20 @@ export function DmTemplatesPanel() {
           איפוס לברירת מחדל
         </button>
       </div>
+
+      <ConfirmModal
+        open={showResetConfirm}
+        onCancel={() => setShowResetConfirm(false)}
+        onConfirm={() => {
+          setShowResetConfirm(false);
+          const resets: Record<string, string> = {};
+          for (const f of DM_FIELDS) resets[f.key] = '';
+          saveMutation.mutate(resets);
+        }}
+        title="איפוס הגדרות DM"
+        description="כל הטקסטים יחזרו לברירת המחדל. פעולה זו לא ניתנת לביטול."
+        danger
+      />
     </div>
   );
 }
