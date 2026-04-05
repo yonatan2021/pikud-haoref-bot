@@ -14,6 +14,7 @@ import {
   isMediaEditError,
   isMessageGoneError,
   renderAllClearTemplate,
+  renderBodyTemplate,
   type EditBotApi,
 } from '../telegramBot.js';
 import type { Alert } from '../types.js';
@@ -741,5 +742,32 @@ describe('renderAllClearTemplate', () => {
     assert.ok(parts.length >= 2, 'Message must have at least two parts');
     assert.ok(parts[0].startsWith('✅'), 'First part is the emoji+title');
     assert.ok(parts[1].includes('שרון'), 'Second part contains zone');
+  });
+});
+
+describe('renderBodyTemplate', () => {
+  const vars = { time: '14:32', cities: 'תל אביב, רמת גן', cityCount: 2, title: 'ירי רקטות', emoji: '🔴' };
+
+  it('substitutes all 5 Hebrew placeholders', () => {
+    const template = '{{אמוגי}} {{כותרת}} | {{זמן}} | {{מספר_ערים}} ערים\n{{ערים}}';
+    const result = renderBodyTemplate(template, vars);
+    assert.equal(result, '🔴 ירי רקטות | 14:32 | 2 ערים\nתל אביב, רמת גן');
+  });
+
+  it('normalizes whitespace inside braces', () => {
+    const template = '{{ ערים }} · {{ זמן }}';
+    const result = renderBodyTemplate(template, vars);
+    assert.equal(result, 'תל אביב, רמת גן · 14:32');
+  });
+
+  it('leaves unknown placeholders as literal text', () => {
+    const template = '{{שם}} · {{ערים}}';
+    const result = renderBodyTemplate(template, vars);
+    assert.equal(result, '{{שם}} · תל אביב, רמת גן');
+  });
+
+  it('handles empty template', () => {
+    const result = renderBodyTemplate('', vars);
+    assert.equal(result, '');
   });
 });

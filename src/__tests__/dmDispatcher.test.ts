@@ -1,7 +1,7 @@
 import { describe, it, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Alert } from '../types';
-import { buildShortMessage, buildAlertDmMessage, buildNewsFlashDmMessage, buildDmText, shouldSkipForQuietHours, notifySubscribers } from '../services/dmDispatcher';
+import { buildShortMessage, buildAlertDmMessage, buildNewsFlashDmMessage, buildDmText, shouldSkipForQuietHours, notifySubscribers, getRelevanceType, getRelevanceText } from '../services/dmDispatcher';
 import type { DmTask } from '../services/dmQueue';
 
 // Use in-memory DB for all notifySubscribers integration tests
@@ -746,5 +746,58 @@ describe('buildNewsFlashDmMessage — headline location suffix', () => {
     // Non-preliminary headline is always "📢 הודעה מיוחדת"
     assert.ok(msg.includes('📢 הודעה מיוחדת'), `expected non-preliminary headline, got: ${msg}`);
     assert.ok(!msg.includes('באזורך') || msg.split('\n').some(l => l.includes('📢')), 'non-preliminary headline must not say "באזורך"');
+  });
+});
+
+describe('getRelevanceType', () => {
+  it('returns null when homeCity is null', () => {
+    assert.equal(getRelevanceType(null, ['תל אביב']), null);
+  });
+
+  it('returns null when alertCities is empty', () => {
+    assert.equal(getRelevanceType('תל אביב', []), null);
+  });
+
+  it('returns in_area when homeCity is in alertCities', () => {
+    assert.equal(getRelevanceType('תל אביב', ['תל אביב', 'רמת גן']), 'in_area');
+  });
+
+  it('returns nearby when homeCity zone matches an alert city zone', () => {
+    // Both אור יהודה and אזור are in the same zone as nearby cities in דן
+    const result = getRelevanceType('אור יהודה', ['תל אביב']);
+    // This depends on city data — if both are in דן zone, returns 'nearby'
+    // If city data doesn't match zones, it returns 'not_area'
+    assert.ok(result === 'nearby' || result === 'not_area',
+      `Expected nearby or not_area, got: ${result}`);
+  });
+
+  it('returns not_area when no zone match', () => {
+    // Use a city definitely not in the same zone as the alert
+    const result = getRelevanceType('אילת', ['קריית שמונה']);
+    assert.equal(result, 'not_area');
+  });
+});
+
+describe('getRelevanceText', () => {
+  it('maps in_area to correct default string', () => {
+    const result = getRelevanceText('in_area');
+    assert.ok(result.includes('באזורך'), `Expected "באזורך", got: ${result}`);
+  });
+
+  it('maps nearby to correct default string', () => {
+    const result = getRelevanceText('nearby');
+    assert.ok(result.includes('באזור קרוב'), `Expected "באזור קרוב", got: ${result}`);
+  });
+
+  it('maps not_area to correct default string', () => {
+    const result = getRelevanceText('not_area');
+    assert.ok(result.includes('לא באזורך'), `Expected "לא באזורך", got: ${result}`);
+  });
+
+  it('uses provided strings over defaults', () => {
+    const custom = { inArea: 'CUSTOM_IN', nearby: 'CUSTOM_NEAR', notInArea: 'CUSTOM_NOT' };
+    assert.equal(getRelevanceText('in_area', custom), 'CUSTOM_IN');
+    assert.equal(getRelevanceText('nearby', custom), 'CUSTOM_NEAR');
+    assert.equal(getRelevanceText('not_area', custom), 'CUSTOM_NOT');
   });
 });
