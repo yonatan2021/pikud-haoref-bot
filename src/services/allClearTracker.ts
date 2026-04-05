@@ -1,6 +1,7 @@
 export interface AllClearEvent {
   zone: string;
   alertType: string;
+  alertCities: string[];
 }
 
 export interface AllClearDeps {
@@ -13,6 +14,7 @@ export interface AllClearDeps {
 interface ZoneTimer {
   id: ReturnType<typeof setTimeout>;
   alertType: string;
+  alertCities: string[];
 }
 
 const DEFAULT_QUIET_WINDOW_MS = 600_000; // 10 minutes
@@ -24,7 +26,7 @@ export function createAllClearTracker(deps: AllClearDeps) {
   const cancel = deps.cancelScheduleFn ?? clearTimeout;
   const windowMs = deps.quietWindowMs ?? DEFAULT_QUIET_WINDOW_MS;
 
-  function recordAlert(zones: string[], alertType: string): void {
+  function recordAlert(zones: string[], alertType: string, alertCities: string[] = []): void {
     for (const zone of zones) {
       const existing = timers.get(zone);
       if (existing) cancel(existing.id);
@@ -35,11 +37,11 @@ export function createAllClearTracker(deps: AllClearDeps) {
       const id = schedule(() => {
         if (!firedZones.has(zone)) {
           firedZones.add(zone);
-          deps.onAllClear([{ zone, alertType }]);
+          deps.onAllClear([{ zone, alertType, alertCities }]);
         }
         timers.delete(zone);
       }, windowMs);
-      timers.set(zone, { id, alertType });
+      timers.set(zone, { id, alertType, alertCities });
     }
   }
 

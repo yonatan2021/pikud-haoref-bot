@@ -40,7 +40,22 @@ describe('allClearTracker', () => {
 
     timers.fireAll();
     assert.equal(fired.length, 1);
-    assert.deepEqual(fired[0], [{ zone: 'גליל עליון', alertType: 'missiles' }]);
+    assert.deepEqual(fired[0], [{ zone: 'גליל עליון', alertType: 'missiles', alertCities: [] }]);
+  });
+
+  it('fires onAllClear with alertCities when provided', () => {
+    const fired: AllClearEvent[][] = [];
+    const timers = createFakeTimers();
+    const tracker = createAllClearTracker({
+      scheduleFn: timers.scheduleFn,
+      cancelScheduleFn: timers.cancelScheduleFn,
+      onAllClear: (events) => fired.push(events),
+    });
+
+    tracker.recordAlert(['דן'], 'missiles', ['תל אביב', 'רמת גן']);
+    timers.fireAll();
+    assert.equal(fired.length, 1);
+    assert.deepEqual(fired[0][0].alertCities, ['תל אביב', 'רמת גן']);
   });
 
   it('resets the timer when a new alert arrives for the same zone', () => {
@@ -61,7 +76,7 @@ describe('allClearTracker', () => {
 
     timers.fireAll();
     assert.equal(fired.length, 1, 'Should fire exactly once');
-    assert.deepEqual(fired[0], [{ zone: 'דן', alertType: 'missiles' }]);
+    assert.deepEqual(fired[0], [{ zone: 'דן', alertType: 'missiles', alertCities: [] }]);
   });
 
   it('deduplicates — does not fire twice for same zone without new alert', () => {
