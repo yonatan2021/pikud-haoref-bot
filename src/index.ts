@@ -161,14 +161,16 @@ for (const envVar of REQUIRED_ENV_VARS) {
   const allClearService = createAllClearService({
     db: getDb(),
     chatId: process.env.TELEGRAM_CHAT_ID!,
-    sendTelegram: (chatId, topicId, text) =>
-      bot.api.sendMessage(chatId, text, {
+    sendTelegram: async (chatId, topicId, text) => {
+      await bot.api.sendMessage(chatId, text, {
         parse_mode: 'HTML',
         ...(topicId != null ? { message_thread_id: topicId } : {}),
-      }),
+      });
+    },
     getUserIdsByZone,
-    sendDm: (userId, text) =>
-      bot.api.sendMessage(String(userId), text, { parse_mode: 'HTML' }),
+    sendDm: async (userId, text) => {
+      await bot.api.sendMessage(String(userId), text, { parse_mode: 'HTML' });
+    },
     renderTemplate: renderAllClearTemplate,
   });
 
