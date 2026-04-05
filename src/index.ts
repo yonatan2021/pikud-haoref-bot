@@ -178,6 +178,7 @@ for (const envVar of REQUIRED_ENV_VARS) {
   });
 
   const allClearTracker = createAllClearTracker({
+    getCityZone: (city) => getCityData(city)?.zone,
     onAllClear: (events) => {
       allClearService.handleAllClear(events).catch(err =>
         log('error', 'Index', `handleAllClear נכשל: ${String(err)}`)

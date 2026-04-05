@@ -43,19 +43,67 @@ describe('allClearTracker', () => {
     assert.deepEqual(fired[0], [{ zone: 'גליל עליון', alertType: 'missiles', alertCities: [] }]);
   });
 
-  it('fires onAllClear with alertCities when provided', () => {
+  it('fires onAllClear with alertCities when provided (with getCityZone)', () => {
     const fired: AllClearEvent[][] = [];
     const timers = createFakeTimers();
     const tracker = createAllClearTracker({
       scheduleFn: timers.scheduleFn,
       cancelScheduleFn: timers.cancelScheduleFn,
       onAllClear: (events) => fired.push(events),
+      getCityZone: (city) => city === 'תל אביב' || city === 'רמת גן' ? 'דן' : undefined,
     });
 
     tracker.recordAlert(['דן'], 'missiles', ['תל אביב', 'רמת גן']);
     timers.fireAll();
     assert.equal(fired.length, 1);
     assert.deepEqual(fired[0][0].alertCities, ['תל אביב', 'רמת גן']);
+  });
+
+  it('filters alertCities to only cities belonging to each zone', () => {
+    const fired: AllClearEvent[][] = [];
+    const timers = createFakeTimers();
+    const zoneMap: Record<string, string> = {
+      'תל אביב': 'דן',
+      'רמת גן': 'דן',
+      'חיפה': 'קריות',
+      'קריית שמונה': 'קריות',
+    };
+    const tracker = createAllClearTracker({
+      scheduleFn: timers.scheduleFn,
+      cancelScheduleFn: timers.cancelScheduleFn,
+      onAllClear: (events) => fired.push(events),
+      getCityZone: (city) => zoneMap[city],
+    });
+
+    // Alert spans two zones with 4 cities
+    tracker.recordAlert(['דן', 'קריות'], 'missiles', ['תל אביב', 'רמת גן', 'חיפה', 'קריית שמונה']);
+    timers.fireAll();
+
+    assert.equal(fired.length, 2, 'Each zone fires independently');
+    const danEvent = fired.flat().find(e => e.zone === 'דן')!;
+    const kriotEvent = fired.flat().find(e => e.zone === 'קריות')!;
+    assert.deepEqual(danEvent.alertCities.sort(), ['רמת גן', 'תל אביב']);
+    assert.deepEqual(kriotEvent.alertCities.sort(), ['חיפה', 'קריית שמונה']);
+  });
+
+  it('merges cities when second alert arrives for same zone', () => {
+    const fired: AllClearEvent[][] = [];
+    const timers = createFakeTimers();
+    const tracker = createAllClearTracker({
+      scheduleFn: timers.scheduleFn,
+      cancelScheduleFn: timers.cancelScheduleFn,
+      onAllClear: (events) => fired.push(events),
+      getCityZone: (city) => city === 'תל אביב' || city === 'רמת גן' || city === 'בני ברק' ? 'דן' : undefined,
+    });
+
+    // First alert wave
+    tracker.recordAlert(['דן'], 'missiles', ['תל אביב', 'רמת גן']);
+    // Second alert wave (same zone, new city)
+    tracker.recordAlert(['דן'], 'missiles', ['בני ברק']);
+    timers.fireAll();
+
+    assert.equal(fired.length, 1);
+    assert.deepEqual(fired[0][0].alertCities.sort(), ['בני ברק', 'רמת גן', 'תל אביב']);
   });
 
   it('resets the timer when a new alert arrives for the same zone', () => {
