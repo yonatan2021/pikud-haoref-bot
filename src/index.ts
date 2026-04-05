@@ -37,26 +37,36 @@ import { getCityData } from './cityLookup.js';
 import { initAlertSerial, getNextAlertSerial } from './config/alertSerial.js';
 import { getDensityLabel } from './config/alertDensity.js';
 import { pruneExpiredContacts } from './db/contactRepository.js';
+import { initCrypto } from './dashboard/crypto.js';
+import { resolveConfig, resolveRequiredConfigs, ConfigMissingError } from './config/configResolver.js';
 
 // Prevent broken-pipe errors from crashing the bot when a stdout consumer exits.
 process.stdout.on('error', (err: NodeJS.ErrnoException) => {
   if (err.code !== 'EPIPE') throw err;
 });
 
-const REQUIRED_ENV_VARS = ['TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID', 'MAPBOX_ACCESS_TOKEN'];
-
-for (const envVar of REQUIRED_ENV_VARS) {
-  if (!process.env[envVar]) {
-    log('error', 'Init', `חסר משתנה סביבה: ${envVar}`);
-    log('error', 'Init', 'העתק env.example ל-.env ומלא את הערכים הנדרשים');
-    process.exit(1);
-  }
-}
+// DASHBOARD_SECRET is the only hard-required env var (bootstrap: encryption + auth).
+// All other config is resolved from DB → env fallback after initDb().
+const dashboardSecretBoot = process.env.DASHBOARD_SECRET;
 
 (async () => {
   let alertsToday = 0;
+  let resolvedConfig: Record<string, string>;
   try {
     initDb();
+
+    // Init crypto (envelope encryption for secrets in DB)
+    if (dashboardSecretBoot) {
+      initCrypto(getDb(), dashboardSecretBoot);
+    }
+
+    // Resolve all required config from DB → env fallback
+    resolvedConfig = resolveRequiredConfigs(getDb(), [
+      'telegram_bot_token',
+      'telegram_chat_id',
+      'mapbox_access_token',
+    ]);
+
     initSubscriptionCache();
     initUsageCache();
     initializeCache();
@@ -67,6 +77,10 @@ for (const envVar of REQUIRED_ENV_VARS) {
     alertsToday = countAlertsToday();
     initAlertSerial(alertsToday);
   } catch (err) {
+    if (err instanceof ConfigMissingError) {
+      log('error', 'Init', err.message);
+      process.exit(1);
+    }
     log('error', 'Init', `כישלון אתחול מסד נתונים — הבוט לא יכול להתחיל: ${err}`);
     process.exit(1);
   }
@@ -89,21 +103,29 @@ for (const envVar of REQUIRED_ENV_VARS) {
     healthServer.once('error', () => resolve(false));
   });
 
-  const dashboardSecret = process.env.DASHBOARD_SECRET;
+  const dashboardSecret = dashboardSecretBoot;
   const rawDashboardPort = parseInt(process.env.DASHBOARD_PORT ?? '4000', 10);
   const dashboardPort = Number.isFinite(rawDashboardPort) && rawDashboardPort > 0 ? rawDashboardPort : 4000;
 
-  const bot = getBot();
+  const bot = getBot(resolvedConfig['telegram_bot_token']);
   await setupBotHandlers(bot);
 
-  if (process.env.TELEGRAM_LISTENER_ENABLED === 'true') {
-    for (const key of ['TELEGRAM_API_ID', 'TELEGRAM_API_HASH']) {
-      if (!process.env[key]) throw new Error(`${key} is required when TELEGRAM_LISTENER_ENABLED=true`);
+  const tgListenerEnabled = resolveConfig(getDb(), 'telegram_listener_enabled') === 'true'
+    || process.env.TELEGRAM_LISTENER_ENABLED === 'true';
+
+  if (tgListenerEnabled) {
+    const tgApiId = resolveConfig(getDb(), 'telegram_api_id') ?? process.env['TELEGRAM_API_ID'];
+    const tgApiHash = resolveConfig(getDb(), 'telegram_api_hash') ?? process.env['TELEGRAM_API_HASH'];
+    if (!tgApiId || !tgApiHash) {
+      throw new Error('TELEGRAM_API_ID and TELEGRAM_API_HASH are required when Telegram Listener is enabled');
     }
+    // Inject credentials so telegramListenerClient uses them instead of process.env
+    const { setApiCredentials } = await import('./telegram-listener/telegramListenerClient.js');
+    setApiCredentials(tgApiId, tgApiHash);
   }
 
   try {
-    if (process.env.TELEGRAM_LISTENER_ENABLED === 'true') {
+    if (tgListenerEnabled) {
       await initializeTelegramListener(getDb(), bot);
     }
   } catch (err) {
@@ -161,7 +183,7 @@ for (const envVar of REQUIRED_ENV_VARS) {
 
   const allClearService = createAllClearService({
     db: getDb(),
-    chatId: process.env.TELEGRAM_CHAT_ID!,
+    chatId: resolvedConfig['telegram_chat_id'],
     sendTelegram: async (chatId, topicId, text) => {
       await bot.api.sendMessage(chatId, text, {
         parse_mode: 'HTML',
@@ -208,7 +230,7 @@ for (const envVar of REQUIRED_ENV_VARS) {
     if (process.env.WHATSAPP_ENABLED === 'true') {
       try { await disconnectWhatsApp(); } catch { /* ignore */ }
     }
-    if (process.env.TELEGRAM_LISTENER_ENABLED === 'true') {
+    if (tgListenerEnabled) {
       try { await disconnectTelegramListener(getDb()); } catch { /* ignore */ }
     }
     try { closeDb(); } catch { /* ignore */ }
@@ -219,7 +241,7 @@ for (const envVar of REQUIRED_ENV_VARS) {
 
   poller.on('newAlert', async (alert: Alert) => {
     updateLastAlertAt();
-    const chatId = process.env.TELEGRAM_CHAT_ID!;
+    const chatId = resolvedConfig['telegram_chat_id'];
 
     // Extract unique zones from the alert cities for all-clear tracking
     const alertZones = [...new Set(
@@ -275,7 +297,7 @@ for (const envVar of REQUIRED_ENV_VARS) {
     { name: 'Dashboard',     detail: dashboardSecret ? toVisualRtl(`פורט ${dashboardPort}`) : toVisualRtl('כבוי (אין DASHBOARD_SECRET)'), ok: !!dashboardSecret, url: dashboardSecret ? `http://localhost:${dashboardPort}/dashboard` : undefined },
     { name: 'Database',      detail: toVisualRtl('מאותחל'),                                                ok: true },
     { name: 'WhatsApp',      detail: toVisualRtl(process.env.WHATSAPP_ENABLED === 'true' ? 'מופעל' : 'כבוי'), ok: process.env.WHATSAPP_ENABLED === 'true' },
-    { name: 'TG Listener',  detail: toVisualRtl(process.env.TELEGRAM_LISTENER_ENABLED === 'true' ? 'מופעל' : 'כבוי'), ok: process.env.TELEGRAM_LISTENER_ENABLED === 'true' },
+    { name: 'TG Listener',  detail: toVisualRtl(tgListenerEnabled ? 'מופעל' : 'כבוי'), ok: tgListenerEnabled },
   ], alertsToday);
 
   logSectionDivider();
