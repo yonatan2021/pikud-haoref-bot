@@ -11,6 +11,7 @@ import { SimulationPanel } from '../components/messages/SimulationPanel';
 import { SystemMessagePanel } from '../components/messages/SystemMessagePanel';
 import { RoutingSection } from '../components/messages/RoutingSection';
 import { TemplateBodyEditor } from '../components/messages/TemplateBodyEditor';
+import { DmTemplatesPanel } from '../components/messages/DmTemplatesPanel';
 import type { TemplateEntry, TemplateEdit } from '../components/messages/TemplateRow';
 import { ORDERED_CATEGORIES, ALERT_TYPE_CATEGORY } from '../utils/categoryConfig';
 import type { AlertCategory } from '../utils/categoryConfig';
@@ -31,7 +32,7 @@ export default function Messages() {
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [pendingImport, setPendingImport] = useState<ImportRow[] | null>(null);
   const [rightPanelTab, setRightPanelTab] = useState<'simulation' | 'system'>('simulation');
-  const [mainTab, setMainTab] = useState<'types' | 'editor' | 'routing'>('types');
+  const [mainTab, setMainTab] = useState<'types' | 'editor' | 'routing' | 'dm'>('types');
 
   // Fetch all template entries
   const { data: templates = [] } = useQuery<TemplateEntry[]>({
@@ -268,6 +269,7 @@ export default function Messages() {
             ['types', 'סוגי התראות'] as const,
             ['editor', 'עורך תבנית'] as const,
             ['routing', 'ניתוב'] as const,
+            ['dm', 'הודעות DM'] as const,
           ]).map(([key, label]) => (
             <button
               key={key}
@@ -304,6 +306,7 @@ export default function Messages() {
             ))}
             {mainTab === 'editor' && <TemplateBodyEditor templates={templates} />}
             {mainTab === 'routing' && <RoutingSection />}
+            {mainTab === 'dm' && <DmTemplatesPanel />}
           </div>
 
           {/* Right column: simulation / system message (sticky) */}
