@@ -14,7 +14,7 @@ const DEFAULT_RELEVANCE_IN_AREA = '🔴 באזורך';
 const DEFAULT_RELEVANCE_NEARBY = '🟡 באזור קרוב';
 const DEFAULT_RELEVANCE_NOT_AREA = '🟢 לא באזורך';
 
-/** Reads relevance strings from settings table. Called once per notifySubscribers() invocation.
+/** Reads relevance strings from settings table. Called once per notifySubscribers() batch.
  *  Falls back to defaults if DB is not available (e.g. in tests). */
 export function getRelevanceStrings(): { inArea: string; nearby: string; notInArea: string } {
   try {
@@ -100,7 +100,7 @@ export function buildShortMessage(alert: Alert): string {
   return `${emoji} ${title} | ${cities}${more}${cdSuffix}`;
 }
 
-export function buildAlertDmMessage(alert: Alert, homeCity?: string | null): string {
+export function buildAlertDmMessage(alert: Alert, homeCity?: string | null, strings?: { inArea: string; nearby: string; notInArea: string }): string {
   const emoji = getEmoji(alert.type);
   const title = getTitleHe(alert.type);
   const category = ALERT_TYPE_CATEGORY[alert.type] ?? 'general';
@@ -110,7 +110,7 @@ export function buildAlertDmMessage(alert: Alert, homeCity?: string | null): str
   const parts: string[] = [];
 
   const relevanceType = getRelevanceType(homeCity ?? null, alert.cities);
-  if (relevanceType) parts.push(getRelevanceText(relevanceType));
+  if (relevanceType) parts.push(getRelevanceText(relevanceType, strings));
 
   // Only say "באזורך" when the home city is actually in the alert,
   // or when the subscriber has no home city set (relevance = null).
@@ -154,7 +154,7 @@ function isPreliminaryAlert(instructions?: string): boolean {
   );
 }
 
-export function buildNewsFlashDmMessage(alert: Alert, homeCity?: string | null): string {
+export function buildNewsFlashDmMessage(alert: Alert, homeCity?: string | null, strings?: { inArea: string; nearby: string; notInArea: string }): string {
   const isPreliminary = isPreliminaryAlert(alert.instructions);
 
   const seenZones = new Set<string>();
@@ -182,7 +182,7 @@ export function buildNewsFlashDmMessage(alert: Alert, homeCity?: string | null):
   const parts: string[] = [];
 
   const relevanceType2 = getRelevanceType(homeCity ?? null, alert.cities);
-  if (relevanceType2) parts.push(getRelevanceText(relevanceType2));
+  if (relevanceType2) parts.push(getRelevanceText(relevanceType2, strings));
 
   // Only say "באזורך" in the preliminary headline when home city is in the alert
   // or when no home city is set — mirrors the fix in buildAlertDmMessage.
@@ -206,9 +206,9 @@ export function buildNewsFlashDmMessage(alert: Alert, homeCity?: string | null):
 
 // Issue 3: format param removed — DM format was unified; short/detailed produce identical output.
 // NotificationFormat is still stored in the DB and shown in the UI settings panel.
-export function buildDmText(alert: Alert, homeCity?: string | null): string {
-  if (alert.type === 'newsFlash') return buildNewsFlashDmMessage(alert, homeCity);
-  return buildAlertDmMessage(alert, homeCity);
+export function buildDmText(alert: Alert, homeCity?: string | null, strings?: { inArea: string; nearby: string; notInArea: string }): string {
+  if (alert.type === 'newsFlash') return buildNewsFlashDmMessage(alert, homeCity, strings);
+  return buildAlertDmMessage(alert, homeCity, strings);
 }
 
 function getIsraelHour(now: Date): number {
@@ -269,9 +269,10 @@ export function notifySubscribers(
       ? afterQuietHours.filter(({ muted_until }) => !muted_until || new Date(muted_until) <= now)
       : afterQuietHours;
 
+    const relevanceStrings = getRelevanceStrings();
     const tasks = afterMute.map(({ chat_id, matchedCities, home_city }) => {
       const personalAlert: Alert = { ...alert, cities: matchedCities };
-      return { chatId: String(chat_id), text: buildDmText(personalAlert, home_city) };
+      return { chatId: String(chat_id), text: buildDmText(personalAlert, home_city, relevanceStrings) };
     });
 
     const skippedQH = subscribers.length - afterQuietHours.length;
