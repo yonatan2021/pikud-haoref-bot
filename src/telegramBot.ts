@@ -2,7 +2,7 @@ import { Bot, InputFile } from 'grammy';
 import { autoRetry } from '@grammyjs/auto-retry';
 import { Alert } from './types';
 import { getCityData } from './cityLookup';
-import { getEmoji, getTitleHe, getInstructionsPrefix, getAllCached } from './config/templateCache.js';
+import { getEmoji, getTitleHe, getInstructionsPrefix, getBodyTemplate, getAllCached } from './config/templateCache.js';
 import { DEFAULT_ALERT_TYPE_HE, DEFAULT_ALERT_TYPE_EMOJI } from './config/alertTypeDefaults.js';
 import { getUrgencyForCountdown } from './config/urgency.js';
 import { getSuperRegionByZone } from './config/zones.js';
@@ -147,6 +147,37 @@ export function buildZoneOnlyList(cities: string[]): string {
   return sections.join('\n');
 }
 
+// ─── Template rendering engine ───────────────────────────────────────────
+
+/** Maps Hebrew placeholders (used in dashboard UI) to English TemplateVars keys. */
+const PLACEHOLDER_MAP: ReadonlyArray<readonly [string, string]> = [
+  ['זמן', 'time'],
+  ['ערים', 'cities'],
+  ['מספר_ערים', 'cityCount'],
+  ['כותרת', 'title'],
+  ['אמוגי', 'emoji'],
+] as const;
+
+export interface TemplateVars {
+  time: string;
+  cities: string;
+  cityCount: number;
+  title: string;
+  emoji: string;
+}
+
+/** Renders a body template by substituting {{placeholder}} variables.
+ *  Normalizes whitespace inside braces; leaves unclosed/unknown placeholders as literal text. */
+export function renderBodyTemplate(template: string, vars: TemplateVars): string {
+  // Normalize: {{ ערים }} → {{ערים}}
+  let result = template.replace(/\{\{\s+/g, '{{').replace(/\s+\}\}/g, '}}');
+  for (const [heKey, enKey] of PLACEHOLDER_MAP) {
+    const value = String(vars[enKey as keyof TemplateVars]);
+    result = result.split(`{{${heKey}}}`).join(value);
+  }
+  return result;
+}
+
 export function formatAlertMessage(alert: Alert, serial?: number, density?: 'חריג' | 'רגיל' | null): string {
   const actionCard = buildActionCard(alert.type);
   const emoji = getEmoji(alert.type);
@@ -160,6 +191,24 @@ export function formatAlertMessage(alert: Alert, serial?: number, density?: 'ח�
     hour12: false,
   });
 
+  const cityList =
+    alert.type === 'newsFlash'
+      ? buildZoneOnlyList(alert.cities)
+      : buildZonedCityList(alert.cities);
+
+  // If a custom body template exists, render it and return early
+  const bodyTemplate = getBodyTemplate(alert.type);
+  if (bodyTemplate) {
+    return renderBodyTemplate(bodyTemplate, {
+      time: timeStr,
+      cities: cityList,
+      cityCount: alert.cities.length,
+      title,
+      emoji,
+    });
+  }
+
+  // Default assembly (no custom template)
   const summaryLine = buildSummaryLine(alert.cities);
   const parts: string[] = [];
 
@@ -176,11 +225,6 @@ export function formatAlertMessage(alert: Alert, serial?: number, density?: 'ח�
       ? `${prefix} <i>${escapeHtml(alert.instructions)}</i>`
       : `<i>${escapeHtml(alert.instructions)}</i>`;
   }
-
-  const cityList =
-    alert.type === 'newsFlash'
-      ? buildZoneOnlyList(alert.cities)
-      : buildZonedCityList(alert.cities);
 
   // Instructions appear before cities so they are visible in push notification previews
   if (instructionsPart) parts.push(instructionsPart);
