@@ -159,8 +159,8 @@ for (const envVar of REQUIRED_ENV_VARS) {
 
   const allClearChatId = process.env.TELEGRAM_CHAT_ID!;
   const allClearTracker = createAllClearTracker({
-    onAllClear: async (zones) => {
-      for (const zone of zones) {
+    onAllClear: async (events) => {
+      for (const { zone } of events) {
         try {
           const message = formatAllClearMessage(zone);
           await bot.api.sendMessage(allClearChatId, message, { parse_mode: 'HTML' });
@@ -214,7 +214,7 @@ for (const envVar of REQUIRED_ENV_VARS) {
         .filter((z): z is string => z != null)
     )];
     if (alertZones.length > 0) {
-      allClearTracker.recordAlert(alertZones);
+      allClearTracker.recordAlert(alertZones, alert.type);
     }
 
     await handleNewAlert(alert, {
