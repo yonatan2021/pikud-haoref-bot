@@ -1,3 +1,4 @@
+import type Database from 'better-sqlite3';
 import { getDb } from './schema.js';
 
 export type NotificationFormat = 'short' | 'detailed';
@@ -200,4 +201,16 @@ export function findUserByConnectionCode(code: string): User | undefined {
     .get(code) as RawUserRow | undefined;
   if (!raw) return undefined;
   return mapRowToUser(raw);
+}
+
+/**
+ * Returns all users who have a home city set.
+ * Accepts an explicit `db` for testability (consistent with Epic A repositories).
+ * Used by the safety prompt service to dispatch prompts after real alerts.
+ */
+export function getUsersWithHomeCity(db: Database.Database): User[] {
+  const rows = db
+    .prepare(`SELECT * FROM users WHERE home_city IS NOT NULL AND home_city != ''`)
+    .all() as RawUserRow[];
+  return rows.map(mapRowToUser);
 }
