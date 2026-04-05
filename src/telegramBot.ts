@@ -25,7 +25,7 @@ const SHELTER_TYPES = new Set([
 export function buildActionCard(alertType: string): string | null {
   if (!SHELTER_TYPES.has(alertType)) return null;
   const prefix = getInstructionsPrefix(alertType);
-  return `🛡 <b>${prefix ? escapeHtml(prefix) + ' ' : ''}היכנסו למרחב מוגן!</b>`;
+  return `\u200F🛡 <b>${prefix ? escapeHtml(prefix) + ' ' : ''}היכנסו למרחב מוגן!</b>`;
 }
 
 /** Telegram's hard caption limit for photo messages (sendPhoto / editMessageCaption). */
@@ -103,12 +103,12 @@ export function buildZonedCityList(cities: string[]): string {
     const zoneCount = ` (${sorted.length})`;
     const srEmoji = getSuperRegionByZone(zone)?.name.split(' ')[0] ?? '';
     const srPrefix = srEmoji ? `${srEmoji} ` : '';
-    sections.push(`▸ ${srPrefix}${urgencyPrefix}<b>${escapeHtml(zone)}</b>${zoneCount}${countdownSuffix}\n${buildCityList(sorted)}`);
+    sections.push(`\u200F▸ ${srPrefix}${urgencyPrefix}<b>${escapeHtml(zone)}</b>${zoneCount}${countdownSuffix}\n${buildCityList(sorted)}`);
   }
 
   if (noZone.length > 0) {
     const sortedNoZone = [...noZone].sort((a, b) => a.localeCompare(b, 'he'));
-    sections.push(`▸ <i>ערים נוספות</i>\n${buildCityList(sortedNoZone)}`);
+    sections.push(`\u200F▸ <i>ערים נוספות</i>\n${buildCityList(sortedNoZone)}`);
   }
 
   return sections.join('\n\n');
@@ -141,7 +141,7 @@ export function buildZoneOnlyList(cities: string[]): string {
       minCountdown > 0 && isFinite(minCountdown) ? `  ⏱ <b>${minCountdown} שנ׳</b>` : '';
     const srEmoji = getSuperRegionByZone(zone)?.name.split(' ')[0] ?? '';
     const srPrefix = srEmoji ? `${srEmoji} ` : '';
-    sections.push(`▸ ${srPrefix}<b>${escapeHtml(zone)}</b> (${count})${countdownSuffix}`);
+    sections.push(`\u200F▸ ${srPrefix}<b>${escapeHtml(zone)}</b> (${count})${countdownSuffix}`);
   }
 
   return sections.join('\n');
@@ -165,7 +165,7 @@ export function formatAlertMessage(alert: Alert, serial?: number, density?: 'ח�
 
   if (actionCard) parts.push(actionCard);
 
-  const headerLines = [`${emoji} <b>${escapeHtml(title)}</b>`, `⏰ ${escapeHtml(timeStr)}`];
+  const headerLines = [`\u200F${emoji} <b>${escapeHtml(title)}</b>`, `⏰ ${escapeHtml(timeStr)}`];
   if (summaryLine) headerLines.push(summaryLine);
   parts.push(headerLines.join('\n'));
 
