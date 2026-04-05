@@ -7,6 +7,7 @@ export interface TemplateEntry {
   emoji: string;
   titleHe: string;
   instructionsPrefix: string;
+  bodyTemplate: string | null;
   isCustomized: boolean;
   defaults: { emoji: string; titleHe: string; instructionsPrefix: string };
 }
