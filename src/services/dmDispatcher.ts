@@ -6,28 +6,78 @@ import { ALERT_TYPE_CATEGORY } from '../topicRouter.js';
 import { dmQueue, type DmTask } from './dmQueue.js';
 import { log } from '../logger.js';
 import { renderCountdownBar } from '../config/urgency.js';
+import { getSetting } from '../dashboard/settingsRepository.js';
+import { getDb } from '../db/schema.js';
 
-/**
- * Returns a personal relevance indicator based on the subscriber's home city.
- * - 🔴 באזורך — home_city is directly in the alert
- * - 🟡 באזור קרוב — home_city shares a zone with an alert city
- * - 🟢 לא באזורך — no geographic match
- * Returns null if home_city is not set or alert has no cities.
- */
-export function getRelevanceIndicator(homeCity: string | null, alertCities: string[]): string | null {
+// Default relevance strings — overridable via dashboard settings
+const DEFAULT_RELEVANCE_IN_AREA = '🔴 באזורך';
+const DEFAULT_RELEVANCE_NEARBY = '🟡 באזור קרוב';
+const DEFAULT_RELEVANCE_NOT_AREA = '🟢 לא באזורך';
+
+/** Reads relevance strings from settings table. Called once per notifySubscribers() invocation.
+ *  Falls back to defaults if DB is not available (e.g. in tests). */
+export function getRelevanceStrings(): { inArea: string; nearby: string; notInArea: string } {
+  try {
+    const db = getDb();
+    return {
+      inArea: getSetting(db, 'dm_relevance_in_area') ?? DEFAULT_RELEVANCE_IN_AREA,
+      nearby: getSetting(db, 'dm_relevance_nearby') ?? DEFAULT_RELEVANCE_NEARBY,
+      notInArea: getSetting(db, 'dm_relevance_not_area') ?? DEFAULT_RELEVANCE_NOT_AREA,
+    };
+  } catch {
+    return {
+      inArea: DEFAULT_RELEVANCE_IN_AREA,
+      nearby: DEFAULT_RELEVANCE_NEARBY,
+      notInArea: DEFAULT_RELEVANCE_NOT_AREA,
+    };
+  }
+}
+
+export type RelevanceType = 'in_area' | 'nearby' | 'not_area';
+
+/** Returns the geographic relevance type (pure logic, no text). */
+export function getRelevanceType(homeCity: string | null, alertCities: string[]): RelevanceType | null {
   if (!homeCity || alertCities.length === 0) return null;
 
-  if (alertCities.includes(homeCity)) return '🔴 באזורך';
+  if (alertCities.includes(homeCity)) return 'in_area';
 
   const homeCityData = getCityData(homeCity);
   if (homeCityData?.zone) {
     for (const city of alertCities) {
       const cityData = getCityData(city);
-      if (cityData?.zone === homeCityData.zone) return '🟡 באזור קרוב';
+      if (cityData?.zone === homeCityData.zone) return 'nearby';
     }
   }
 
-  return '🟢 לא באזורך';
+  return 'not_area';
+}
+
+/** Maps a relevance type to its display text (from settings or defaults). */
+export function getRelevanceText(
+  type: RelevanceType,
+  strings?: { inArea: string; nearby: string; notInArea: string },
+): string {
+  const s = strings ?? getRelevanceStrings();
+  const map: Record<RelevanceType, string> = {
+    in_area: s.inArea,
+    nearby: s.nearby,
+    not_area: s.notInArea,
+  };
+  return map[type];
+}
+
+/**
+ * Returns a personal relevance indicator based on the subscriber's home city.
+ * Convenience wrapper — returns the display text directly.
+ */
+export function getRelevanceIndicator(
+  homeCity: string | null,
+  alertCities: string[],
+  strings?: { inArea: string; nearby: string; notInArea: string },
+): string | null {
+  const type = getRelevanceType(homeCity, alertCities);
+  if (!type) return null;
+  return getRelevanceText(type, strings);
 }
 
 function getMinCountdown(cityNames: string[]): number {
@@ -58,14 +108,14 @@ export function buildAlertDmMessage(alert: Alert, homeCity?: string | null): str
 
   const parts: string[] = [];
 
-  const relevance = getRelevanceIndicator(homeCity ?? null, alert.cities);
-  if (relevance) parts.push(relevance);
+  const relevanceType = getRelevanceType(homeCity ?? null, alert.cities);
+  if (relevanceType) parts.push(getRelevanceText(relevanceType));
 
   // Only say "באזורך" when the home city is actually in the alert,
   // or when the subscriber has no home city set (relevance = null).
-  // "🟡 באזור קרוב" and "🟢 לא באזורך" get a plain title — the
+  // "nearby" and "not_area" get a plain title — the
   // relevance indicator already tells the full story.
-  const homeInAlert = relevance === '🔴 באזורך' || homeCity == null;
+  const homeInAlert = relevanceType === 'in_area' || homeCity == null;
   const titleLine = isNationwide
     ? `${emoji} ${title}`
     : homeInAlert
@@ -130,12 +180,12 @@ export function buildNewsFlashDmMessage(alert: Alert, homeCity?: string | null):
 
   const parts: string[] = [];
 
-  const relevance = getRelevanceIndicator(homeCity ?? null, alert.cities);
-  if (relevance) parts.push(relevance);
+  const relevanceType2 = getRelevanceType(homeCity ?? null, alert.cities);
+  if (relevanceType2) parts.push(getRelevanceText(relevanceType2));
 
   // Only say "באזורך" in the preliminary headline when home city is in the alert
   // or when no home city is set — mirrors the fix in buildAlertDmMessage.
-  const homeInAlert = relevance === '🔴 באזורך' || homeCity == null;
+  const homeInAlert = relevanceType2 === 'in_area' || homeCity == null;
   const headline = isPreliminary
     ? `⚠️ התראה מקדימה${allLabels.length > 0 && homeInAlert ? ' באזורך' : ''}`
     : `📢 הודעה מיוחדת`;

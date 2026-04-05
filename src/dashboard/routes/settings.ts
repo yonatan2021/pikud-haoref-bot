@@ -31,6 +31,10 @@ const ALLOWED_KEYS = new Set([
   'privacy_defaults',
   'all_clear_mode',
   'all_clear_topic_id',
+  'dm_all_clear_text',
+  'dm_relevance_in_area',
+  'dm_relevance_nearby',
+  'dm_relevance_not_area',
 ]);
 
 export function createSettingsRouter(db: Database.Database): Router {
