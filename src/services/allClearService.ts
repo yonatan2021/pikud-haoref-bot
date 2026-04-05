@@ -45,25 +45,35 @@ export function createAllClearService(deps: AllClearServiceDeps) {
         const category = ALERT_TYPE_CATEGORY[alertType] ?? 'general';
         const muteApplies = category === 'drills' || category === 'general';
 
+        let skippedQH = 0;
+        let skippedMuted = 0;
+
         for (const subscriber of subscribers) {
           // Quiet-hours filter
           if (deps.shouldSkipForQuietHours(alertType, subscriber.quiet_hours_enabled, now)) {
+            skippedQH++;
             continue;
           }
           // Snooze filter
           if (muteApplies && subscriber.muted_until && new Date(subscriber.muted_until) > now) {
+            skippedMuted++;
             continue;
           }
           // Personalize DM: substitute {{עיר}} with subscriber's home city
           const dmText = dmAllClearRaw
             ? dmAllClearRaw.replace(/\{\{עיר\}\}/g, subscriber.home_city ?? zone)
             : text;
+          // In production, sendDm enqueues synchronously via dmQueue — delivery errors are
+          // handled by the queue's per-message retry logic, not by this catch block.
           try {
             await deps.sendDm(subscriber.chat_id, dmText);
           } catch (err) {
             log('error', 'AllClear', `DM נכשל למשתמש ${subscriber.chat_id} (אזור "${zone}"): ${String(err)}`);
           }
         }
+
+        if (skippedQH > 0) log('info', 'AllClear', `🔕 שעות שקט: ${skippedQH} מנויים דולגו (${alertType})`);
+        if (skippedMuted > 0) log('info', 'AllClear', `🔇 מושתק: ${skippedMuted} מנויים דולגו (${alertType})`);
       }
 
       if (mode === 'channel' || mode === 'both') {
