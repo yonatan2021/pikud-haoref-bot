@@ -12,7 +12,6 @@ export interface AllClearServiceDeps {
   db: Database.Database;
   chatId: string;
   sendTelegram: (chatId: string, topicId: number | undefined, text: string) => Promise<void>;
-  getUserIdsByZone: (zones: string[]) => number[];
   getUsersByHomeCityInCities: (cityNames: string[]) => SubscriberInfo[];
   shouldSkipForQuietHours: (alertType: string, quietEnabled: boolean, now: Date) => boolean;
   sendDm: (userId: number, text: string) => Promise<void>;

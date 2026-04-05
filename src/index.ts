@@ -28,7 +28,7 @@ import { createMessageHandler } from './whatsapp/whatsappListenerService.js';
 import { initializeTelegramListener } from './telegram-listener/telegramListenerService.js';
 import { disconnect as disconnectTelegramListener } from './telegram-listener/telegramListenerClient.js';
 import { InputFile } from 'grammy';
-import { initSubscriptionCache, getUserIdsByZone, getUsersByHomeCityInCities } from './db/subscriptionRepository.js';
+import { initSubscriptionCache, getUsersByHomeCityInCities } from './db/subscriptionRepository.js';
 import { initUsageCache } from './db/mapboxUsageRepository.js';
 import { createAllClearTracker } from './services/allClearTracker.js';
 import { createAllClearService } from './services/allClearService.js';
@@ -168,7 +168,6 @@ for (const envVar of REQUIRED_ENV_VARS) {
         ...(topicId != null ? { message_thread_id: topicId } : {}),
       });
     },
-    getUserIdsByZone,
     getUsersByHomeCityInCities,
     shouldSkipForQuietHours,
     sendDm: async (userId, text) => {

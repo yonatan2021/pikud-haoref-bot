@@ -53,13 +53,6 @@ function fakeDb(settings: Record<string, string>): Database.Database {
   } as unknown as Database.Database;
 }
 
-/**
- * Creates a fully-wired tracker + service stack with injectable spies.
- *
- * @param mode - all_clear_mode setting ('dm' | 'channel' | 'both')
- * @param topicId - all_clear_topic_id (optional)
- * @param getUserIdsByZone - spy for subscriber lookup
- */
 function makeSubscriber(chatId: number): SubscriberInfo {
   return {
     chat_id: chatId,
@@ -71,10 +64,17 @@ function makeSubscriber(chatId: number): SubscriberInfo {
   };
 }
 
+/**
+ * Creates a fully-wired tracker + service stack with injectable spies.
+ *
+ * @param mode - all_clear_mode setting ('dm' | 'channel' | 'both')
+ * @param topicId - all_clear_topic_id (optional)
+ * @param getSubscribers - returns subscribers for given cities (default: empty)
+ */
 function makeStack(
   mode: string,
   topicId?: number,
-  getUserIdsByZone: (zones: string[]) => number[] = () => []
+  getSubscribers: (cities: string[]) => SubscriberInfo[] = () => []
 ) {
   const settings: Record<string, string> = { all_clear_mode: mode };
   if (topicId !== undefined) settings['all_clear_topic_id'] = String(topicId);
@@ -83,16 +83,11 @@ function makeStack(
   const telegramCalls: Array<{ chatId: string; topicId: number | undefined; text: string }> = [];
   const renderCalls: Array<{ zone: string; alertType: string }> = [];
 
-  // Bridge getUserIdsByZone to getUsersByHomeCityInCities for integration tests
-  const getUsersByHomeCityInCities = (_cities: string[]) =>
-    getUserIdsByZone([]).map((id) => makeSubscriber(id));
-
   const service = createAllClearService({
     db: fakeDb(settings),
     chatId: 'chan-test',
     sendTelegram: async (chatId, tid, text) => { telegramCalls.push({ chatId, topicId: tid, text }); },
-    getUserIdsByZone,
-    getUsersByHomeCityInCities,
+    getUsersByHomeCityInCities: getSubscribers,
     shouldSkipForQuietHours: () => false,
     sendDm: async (userId, text) => { dmCalls.push({ userId, text }); },
     renderTemplate: (zone, alertType) => {
@@ -115,7 +110,7 @@ function makeStack(
 
 describe('allClearIntegration — dm mode', () => {
   it('sends DM to zone subscribers after quiet window expires', async () => {
-    const { tracker, timers, dmCalls, telegramCalls } = makeStack('dm', undefined, () => [10, 20]);
+    const { tracker, timers, dmCalls, telegramCalls } = makeStack('dm', undefined, () => [makeSubscriber(10), makeSubscriber(20)]);
 
     tracker.recordAlert(['גליל עליון'], 'missiles');
     assert.equal(dmCalls.length, 0, 'No DM before timer fires');
@@ -147,7 +142,7 @@ describe('allClearIntegration — dm mode', () => {
 
 describe('allClearIntegration — cancelAlert (official "האירוע הסתיים")', () => {
   it('suppresses all-clear when cancelAlert is called before timer fires', async () => {
-    const { tracker, timers, dmCalls } = makeStack('dm', undefined, () => [99]);
+    const { tracker, timers, dmCalls } = makeStack('dm', undefined, () => [makeSubscriber(99)]);
 
     tracker.recordAlert(['דן'], 'missiles');
     assert.equal(timers.pendingCount(), 1);
@@ -164,7 +159,7 @@ describe('allClearIntegration — cancelAlert (official "האירוע הסתיי
   });
 
   it('cancelAlert does not prevent future alerts for the same zone', async () => {
-    const { tracker, timers, dmCalls } = makeStack('dm', undefined, () => [5]);
+    const { tracker, timers, dmCalls } = makeStack('dm', undefined, () => [makeSubscriber(5)]);
 
     tracker.recordAlert(['דן'], 'missiles');
     tracker.cancelAlert(['דן']); // official cancel
@@ -183,7 +178,7 @@ describe('allClearIntegration — cancelAlert (official "האירוע הסתיי
 
 describe('allClearIntegration — timer reset', () => {
   it('new alert resets the timer and all-clear fires after the second window', async () => {
-    const { tracker, timers, dmCalls } = makeStack('dm', undefined, () => [1]);
+    const { tracker, timers, dmCalls } = makeStack('dm', undefined, () => [makeSubscriber(1)]);
 
     tracker.recordAlert(['שרון'], 'missiles');
     assert.equal(timers.pendingCount(), 1, 'First timer scheduled');
@@ -207,7 +202,6 @@ describe('allClearIntegration — duplicate suppression', () => {
       db: fakeDb({ all_clear_mode: 'dm' }),
       chatId: 'c',
       sendTelegram: async () => {},
-      getUserIdsByZone: () => [1],
       getUsersByHomeCityInCities: () => [makeSubscriber(1)],
       shouldSkipForQuietHours: () => false,
       sendDm: async () => { firedCount++; },
@@ -239,7 +233,7 @@ describe('allClearIntegration — duplicate suppression', () => {
 
 describe('allClearIntegration — channel mode', () => {
   it('sends to channel with configured topicId, no DMs', async () => {
-    const { tracker, timers, dmCalls, telegramCalls } = makeStack('channel', 888, () => [1, 2]);
+    const { tracker, timers, dmCalls, telegramCalls } = makeStack('channel', 888, () => [makeSubscriber(1), makeSubscriber(2)]);
 
     tracker.recordAlert(['חיפה'], 'missiles');
     timers.fireAll();
@@ -256,7 +250,7 @@ describe('allClearIntegration — channel mode', () => {
 
 describe('allClearIntegration — both mode', () => {
   it('sends DM and channel message', async () => {
-    const { tracker, timers, dmCalls, telegramCalls } = makeStack('both', 999, () => [7]);
+    const { tracker, timers, dmCalls, telegramCalls } = makeStack('both', 999, () => [makeSubscriber(7)]);
 
     tracker.recordAlert(['נגב'], 'missiles');
     timers.fireAll();
@@ -272,7 +266,7 @@ describe('allClearIntegration — both mode', () => {
 
 describe('allClearIntegration — alertType passed through', () => {
   it('renderTemplate receives the correct alertType from recordAlert', async () => {
-    const { tracker, timers, renderCalls } = makeStack('dm', undefined, () => [1]);
+    const { tracker, timers, renderCalls } = makeStack('dm', undefined, () => [makeSubscriber(1)]);
 
     tracker.recordAlert(['תל אביב'], 'earthQuake');
     timers.fireAll();

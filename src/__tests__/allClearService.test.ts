@@ -33,7 +33,6 @@ function makeSubscriber(overrides: Partial<SubscriberInfo> & { chat_id: number }
 function makeService(opts: {
   mode: string;
   topicId?: number;
-  getUserIdsByZone?: (zones: string[]) => number[];
   getUsersByHomeCityInCities?: (cityNames: string[]) => SubscriberInfo[];
   shouldSkipForQuietHours?: (alertType: string, quietEnabled: boolean, now: Date) => boolean;
   dmAllClearText?: string;
@@ -49,7 +48,6 @@ function makeService(opts: {
     db: fakeDb(settings),
     chatId: 'chan-123',
     sendTelegram: async (chatId, tid, text) => { telegramCalls.push({ chatId, topicId: tid, text }); },
-    getUserIdsByZone: opts.getUserIdsByZone ?? (() => []),
     getUsersByHomeCityInCities: opts.getUsersByHomeCityInCities ?? (() => []),
     shouldSkipForQuietHours: opts.shouldSkipForQuietHours ?? (() => false),
     sendDm: async (userId, text) => { dmCalls.push({ userId, text }); },
@@ -93,7 +91,7 @@ describe('allClearService — dm mode', () => {
       db: fakeDb({}), // no all_clear_mode key → defaults to 'dm'
       chatId: 'c',
       sendTelegram: async () => { throw new Error('should not be called'); },
-      getUserIdsByZone: () => [99],
+
       getUsersByHomeCityInCities: () => [makeSubscriber({ chat_id: 99, home_city: 'חיפה' })],
       shouldSkipForQuietHours: () => false,
       sendDm: async (userId) => { dmCalls.push({ userId }); },
@@ -110,7 +108,7 @@ describe('allClearService — channel mode', () => {
     const { service, dmCalls, telegramCalls } = makeService({
       mode: 'channel',
       topicId: 555,
-      getUserIdsByZone: () => [1, 2],
+
       getUsersByHomeCityInCities: () => [makeSubscriber({ chat_id: 1 }), makeSubscriber({ chat_id: 2 })],
     });
 
@@ -176,7 +174,7 @@ describe('allClearService — error resilience', () => {
       db: fakeDb({ all_clear_mode: 'dm' }),
       chatId: 'c',
       sendTelegram: async () => {},
-      getUserIdsByZone: () => [],
+
       getUsersByHomeCityInCities: () => [
         makeSubscriber({ chat_id: 1 }),
         makeSubscriber({ chat_id: 2 }),
@@ -201,7 +199,7 @@ describe('allClearService — error resilience', () => {
       db: fakeDb({ all_clear_mode: 'channel' }),
       chatId: 'c',
       sendTelegram: async () => { callCount++; throw new Error('network error'); },
-      getUserIdsByZone: () => [],
+
       getUsersByHomeCityInCities: () => [],
       shouldSkipForQuietHours: () => false,
       sendDm: async () => {},
