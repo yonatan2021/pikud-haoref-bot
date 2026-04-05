@@ -64,6 +64,14 @@ export function createSettingsRouter(db: Database.Database): Router {
       res.status(400).json({ error: `מפתחות לא חוקיים: ${invalid.join(', ')}` });
       return;
     }
+    const allClearModeUpdate = updates['all_clear_mode'];
+    if (allClearModeUpdate !== undefined) {
+      const valid = ['dm', 'channel', 'both'];
+      if (!valid.includes(allClearModeUpdate)) {
+        res.status(400).json({ error: `ערך לא חוקי ל-all_clear_mode: ${allClearModeUpdate}` });
+        return;
+      }
+    }
     for (const [key, value] of Object.entries(updates)) {
       setSetting(db, key, String(value));
     }
