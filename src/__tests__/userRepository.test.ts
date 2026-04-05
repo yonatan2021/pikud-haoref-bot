@@ -24,6 +24,7 @@ import {
   setMutedUntil,
   deleteUser,
 } from '../db/userRepository';
+import { initSchema } from '../db/schema';
 
 describe('userRepository — v0.4.1 profile fields', () => {
   before(() => { initDb(); });
