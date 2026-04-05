@@ -11,13 +11,15 @@ export interface AlertHandlerDeps {
     alert: Alert,
     imageBuffer: Buffer | null,
     topicId?: number,
-    serial?: number
+    serial?: number,
+    density?: 'חריג' | 'רגיל' | null
   ) => Promise<{ messageId: number; hasPhoto: boolean }>;
   editAlert: (
     tracked: { messageId: number; chatId: string; hasPhoto: boolean },
     alert: Alert,
     imageBuffer: Buffer | null,
-    serial?: number
+    serial?: number,
+    density?: 'חריג' | 'רגיל' | null
   ) => Promise<void>;
   getActiveMessage: (alertType: string) => TrackedMessage | null;
   trackMessage: (alertType: string, msg: TrackedMessage) => void;
@@ -27,6 +29,7 @@ export interface AlertHandlerDeps {
   insertAlertHistory: (alert: Alert) => void;
   broadcastToWhatsApp?: (alert: Alert, imageBuffer?: Buffer | null) => Promise<void>;
   getNextSerial?: () => number;
+  getDensityHint?: () => 'חריג' | 'רגיל' | null;
 }
 
 export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Promise<void> {
@@ -43,11 +46,13 @@ export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Prom
     insertAlertHistory,
     broadcastToWhatsApp,
     getNextSerial,
+    getDensityHint,
   } = deps;
 
   const skipMap = shouldSkipMap(alert.type, alert.instructions);
   const topicId = getTopicId(alert.type);
   const serial = getNextSerial?.();
+  const density = getDensityHint?.();
 
   // The resolved alert that DM subscribers should receive — either the merged
   // alert (edit path) or the original (fresh send path).
@@ -87,7 +92,7 @@ export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Prom
 
       let editHandled = false;
       try {
-        await editAlert(active, mergedAlert, imageBuffer, serial);
+        await editAlert(active, mergedAlert, imageBuffer, serial, density);
         trackMessage(alert.type, { ...active, alert: mergedAlert });
         editHandled = true;
         sentToGroup = true;
@@ -108,7 +113,7 @@ export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Prom
 
       if (!editHandled) {
         try {
-          const sent = await sendAlert(mergedAlert, imageBuffer, topicId, serial);
+          const sent = await sendAlert(mergedAlert, imageBuffer, topicId, serial, density);
           trackMessage(alert.type, {
             messageId: sent.messageId,
             chatId,
@@ -137,7 +142,7 @@ export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Prom
         }
       }
       lastImageBuffer = imageBuffer;
-      const sent = await sendAlert(alert, imageBuffer, topicId, serial);
+      const sent = await sendAlert(alert, imageBuffer, topicId, serial, density);
       trackMessage(alert.type, {
         messageId: sent.messageId,
         chatId,

@@ -146,7 +146,7 @@ export function buildZoneOnlyList(cities: string[]): string {
   return sections.join('\n');
 }
 
-export function formatAlertMessage(alert: Alert, serial?: number): string {
+export function formatAlertMessage(alert: Alert, serial?: number, density?: 'חריג' | 'רגיל' | null): string {
   const actionCard = buildActionCard(alert.type);
   const emoji = getEmoji(alert.type);
   const title = getTitleHe(alert.type);
@@ -192,7 +192,8 @@ export function formatAlertMessage(alert: Alert, serial?: number): string {
       month: '2-digit',
       year: 'numeric',
     });
-    parts.push(`<i>#${serial} \u00B7 ${escapeHtml(dateStr)}</i>`);
+    const densitySuffix = density === 'חריג' ? ` \u00B7 \u26A0\uFE0F ${escapeHtml('חריג')}` : '';
+    parts.push(`<i>#${serial} \u00B7 ${escapeHtml(dateStr)}${densitySuffix}</i>`);
   }
 
   return parts.join('\n\n');
@@ -224,13 +225,14 @@ export async function sendAlert(
   alert: Alert,
   imageBuffer: Buffer | null,
   messageThreadId?: number,
-  serial?: number
+  serial?: number,
+  density?: 'חריג' | 'רגיל' | null
 ): Promise<SentMessage> {
   const bot = getBot();
   const chatId = process.env.TELEGRAM_CHAT_ID;
   if (!chatId) throw new Error('TELEGRAM_CHAT_ID חסר בקובץ .env');
 
-  const message = formatAlertMessage(alert, serial);
+  const message = formatAlertMessage(alert, serial, density);
   const threadOptions = messageThreadId ? { message_thread_id: messageThreadId } : {};
   const topicStr = messageThreadId ? ` → topic ${messageThreadId}` : '';
   const payload = buildSendPayload(message, imageBuffer);
@@ -332,9 +334,10 @@ export async function _editAlertChain(
   tracked: { messageId: number; chatId: string; hasPhoto: boolean },
   alert: Alert,
   imageBuffer: Buffer | null,
-  serial?: number
+  serial?: number,
+  density?: 'חריג' | 'רגיל' | null
 ): Promise<void> {
-  const message = formatAlertMessage(alert, serial);
+  const message = formatAlertMessage(alert, serial, density);
   const method = selectEditMethod(tracked.hasPhoto, imageBuffer);
 
   if (method === 'media') {
@@ -352,7 +355,7 @@ export async function _editAlertChain(
       return;
     } catch (err) {
       if (isUnmodifiedError(err)) {
-        log('warn', 'Bot', `Message ${tracked.messageId} not modified (media step) — treating as success`);
+        log('info', 'Bot', `Message ${tracked.messageId} not modified (media step) — treating as success`);
         return;
       }
       if (isMessageGoneError(err)) {
@@ -376,7 +379,7 @@ export async function _editAlertChain(
       return;
     } catch (err) {
       if (isUnmodifiedError(err)) {
-        log('warn', 'Bot', `Message ${tracked.messageId} not modified (caption step) — treating as success`);
+        log('info', 'Bot', `Message ${tracked.messageId} not modified (caption step) — treating as success`);
         return;
       }
       if (isMessageGoneError(err)) {
@@ -397,7 +400,7 @@ export async function _editAlertChain(
     );
   } catch (err) {
     if (isUnmodifiedError(err)) {
-      log('warn', 'Bot', `Message ${tracked.messageId} not modified (text step) — treating as success`);
+      log('info', 'Bot', `Message ${tracked.messageId} not modified (text step) — treating as success`);
       return;
     }
     throw err;
@@ -408,8 +411,9 @@ export async function editAlert(
   tracked: { messageId: number; chatId: string; hasPhoto: boolean },
   alert: Alert,
   imageBuffer: Buffer | null,
-  serial?: number
+  serial?: number,
+  density?: 'חריג' | 'רגיל' | null
 ): Promise<void> {
   const bot = getBot();
-  await _editAlertChain(bot.api as unknown as EditBotApi, tracked, alert, imageBuffer, serial);
+  await _editAlertChain(bot.api as unknown as EditBotApi, tracked, alert, imageBuffer, serial, density);
 }

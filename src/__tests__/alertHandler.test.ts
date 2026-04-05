@@ -343,4 +343,37 @@ describe('handleNewAlert', () => {
       );
     });
   });
+
+  describe('getDensityHint dep', () => {
+    it('passes density from getDensityHint to sendAlert as 5th argument', async () => {
+      const deps = makeDeps({
+        getDensityHint: mock.fn(() => 'חריג' as const),
+      });
+      await handleNewAlert(BASE_ALERT, deps);
+      const sendCalls = (deps.sendAlert as unknown as ReturnType<typeof mock.fn>).mock.calls;
+      assert.equal(sendCalls.length, 1, 'sendAlert should be called once');
+      assert.equal(sendCalls[0].arguments[4], 'חריג', 'density should be passed as 5th arg');
+    });
+
+    it('passes undefined density when getDensityHint is absent', async () => {
+      const deps = makeDeps();
+      // getDensityHint is not in the default makeDeps — should default to undefined
+      await handleNewAlert(BASE_ALERT, deps);
+      const sendCalls = (deps.sendAlert as unknown as ReturnType<typeof mock.fn>).mock.calls;
+      assert.equal(sendCalls.length, 1);
+      assert.equal(sendCalls[0].arguments[4], undefined, 'density arg should be undefined when dep absent');
+    });
+
+    it('passes density from getDensityHint to editAlert on edit path', async () => {
+      const active = makeTracked({ alert: { type: 'missiles', cities: ['תל אביב'] } });
+      const deps = makeDeps({
+        getActiveMessage: mock.fn(() => active),
+        getDensityHint: mock.fn(() => 'חריג' as const),
+      });
+      await handleNewAlert(BASE_ALERT, deps);
+      const editCalls = (deps.editAlert as unknown as ReturnType<typeof mock.fn>).mock.calls;
+      assert.equal(editCalls.length, 1, 'editAlert should be called once on edit path');
+      assert.equal(editCalls[0].arguments[4], 'חריג', 'density should be passed as 5th arg to editAlert');
+    });
+  });
 });

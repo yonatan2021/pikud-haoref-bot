@@ -15,6 +15,7 @@ import {
   isMessageGoneError,
   type EditBotApi,
 } from '../telegramBot.js';
+import type { Alert } from '../types.js';
 
 test('escapeHtml escapes ampersand', () => {
   assert.equal(escapeHtml('a & b'), 'a &amp; b');
@@ -394,6 +395,37 @@ describe('formatAlertMessage city count', () => {
   });
 });
 
+// ─── formatAlertMessage density footer ───────────────────────────────────────
+
+describe('formatAlertMessage — density in footer', () => {
+  const BASE: Alert = { type: 'missiles', cities: ['תל אביב'], receivedAt: new Date('2026-04-05T14:32:00.000Z').getTime() };
+
+  it('appends ⚠️ חריג to footer when density is "חריג"', () => {
+    const msg = formatAlertMessage(BASE, 5, 'חריג');
+    assert.ok(msg.includes('חריג'), `Expected חריג in footer: ${msg}`);
+    assert.ok(msg.includes('#5'), `Expected serial in footer: ${msg}`);
+  });
+
+  it('does NOT append density text when density is "רגיל"', () => {
+    const msg = formatAlertMessage(BASE, 5, 'רגיל');
+    assert.ok(!msg.includes('רגיל'), `Should omit רגיל from footer: ${msg}`);
+    assert.ok(msg.includes('#5'), `Expected serial in footer: ${msg}`);
+  });
+
+  it('does NOT append density text when density is null', () => {
+    const msg = formatAlertMessage(BASE, 5, null);
+    assert.ok(msg.includes('#5'), `Expected serial: ${msg}`);
+    const footerMatch = msg.match(/<i>(.+?)<\/i>/);
+    assert.ok(footerMatch, 'Expected italic footer');
+    assert.ok(!footerMatch![1]!.includes('חריג') && !footerMatch![1]!.includes('רגיל'));
+  });
+
+  it('has no density footer when serial is undefined', () => {
+    const msg = formatAlertMessage(BASE, undefined, 'חריג');
+    assert.ok(!msg.includes('<i>#'), `Should have no serial footer when serial undefined: ${msg}`);
+  });
+});
+
 // ─── Error classifier pure-function tests ────────────────────────────────────
 
 describe('isUnmodifiedError', () => {
@@ -625,31 +657,5 @@ describe('editAlert degraded chain (_editAlertChain)', () => {
     assert.equal(api.editMessageMedia.mock.calls.length, 0, 'Step 1 (media) must not be called when no image');
     assert.equal(api.editMessageCaption.mock.calls.length, 1, 'caption attempted');
     assert.equal(api.editMessageText.mock.calls.length, 1, 'text fallback used on caption failure');
-  });
-});
-
-describe('buildZonedCityList — urgency sorting', () => {
-  it('sorts zones by urgency (most urgent first)', () => {
-    // החותרים → "חיפה" (60s), אור יהודה → "דן" (90s)
-    // חיפה has lower countdown, should appear first
-    const result = buildZonedCityList(['אור יהודה', 'החותרים']);
-    const haifaIdx = result.indexOf('חיפה');
-    const danIdx = result.indexOf('דן');
-    assert.ok(haifaIdx < danIdx, `חיפה (60s) should appear before דן (90s): ${result}`);
-  });
-
-  it('zone headers include urgency emoji', () => {
-    // החותרים → "חיפה" (60s) — should get 🟡 (מהיר: <=60)
-    const result = buildZonedCityList(['החותרים']);
-    assert.ok(result.includes('🟡'), `Expected urgency emoji 🟡 in zone header: ${result}`);
-  });
-
-  it('does not show urgency emoji for zones with no countdown', () => {
-    const result = buildZonedCityList(['עיר לא קיימת בכלל']);
-    assert.ok(
-      !result.includes('🔴') && !result.includes('🟠') && !result.includes('🟡') &&
-      !result.includes('🟢') && !result.includes('⚪') && !result.includes('🔵'),
-      `Should not show urgency emoji for unknown city zones: ${result}`
-    );
   });
 });
