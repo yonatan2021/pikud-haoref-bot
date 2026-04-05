@@ -6,7 +6,7 @@ import { getActiveMessage, trackMessage, loadActiveMessages } from './alertWindo
 import { getTopicId } from './topicRouter';
 import { Alert } from './types';
 import { initDb, closeDb } from './db/schema';
-import { initializeCache } from './mapService';
+import { initializeCache, setMapboxToken } from './mapService';
 import { setupBotHandlers } from './bot/botSetup';
 import { notifySubscribers, shouldSkipForQuietHours } from './services/dmDispatcher';
 import { dmQueue } from './services/dmQueue.js';
@@ -66,6 +66,9 @@ const dashboardSecretBoot = process.env.DASHBOARD_SECRET;
       'telegram_chat_id',
       'mapbox_access_token',
     ]);
+
+    // Inject resolved Mapbox token into mapService module cache
+    setMapboxToken(resolvedConfig['mapbox_access_token']);
 
     initSubscriptionCache();
     initUsageCache();

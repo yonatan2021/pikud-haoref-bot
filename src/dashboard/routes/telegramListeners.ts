@@ -21,6 +21,7 @@ import {
   type TelegramListenerStatus,
 } from '../../telegram-listener/telegramListenerClient.js';
 import { getSetting } from '../settingsRepository.js';
+import { resolveConfig } from '../../config/configResolver.js';
 import { log } from '../../logger.js';
 import { createRateLimitMiddleware } from '../rateLimiter.js';
 
@@ -204,7 +205,7 @@ export function createTelegramListenerRouter(
   // GET /listeners/telegram-topics
   router.get('/listeners/telegram-topics', async (_req: Request, res: Response) => {
     let liveTopics: Array<{ id: number; name: string }> = [];
-    const chatId = process.env['TELEGRAM_FORWARD_GROUP_ID'] ?? process.env['TELEGRAM_CHAT_ID'];
+    const chatId = resolveConfig(db, 'telegram_forward_group_id') ?? resolveConfig(db, 'telegram_chat_id');
     if (chatId) {
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

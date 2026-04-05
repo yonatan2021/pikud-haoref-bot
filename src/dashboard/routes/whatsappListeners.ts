@@ -9,6 +9,7 @@ import {
   deleteListener,
 } from '../../db/whatsappListenerRepository.js';
 import { getSetting } from '../../dashboard/settingsRepository.js';
+import { resolveConfig } from '../../config/configResolver.js';
 import { log } from '../../logger.js';
 
 const VALID_CHANNEL_TYPES = new Set(['group', 'newsletter']);
@@ -31,7 +32,7 @@ export function createListenersRouter(db: Database.Database, bot: Bot): Router {
   router.get('/telegram-topics', async (_req: Request, res: Response) => {
     // 1. Try live Telegram API
     let liveTopics: Array<{ id: number; name: string }> = [];
-    const chatId = process.env['TELEGRAM_FORWARD_GROUP_ID'] ?? process.env['TELEGRAM_CHAT_ID'];
+    const chatId = resolveConfig(db, 'telegram_forward_group_id') ?? resolveConfig(db, 'telegram_chat_id');
     if (chatId) {
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -38,6 +38,7 @@ import {
 } from '../../whatsapp/whatsappFormatter.js';
 import { getRecentAlerts } from '../../db/alertHistoryRepository.js';
 import { createRateLimitMiddleware } from '../rateLimiter.js';
+import { resolveConfig } from '../../config/configResolver.js';
 import { log } from '../../logger.js';
 import type { Alert } from '../../types.js';
 
@@ -356,7 +357,7 @@ export function createMessagesRouter(db: Database.Database, bot: Bot, whatsappDe
         ? formattedMessage.slice(0, formattedMessage.lastIndexOf('\n\n', maxBody)) + '\n\n<i>…קוצר</i>'
         : formattedMessage;
 
-      const chatId = process.env.TELEGRAM_CHAT_ID;
+      const chatId = resolveConfig(db, 'telegram_chat_id');
       if (!chatId) {
         errors.push('TELEGRAM_CHAT_ID לא מוגדר');
       } else {
@@ -483,7 +484,7 @@ export function createMessagesRouter(db: Database.Database, bot: Bot, whatsappDe
       return;
     }
 
-    const chatId = process.env.TELEGRAM_CHAT_ID;
+    const chatId = resolveConfig(db, 'telegram_chat_id');
     if (!chatId) {
       res.status(500).json({ error: 'TELEGRAM_CHAT_ID לא מוגדר' });
       return;

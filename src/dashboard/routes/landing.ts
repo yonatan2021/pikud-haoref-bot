@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type Database from 'better-sqlite3';
 import { getSetting, setSetting } from '../settingsRepository.js';
+import { resolveConfig } from '../../config/configResolver.js';
 import { log } from '../../logger.js';
 import { createRateLimitMiddleware } from '../rateLimiter.js';
 
@@ -22,10 +23,10 @@ export function createLandingRouter(db: Database.Database): Router {
   router.get('/config', (_req, res) => {
     const lastDeploy = getSetting(db, 'last_landing_deploy') ?? null;
     res.json({
-      ga4MeasurementId: getSetting(db, 'ga4_measurement_id') ?? process.env.GA4_MEASUREMENT_ID ?? '',
+      ga4MeasurementId: resolveConfig(db, 'ga4_measurement_id') ?? '',
       lastDeploy,
       siteUrl: getSetting(db, 'landing_url') ?? '',
-      githubRepo: getSetting(db, 'github_repo') ?? process.env.GITHUB_REPO ?? '',
+      githubRepo: resolveConfig(db, 'github_repo') ?? '',
       deployStatus: lastDeploy ? 'deployed' : 'never',
     });
   });
@@ -50,8 +51,8 @@ export function createLandingRouter(db: Database.Database): Router {
   });
 
   router.post('/deploy', deployLimiter, async (_req, res) => {
-    const token = process.env.GITHUB_PAT;
-    const repo = getSetting(db, 'github_repo') ?? process.env.GITHUB_REPO ?? '';
+    const token = resolveConfig(db, 'github_pat');
+    const repo = resolveConfig(db, 'github_repo') ?? '';
     if (!token || !repo) {
       res.status(400).json({ error: 'GITHUB_PAT או GITHUB_REPO לא מוגדרים' });
       return;

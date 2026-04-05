@@ -12,6 +12,18 @@ import { loadCacheEntries, saveCacheEntry, deleteCacheEntry, pruneCacheEntries }
 import { getZoneColor } from './config/zoneColors.js';
 import { log } from './logger.js';
 
+/** Injected Mapbox token from configResolver; falls back to process.env. */
+let _mapboxToken: string | undefined;
+
+/** Set the Mapbox token from config resolution (called once at startup). */
+export function setMapboxToken(token: string): void {
+  _mapboxToken = token;
+}
+
+function getMapboxToken(): string {
+  return _mapboxToken ?? process.env.MAPBOX_ACCESS_TOKEN ?? '';
+}
+
 const MAPBOX_URL_MAX_LENGTH = 8000;
 export const SIMPLIFY_TOLERANCE = 0.0003;
 export const SIMPLIFY_TOLERANCE_AGGRESSIVE = 0.003;
@@ -113,7 +125,7 @@ export function _seedCache(alert: Alert, buffer: Buffer): void {
 
 function buildMapboxUrl(geojson: FeatureCollection<Polygon>, style: string, padding: number): string {
   const encoded = encodeURIComponent(JSON.stringify(geojson));
-  const token = process.env.MAPBOX_ACCESS_TOKEN ?? '';
+  const token = getMapboxToken();
   return (
     `https://api.mapbox.com/styles/v1/${style}/static/` +
     `geojson(${encoded})/auto/${MAP_DIMENSIONS}?padding=${padding}&access_token=${token}`
@@ -140,7 +152,7 @@ export function _buildMarkersUrl(
   style: string = getCurrentMapStyle(),
   padding: number = getAdaptivePadding(cityIds.length),
 ): string | null {
-  const token = process.env.MAPBOX_ACCESS_TOKEN ?? '';
+  const token = getMapboxToken();
   const hex = getAlertColor(alertType).replace('#', '');
   const markers = cityIds
     .map((id) => getCityById(id))
@@ -165,7 +177,7 @@ function buildMarkersWithPaddingUrl(
   style: string,
   padding: number,
 ): string | null {
-  const token = process.env.MAPBOX_ACCESS_TOKEN ?? '';
+  const token = getMapboxToken();
   const hex = getAlertColor(alertType).replace('#', '');
 
   const cities = cityIds
