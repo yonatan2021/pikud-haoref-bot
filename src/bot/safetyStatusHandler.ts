@@ -3,8 +3,6 @@ import type Database from 'better-sqlite3';
 import { upsertSafetyStatus, getSafetyStatus } from '../db/safetyStatusRepository.js';
 import type { SafetyStatusRow } from '../db/safetyStatusRepository.js';
 import { markPromptResponded, getSafetyPromptById } from '../db/safetyPromptRepository.js';
-import { listContacts, getPermissions } from '../db/contactRepository.js';
-import { getUser } from '../db/userRepository.js';
 import { createUserCooldown } from './userCooldown.js';
 import { formatRelativeTime, formatTimeUntil } from '../textUtils.js';
 import { log } from '../logger.js';
@@ -147,12 +145,12 @@ export function registerSafetyStatusHandler(bot: Bot): void {
   });
 }
 
-/** Stub — Epic C will implement contact notifications. */
+/** Stub — full implementation in Issue #177. */
 export async function notifyContactsOfStatusChange(
   _db: Database.Database,
   _bot: Bot,
   _chatId: number,
   _status: string
 ): Promise<void> {
-  // TODO: implement in Epic C
+  // TODO: implement in Issue #177
 }

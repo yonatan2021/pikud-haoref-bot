@@ -69,7 +69,7 @@ describe('setupBotHandlers', () => {
     assert.equal(typeof bot._getCatchHandler(), 'function', 'catch handler should be a function');
   });
 
-  it('calls bot.api.setMyCommands with all 8 commands', async () => {
+  it('calls bot.api.setMyCommands with all 14 commands', async () => {
     const bot = buildMockBot();
     await setupBotHandlers(bot as unknown as Bot);
 
