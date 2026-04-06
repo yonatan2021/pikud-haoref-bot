@@ -28,6 +28,7 @@ export interface AlertHandlerDeps {
   getTopicId: (alertType: string) => number | undefined;
   insertAlertHistory: (alert: Alert) => void;
   broadcastToWhatsApp?: (alert: Alert, imageBuffer?: Buffer | null) => Promise<void>;
+  dispatchSafetyPrompts?: (alert: Alert) => Promise<void>;
   getNextSerial?: () => number;
   getDensityHint?: () => 'חריג' | 'רגיל' | null;
 }
@@ -45,6 +46,7 @@ export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Prom
     getTopicId,
     insertAlertHistory,
     broadcastToWhatsApp,
+    dispatchSafetyPrompts,
     getNextSerial,
     getDensityHint,
   } = deps;
@@ -183,6 +185,8 @@ export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Prom
       log('warn', 'AlertHandler', `DM נשלח למרות כישלון ערוץ — type=${alert.type}, ${dmCities.length} ערים`);
     }
     notifySubscribers({ ...alert, cities: dmCities });
+    dispatchSafetyPrompts?.({ ...alert, cities: dmCities })
+      .catch((err) => log('error', 'AlertHandler', `[safetyPrompts] ${err}`));
   }
 
   if (broadcastToWhatsApp) {
