@@ -118,3 +118,174 @@ describe('safetyStatusHandler', () => {
     assert.ok(String(answerCalls[0].arguments[0]).includes('כבר עדכנת'));
   });
 });
+
+// ─── /status command + contacts view tests ──────────────────────────────────
+// Uses initDb() singleton because listContacts/getPermissions call getDb() internally.
+
+describe('safetyStatusHandler — /status and contacts view', () => {
+  before(() => {
+    process.env['DB_PATH'] = ':memory:';
+    initDb();
+  });
+
+  beforeEach(() => {
+    const db = getDb();
+    db.prepare('DELETE FROM contact_permissions').run();
+    db.prepare('DELETE FROM contacts').run();
+    db.prepare('DELETE FROM safety_status').run();
+    db.prepare('DELETE FROM users').run();
+    setSafetyStatusHandlerDeps(db);
+  });
+
+  /** Registers all handlers and returns command/callback dispatchers. */
+  function buildBot() {
+    const commands: Record<string, (ctx: unknown) => Promise<void>> = {};
+    const callbacks: Array<[string | RegExp, (ctx: unknown) => Promise<void>]> = [];
+    const bot: any = {
+      command: (name: string, h: (ctx: unknown) => Promise<void>) => { commands[name] = h; },
+      callbackQuery: (pat: string | RegExp, h: (ctx: unknown) => Promise<void>) => {
+        callbacks.push([pat, h]);
+      },
+    };
+    registerSafetyStatusHandler(bot);
+    return {
+      fireCmd: async (name: string, ctx: unknown) => commands[name]?.(ctx),
+      fireCb: async (data: string, ctx: unknown) => {
+        for (const [pat, h] of callbacks) {
+          if (typeof pat === 'string' && pat === data) { await h(ctx); return; }
+          if (pat instanceof RegExp && pat.test(data)) { await h(ctx); return; }
+        }
+      },
+    };
+  }
+
+  function makeCtx(chatId: number) {
+    const replies:  Array<{ text: string; opts: unknown }> = [];
+    const edits:    Array<{ text: string; opts: unknown }> = [];
+    const answers:  string[] = [];
+    return {
+      ctx: {
+        from: { id: chatId },
+        callbackQuery: { data: '' },
+        reply:           async (text: string, opts?: unknown) => { replies.push({ text, opts: opts ?? null }); },
+        editMessageText: async (text: string, opts?: unknown) => { edits.push({ text, opts: opts ?? null }); },
+        answerCallbackQuery: async (msg?: string) => { answers.push(msg ?? ''); },
+      } as unknown,
+      replies,
+      edits,
+      answers,
+    };
+  }
+
+  // ── Test 1 ──
+  it('/status — no active status → reply includes "אין סטטוס פעיל"', async () => {
+    const db = getDb();
+    db.prepare('INSERT INTO users (chat_id) VALUES (1001)').run();
+    const { fireCmd } = buildBot();
+    const { ctx, replies } = makeCtx(1001);
+    await fireCmd('status', ctx);
+    assert.equal(replies.length, 1);
+    assert.ok(replies[0].text.includes('אין סטטוס פעיל'), `Got: ${replies[0].text}`);
+  });
+
+  // ── Test 2 ──
+  it('/status — active status → reply includes status emoji and relative time', async () => {
+    const db = getDb();
+    db.prepare('INSERT INTO users (chat_id) VALUES (1002)').run();
+    upsertSafetyStatus(db, 1002, 'ok');
+    const { fireCmd } = buildBot();
+    const { ctx, replies } = makeCtx(1002);
+    await fireCmd('status', ctx);
+    assert.equal(replies.length, 1);
+    assert.ok(replies[0].text.includes('✅'), `Got: ${replies[0].text}`);
+    assert.ok(
+      replies[0].text.includes('עכשיו') || replies[0].text.includes('דקות'),
+      `Got: ${replies[0].text}`
+    );
+  });
+
+  // ── Test 3 ──
+  it('/status — expired status → treated as no status', async () => {
+    const db = getDb();
+    db.prepare('INSERT INTO users (chat_id) VALUES (1003)').run();
+    db.prepare(`
+      INSERT INTO safety_status (chat_id, status, updated_at, expires_at)
+      VALUES (1003, 'ok', datetime('now', '-2 hours'), datetime('now', '-1 second'))
+    `).run();
+    const { fireCmd } = buildBot();
+    const { ctx, replies } = makeCtx(1003);
+    await fireCmd('status', ctx);
+    assert.ok(replies[0].text.includes('אין סטטוס פעיל'), `Got: ${replies[0].text}`);
+  });
+
+  // ── Test 4 ──
+  it('safety:contacts — no contacts → editMessageText includes "אין אנשי קשר פעילים"', async () => {
+    const db = getDb();
+    db.prepare('INSERT INTO users (chat_id) VALUES (1004)').run();
+    const { fireCb } = buildBot();
+    const { ctx, edits } = makeCtx(1004);
+    await fireCb('safety:contacts', ctx);
+    assert.equal(edits.length, 1);
+    assert.ok(edits[0].text.includes('אין אנשי קשר פעילים'), `Got: ${edits[0].text}`);
+  });
+
+  // ── Test 5 ──
+  it('safety:contacts — contact with safety_status=true → contact id and status appear in message', async () => {
+    const db = getDb();
+    db.prepare('INSERT INTO users (chat_id) VALUES (1005)').run();
+    db.prepare('INSERT INTO users (chat_id) VALUES (1006)').run();
+    upsertSafetyStatus(db, 1006, 'help');
+    const contact = createContactWithPermissions(1005, 1006, { safety_status: true });
+    acceptContact(contact.id);
+    const { fireCb } = buildBot();
+    const { ctx, edits } = makeCtx(1005);
+    await fireCb('safety:contacts', ctx);
+    assert.ok(edits[0].text.includes('1006'), `Expected 1006 in text. Got: ${edits[0].text}`);
+    assert.ok(edits[0].text.includes('⚠️'), `Expected help emoji. Got: ${edits[0].text}`);
+  });
+
+  // ── Test 6 ──
+  it('safety:contacts — contact with safety_status=false → NOT shown, counted in footer', async () => {
+    const db = getDb();
+    db.prepare('INSERT INTO users (chat_id) VALUES (1007)').run();
+    db.prepare('INSERT INTO users (chat_id) VALUES (1008)').run();
+    upsertSafetyStatus(db, 1008, 'ok');
+    const contact = createContactWithPermissions(1007, 1008, { safety_status: false });
+    acceptContact(contact.id);
+    const { fireCb } = buildBot();
+    const { ctx, edits } = makeCtx(1007);
+    await fireCb('safety:contacts', ctx);
+    const text = edits[0].text;
+    assert.ok(!text.includes('1008'), `Should not show hidden contact. Got: ${text}`);
+    assert.ok(text.includes('אינם משתפים סטטוס'), `Should show hidden footer. Got: ${text}`);
+  });
+
+  // ── Test 7 ──
+  it('safety:contacts — contact status expired → shown as "⬜ לא ידוע"', async () => {
+    const db = getDb();
+    db.prepare('INSERT INTO users (chat_id) VALUES (1009)').run();
+    db.prepare('INSERT INTO users (chat_id) VALUES (1010)').run();
+    db.prepare(`
+      INSERT INTO safety_status (chat_id, status, updated_at, expires_at)
+      VALUES (1010, 'ok', datetime('now', '-2 hours'), datetime('now', '-1 second'))
+    `).run();
+    const contact = createContactWithPermissions(1009, 1010, { safety_status: true });
+    acceptContact(contact.id);
+    const { fireCb } = buildBot();
+    const { ctx, edits } = makeCtx(1009);
+    await fireCb('safety:contacts', ctx);
+    assert.ok(edits[0].text.includes('⬜ לא ידוע'), `Got: ${edits[0].text}`);
+  });
+
+  // ── Test 8 ──
+  it('safety:back → editMessageText includes "הסטטוס שלך" and answerCallbackQuery is called', async () => {
+    const db = getDb();
+    db.prepare('INSERT INTO users (chat_id) VALUES (1011)').run();
+    const { fireCb } = buildBot();
+    const { ctx, edits, answers } = makeCtx(1011);
+    await fireCb('safety:back', ctx);
+    assert.equal(edits.length, 1);
+    assert.ok(edits[0].text.includes('הסטטוס שלך'), `Got: ${edits[0].text}`);
+    assert.ok(answers.length >= 1, 'answerCallbackQuery must be called');
+  });
+});
