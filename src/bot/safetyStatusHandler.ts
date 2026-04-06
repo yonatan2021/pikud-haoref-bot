@@ -6,7 +6,7 @@ import { markPromptResponded, getSafetyPromptById } from '../db/safetyPromptRepo
 import { listContacts, getPermissions } from '../db/contactRepository.js';
 import { getUser } from '../db/userRepository.js';
 import { createUserCooldown } from './userCooldown.js';
-import { formatRelativeTime, formatTimeUntil } from '../textUtils.js';
+import { formatRelativeTime, formatTimeUntil, escapeHtml } from '../textUtils.js';
 import { log } from '../logger.js';
 
 // Set before registering (called from index.ts after initDb).
@@ -114,7 +114,7 @@ export function registerSafetyStatusHandler(bot: Bot): void {
         const otherChatId = contact.user_id === chatId ? contact.contact_id : contact.user_id;
         const contactStatus = getSafetyStatus(_db, otherChatId);
         const user = getUser(otherChatId);
-        const name = user?.display_name ?? `משתמש #${otherChatId}`;
+        const name = escapeHtml(user?.display_name ?? `משתמש #${otherChatId}`);
         const statusStr = contactStatus
           ? `${statusEmoji(contactStatus.status)} ${statusLabel(contactStatus.status)}  ·  ${formatRelativeTime(contactStatus.updated_at)}`
           : '⬜ לא ידוע';
@@ -204,7 +204,7 @@ export function registerSafetyStatusHandler(bot: Bot): void {
 }
 
 export async function notifyContactsOfStatusChange(
-  db: Database.Database,
+  _db: Database.Database,
   bot: Bot,
   chatId: number,
   status: string
