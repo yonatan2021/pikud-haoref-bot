@@ -7,7 +7,6 @@ import { getSafetyStatus, upsertSafetyStatus } from '../db/safetyStatusRepositor
 import {
   setSafetyStatusHandlerDeps,
   registerSafetyStatusHandler,
-  notifyContactsOfStatusChange,
 } from '../bot/safetyStatusHandler.js';
 import { createContactWithPermissions, acceptContact } from '../db/contactRepository.js';
 import type { Bot } from 'grammy';
