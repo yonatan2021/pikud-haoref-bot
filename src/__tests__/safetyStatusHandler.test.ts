@@ -7,7 +7,6 @@ import { getSafetyStatus, upsertSafetyStatus } from '../db/safetyStatusRepositor
 import {
   setSafetyStatusHandlerDeps,
   registerSafetyStatusHandler,
-  notifyContactsOfStatusChange,
 } from '../bot/safetyStatusHandler.js';
 import { createContactWithPermissions, acceptContact } from '../db/contactRepository.js';
 import type { Bot } from 'grammy';
@@ -159,14 +158,14 @@ describe('safetyStatusHandler — /status and contacts view', () => {
     };
   }
 
-  function makeCtx(chatId: number) {
+  function makeCtx(chatId: number, data = '') {
     const replies:  Array<{ text: string; opts: unknown }> = [];
     const edits:    Array<{ text: string; opts: unknown }> = [];
     const answers:  string[] = [];
     return {
       ctx: {
         from: { id: chatId },
-        callbackQuery: { data: '' },
+        callbackQuery: { data },
         reply:           async (text: string, opts?: unknown) => { replies.push({ text, opts: opts ?? null }); },
         editMessageText: async (text: string, opts?: unknown) => { edits.push({ text, opts: opts ?? null }); },
         answerCallbackQuery: async (msg?: string) => { answers.push(msg ?? ''); },
