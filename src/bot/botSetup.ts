@@ -21,6 +21,7 @@ export async function setupBotHandlers(bot: Bot): Promise<void> {
   registerOnboardingHandler(bot);
   registerSafetyStatusHandler(bot);
   registerProfileHandler(bot);
+  registerSafetyStatusHandler(bot);
   registerMenuHandler(bot);
   registerZoneHandler(bot);
   registerSearchHandler(bot);
@@ -31,7 +32,6 @@ export async function setupBotHandlers(bot: Bot): Promise<void> {
   registerPrivacyHandler(bot);
   registerTodayHandler(bot);
   registerLegendHandler(bot);
-  registerSafetyStatusHandler(bot);
 
   bot.catch((err) => {
     log('error', 'Bot', `Unhandled error: ${String(err)}`);
