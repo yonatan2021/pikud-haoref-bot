@@ -1,13 +1,15 @@
 import { describe, it, before, after, beforeEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
-import { initSchema } from '../db/schema.js';
+import { initSchema, initDb, getDb } from '../db/schema.js';
 import { insertSafetyPrompt } from '../db/safetyPromptRepository.js';
-import { getSafetyStatus } from '../db/safetyStatusRepository.js';
+import { getSafetyStatus, upsertSafetyStatus } from '../db/safetyStatusRepository.js';
 import {
   setSafetyStatusHandlerDeps,
   registerSafetyStatusHandler,
+  notifyContactsOfStatusChange,
 } from '../bot/safetyStatusHandler.js';
+import { createContactWithPermissions, acceptContact } from '../db/contactRepository.js';
 import type { Bot } from 'grammy';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
