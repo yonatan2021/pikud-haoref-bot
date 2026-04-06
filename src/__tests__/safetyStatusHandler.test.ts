@@ -7,6 +7,7 @@ import { getSafetyStatus, upsertSafetyStatus } from '../db/safetyStatusRepositor
 import {
   setSafetyStatusHandlerDeps,
   registerSafetyStatusHandler,
+  notifyContactsOfStatusChange,
 } from '../bot/safetyStatusHandler.js';
 import { createContactWithPermissions, acceptContact } from '../db/contactRepository.js';
 import type { Bot } from 'grammy';
@@ -214,6 +215,7 @@ describe('safetyStatusHandler — /status and contacts view', () => {
     const { fireCmd } = buildBot();
     const { ctx, replies } = makeCtx(1003);
     await fireCmd('status', ctx);
+    assert.equal(replies.length, 1, 'expected exactly one reply');
     assert.ok(replies[0].text.includes('אין סטטוס פעיל'), `Got: ${replies[0].text}`);
   });
 
@@ -273,6 +275,7 @@ describe('safetyStatusHandler — /status and contacts view', () => {
     const { fireCb } = buildBot();
     const { ctx, edits } = makeCtx(1009);
     await fireCb('safety:contacts', ctx);
+    assert.equal(edits.length, 1, 'expected exactly one editMessageText call');
     assert.ok(edits[0].text.includes('⬜ לא ידוע'), `Got: ${edits[0].text}`);
   });
 
@@ -286,5 +289,36 @@ describe('safetyStatusHandler — /status and contacts view', () => {
     assert.equal(edits.length, 1);
     assert.ok(edits[0].text.includes('הסטטוס שלך'), `Got: ${edits[0].text}`);
     assert.ok(answers.length >= 1, 'answerCallbackQuery must be called');
+  });
+
+  // ── Test 9 ──
+  it('notifyContactsOfStatusChange — sends DM to contact with safety_status=true, skips safety_status=false', async () => {
+    const db = getDb();
+    db.prepare('INSERT INTO users (chat_id) VALUES (2001)').run();
+    db.prepare('INSERT INTO users (chat_id) VALUES (2002)').run();
+    db.prepare('INSERT INTO users (chat_id) VALUES (2003)').run();
+
+    // contact A — permission granted
+    const c1 = createContactWithPermissions(2001, 2002, { safety_status: true });
+    acceptContact(c1.id);
+
+    // contact B — permission denied
+    const c2 = createContactWithPermissions(2001, 2003, { safety_status: false });
+    acceptContact(c2.id);
+
+    const sentMessages: Array<{ chatId: number; text: string }> = [];
+    const mockBot: any = {
+      api: {
+        sendMessage: async (chatId: number, text: string) => {
+          sentMessages.push({ chatId, text });
+        },
+      },
+    };
+
+    await notifyContactsOfStatusChange(db, mockBot, 2001, 'ok');
+
+    assert.equal(sentMessages.length, 1, 'should only notify contact with permission');
+    assert.equal(sentMessages[0].chatId, 2002);
+    assert.ok(sentMessages[0].text.includes('בסדר'), `Got: ${sentMessages[0].text}`);
   });
 });
