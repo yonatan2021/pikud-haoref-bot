@@ -3,6 +3,8 @@ import type Database from 'better-sqlite3';
 import { upsertSafetyStatus, getSafetyStatus } from '../db/safetyStatusRepository.js';
 import type { SafetyStatusRow } from '../db/safetyStatusRepository.js';
 import { markPromptResponded, getSafetyPromptById } from '../db/safetyPromptRepository.js';
+import { listContacts, getPermissions } from '../db/contactRepository.js';
+import { getUser } from '../db/userRepository.js';
 import { createUserCooldown } from './userCooldown.js';
 import { formatRelativeTime, formatTimeUntil } from '../textUtils.js';
 import { log } from '../logger.js';
@@ -89,15 +91,72 @@ export function registerSafetyStatusHandler(bot: Bot): void {
   bot.callbackQuery('safety:contacts', async (ctx) => {
     const chatId = ctx.from?.id;
     if (!chatId || !_db) { await ctx.answerCallbackQuery(); return; }
-    // Full implementation in Issue #177
-    await ctx.answerCallbackQuery();
+
+    try {
+      const contacts = listContacts(chatId, 'accepted');
+
+      if (contacts.length === 0) {
+        await ctx.editMessageText(
+          'אין אנשי קשר פעילים. השתמש ב-/connect כדי להתחבר.',
+          { parse_mode: 'HTML', reply_markup: backKeyboard() }
+        );
+        return;
+      }
+
+      const visibleLines: string[] = [];
+      let hiddenCount = 0;
+
+      for (const contact of contacts) {
+        const perms = getPermissions(contact.id);
+        if (!perms?.safety_status) {
+          hiddenCount++;
+          continue;
+        }
+        const otherChatId = contact.user_id === chatId ? contact.contact_id : contact.user_id;
+        const contactStatus = getSafetyStatus(_db, otherChatId);
+        const user = getUser(otherChatId);
+        const name = user?.display_name ?? `משתמש #${otherChatId}`;
+        const statusStr = contactStatus
+          ? `${statusEmoji(contactStatus.status)} ${statusLabel(contactStatus.status)}  ·  ${formatRelativeTime(contactStatus.updated_at)}`
+          : '⬜ לא ידוע';
+        visibleLines.push(`👤 <b>${name}</b>  ${statusStr}`);
+      }
+
+      let text = `👥 <b>סטטוס אנשי קשר</b>\n\n`;
+      text += visibleLines.length > 0
+        ? visibleLines.join('\n')
+        : 'אין אנשי קשר המשתפים סטטוס.';
+      if (hiddenCount > 0) {
+        text += `\n\n🔒 ${hiddenCount} אנשי קשר נוספים אינם משתפים סטטוס.`;
+      }
+
+      await ctx.editMessageText(text, {
+        parse_mode: 'HTML',
+        reply_markup: backKeyboard(),
+      });
+    } catch (err) {
+      log('error', 'SafetyStatus', `contacts view error: ${err}`);
+    } finally {
+      await ctx.answerCallbackQuery().catch(() => {});
+    }
   });
 
   bot.callbackQuery('safety:back', async (ctx) => {
     const chatId = ctx.from?.id;
     if (!chatId || !_db) { await ctx.answerCallbackQuery(); return; }
-    // Full implementation in Issue #177
-    await ctx.answerCallbackQuery();
+
+    const status = getSafetyStatus(_db, chatId);
+    const text = status
+      ? buildOwnStatusText(status)
+      : '🛡️ <b>הסטטוס שלך</b>\n\nאין סטטוס פעיל כרגע.';
+
+    try {
+      await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: mainStatusKeyboard() });
+    } catch (err) {
+      log('error', 'SafetyStatus', `safety:back error: ${err}`);
+    } finally {
+      await ctx.answerCallbackQuery().catch(() => {});
+    }
   });
 
   bot.callbackQuery(/^safety:(ok|help|dismiss):\d+$/, async (ctx) => {
