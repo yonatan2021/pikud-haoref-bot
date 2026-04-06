@@ -90,9 +90,8 @@ export function registerSafetyStatusHandler(bot: Bot): void {
 
   bot.callbackQuery('safety:contacts', async (ctx) => {
     const chatId = ctx.from?.id;
-    if (!chatId || !_db) { await ctx.answerCallbackQuery(); return; }
-
     try {
+      if (!chatId || !_db) return;
       const contacts = listContacts(chatId, 'accepted');
 
       if (contacts.length === 0) {
@@ -143,14 +142,14 @@ export function registerSafetyStatusHandler(bot: Bot): void {
 
   bot.callbackQuery('safety:back', async (ctx) => {
     const chatId = ctx.from?.id;
-    if (!chatId || !_db) { await ctx.answerCallbackQuery(); return; }
-
-    const status = getSafetyStatus(_db, chatId);
-    const text = status
-      ? buildOwnStatusText(status)
-      : '🛡️ <b>הסטטוס שלך</b>\n\nאין סטטוס פעיל כרגע.';
-
     try {
+      if (!chatId || !_db) return;
+
+      const status = getSafetyStatus(_db, chatId);
+      const text = status
+        ? buildOwnStatusText(status)
+        : '🛡️ <b>הסטטוס שלך</b>\n\nאין סטטוס פעיל כרגע.';
+
       await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: mainStatusKeyboard() });
     } catch (err) {
       log('error', 'SafetyStatus', `safety:back error: ${err}`);
