@@ -28,3 +28,4 @@ AGENTS.md
 .agents/*
 .claude-flow/*
 .mcp.json
+.swarm/*
