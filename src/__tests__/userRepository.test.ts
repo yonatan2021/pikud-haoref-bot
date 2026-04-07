@@ -2,6 +2,7 @@ import { describe, it, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'fs';
 import path from 'path';
+import Database from 'better-sqlite3';
 
 const dataDir = path.join(process.cwd(), 'data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir);
@@ -17,6 +18,7 @@ import {
   setOnboardingStep,
   setConnectionCode,
   findUserByConnectionCode,
+  getUsersWithHomeCity,
   setFormat,
   setQuietHours,
   setMutedUntil,
@@ -254,5 +256,49 @@ describe('userRepository — v0.4.1 profile fields', () => {
       deleteUser(888);
       assert.equal(getUser(888), undefined);
     });
+  });
+});
+
+describe('getUsersWithHomeCity', () => {
+  let db: InstanceType<typeof Database>;
+
+  before(() => {
+    db = new Database(':memory:');
+    initSchema(db);
+  });
+
+  after(() => { db.close(); });
+
+  beforeEach(() => {
+    db.prepare('DELETE FROM users').run();
+  });
+
+  it('returns users with a non-null, non-empty home_city', () => {
+    db.prepare('INSERT INTO users (chat_id) VALUES (1001)').run();
+    db.prepare("UPDATE users SET home_city = 'תל אביב - יפו' WHERE chat_id = 1001").run();
+    db.prepare('INSERT INTO users (chat_id) VALUES (1002)').run();         // NULL home_city
+    db.prepare('INSERT INTO users (chat_id) VALUES (1003)').run();
+    db.prepare("UPDATE users SET home_city = '' WHERE chat_id = 1003").run(); // empty string
+
+    const result = getUsersWithHomeCity(db);
+    assert.equal(result.length, 1);
+    assert.equal(result[0].chat_id, 1001);
+    assert.equal(result[0].home_city, 'תל אביב - יפו');
+  });
+
+  it('decodes boolean fields correctly', () => {
+    db.prepare('INSERT INTO users (chat_id) VALUES (1001)').run();
+    db.prepare(
+      "UPDATE users SET home_city = 'חיפה', quiet_hours_enabled = 1, is_dm_active = 1 WHERE chat_id = 1001"
+    ).run();
+
+    const [user] = getUsersWithHomeCity(db);
+    assert.equal(user.quiet_hours_enabled, true);
+    assert.equal(user.is_dm_active, true);
+  });
+
+  it('returns empty array when no users have home_city set', () => {
+    db.prepare('INSERT INTO users (chat_id) VALUES (1001)').run();
+    assert.equal(getUsersWithHomeCity(db).length, 0);
   });
 });
