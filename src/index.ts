@@ -11,6 +11,7 @@ import { setupBotHandlers } from './bot/botSetup';
 import { notifySubscribers, shouldSkipForQuietHours } from './services/dmDispatcher';
 import { dmQueue } from './services/dmQueue.js';
 import { shouldSkipMap } from './alertHelpers';
+import { dispatchSafetyPrompts } from './services/safetyPromptService';
 import { handleNewAlert } from './alertHandler';
 import { insertAlert as insertAlertHistory, countAlertsToday, getDailyCountsForMonth } from './db/alertHistoryRepository.js';
 import { startHealthServer } from './healthServer.js';
@@ -319,6 +320,7 @@ function autoMigrateEnvSecrets(db: ReturnType<typeof getDb>): void {
       getTopicId,
       insertAlertHistory,
       broadcastToWhatsApp,
+      dispatchSafetyPrompts: (alert) => dispatchSafetyPrompts(getDb(), alert, bot),
       getNextSerial: getNextAlertSerial,
       getDensityHint: () => getDensityLabel(countAlertsToday(), getDailyCountsForMonth()),
     });
