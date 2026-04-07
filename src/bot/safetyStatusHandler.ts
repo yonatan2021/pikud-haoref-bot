@@ -8,6 +8,7 @@ import { getUser } from '../db/userRepository.js';
 import { createUserCooldown } from './userCooldown.js';
 import { formatRelativeTime, formatTimeUntil, escapeHtml } from '../textUtils.js';
 import { log } from '../logger.js';
+import { notifyContactsOfStatusChange } from '../services/safetyNotificationService.js';
 
 // Set before registering (called from index.ts after initDb).
 let _db: Database.Database | null = null;
@@ -201,32 +202,4 @@ export function registerSafetyStatusHandler(bot: Bot): void {
       }
     }
   });
-}
-
-export async function notifyContactsOfStatusChange(
-  _db: Database.Database,
-  bot: Bot,
-  chatId: number,
-  status: string
-): Promise<void> {
-  const contacts = listContacts(chatId, 'accepted');
-
-  const STATUS_NOTIFY: Record<string, string> = {
-    ok:        `✅ <b>עדכון מחבר</b>\nמשתמש #${chatId} מדווח: <b>בסדר</b>`,
-    help:      `⚠️ <b>עדכון מחבר</b>\nמשתמש #${chatId} מדווח: <b>זקוק לעזרה</b>`,
-    dismissed: `🔇 <b>עדכון מחבר</b>\nמשתמש #${chatId} סגר את ההתראה.`,
-  };
-  const message = STATUS_NOTIFY[status] ?? `🔔 עדכון מחבר #${chatId}: ${status}`;
-
-  for (const contact of contacts) {
-    const perms = getPermissions(contact.id);
-    if (!perms?.safety_status) continue;
-
-    const otherChatId = contact.user_id === chatId ? contact.contact_id : contact.user_id;
-    try {
-      await bot.api.sendMessage(otherChatId, message, { parse_mode: 'HTML' });
-    } catch (err) {
-      log('error', 'SafetyStatus', `notify failed for ${otherChatId}: ${err}`);
-    }
-  }
 }

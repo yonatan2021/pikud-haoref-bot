@@ -7,8 +7,9 @@ import { getSafetyStatus, upsertSafetyStatus } from '../db/safetyStatusRepositor
 import {
   setSafetyStatusHandlerDeps,
   registerSafetyStatusHandler,
-  notifyContactsOfStatusChange,
 } from '../bot/safetyStatusHandler.js';
+import { notifyContactsOfStatusChange } from '../services/safetyNotificationService.js';
+import { dmQueue } from '../services/dmQueue.js';
 import { createContactWithPermissions, acceptContact } from '../db/contactRepository.js';
 import type { Bot } from 'grammy';
 
@@ -292,11 +293,11 @@ describe('safetyStatusHandler — /status and contacts view', () => {
   });
 
   // ── Test 9 ──
-  it('notifyContactsOfStatusChange — sends DM to contact with safety_status=true, skips safety_status=false', async () => {
-    const db = getDb();
-    db.prepare('INSERT INTO users (chat_id) VALUES (2001)').run();
-    db.prepare('INSERT INTO users (chat_id) VALUES (2002)').run();
-    db.prepare('INSERT INTO users (chat_id) VALUES (2003)').run();
+  it('notifyContactsOfStatusChange — enqueues DM to contact with safety_status=true, skips safety_status=false', async () => {
+    const singletonDb = getDb();
+    singletonDb.prepare('INSERT INTO users (chat_id) VALUES (2001)').run();
+    singletonDb.prepare('INSERT INTO users (chat_id) VALUES (2002)').run();
+    singletonDb.prepare('INSERT INTO users (chat_id) VALUES (2003)').run();
 
     // contact A — permission granted
     const c1 = createContactWithPermissions(2001, 2002, { safety_status: true });
@@ -306,19 +307,19 @@ describe('safetyStatusHandler — /status and contacts view', () => {
     const c2 = createContactWithPermissions(2001, 2003, { safety_status: false });
     acceptContact(c2.id);
 
-    const sentMessages: Array<{ chatId: number; text: string }> = [];
-    const mockBot: any = {
-      api: {
-        sendMessage: async (chatId: number, text: string) => {
-          sentMessages.push({ chatId, text });
-        },
-      },
-    };
+    const enqueuedTasks: Array<{ chatId: string; text: string }> = [];
+    const spy = mock.method(dmQueue, 'enqueueAll', (tasks: Array<{ chatId: string; text: string }>) => {
+      enqueuedTasks.push(...tasks);
+    });
 
-    await notifyContactsOfStatusChange(db, mockBot, 2001, 'ok');
+    try {
+      await notifyContactsOfStatusChange(singletonDb, {} as any, 2001, 'ok');
 
-    assert.equal(sentMessages.length, 1, 'should only notify contact with permission');
-    assert.equal(sentMessages[0].chatId, 2002);
-    assert.ok(sentMessages[0].text.includes('בסדר'), `Got: ${sentMessages[0].text}`);
+      assert.equal(enqueuedTasks.length, 1, 'should only notify contact with permission');
+      assert.equal(enqueuedTasks[0].chatId, '2002');
+      assert.ok(enqueuedTasks[0].text.includes('בסדר'), `Got: ${enqueuedTasks[0].text}`);
+    } finally {
+      spy.mock.restore();
+    }
   });
 });
