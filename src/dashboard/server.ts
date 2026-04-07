@@ -1,5 +1,6 @@
 import http from 'http';
 import express from 'express';
+import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import path from 'path';
 import type Database from 'better-sqlite3';
@@ -12,6 +13,20 @@ const UI_DIST = path.join(__dirname, '../../dashboard-ui/dist');
 
 export function startDashboardServer(db: Database.Database, bot: Bot, port: number, secret: string): http.Server {
   const app = express();
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],   // Tailwind injects inline styles
+        imgSrc: ["'self'", 'data:', 'blob:'],       // Mapbox previews use blob URLs
+        connectSrc: ["'self'"],
+        fontSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        upgradeInsecureRequests: [],
+      },
+    },
+  }));
   app.use(express.json());
   app.use(cookieParser());
   app.set('trust proxy', 1); // trust one hop (nginx reverse proxy per deployment.md)
