@@ -188,6 +188,18 @@ export function initSchema(database: Database.Database): void {
       expires_at  TEXT NOT NULL,
       FOREIGN KEY (chat_id) REFERENCES users(chat_id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS safety_prompts (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat_id      INTEGER NOT NULL,
+      fingerprint  TEXT NOT NULL,
+      sent_at      TEXT NOT NULL DEFAULT (datetime('now')),
+      message_id   INTEGER,
+      responded    INTEGER NOT NULL DEFAULT 0,
+      alert_type   TEXT NOT NULL DEFAULT '',
+      UNIQUE (chat_id, fingerprint),
+      FOREIGN KEY (chat_id) REFERENCES users(chat_id) ON DELETE CASCADE
+    );
   `);
 
   database.exec(
@@ -252,6 +264,7 @@ export function initDb(): void {
     database.prepare('DELETE FROM login_attempts WHERE reset_at < (unixepoch() * 1000)').run();
     database.prepare(`DELETE FROM contacts WHERE status = 'pending' AND created_at < datetime('now', '-7 days')`).run();
     database.prepare(`DELETE FROM safety_status WHERE expires_at < datetime('now')`).run();
+    database.prepare(`DELETE FROM safety_prompts WHERE sent_at < datetime('now', '-24 hours')`).run();
   })();
 
   // Integrity check — warn if users table is empty but alert history exists (possible data loss)

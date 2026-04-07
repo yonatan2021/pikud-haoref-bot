@@ -1,3 +1,11 @@
+import crypto from 'crypto';
+
+/** Returns a stable SHA1 hex fingerprint for an alert, order-independent over cities. */
+export function computeAlertFingerprint(alertType: string, cities: string[]): string {
+  const sorted = [...cities].sort().join(',');
+  return crypto.createHash('sha1').update(`${alertType}:${sorted}`).digest('hex');
+}
+
 /** Exported for testing — checks if an alert type is a drill. */
 export function isDrillAlert(alertType: string): boolean {
   return alertType.endsWith('Drill');
