@@ -17,6 +17,7 @@ const Messages         = lazy(() => import('./pages/Messages'));
 const WhatsApp         = lazy(() => import('./pages/WhatsApp').then(m => ({ default: m.WhatsApp })));
 const WhatsAppListeners  = lazy(() => import('./pages/WhatsAppListeners').then(m => ({ default: m.WhatsAppListeners })));
 const TelegramListeners  = lazy(() => import('./pages/TelegramListeners').then(m => ({ default: m.TelegramListeners })));
+const Configuration      = lazy(() => import('./pages/Configuration'));
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000 } } });
 
@@ -42,6 +43,7 @@ export function App() {
               <Route path="whatsapp" element={<WhatsApp />} />
               <Route path="whatsapp-listeners" element={<WhatsAppListeners />} />
               <Route path="telegram-listeners" element={<TelegramListeners />} />
+              <Route path="configuration" element={<Configuration />} />
             </Route>
           </Routes>
         </Suspense>
