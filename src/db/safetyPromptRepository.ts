@@ -67,6 +67,33 @@ export function markPromptResponded(
   ).run(chatId, fingerprint);
 }
 
+/**
+ * Looks up a safety prompt by its primary key.
+ * Used by safetyStatusHandler — the prompt ID is embedded in callback_data
+ * (e.g. "safety:ok:42") to avoid ambiguity when a user has multiple prompts.
+ */
+export function getSafetyPromptById(
+  db: Database.Database,
+  id: number
+): SafetyPromptRow | null {
+  const raw = db
+    .prepare('SELECT * FROM safety_prompts WHERE id = ?')
+    .get(id) as RawRow | undefined;
+  return raw ? decodeRow(raw) : null;
+}
+
+/**
+ * Updates the message_id of a prompt row after the Telegram message is sent.
+ * Called by dispatchSafetyPrompts: insert first (to get ID for keyboard), send, then update.
+ */
+export function updateSafetyPromptMessageId(
+  db: Database.Database,
+  promptId: number,
+  messageId: number
+): void {
+  db.prepare('UPDATE safety_prompts SET message_id = ? WHERE id = ?').run(messageId, promptId);
+}
+
 export function hasPromptBeenSent(
   db: Database.Database,
   chatId: number,
