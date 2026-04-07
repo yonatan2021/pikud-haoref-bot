@@ -1,6 +1,7 @@
 import type Database from 'better-sqlite3';
 import { MessageMedia, type Chat } from 'whatsapp-web.js';
 import { getActiveListenersForChannel } from '../db/whatsappListenerRepository.js';
+import { resolveConfig } from '../config/configResolver.js';
 import { getEnabledGroupsForAlertType } from '../db/whatsappGroupRepository.js';
 import { isRoutingCacheLoaded, getWhatsAppTopicIdCached } from '../config/routingCache.js';
 import { getStatus, getClient } from './whatsappService.js';
@@ -144,7 +145,7 @@ export function createMessageHandler(
       if (listeners.length === 0) return;
 
       const targetChatId =
-        process.env['TELEGRAM_FORWARD_GROUP_ID'] ?? process.env['TELEGRAM_CHAT_ID']!;
+        resolveConfig(db, 'telegram_forward_group_id') ?? resolveConfig(db, 'telegram_chat_id') ?? '';
 
       const truncatedBody =
         msg.body.length > MESSAGE_BODY_MAX

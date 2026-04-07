@@ -1,21 +1,39 @@
 import type Database from 'better-sqlite3';
+import { isCryptoReady, encryptValue, decryptValue } from './crypto.js';
+import { SECRET_KEYS, envKeyFor as resolverEnvKeyFor } from '../config/configResolver.js';
 
 export function getSetting(db: Database.Database, key: string): string | null {
-  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string } | undefined;
-  return row?.value ?? null;
+  const row = db.prepare('SELECT value, encrypted FROM settings WHERE key = ?').get(key) as
+    { value: string; encrypted: number } | undefined;
+  if (!row) return null;
+  if (row.encrypted === 1 && isCryptoReady()) {
+    return decryptValue(row.value);
+  }
+  return row.value;
 }
 
 export function setSetting(db: Database.Database, key: string, value: string): void {
+  const isSecret = SECRET_KEYS.has(key);
+  const storedValue = isSecret && isCryptoReady() ? encryptValue(value) : value;
+  const encrypted = isSecret && isCryptoReady() ? 1 : 0;
+
   db.prepare(`
-    INSERT INTO settings (key, value, updated_at)
-    VALUES (?, ?, datetime('now'))
-    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
-  `).run(key, value);
+    INSERT INTO settings (key, value, encrypted, updated_at)
+    VALUES (?, ?, ?, datetime('now'))
+    ON CONFLICT(key) DO UPDATE SET
+      value = excluded.value,
+      encrypted = excluded.encrypted,
+      updated_at = excluded.updated_at
+  `).run(key, storedValue, encrypted);
 }
 
 export function getAllSettings(db: Database.Database): Record<string, string> {
-  const rows = db.prepare('SELECT key, value FROM settings').all() as { key: string; value: string }[];
-  return Object.fromEntries(rows.map(r => [r.key, r.value]));
+  const rows = db.prepare('SELECT key, value, encrypted FROM settings').all() as
+    { key: string; value: string; encrypted: number }[];
+  return Object.fromEntries(rows.map(r => {
+    const val = r.encrypted === 1 && isCryptoReady() ? decryptValue(r.value) : r.value;
+    return [r.key, val];
+  }));
 }
 
 export interface SettingMeta {
@@ -28,9 +46,10 @@ export function getAllSettingsWithMeta(
   db: Database.Database,
   allKeys: readonly string[]
 ): Record<string, SettingMeta> {
-  const dbRows = db.prepare('SELECT key, value, updated_at FROM settings').all() as {
+  const dbRows = db.prepare('SELECT key, value, encrypted, updated_at FROM settings').all() as {
     key: string;
     value: string;
+    encrypted: number;
     updated_at: string | null;
   }[];
   const dbMap = new Map(dbRows.map(r => [r.key, r]));
@@ -40,8 +59,11 @@ export function getAllSettingsWithMeta(
   for (const key of allKeys) {
     const dbRow = dbMap.get(key);
     if (dbRow) {
+      const val = dbRow.encrypted === 1 && isCryptoReady()
+        ? decryptValue(dbRow.value)
+        : dbRow.value;
       result[key] = {
-        value: dbRow.value,
+        value: val,
         source: 'db',
         ...(dbRow.updated_at ? { updatedAt: dbRow.updated_at } : {}),
       };
@@ -58,18 +80,7 @@ export function getAllSettingsWithMeta(
 
 /** Maps a settings-table key to its corresponding environment-variable name. */
 function envKeyFor(key: string): string {
-  const overrides: Record<string, string> = {
-    alert_window_seconds:          'ALERT_UPDATE_WINDOW_SECONDS',
-    mapbox_monthly_limit:          'MAPBOX_MONTHLY_LIMIT',
-    mapbox_skip_drills:            'MAPBOX_SKIP_DRILLS',
-    mapbox_image_cache_size:       'MAPBOX_IMAGE_CACHE_SIZE',
-    telegram_invite_link:          'TELEGRAM_INVITE_LINK',
-    whatsapp_enabled:              'WHATSAPP_ENABLED',
-    whatsapp_map_debounce_seconds: 'WHATSAPP_MAP_DEBOUNCE_SECONDS',
-    health_port:                   'HEALTH_PORT',
-    dashboard_port:                'DASHBOARD_PORT',
-    ga4_measurement_id:            'GA4_MEASUREMENT_ID',
-    github_repo:                   'GITHUB_REPO',
-  };
-  return overrides[key] ?? key.toUpperCase();
+  // Delegate to the consolidated map in configResolver; fall back to local overrides
+  // for keys that only exist in the settings pipeline (not in configResolver).
+  return resolverEnvKeyFor(key);
 }
