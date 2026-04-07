@@ -21,7 +21,6 @@ export async function setupBotHandlers(bot: Bot): Promise<void> {
   registerOnboardingHandler(bot);
   registerSafetyStatusHandler(bot);
   registerProfileHandler(bot);
-  registerSafetyStatusHandler(bot);
   registerMenuHandler(bot);
   registerZoneHandler(bot);
   registerSearchHandler(bot);
