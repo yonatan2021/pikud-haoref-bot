@@ -19,6 +19,7 @@ export async function setupBotHandlers(bot: Bot): Promise<void> {
   // calls next() for non-onboarding messages so downstream handlers run.
   // Reordering this will silently swallow text input during onboarding.
   registerOnboardingHandler(bot);
+  registerSafetyStatusHandler(bot);
   registerProfileHandler(bot);
   registerMenuHandler(bot);
   registerZoneHandler(bot);
@@ -30,7 +31,6 @@ export async function setupBotHandlers(bot: Bot): Promise<void> {
   registerPrivacyHandler(bot);
   registerTodayHandler(bot);
   registerLegendHandler(bot);
-  registerSafetyStatusHandler(bot);
 
   bot.catch((err) => {
     log('error', 'Bot', `Unhandled error: ${String(err)}`);
