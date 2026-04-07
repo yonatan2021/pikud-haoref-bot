@@ -61,6 +61,48 @@ describe('setupBotHandlers', () => {
     assert.equal(hasNoop, true, 'noop callback must be registered for pagination buttons');
   });
 
+  it('registers all safety status callback patterns', async () => {
+    const bot = buildMockBot();
+    await setupBotHandlers(bot as unknown as Bot);
+
+    const patterns = bot._registeredCallbacks;
+
+    const hasSafetyContacts = patterns.some(
+      (p: string | RegExp) => typeof p === 'string' && p === 'safety:contacts',
+    );
+    assert.equal(hasSafetyContacts, true, 'safety:contacts callback must be registered');
+
+    const hasSafetyBack = patterns.some(
+      (p: string | RegExp) => typeof p === 'string' && p === 'safety:back',
+    );
+    assert.equal(hasSafetyBack, true, 'safety:back callback must be registered');
+
+    const hasSafetyResponse = patterns.some(
+      (p: string | RegExp) => p instanceof RegExp && p.source === '^safety:(ok|help|dismiss):\\d+$',
+    );
+    assert.equal(hasSafetyResponse, true, 'safety response regex callback must be registered');
+  });
+
+  it('registers safety callbacks before menu callbacks', async () => {
+    const bot = buildMockBot();
+    await setupBotHandlers(bot as unknown as Bot);
+
+    const patterns = bot._registeredCallbacks;
+    const safetyIdx = patterns.findIndex(
+      (p: string | RegExp) => typeof p === 'string' && p === 'safety:contacts',
+    );
+    const menuIdx = patterns.findIndex(
+      (p: string | RegExp) => typeof p === 'string' && p === 'menu:main',
+    );
+
+    assert.ok(safetyIdx !== -1, 'safety:contacts must be registered');
+    assert.ok(menuIdx !== -1, 'menu:main must be registered');
+    assert.ok(
+      safetyIdx < menuIdx,
+      `safety callbacks (idx ${safetyIdx}) must be registered before menu callbacks (idx ${menuIdx})`,
+    );
+  });
+
   it('registers a global error handler via bot.catch()', async () => {
     const bot = buildMockBot();
     await setupBotHandlers(bot as unknown as Bot);
