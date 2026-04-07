@@ -129,3 +129,27 @@ export function pruneOldPrompts(
     .run(modifier);
   return result.changes;
 }
+
+/**
+ * Returns unresponded prompts with a message_id (within the Telegram edit window)
+ * for the given alert type. Used by clearStalePromptMessages to edit messages
+ * before hard-deleting the rows on all-clear.
+ */
+export function getUnrespondedPromptsForAllClear(
+  db: Database.Database,
+  alertType: string,
+  maxAgeHours = 48
+): SafetyPromptRow[] {
+  const modifier = `-${maxAgeHours} hours`;
+  return (
+    db
+      .prepare(
+        `SELECT * FROM safety_prompts
+         WHERE responded = 0
+           AND message_id IS NOT NULL
+           AND alert_type = ?
+           AND sent_at >= datetime('now', ?)`
+      )
+      .all(alertType, modifier) as RawRow[]
+  ).map(decodeRow);
+}

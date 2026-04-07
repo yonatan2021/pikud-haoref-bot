@@ -1,6 +1,9 @@
 import type Database from 'better-sqlite3';
+import type { Bot } from 'grammy';
 import { getSetting } from '../dashboard/settingsRepository.js';
 import { log } from '../logger.js';
+import { clearStalePromptMessages } from './safetyPromptService.js';
+import { deleteUnrespondedPromptsByAlertType } from '../db/safetyPromptRepository.js';
 import { ALERT_TYPE_CATEGORY } from '../topicRouter.js';
 import type { AllClearEvent } from './allClearTracker.js';
 import type { SubscriberInfo } from '../db/subscriptionRepository.js';
@@ -16,6 +19,7 @@ export interface AllClearServiceDeps {
   shouldSkipForQuietHours: (alertType: string, quietEnabled: boolean, now: Date) => boolean;
   sendDm: (userId: number, text: string) => Promise<void>;
   renderTemplate: (zone: string, alertType: string) => string;
+  bot?: Bot; // when set, edits stale safety-prompt messages before deleting on all-clear
 }
 
 export function createAllClearService(deps: AllClearServiceDeps) {
@@ -82,6 +86,18 @@ export function createAllClearService(deps: AllClearServiceDeps) {
         } catch (err) {
           log('error', 'AllClear', `שליחה לערוץ נכשלה (אזור "${zone}"): ${String(err)}`);
         }
+      }
+
+      // Edit stale prompt messages BEFORE deleting rows (rows must exist for the query).
+      if (deps.bot) {
+        await clearStalePromptMessages(deps.db, deps.bot, alertType).catch((err) =>
+          log('error', 'AllClear', `כישלון בעדכון הודעות בטיחות: ${String(err)}`)
+        );
+      }
+
+      const cleared = deleteUnrespondedPromptsByAlertType(deps.db, alertType);
+      if (cleared > 0) {
+        log('info', 'SAFETY', `נוקו ${cleared} פרומפטים ישנים לסוג: ${alertType}`);
       }
     }
   }
