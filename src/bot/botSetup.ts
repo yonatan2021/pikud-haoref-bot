@@ -11,6 +11,7 @@ import { registerConnectHandler } from './connectHandler.js';
 import { registerPrivacyHandler } from './privacyHandler.js';
 import { registerTodayHandler } from './todayHandler.js';
 import { registerLegendHandler } from './legendHandler.js';
+import { registerSafetyStatusHandler } from './safetyStatusHandler.js';
 import { log } from '../logger.js';
 
 export async function setupBotHandlers(bot: Bot): Promise<void> {
@@ -18,6 +19,7 @@ export async function setupBotHandlers(bot: Bot): Promise<void> {
   // calls next() for non-onboarding messages so downstream handlers run.
   // Reordering this will silently swallow text input during onboarding.
   registerOnboardingHandler(bot);
+  registerSafetyStatusHandler(bot);
   registerProfileHandler(bot);
   registerMenuHandler(bot);
   registerZoneHandler(bot);

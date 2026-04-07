@@ -12,6 +12,7 @@ import { notifySubscribers, shouldSkipForQuietHours } from './services/dmDispatc
 import { dmQueue } from './services/dmQueue.js';
 import { shouldSkipMap } from './alertHelpers';
 import { dispatchSafetyPrompts } from './services/safetyPromptService';
+import { setSafetyStatusHandlerDeps } from './bot/safetyStatusHandler';
 import { handleNewAlert } from './alertHandler';
 import { insertAlert as insertAlertHistory, countAlertsToday, getDailyCountsForMonth } from './db/alertHistoryRepository.js';
 import { startHealthServer } from './healthServer.js';
@@ -119,6 +120,7 @@ function autoMigrateEnvSecrets(db: ReturnType<typeof getDb>): void {
     loadTemplateCache();
     loadRoutingCache(getDb());
     setMenuHandlerDb(getDb());
+    setSafetyStatusHandlerDeps(getDb());
     alertsToday = countAlertsToday();
     initAlertSerial(alertsToday);
   } catch (err) {
