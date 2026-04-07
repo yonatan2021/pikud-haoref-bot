@@ -38,7 +38,9 @@ import { initAlertSerial, getNextAlertSerial } from './config/alertSerial.js';
 import { getDensityLabel } from './config/alertDensity.js';
 import { pruneExpiredContacts } from './db/contactRepository.js';
 import { initCrypto } from './dashboard/crypto.js';
-import { resolveConfig, resolveRequiredConfigs, ConfigMissingError } from './config/configResolver.js';
+import { getSetting, setSetting } from './dashboard/settingsRepository.js';
+import { resolveConfig, resolveRequiredConfigs, ConfigMissingError, SECRET_KEYS, envKeyFor } from './config/configResolver.js';
+import { isCryptoReady } from './dashboard/crypto.js';
 
 // Prevent broken-pipe errors from crashing the bot when a stdout consumer exits.
 process.stdout.on('error', (err: NodeJS.ErrnoException) => {
@@ -49,6 +51,40 @@ process.stdout.on('error', (err: NodeJS.ErrnoException) => {
 // All other config is resolved from DB → env fallback after initDb().
 const dashboardSecretBoot = process.env.DASHBOARD_SECRET;
 
+/**
+ * One-time migration: copies secrets from .env to encrypted DB storage.
+ * Only migrates keys that: (1) exist in env, (2) don't exist in DB, (3) weren't
+ * intentionally deleted via the dashboard (_deleted_secrets tracking).
+ */
+function autoMigrateEnvSecrets(db: ReturnType<typeof getDb>): void {
+  try {
+    const deletedRaw = getSetting(db, '_deleted_secrets');
+    const deletedKeys: string[] = deletedRaw ? JSON.parse(deletedRaw) : [];
+    let migrated = 0;
+
+    for (const key of SECRET_KEYS) {
+      const envName = envKeyFor(key);
+      const envValue = process.env[envName];
+      if (!envValue) continue;
+
+      const existing = getSetting(db, key);
+      if (existing !== null) continue;
+
+      if (deletedKeys.includes(key)) continue;
+
+      setSetting(db, key, envValue);
+      migrated++;
+      log('info', 'Migration', `${key} הועבר מ-.env למסד הנתונים (מוצפן)`);
+    }
+
+    if (migrated > 0) {
+      log('success', 'Migration', `${migrated} סודות הועברו מ-.env למסד הנתונים`);
+    }
+  } catch (err) {
+    log('warn', 'Migration', `מיגרציה אוטומטית נכשלה — ממשיך עם ערכי env: ${err}`);
+  }
+}
+
 (async () => {
   let alertsToday = 0;
   let resolvedConfig: Record<string, string>;
@@ -58,6 +94,11 @@ const dashboardSecretBoot = process.env.DASHBOARD_SECRET;
     // Init crypto (envelope encryption for secrets in DB)
     if (dashboardSecretBoot) {
       initCrypto(getDb(), dashboardSecretBoot);
+    }
+
+    // Auto-migrate secrets from env to encrypted DB (first run / upgrade path)
+    if (isCryptoReady()) {
+      autoMigrateEnvSecrets(getDb());
     }
 
     // Resolve all required config from DB → env fallback
