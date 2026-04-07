@@ -661,6 +661,57 @@ describe('editAlert degraded chain (_editAlertChain)', () => {
   });
 });
 
+describe('RTL marks on zone headers', () => {
+  it('zone headers in buildZonedCityList start with RTL mark', () => {
+    // אור יהודה and בני ברק are both in zone דן
+    const result = buildZonedCityList(['אור יהודה', 'בני ברק']);
+    const lines = result.split('\n');
+    const headerLines = lines.filter(l => l.includes('▸'));
+    assert.ok(headerLines.length > 0, 'should have at least one zone header');
+    for (const line of headerLines) {
+      assert.ok(line.startsWith('\u200F'), `Zone header missing RTL mark: ${line}`);
+    }
+  });
+
+  it('noZone header in buildZonedCityList starts with RTL mark', () => {
+    const result = buildZonedCityList(['עיר לא קיימת בכלל']);
+    const lines = result.split('\n');
+    const headerLines = lines.filter(l => l.includes('▸'));
+    for (const line of headerLines) {
+      assert.ok(line.startsWith('\u200F'), `noZone header missing RTL mark: ${line}`);
+    }
+  });
+
+  it('zone headers in buildZoneOnlyList start with RTL mark', () => {
+    const result = buildZoneOnlyList(['אור יהודה', 'החותרים']);
+    const lines = result.split('\n');
+    const headerLines = lines.filter(l => l.includes('▸'));
+    assert.ok(headerLines.length > 0, 'should have at least one zone header');
+    for (const line of headerLines) {
+      assert.ok(line.startsWith('\u200F'), `Zone-only header missing RTL mark: ${line}`);
+    }
+  });
+
+  it('formatAlertMessage header line starts with RTL mark', () => {
+    const alert = { type: 'missiles', cities: ['תל אביב'] };
+    const result = formatAlertMessage(alert);
+    const lines = result.split('\n');
+    // Find the emoji+title header line (contains <b> and the alert title)
+    const emojiHeaderLine = lines.find(l => l.includes('<b>') && l.includes('</b>') && !l.includes('▸') && !l.includes('⏰') && !l.includes('⏱'));
+    assert.ok(emojiHeaderLine, 'should find the emoji header line');
+    assert.ok(emojiHeaderLine!.startsWith('\u200F'), `Header line missing RTL mark: ${emojiHeaderLine}`);
+  });
+
+  it('formatAlertMessage action card starts with RTL mark', () => {
+    const alert = { type: 'missiles', cities: ['תל אביב'] };
+    const result = formatAlertMessage(alert);
+    const lines = result.split('\n');
+    const actionLine = lines.find(l => l.includes('🛡'));
+    assert.ok(actionLine, 'missiles alert should have action card');
+    assert.ok(actionLine!.startsWith('\u200F'), `Action card missing RTL mark: ${actionLine}`);
+  });
+});
+
 describe('renderAllClearTemplate', () => {
   it('renders default template when cache has no all_clear entry', () => {
     const result = renderAllClearTemplate('גליל עליון', 'missiles');
