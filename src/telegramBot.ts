@@ -178,6 +178,18 @@ export function renderBodyTemplate(template: string, vars: TemplateVars): string
   return result;
 }
 
+function formatSerialSuffix(serial: number | undefined, density: 'חריג' | 'רגיל' | null | undefined, now: Date): string | null {
+  if (serial == null) return null;
+  const dateStr = now.toLocaleDateString('he-IL', {
+    timeZone: 'Asia/Jerusalem',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+  const densitySuffix = density === 'חריג' ? ` \u00B7 \u26A0\uFE0F ${escapeHtml('חריג')}` : '';
+  return `<i>#${serial} \u00B7 ${escapeHtml(dateStr)}${densitySuffix}</i>`;
+}
+
 export function formatAlertMessage(alert: Alert, serial?: number, density?: 'חריג' | 'רגיל' | null): string {
   const actionCard = buildActionCard(alert.type);
   const emoji = getEmoji(alert.type);
@@ -196,16 +208,18 @@ export function formatAlertMessage(alert: Alert, serial?: number, density?: 'ח�
       ? buildZoneOnlyList(alert.cities)
       : buildZonedCityList(alert.cities);
 
-  // If a custom body template exists, render it and return early
+  // If a custom body template exists, render it (still appending serial/density)
   const bodyTemplate = getBodyTemplate(alert.type);
   if (bodyTemplate) {
-    return renderBodyTemplate(bodyTemplate, {
+    const rendered = renderBodyTemplate(bodyTemplate, {
       time: timeStr,
       cities: cityList,
       cityCount: alert.cities.length,
       title,
       emoji,
     });
+    const serialLine = formatSerialSuffix(serial, density, now);
+    return serialLine ? `${rendered}\n\n${serialLine}` : rendered;
   }
 
   // Default assembly (no custom template)
@@ -230,16 +244,8 @@ export function formatAlertMessage(alert: Alert, serial?: number, density?: 'ח�
   if (instructionsPart) parts.push(instructionsPart);
   if (cityList) parts.push(cityList);
 
-  if (serial != null) {
-    const dateStr = now.toLocaleDateString('he-IL', {
-      timeZone: 'Asia/Jerusalem',
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
-    const densitySuffix = density === 'חריג' ? ` \u00B7 \u26A0\uFE0F ${escapeHtml('חריג')}` : '';
-    parts.push(`<i>#${serial} \u00B7 ${escapeHtml(dateStr)}${densitySuffix}</i>`);
-  }
+  const serialLine = formatSerialSuffix(serial, density, now);
+  if (serialLine) parts.push(serialLine);
 
   return parts.join('\n\n');
 }

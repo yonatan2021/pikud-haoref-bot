@@ -8,7 +8,8 @@ import { Alert } from './types';
 import { initDb, closeDb } from './db/schema';
 import { initializeCache } from './mapService';
 import { setupBotHandlers } from './bot/botSetup';
-import { notifySubscribers } from './services/dmDispatcher';
+import { notifySubscribers, shouldSkipForQuietHours } from './services/dmDispatcher';
+import { dmQueue } from './services/dmQueue.js';
 import { shouldSkipMap } from './alertHelpers';
 import { handleNewAlert } from './alertHandler';
 import { insertAlert as insertAlertHistory, countAlertsToday, getDailyCountsForMonth } from './db/alertHistoryRepository.js';
@@ -27,7 +28,7 @@ import { createMessageHandler } from './whatsapp/whatsappListenerService.js';
 import { initializeTelegramListener } from './telegram-listener/telegramListenerService.js';
 import { disconnect as disconnectTelegramListener } from './telegram-listener/telegramListenerClient.js';
 import { InputFile } from 'grammy';
-import { initSubscriptionCache, getUserIdsByZone } from './db/subscriptionRepository.js';
+import { initSubscriptionCache, getUsersByHomeCityInCities } from './db/subscriptionRepository.js';
 import { initUsageCache } from './db/mapboxUsageRepository.js';
 import { createAllClearTracker } from './services/allClearTracker.js';
 import { createAllClearService } from './services/allClearService.js';
@@ -167,14 +168,16 @@ for (const envVar of REQUIRED_ENV_VARS) {
         ...(topicId != null ? { message_thread_id: topicId } : {}),
       });
     },
-    getUserIdsByZone,
+    getUsersByHomeCityInCities,
+    shouldSkipForQuietHours,
     sendDm: async (userId, text) => {
-      await bot.api.sendMessage(String(userId), text, { parse_mode: 'HTML' });
+      dmQueue.enqueueAll([{ chatId: String(userId), text }]);
     },
     renderTemplate: renderAllClearTemplate,
   });
 
   const allClearTracker = createAllClearTracker({
+    getCityZone: (city) => getCityData(city)?.zone,
     onAllClear: (events) => {
       allClearService.handleAllClear(events).catch(err =>
         log('error', 'Index', `handleAllClear נכשל: ${String(err)}`)
@@ -234,7 +237,7 @@ for (const envVar of REQUIRED_ENV_VARS) {
       if (isOfficialAllClear) {
         allClearTracker.cancelAlert(alertZones);
       } else {
-        allClearTracker.recordAlert(alertZones, alert.type);
+        allClearTracker.recordAlert(alertZones, alert.type, alert.cities);
       }
     }
 

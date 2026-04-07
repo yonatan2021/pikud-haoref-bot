@@ -1,6 +1,7 @@
 export interface AllClearEvent {
   zone: string;
   alertType: string;
+  alertCities: string[];
 }
 
 export interface AllClearDeps {
@@ -8,11 +9,14 @@ export interface AllClearDeps {
   cancelScheduleFn?: (id: ReturnType<typeof setTimeout>) => void;
   onAllClear: (events: AllClearEvent[]) => void;
   quietWindowMs?: number;
+  /** Maps a city name to its zone. Used to filter alertCities per zone. */
+  getCityZone?: (city: string) => string | undefined;
 }
 
 interface ZoneTimer {
   id: ReturnType<typeof setTimeout>;
   alertType: string;
+  alertCities: string[];
 }
 
 const DEFAULT_QUIET_WINDOW_MS = 600_000; // 10 minutes
@@ -23,11 +27,19 @@ export function createAllClearTracker(deps: AllClearDeps) {
   const schedule = deps.scheduleFn ?? setTimeout;
   const cancel = deps.cancelScheduleFn ?? clearTimeout;
   const windowMs = deps.quietWindowMs ?? DEFAULT_QUIET_WINDOW_MS;
+  const getCityZone = deps.getCityZone ?? (() => undefined);
 
-  function recordAlert(zones: string[], alertType: string): void {
+  function recordAlert(zones: string[], alertType: string, alertCities: string[] = []): void {
     for (const zone of zones) {
       const existing = timers.get(zone);
       if (existing) cancel(existing.id);
+
+      // Filter: only cities belonging to THIS zone (prevents duplicate DMs across zones)
+      const zoneCities = alertCities.filter(c => getCityZone(c) === zone);
+      // Merge: combine with previously recorded cities for the same zone
+      const mergedCities = existing
+        ? [...new Set([...existing.alertCities, ...zoneCities])]
+        : zoneCities;
 
       // New alert resets dedupe — a fresh all-clear should fire later
       firedZones.delete(zone);
@@ -35,11 +47,11 @@ export function createAllClearTracker(deps: AllClearDeps) {
       const id = schedule(() => {
         if (!firedZones.has(zone)) {
           firedZones.add(zone);
-          deps.onAllClear([{ zone, alertType }]);
+          deps.onAllClear([{ zone, alertType, alertCities: mergedCities }]);
         }
         timers.delete(zone);
       }, windowMs);
-      timers.set(zone, { id, alertType });
+      timers.set(zone, { id, alertType, alertCities: mergedCities });
     }
   }
 
