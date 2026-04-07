@@ -218,6 +218,9 @@ export function initSchema(database: Database.Database): void {
   // existing users remain subscribed after migration.
   addColumnIfMissing(database, 'ALTER TABLE users ADD COLUMN is_dm_active INTEGER NOT NULL DEFAULT 1');
 
+  // v0.5 — full template body: nullable TEXT column; NULL = use default assembled structure
+  addColumnIfMissing(database, 'ALTER TABLE message_templates ADD COLUMN body_template TEXT DEFAULT NULL');
+
   database.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_connection_code ON users(connection_code) WHERE connection_code IS NOT NULL').run();
 
   // Seed the all-clear template so it appears in the dashboard Messages page on first run.

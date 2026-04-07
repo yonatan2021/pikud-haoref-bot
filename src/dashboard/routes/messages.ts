@@ -167,6 +167,7 @@ export function createMessagesRouter(db: Database.Database, bot: Bot, whatsappDe
       emoji: cached[alertType].emoji,
       titleHe: cached[alertType].titleHe,
       instructionsPrefix: cached[alertType].instructionsPrefix,
+      bodyTemplate: cached[alertType].bodyTemplate ?? null,
       isCustomized: customized.has(alertType),
       defaults: {
         emoji: DEFAULT_ALERT_TYPE_EMOJI[alertType] ?? '⚠️',
@@ -200,6 +201,7 @@ export function createMessagesRouter(db: Database.Database, bot: Bot, whatsappDe
       emoji: row.emoji,
       titleHe: row.title_he,
       instructionsPrefix: row.instructions_prefix,
+      bodyTemplate: row.body_template ?? null,
     }));
     res.json({ templates });
   });
@@ -247,6 +249,7 @@ export function createMessagesRouter(db: Database.Database, bot: Bot, whatsappDe
         emoji: t.emoji!,
         title_he: t.titleHe!,
         instructions_prefix: t.instructionsPrefix ?? '🛡',
+        body_template: null,
       });
     }
 
@@ -508,10 +511,11 @@ export function createMessagesRouter(db: Database.Database, bot: Bot, whatsappDe
       return;
     }
 
-    const { emoji, titleHe, instructionsPrefix } = req.body as {
+    const { emoji, titleHe, instructionsPrefix, bodyTemplate } = req.body as {
       emoji?: string;
       titleHe?: string;
       instructionsPrefix?: string;
+      bodyTemplate?: string | null;
     };
 
     if (emoji !== undefined && emoji.trim() === '') {
@@ -527,6 +531,20 @@ export function createMessagesRouter(db: Database.Database, bot: Bot, whatsappDe
       return;
     }
 
+    // bodyTemplate validation
+    if (bodyTemplate !== undefined && bodyTemplate !== null && bodyTemplate.trim() !== '') {
+      if (bodyTemplate.length > 2000) {
+        res.status(400).json({ error: 'תבנית חורגת ממגבלת 2000 תווים' });
+        return;
+      }
+      // Normalize whitespace inside braces for the check
+      const normalized = bodyTemplate.replace(/\{\{\s+/g, '{{').replace(/\s+\}\}/g, '}}');
+      if (!normalized.includes('{{ערים}}')) {
+        res.status(400).json({ error: 'תבנית חייבת לכלול את המשתנה {{ערים}} — בלעדיו רשימת הערים לא תופיע' });
+        return;
+      }
+    }
+
     try {
       // Save current state to history BEFORE upserting
       const current = getAllCached()[alertType];
@@ -540,12 +558,18 @@ export function createMessagesRouter(db: Database.Database, bot: Bot, whatsappDe
         pruneHistory(db, alertType, 10);
       }
 
+      // bodyTemplate: undefined = keep current, null/'' = reset to default, string = save
+      const bodyTemplateToSave = bodyTemplate === undefined
+        ? (current?.bodyTemplate ?? null)
+        : (bodyTemplate === null || bodyTemplate === '' ? null : bodyTemplate);
+
       // Merge with current cached values to avoid zeroing out unprovided fields.
       upsertTemplate(db, {
         alert_type: alertType,
         emoji: emoji ?? current.emoji,
         title_he: titleHe ?? current.titleHe,
         instructions_prefix: instructionsPrefix ?? current.instructionsPrefix,
+        body_template: bodyTemplateToSave,
       });
 
       loadTemplateCache();
@@ -628,6 +652,7 @@ export function createMessagesRouter(db: Database.Database, bot: Bot, whatsappDe
         emoji: historyRow.emoji,
         title_he: historyRow.title_he,
         instructions_prefix: historyRow.instructions_prefix,
+        body_template: null,
       });
 
       loadTemplateCache();

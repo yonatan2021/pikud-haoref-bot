@@ -104,6 +104,7 @@ describe('messageTemplateRepository', () => {
       emoji: '🚀',
       title_he: 'בדיקה',
       instructions_prefix: '📌',
+      body_template: null,
     });
     const rows = userTemplates(db);
     assert.equal(rows.length, 1);
@@ -121,12 +122,14 @@ describe('messageTemplateRepository', () => {
       emoji: '🚀',
       title_he: 'ראשוני',
       instructions_prefix: '📌',
+      body_template: null,
     });
     upsertTemplate(db, {
       alert_type: 'missiles',
       emoji: '🔴',
       title_he: 'עדכני',
       instructions_prefix: '🛡',
+      body_template: null,
     });
     const rows = userTemplates(db);
     assert.equal(rows.length, 1);
@@ -142,12 +145,14 @@ describe('messageTemplateRepository', () => {
       emoji: '🔴',
       title_he: 'בדיקה',
       instructions_prefix: '🛡',
+      body_template: null,
     });
     upsertTemplate(db, {
       alert_type: 'earthQuake',
       emoji: '🟠',
       title_he: 'רעידה',
       instructions_prefix: '🛡',
+      body_template: null,
     });
     deleteTemplate(db, 'missiles');
     const rows = userTemplates(db);

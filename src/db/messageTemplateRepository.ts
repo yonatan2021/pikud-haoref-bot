@@ -5,23 +5,25 @@ export interface MessageTemplateRow {
   emoji: string;
   title_he: string;
   instructions_prefix: string;
+  body_template: string | null;
 }
 
 export function getAllTemplates(db: Database.Database): MessageTemplateRow[] {
   return db
-    .prepare('SELECT alert_type, emoji, title_he, instructions_prefix FROM message_templates')
+    .prepare('SELECT alert_type, emoji, title_he, instructions_prefix, body_template FROM message_templates')
     .all() as MessageTemplateRow[];
 }
 
 export function upsertTemplate(db: Database.Database, row: MessageTemplateRow): void {
   db.prepare(`
-    INSERT INTO message_templates (alert_type, emoji, title_he, instructions_prefix)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO message_templates (alert_type, emoji, title_he, instructions_prefix, body_template)
+    VALUES (?, ?, ?, ?, ?)
     ON CONFLICT(alert_type) DO UPDATE SET
       emoji               = excluded.emoji,
       title_he            = excluded.title_he,
-      instructions_prefix = excluded.instructions_prefix
-  `).run(row.alert_type, row.emoji, row.title_he, row.instructions_prefix);
+      instructions_prefix = excluded.instructions_prefix,
+      body_template       = excluded.body_template
+  `).run(row.alert_type, row.emoji, row.title_he, row.instructions_prefix, row.body_template ?? null);
 }
 
 export function deleteTemplate(db: Database.Database, alertType: string): void {

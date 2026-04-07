@@ -10,6 +10,7 @@ import { CategorySection } from '../components/messages/CategorySection';
 import { SimulationPanel } from '../components/messages/SimulationPanel';
 import { SystemMessagePanel } from '../components/messages/SystemMessagePanel';
 import { RoutingSection } from '../components/messages/RoutingSection';
+import { TemplateBodyEditor } from '../components/messages/TemplateBodyEditor';
 import type { TemplateEntry, TemplateEdit } from '../components/messages/TemplateRow';
 import { ORDERED_CATEGORIES, ALERT_TYPE_CATEGORY } from '../utils/categoryConfig';
 import type { AlertCategory } from '../utils/categoryConfig';
@@ -30,6 +31,7 @@ export default function Messages() {
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [pendingImport, setPendingImport] = useState<ImportRow[] | null>(null);
   const [rightPanelTab, setRightPanelTab] = useState<'simulation' | 'system'>('simulation');
+  const [mainTab, setMainTab] = useState<'types' | 'editor' | 'routing'>('types');
 
   // Fetch all template entries
   const { data: templates = [] } = useQuery<TemplateEntry[]>({
@@ -260,11 +262,35 @@ export default function Messages() {
           onResetAll={() => resetAllMutation.mutate()}
         />
 
-        {/* Split layout: categories + simulation */}
+        {/* Main content tabs */}
+        <div className="flex gap-1 mb-4" role="tablist">
+          {([
+            ['types', 'סוגי התראות'] as const,
+            ['editor', 'עורך תבנית'] as const,
+            ['routing', 'ניתוב'] as const,
+          ]).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={mainTab === key}
+              onClick={() => setMainTab(key)}
+              className={`px-4 py-1.5 text-sm rounded-full transition-colors ${
+                mainTab === key
+                  ? 'bg-amber/15 text-amber font-medium'
+                  : 'text-text-muted hover:text-text-primary'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Split layout: main tab + simulation */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-4">
-          {/* Left column: category sections + routing */}
+          {/* Left column: active tab content */}
           <div className="space-y-4">
-            {ORDERED_CATEGORIES.map((category) => (
+            {mainTab === 'types' && ORDERED_CATEGORIES.map((category) => (
               <CategorySection
                 key={category}
                 category={category}
@@ -276,7 +302,8 @@ export default function Messages() {
                 onSimulate={handleSimulate}
               />
             ))}
-            <RoutingSection />
+            {mainTab === 'editor' && <TemplateBodyEditor templates={templates} />}
+            {mainTab === 'routing' && <RoutingSection />}
           </div>
 
           {/* Right column: simulation / system message (sticky) */}

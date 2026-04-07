@@ -12,6 +12,7 @@ export interface CacheEntry {
   emoji: string;
   titleHe: string;
   instructionsPrefix: string;
+  bodyTemplate: string | null;
 }
 
 function buildDefaultCache(): Record<string, CacheEntry> {
@@ -22,6 +23,7 @@ function buildDefaultCache(): Record<string, CacheEntry> {
       titleHe: DEFAULT_ALERT_TYPE_HE[alertType] ?? DEFAULT_ALERT_TYPE_HE['unknown'] ?? 'התרעה',
       instructionsPrefix:
         DEFAULT_INSTRUCTIONS_PREFIX[alertType] ?? DEFAULT_INSTRUCTIONS_PREFIX['_default'] ?? '🛡',
+      bodyTemplate: null,
     };
   }
   return result;
@@ -38,6 +40,7 @@ export function loadTemplateCache(): void {
         emoji: row.emoji,
         titleHe: row.title_he,
         instructionsPrefix: row.instructions_prefix,
+        bodyTemplate: row.body_template ?? null,
       },
     ])
   );
@@ -55,6 +58,10 @@ export function getTitleHe(alertType: string): string {
 
 export function getInstructionsPrefix(alertType: string): string {
   return _cache[alertType]?.instructionsPrefix ?? DEFAULT_INSTRUCTIONS_PREFIX['_default'] ?? '🛡';
+}
+
+export function getBodyTemplate(alertType: string): string | null {
+  return _cache[alertType]?.bodyTemplate ?? null;
 }
 
 export function getAllCached(): Readonly<Record<string, CacheEntry>> {
