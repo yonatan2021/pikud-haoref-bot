@@ -30,6 +30,49 @@
 
 ---
 
+## [0.5.0] — 2026-04-07
+
+<div dir="rtl">
+
+### ✨ תכונות חדשות
+
+- **Safety Status — "האם אתה בסדר?"** — שאלת סטטוס אוטומטית כשמגיעה התראה לעיר המגורים; 3 כפתורים (✅ בסדר / ⚠️ צריך עזרה / 🔇 התעלם); dedup חכם לפי fingerprint — `INSERT OR IGNORE` מונע כפל (PR #186–#189)
+- **פקודת `/status`** — צפייה ועדכון ידני של סטטוס ביטחוני עם מד-זמן עד לפקיעה; תצוגת סטטוס אנשי קשר מורשים; ניווט `safety:contacts` / `safety:back` (PR #197–#199)
+- **עדכון אנשי קשר אוטומטי** — שיתוף סטטוס אוטומטי עם אנשי קשר בעלי הרשאת `safety_status=true`; דרך `dmQueue` עם backoff 429; התעלמות אינה מעדכנת קשרים (PR #200–#201)
+- **ניהול סודות מוצפן** — AES-256-GCM envelope encryption (DEK/KEK via PBKDF2); ניהול API keys מלוח הבקרה ללא env vars; עמוד Configuration חדש עם SecretCard ו-RestartBanner; migration אוטומטי מ-.env בהפעלה (PR #153, #160, #161)
+- **תבניות גוף הודעה** — עורך תבניות עם `{{ערים}}` `{{כותרת}}` `{{זמן}}` `{{אמוגי}}` `{{מספר_ערים}}`; live preview בסגנון Telegram; tab "עורך תבנית" חדש בדאשבורד (PR #156)
+- **ניהול תצורה מאוחד** — `configResolver.ts` עם שרשרת DB → env fallback; `SECRET_KEYS` (5) + `RESTART_REQUIRED_KEYS` (6); `DASHBOARD_SECRET` בלבד נדרש לאתחול (PR #154, #155, #157, #158)
+- **טקסטי DM ניתנים לשינוי** — רלוונטיות ("באזורך", "באזור קרוב", "לא באזורך") ו-"נשמו" ניתנים לשינוי מלשונית "הודעות DM" בדאשבורד ללא restart (PR #159)
+
+### 🐛 תיקוני באגים
+
+- **יישור RTL** — תווי `\u200F` נוספו לכותרות אזורים ב-`buildZonedCityList`, `buildZoneOnlyList` ו-`formatAlertMessage` — מונע הצגה הפוכה של `▸` בטלגרם (PR #151)
+- **"נשמו" לפי עיר בית** — הודעת "נשמו" נשלחת רק למי שעיר המגורים (`home_city`) הייתה בהתראה המקורית — לא לכל מנויי האזור (PR #152)
+- **"נשמו" + שעות שקט** — שעות שקט ו-snooze מופעלים גם על הודעת "נשמו" (לא עוקפים אותם) (PR #152)
+- **"נשמו" דרך DmQueue** — הגנה מ-Telegram 429 בעת התראות רחבות-היקף; מקביליות 10 + backoff (PR #152)
+
+### ⚠️ שינויים שוברים
+
+- `DASHBOARD_SECRET` הוא **משתנה הסביבה היחיד הנדרש** לאתחול לאחר migration. `TELEGRAM_BOT_TOKEN`, `MAPBOX_ACCESS_TOKEN` ושאר הסודות מנוהלים דרך לוח הבקרה (PR #155, #161)
+- `callback_data` של safety prompts כולל prompt ID מפורש: `safety:ok:42` — לא חיפוש "ה-prompt האחרון" (מונע עמביגואיזציה בין שתי התראות מקבילות) (PR #191, #195)
+
+### 🧪 בדיקות
+
+- Safety Status — 75 tests חדשים: `safetyStatusRepository` (15), `safetyPromptRepository` (27), `safetyPromptService` (12), `safetyStatusHandler` (14), `safetyAutoReset` (7)
+- 3 integration tests מקצה לקצה: happy path (prompt → ok → contact notified → dedup), dismiss (no notify), fingerprint dedup
+- `userRepository` — 3 tests חדשים ל-`getUsersWithHomeCity`; `alertHandler` — 28 tests כולל `dispatchSafetyPrompts` optional dep
+- **סה"כ: 1,086 tests (מ-1,008 ב-v0.4.5)**
+
+### 🔧 תחזוקה
+
+- `src/CLAUDE.md` + `src/db/CLAUDE.md` + `.claude/rules/structure.md` + `README.md` — עודכנו עם פרטי Safety Status feature
+- `botSetup.ts` — `registerSafetyStatusHandler` נרשם לפני `registerMenuHandler` (PR #196)
+- `setMyCommands` — 14 פקודות (נוספו `/status`, `/today`, `/legend`, `/connect`, `/contacts`, `/privacy`)
+
+</div>
+
+---
+
 ## [0.4.5] — 2026-04-05
 
 <div dir="rtl">
@@ -900,7 +943,8 @@
 
 <div dir="rtl">
 
-[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.5...HEAD
+[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.5...v0.5.0
 [0.4.5]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.4...v0.4.5
 [0.4.4]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.2...v0.4.3

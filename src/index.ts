@@ -352,7 +352,7 @@ function autoMigrateEnvSecrets(db: ReturnType<typeof getDb>): void {
     }
   }, 6 * 60 * 60 * 1000);
 
-  logStartupHeader('0.4.4', [
+  logStartupHeader('0.5.0', [
     { name: 'Health Server', detail: healthOk ? toVisualRtl(`פורט ${resolvedHealthPort}`) : toVisualRtl('נכשל בהפעלה'), ok: healthOk, url: healthOk ? `http://localhost:${resolvedHealthPort}/health` : undefined },
     { name: 'Alert Poller',  detail: toVisualRtl('כל 2 שניות'),                                                ok: true },
     { name: 'Dashboard',     detail: dashboardSecret ? toVisualRtl(`פורט ${dashboardPort}`) : toVisualRtl('כבוי (אין DASHBOARD_SECRET)'), ok: !!dashboardSecret, url: dashboardSecret ? `http://localhost:${dashboardPort}/dashboard` : undefined },
