@@ -39,6 +39,8 @@ import { getCityData } from './cityLookup.js';
 import { initAlertSerial, getNextAlertSerial } from './config/alertSerial.js';
 import { getDensityLabel } from './config/alertDensity.js';
 import { pruneExpiredContacts } from './db/contactRepository.js';
+import { pruneExpiredSafetyStatuses } from './db/safetyStatusRepository.js';
+import { pruneOldPrompts } from './db/safetyPromptRepository.js';
 import { initCrypto } from './dashboard/crypto.js';
 import { getSetting, setSetting } from './dashboard/settingsRepository.js';
 import { resolveConfig, resolveRequiredConfigs, ConfigMissingError, SECRET_KEYS, envKeyFor } from './config/configResolver.js';
@@ -269,6 +271,7 @@ function autoMigrateEnvSecrets(db: ReturnType<typeof getDb>): void {
 
     log('info', 'Init', `${signal} — מבצע כיבוי מסודר...`);
     clearInterval(contactCleanupInterval);
+    clearInterval(safetyPruneInterval);
     allClearTracker.clearAll();
     poller.stop();
     try { await bot.stop(); } catch { /* ignore */ }
@@ -338,6 +341,15 @@ function autoMigrateEnvSecrets(db: ReturnType<typeof getDb>): void {
       log('info', 'Cleanup', `הוסרו ${pruned} בקשות קשר שפגו`);
     }
   }, CONTACT_CLEANUP_INTERVAL_MS);
+
+  // Prune expired safety statuses + old safety prompts every 6 hours
+  const safetyPruneInterval = setInterval(() => {
+    const statusCount = pruneExpiredSafetyStatuses(getDb());
+    const promptCount = pruneOldPrompts(getDb());
+    if (statusCount > 0 || promptCount > 0) {
+      log('info', 'SAFETY', `נוקו ${statusCount} סטטוסים ו-${promptCount} פרומפטים ישנים`);
+    }
+  }, 6 * 60 * 60 * 1000);
 
   logStartupHeader('0.4.4', [
     { name: 'Health Server', detail: healthOk ? toVisualRtl(`פורט ${resolvedHealthPort}`) : toVisualRtl('נכשל בהפעלה'), ok: healthOk, url: healthOk ? `http://localhost:${resolvedHealthPort}/health` : undefined },
