@@ -245,6 +245,7 @@ function autoMigrateEnvSecrets(db: ReturnType<typeof getDb>): void {
       dmQueue.enqueueAll([{ chatId: String(userId), text }]);
     },
     renderTemplate: renderAllClearTemplate,
+    bot,   // enables stale safety-prompt cleanup on all-clear
   });
 
   const allClearTracker = createAllClearTracker({

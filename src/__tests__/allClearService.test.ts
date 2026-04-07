@@ -7,6 +7,7 @@ import type Database from 'better-sqlite3';
 
 // Builds a fake better-sqlite3 DB that returns settings from an in-memory map.
 // getSetting() calls: db.prepare('SELECT value FROM settings WHERE key = ?').get(key)
+// deleteUnrespondedPromptsByAlertType() calls: db.prepare(...).run(alertType)
 function fakeDb(settings: Record<string, string>): Database.Database {
   return {
     prepare: (_sql: string) => ({
@@ -14,6 +15,8 @@ function fakeDb(settings: Record<string, string>): Database.Database {
         const val = settings[key];
         return val !== undefined ? { value: val } : null;
       },
+      run: () => ({ changes: 0 }),
+      all: () => [],
     }),
   } as unknown as Database.Database;
 }

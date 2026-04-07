@@ -49,6 +49,8 @@ function fakeDb(settings: Record<string, string>): Database.Database {
         const val = settings[key];
         return val !== undefined ? { value: val } : null;
       },
+      run: () => ({ changes: 0 }),
+      all: () => [],
     }),
   } as unknown as Database.Database;
 }

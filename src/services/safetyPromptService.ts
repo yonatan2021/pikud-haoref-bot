@@ -10,6 +10,7 @@ import {
   insertSafetyPrompt,
   getSafetyPromptById,
   updateSafetyPromptMessageId,
+  getUnrespondedPromptsForAllClear,
 } from '../db/safetyPromptRepository.js';
 import { log } from '../logger.js';
 
@@ -72,6 +73,35 @@ export async function dispatchSafetyPrompts(
         updateSafetyPromptMessageId(db, promptId, response.message_id);
       } catch (err) {
         log('error', 'SafetyPrompt', `כישלון בשליחה ל-${user.chat_id}: ${err}`);
+      }
+    })
+  );
+}
+
+/**
+ * For each unresponded safety prompt sent within the Telegram edit window (48h),
+ * edits the message in-place to inform the user the alert has ended.
+ * Called on all-clear BEFORE deleting prompt rows from DB.
+ * Individual edit failures are silently logged — they do not propagate.
+ */
+export async function clearStalePromptMessages(
+  db: Database.Database,
+  bot: Bot,
+  alertType: string
+): Promise<void> {
+  const prompts = getUnrespondedPromptsForAllClear(db, alertType);
+  await Promise.allSettled(
+    prompts.map(async (prompt) => {
+      if (!prompt.message_id) return;
+      try {
+        await bot.api.editMessageText(
+          prompt.chat_id,
+          prompt.message_id,
+          '🟢 <b>האזעקה הסתיימה</b>\nאין צורך לעדכן סטטוס.',
+          { parse_mode: 'HTML' }
+        );
+      } catch (err) {
+        log('error', 'SAFETY', `כישלון בעדכון הודעת בטיחות ${prompt.message_id}: ${err}`);
       }
     })
   );
