@@ -49,9 +49,18 @@ let pendingPhone: string | null = null;
 // Exponential backoff delays for getDialogs() retries (ms)
 const RETRY_DELAYS_MS = [2000, 5000, 12000, 30000] as const;
 
+/** Injected credentials from configResolver; falls back to process.env. */
+let injectedApiId: string | undefined;
+let injectedApiHash: string | undefined;
+
+export function setApiCredentials(apiId: string, apiHash: string): void {
+  injectedApiId = apiId;
+  injectedApiHash = apiHash;
+}
+
 function getApiCredentials(): { apiId: number; apiHash: string } {
-  const apiIdStr = process.env['TELEGRAM_API_ID'];
-  const apiHash = process.env['TELEGRAM_API_HASH'];
+  const apiIdStr = injectedApiId ?? process.env['TELEGRAM_API_ID'];
+  const apiHash = injectedApiHash ?? process.env['TELEGRAM_API_HASH'];
   if (!apiIdStr || !apiHash) {
     throw new Error(
       'TELEGRAM_API_ID and TELEGRAM_API_HASH are required when TELEGRAM_LISTENER_ENABLED=true'

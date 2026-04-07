@@ -295,11 +295,11 @@ export function renderAllClearTemplate(zone: string, alertType: string): string 
 
 let botInstance: Bot | null = null;
 
-export function getBot(): Bot {
+export function getBot(token?: string): Bot {
   if (!botInstance) {
-    const token = process.env.TELEGRAM_BOT_TOKEN;
-    if (!token) throw new Error('TELEGRAM_BOT_TOKEN חסר בקובץ .env');
-    botInstance = new Bot(token);
+    const resolved = token ?? process.env.TELEGRAM_BOT_TOKEN;
+    if (!resolved) throw new Error('TELEGRAM_BOT_TOKEN חסר — הגדר ב-.env או בדשבורד');
+    botInstance = new Bot(resolved);
     botInstance.api.config.use(autoRetry());
   }
   return botInstance;
