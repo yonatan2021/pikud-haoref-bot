@@ -18,13 +18,15 @@ function makeDb(): Database.Database {
   return db;
 }
 
-/** Captures the grammY callback handler registered via bot.callbackQuery */
+/** Captures the grammY callback handler registered via bot.callbackQuery for the regex pattern */
 function captureHandler(db: Database.Database): (ctx: unknown) => Promise<void> {
   setSafetyStatusHandlerDeps(db);
-  const bot = { callbackQuery: mock.fn() } as unknown as Bot;
+  const bot = { command: mock.fn(), callbackQuery: mock.fn() } as unknown as Bot;
   registerSafetyStatusHandler(bot);
   const calls = (bot.callbackQuery as unknown as ReturnType<typeof mock.fn>).mock.calls;
-  return calls[0].arguments[1] as (ctx: unknown) => Promise<void>;
+  // Find the call registered with the regex pattern (not a plain string)
+  const regexCall = calls.find((c: { arguments: unknown[] }) => c.arguments[0] instanceof RegExp);
+  return regexCall!.arguments[1] as (ctx: unknown) => Promise<void>;
 }
 
 function makeCtx(data: string, chatId = 1001) {

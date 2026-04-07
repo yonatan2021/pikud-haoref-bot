@@ -50,5 +50,6 @@ export async function setupBotHandlers(bot: Bot): Promise<void> {
     { command: 'privacy',  description: 'הגדרות פרטיות' },
     { command: 'today',    description: 'סיכום יומי' },
     { command: 'legend',   description: 'מקרא אזורי ההתראה' },
+    { command: 'status',   description: 'סטטוס ביטחוני שלך ואנשי קשר' },
   ]);
 }
