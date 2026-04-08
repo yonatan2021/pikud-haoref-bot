@@ -69,8 +69,9 @@ before(() => {
   initSchema(db);
 
   // templateCache uses the global singleton — make sure it exists + is loaded.
+  // loadTemplateCache() reads the getDb() singleton internally, no argument.
   initSchema(getDb());
-  loadTemplateCache(getDb());
+  loadTemplateCache();
 
   // Seed TELEGRAM_CHAT_ID so the telegram branch can resolve a target.
   db.prepare('INSERT OR REPLACE INTO settings (key, value, encrypted) VALUES (?, ?, 0)')
