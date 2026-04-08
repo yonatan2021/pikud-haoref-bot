@@ -161,4 +161,97 @@ describe('POST /api/landing/deploy', () => {
       if (origRepo !== undefined) process.env['GITHUB_REPO'] = origRepo;
     }
   });
+
+  // I7 — POST /deploy error paths that the existing tests don't exercise.
+  // These need global.fetch mocking because the route fires a real HTTPS
+  // request to the GitHub Actions workflow_dispatch endpoint.
+  describe('with mocked global.fetch', () => {
+    let origFetch: typeof globalThis.fetch;
+    let origPat: string | undefined;
+    let origRepo: string | undefined;
+
+    beforeEach(() => {
+      origFetch = globalThis.fetch;
+      origPat = process.env['GITHUB_PAT'];
+      origRepo = process.env['GITHUB_REPO'];
+      process.env['GITHUB_PAT'] = 'fake-pat-for-test';
+      process.env['GITHUB_REPO'] = 'yonatan2021/pikud-haoref-bot';
+    });
+
+    after(() => {
+      // Restore env after the entire suite runs (per-test restore handled below).
+      globalThis.fetch = origFetch;
+      if (origPat !== undefined) process.env['GITHUB_PAT'] = origPat; else delete process.env['GITHUB_PAT'];
+      if (origRepo !== undefined) process.env['GITHUB_REPO'] = origRepo;
+    });
+
+    it('returns 502 when GitHub API responds with 4xx', async () => {
+      globalThis.fetch = (async () =>
+        new Response('Bad credentials', { status: 401, statusText: 'Unauthorized' })
+      ) as typeof globalThis.fetch;
+
+      const res = await request(app).post('/api/landing/deploy');
+      assert.equal(res.status, 502);
+      assert.ok(res.body.error);
+      assert.equal(res.body.status, 401, 'must surface the upstream status code');
+
+      // last_landing_deploy must NOT be written on failure.
+      const row = db.prepare("SELECT value FROM settings WHERE key = 'last_landing_deploy'").get();
+      assert.equal(row, undefined, 'last_landing_deploy must NOT be persisted on failure');
+    });
+
+    it('returns 502 when GitHub API responds with 5xx', async () => {
+      globalThis.fetch = (async () =>
+        new Response('Internal Server Error', { status: 500, statusText: 'ISE' })
+      ) as typeof globalThis.fetch;
+
+      const res = await request(app).post('/api/landing/deploy');
+      assert.equal(res.status, 502);
+      assert.equal(res.body.status, 500);
+    });
+
+    it('returns 500 when fetch throws (network error)', async () => {
+      globalThis.fetch = (async () => {
+        throw new TypeError('fetch failed: ECONNREFUSED');
+      }) as typeof globalThis.fetch;
+
+      const res = await request(app).post('/api/landing/deploy');
+      assert.equal(res.status, 500);
+      assert.ok(res.body.error);
+      // last_landing_deploy must NOT be written on network failure either.
+      const row = db.prepare("SELECT value FROM settings WHERE key = 'last_landing_deploy'").get();
+      assert.equal(row, undefined);
+    });
+
+    it('returns 200 ok and persists last_landing_deploy on success', async () => {
+      // GitHub workflow_dispatch returns 204 No Content on success — `response.ok`
+      // is true for any 2xx.
+      globalThis.fetch = (async () =>
+        new Response(null, { status: 204, statusText: 'No Content' })
+      ) as typeof globalThis.fetch;
+
+      const res = await request(app).post('/api/landing/deploy');
+      assert.equal(res.status, 200);
+      assert.equal(res.body.ok, true);
+
+      const row = db
+        .prepare("SELECT value FROM settings WHERE key = 'last_landing_deploy'")
+        .get() as { value: string } | undefined;
+      assert.ok(row, 'last_landing_deploy must be persisted on success');
+      // Sanity check: the value parses as an ISO date.
+      assert.ok(!isNaN(new Date(row!.value).getTime()), 'must be an ISO date string');
+    });
+
+    it('returns 400 for malformed GITHUB_REPO format (no slash)', async () => {
+      const orig = process.env['GITHUB_REPO'];
+      process.env['GITHUB_REPO'] = 'no-slash-here';
+      try {
+        const res = await request(app).post('/api/landing/deploy');
+        assert.equal(res.status, 400);
+        assert.ok(res.body.error.includes('GITHUB_REPO'));
+      } finally {
+        process.env['GITHUB_REPO'] = orig;
+      }
+    });
+  });
 });
