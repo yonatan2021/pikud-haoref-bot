@@ -37,6 +37,54 @@ const ALLOWED_KEYS = new Set([
   'dm_relevance_not_area',
 ]);
 
+// ─── Per-key value validators ─────────────────────────────────────────────
+//
+// Each validator returns null on success, or a Hebrew error string on
+// failure. Keys not present in this map accept any string (free-text fields
+// like ga4_measurement_id, landing_url, dm_relevance_*, etc).
+//
+// Before this guard the only validation was on `all_clear_mode`. A user
+// could PATCH `mapbox_monthly_limit: "abc"`, `alert_window_seconds: "-5"`,
+// or `privacy_defaults: "{not-json"` and the value would be silently stored,
+// breaking downstream code at runtime.
+
+function validateNonNegativeInt(value: string): string | null {
+  const n = Number(value);
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) {
+    return `הערך חייב להיות מספר שלם אי-שלילי, התקבל: ${value}`;
+  }
+  return null;
+}
+
+function validateBoolish(value: string): string | null {
+  return value === 'true' || value === 'false'
+    ? null
+    : `הערך חייב להיות 'true' או 'false', התקבל: ${value}`;
+}
+
+function validateJson(value: string): string | null {
+  try { JSON.parse(value); return null; }
+  catch { return `הערך חייב להיות JSON תקין`; }
+}
+
+const VALIDATORS: Record<string, (value: string) => string | null> = {
+  alert_window_seconds:          validateNonNegativeInt,
+  mapbox_monthly_limit:          validateNonNegativeInt,
+  mapbox_image_cache_size:       validateNonNegativeInt,
+  whatsapp_map_debounce_seconds: validateNonNegativeInt,
+  topic_id_security:             validateNonNegativeInt,
+  topic_id_nature:               validateNonNegativeInt,
+  topic_id_environmental:        validateNonNegativeInt,
+  topic_id_drills:               validateNonNegativeInt,
+  topic_id_general:              validateNonNegativeInt,
+  topic_id_whatsapp:             validateNonNegativeInt,
+  all_clear_topic_id:            validateNonNegativeInt,
+  mapbox_skip_drills:            validateBoolish,
+  quiet_hours_global:            validateBoolish,
+  whatsapp_enabled:              validateBoolish,
+  privacy_defaults:              validateJson,
+};
+
 export function createSettingsRouter(db: Database.Database): Router {
   const router = Router();
 
@@ -68,6 +116,9 @@ export function createSettingsRouter(db: Database.Database): Router {
       res.status(400).json({ error: `מפתחות לא חוקיים: ${invalid.join(', ')}` });
       return;
     }
+
+    // ── Per-key value validation (runs BEFORE any DB write so a partial
+    // update can't leak through when one key in a multi-key PATCH is bad).
     const allClearModeUpdate = updates['all_clear_mode'];
     if (allClearModeUpdate !== undefined) {
       const valid = ['dm', 'channel', 'both'];
@@ -76,6 +127,16 @@ export function createSettingsRouter(db: Database.Database): Router {
         return;
       }
     }
+    for (const [key, value] of Object.entries(updates)) {
+      const validator = VALIDATORS[key];
+      if (!validator) continue;
+      const err = validator(String(value));
+      if (err) {
+        res.status(400).json({ error: `${key}: ${err}` });
+        return;
+      }
+    }
+
     for (const [key, value] of Object.entries(updates)) {
       setSetting(db, key, String(value));
     }

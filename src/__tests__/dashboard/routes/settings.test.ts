@@ -86,3 +86,88 @@ describe('PATCH /api/settings', () => {
     assert.equal(res.body.ok, true);
   });
 });
+
+// I2 — per-key value validation. Before this guard the only enum-validated
+// key was `all_clear_mode`. Numeric, boolean, and JSON keys all accepted any
+// string and the bad value was silently stored, breaking downstream code at
+// runtime. These tests lock down the validators that now run before
+// setSetting() is called.
+describe('PATCH /api/settings — value validation', () => {
+  // Clear settings between tests so the "no partial write" assertion isn't
+  // confused by leftover state from earlier suites in this file. The shared
+  // db singleton above is reused across describe blocks.
+  beforeEach(() => {
+    db.prepare('DELETE FROM settings').run();
+    settingsMutateLimiter.clearStore();
+  });
+
+  it('rejects non-numeric mapbox_monthly_limit with 400', async () => {
+    const res = await request(app).patch('/api/settings').send({ mapbox_monthly_limit: 'abc' });
+    assert.equal(res.status, 400);
+    assert.ok(res.body.error.includes('mapbox_monthly_limit'));
+    // No partial write — the setting must NOT be in the DB.
+    const row = db.prepare("SELECT value FROM settings WHERE key = 'mapbox_monthly_limit'").get();
+    assert.equal(row, undefined);
+  });
+
+  it('rejects negative alert_window_seconds with 400', async () => {
+    const res = await request(app).patch('/api/settings').send({ alert_window_seconds: '-5' });
+    assert.equal(res.status, 400);
+    assert.ok(res.body.error.includes('alert_window_seconds'));
+  });
+
+  it('rejects malformed JSON in privacy_defaults with 400', async () => {
+    const res = await request(app)
+      .patch('/api/settings')
+      .send({ privacy_defaults: '{not-valid-json' });
+    assert.equal(res.status, 400);
+    assert.ok(res.body.error.includes('privacy_defaults'));
+    assert.ok(res.body.error.includes('JSON'));
+  });
+
+  it('accepts well-formed JSON in privacy_defaults', async () => {
+    const res = await request(app)
+      .patch('/api/settings')
+      .send({ privacy_defaults: '{"safety_status":1,"home_city":0}' });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.ok, true);
+  });
+
+  it('rejects non-boolean mapbox_skip_drills with 400', async () => {
+    const res = await request(app)
+      .patch('/api/settings')
+      .send({ mapbox_skip_drills: 'maybe' });
+    assert.equal(res.status, 400);
+    assert.ok(res.body.error.includes('mapbox_skip_drills'));
+  });
+
+  it('rejects float values in numeric keys (must be integer)', async () => {
+    const res = await request(app)
+      .patch('/api/settings')
+      .send({ whatsapp_map_debounce_seconds: '15.5' });
+    assert.equal(res.status, 400);
+  });
+
+  it('does NOT partially apply when one key in a multi-key PATCH is invalid', async () => {
+    // Both keys are allowed, but the second one fails validation. The first
+    // key must NOT be persisted (validation runs as a separate pass before
+    // any setSetting() call).
+    const res = await request(app)
+      .patch('/api/settings')
+      .send({ alert_window_seconds: '120', mapbox_monthly_limit: 'BAD' });
+    assert.equal(res.status, 400);
+    const row1 = db.prepare("SELECT value FROM settings WHERE key = 'alert_window_seconds'").get();
+    const row2 = db.prepare("SELECT value FROM settings WHERE key = 'mapbox_monthly_limit'").get();
+    assert.equal(row1, undefined, 'first key must NOT have been written before validation failed');
+    assert.equal(row2, undefined);
+  });
+
+  it('still rejects all_clear_mode enum violations (regression)', async () => {
+    // The pre-existing all_clear_mode enum check must still fire.
+    const res = await request(app)
+      .patch('/api/settings')
+      .send({ all_clear_mode: 'invalid' });
+    assert.equal(res.status, 400);
+    assert.ok(res.body.error.includes('all_clear_mode'));
+  });
+});

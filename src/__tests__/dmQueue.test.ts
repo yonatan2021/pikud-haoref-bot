@@ -132,6 +132,25 @@ describe('DmQueue', () => {
     assert.equal(extractRetryAfter(null), null);
   });
 
+  // I3 — float retry_after values (sub-second cooldowns). The structured
+  // params path passes the number through Math.min directly so a float
+  // survives. The message-string path uses parseFloat so "retry after 0.5"
+  // is also a valid input. Both must return the float value (NOT NaN, NOT 0).
+  it('extractRetryAfter: passes through float retry_after from structured params', () => {
+    const err = Object.assign(new Error('Too Many Requests'), {
+      parameters: { retry_after: 0.5 },
+    });
+    assert.equal(extractRetryAfter(err), 0.5, 'sub-second retry_after must survive');
+  });
+
+  it('extractRetryAfter: parses float from message string ("retry after 0.5")', () => {
+    assert.equal(extractRetryAfter(new Error('retry after 0.5')), 0.5);
+  });
+
+  it('extractRetryAfter: parses float from message string ("retry after 1.75")', () => {
+    assert.equal(extractRetryAfter(new Error('retry after 1.75')), 1.75);
+  });
+
   // Issue 4 — missing error path tests
   it('does not retry "user is deactivated" — drops task and continues', async () => {
     let sendCount = 0;

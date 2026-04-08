@@ -244,6 +244,49 @@ describe('userRepository — v0.4.1 profile fields', () => {
       assert.equal(user.display_name, 'Coded');
       assert.equal(user.connection_code, '654321');
     });
+
+    // I8 — unique constraint enforcement. schema.ts:257 declares
+    //   CREATE UNIQUE INDEX idx_users_connection_code ON users(connection_code)
+    //   WHERE connection_code IS NOT NULL
+    // so two distinct users cannot share a connection_code, BUT multiple users
+    // CAN have a NULL connection_code (the partial WHERE clause). The
+    // /connect flow's collision-retry logic in connectHandler.ts depends on
+    // this constraint actually firing — these tests lock it down.
+
+    it('setConnectionCode throws when another user already owns the same code', () => {
+      upsertUser(801);
+      upsertUser(802);
+      setConnectionCode(801, '424242');
+
+      assert.throws(
+        () => setConnectionCode(802, '424242'),
+        /UNIQUE|constraint/i,
+        'second user must NOT be able to claim the same code'
+      );
+
+      // Postcondition: 801 still owns it, 802 has no code.
+      assert.equal(getUser(801)?.connection_code, '424242');
+      assert.equal(getUser(802)?.connection_code, null);
+    });
+
+    it('multiple users can simultaneously have a NULL connection_code', () => {
+      // The partial index excludes NULL rows, so this must NOT throw.
+      upsertUser(811);
+      upsertUser(812);
+      upsertUser(813);
+
+      assert.equal(getUser(811)?.connection_code, null);
+      assert.equal(getUser(812)?.connection_code, null);
+      assert.equal(getUser(813)?.connection_code, null);
+    });
+
+    it('setConnectionCode allows the same user to update their own code', () => {
+      upsertUser(821);
+      setConnectionCode(821, '111222');
+      // Same user, new code — must NOT collide with itself.
+      assert.doesNotThrow(() => setConnectionCode(821, '333444'));
+      assert.equal(getUser(821)?.connection_code, '333444');
+    });
   });
 
   describe('deleteUser cascade', () => {
