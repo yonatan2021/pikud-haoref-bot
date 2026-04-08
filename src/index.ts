@@ -14,6 +14,7 @@ import { shouldSkipMap } from './alertHelpers';
 import { dispatchSafetyPrompts } from './services/safetyPromptService';
 import { setSafetyStatusHandlerDeps } from './bot/safetyStatusHandler';
 import { handleNewAlert } from './alertHandler';
+import { createShutdown } from './shutdown.js';
 import { insertAlert as insertAlertHistory, countAlertsToday, getDailyCountsForMonth } from './db/alertHistoryRepository.js';
 import { startHealthServer } from './healthServer.js';
 import { updateLastAlertAt } from './metrics.js';
@@ -257,38 +258,10 @@ function autoMigrateEnvSecrets(db: ReturnType<typeof getDb>): void {
     },
   });
 
-  // Graceful shutdown — stop accepting work, drain in-flight, close storage
-  let shuttingDown = false;
-  async function shutdown(signal: string): Promise<void> {
-    if (shuttingDown) return;
-    shuttingDown = true;
-
-    // Force exit after 10s if cleanup hangs (e.g. stuck WA or bot.stop())
-    const forceTimer = setTimeout(() => {
-      log('warn', 'Init', 'Shutdown timeout — יוצא בכוח');
-      process.exit(1);
-    }, 10_000);
-    forceTimer.unref();
-
-    log('info', 'Init', `${signal} — מבצע כיבוי מסודר...`);
-    clearInterval(contactCleanupInterval);
-    clearInterval(safetyPruneInterval);
-    allClearTracker.clearAll();
-    poller.stop();
-    try { await bot.stop(); } catch { /* ignore */ }
-    healthServer.close();
-    if (dashboardHttpServer) { dashboardHttpServer.close(); }
-    if (process.env.WHATSAPP_ENABLED === 'true') {
-      try { await disconnectWhatsApp(); } catch { /* ignore */ }
-    }
-    if (tgListenerEnabled) {
-      try { await disconnectTelegramListener(getDb()); } catch { /* ignore */ }
-    }
-    try { closeDb(); } catch { /* ignore */ }
-    process.exit(0);
-  }
-  process.once('SIGTERM', () => { void shutdown('SIGTERM'); });
-  process.once('SIGINT',  () => { void shutdown('SIGINT');  });
+  // (Graceful shutdown wiring is registered AFTER the interval handles
+  //  declared further down, so the shutdown function captures real values
+  //  rather than uninitialised bindings — see lines after the
+  //  safetyPruneInterval declaration below.)
 
   poller.on('newAlert', async (alert: Alert) => {
     updateLastAlertAt();
@@ -351,6 +324,29 @@ function autoMigrateEnvSecrets(db: ReturnType<typeof getDb>): void {
       log('info', 'SAFETY', `נוקו ${statusCount} סטטוסים ו-${promptCount} פרומפטים ישנים`);
     }
   }, 6 * 60 * 60 * 1000);
+
+  // Graceful shutdown — stop accepting work, drain in-flight, close storage.
+  // Wired AFTER both interval handles are declared so the createShutdown
+  // call captures real values, not uninitialised bindings. The actual
+  // step sequence lives in src/shutdown.ts and is unit-tested in
+  // src/__tests__/shutdown.test.ts. Step order is load-bearing — see the
+  // saved memory pattern_graceful_shutdown.md.
+  const shutdown = createShutdown({
+    contactCleanupInterval,
+    safetyPruneInterval,
+    allClearTracker,
+    poller,
+    bot,
+    healthServer,
+    dashboardHttpServer,
+    whatsappEnabled: process.env.WHATSAPP_ENABLED === 'true',
+    disconnectWhatsApp,
+    tgListenerEnabled,
+    disconnectTelegramListener: () => disconnectTelegramListener(getDb()),
+    closeDb,
+  });
+  process.once('SIGTERM', () => { void shutdown('SIGTERM'); });
+  process.once('SIGINT',  () => { void shutdown('SIGINT');  });
 
   logStartupHeader('0.5.0', [
     { name: 'Health Server', detail: healthOk ? toVisualRtl(`פורט ${resolvedHealthPort}`) : toVisualRtl('נכשל בהפעלה'), ok: healthOk, url: healthOk ? `http://localhost:${resolvedHealthPort}/health` : undefined },
