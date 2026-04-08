@@ -6,9 +6,7 @@ import { getUsersWithHomeCity } from '../db/userRepository.js';
 import { computeAlertFingerprint, isDrillAlert } from '../alertHelpers.js';
 import { shouldSkipForQuietHours } from './dmDispatcher.js';
 import {
-  hasPromptBeenSent,
   insertSafetyPrompt,
-  getSafetyPromptById,
   updateSafetyPromptMessageId,
   getUnrespondedPromptsForAllClear,
 } from '../db/safetyPromptRepository.js';
