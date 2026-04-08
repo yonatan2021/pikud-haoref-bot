@@ -6,7 +6,9 @@ import { getTopicId } from '../../topicRouter.js';
 import { log } from '../../logger.js';
 import { createRateLimitMiddleware } from '../rateLimiter.js';
 
-const broadcastLimiter = createRateLimitMiddleware({
+// Exported for test isolation — tests that send multiple broadcast requests
+// must call `broadcastLimiter.clearStore()` in `beforeEach` (2/min cap).
+export const broadcastLimiter = createRateLimitMiddleware({
   maxRequests: 2,
   windowMs: 60_000,
   message: 'יותר מדי שידורים — נסה שוב בעוד דקה',

@@ -24,7 +24,10 @@ export function closeDb(): void {
   }
 }
 
-function addColumnIfMissing(database: Database.Database, sql: string): void {
+// Exported so tests can verify the duplicate-column-name suppression and the
+// rethrow behavior for other errors. Production callers should only use it
+// inside `initSchema()` below.
+export function addColumnIfMissing(database: Database.Database, sql: string): void {
   try {
     database.prepare(sql).run();
   } catch (e: unknown) {
