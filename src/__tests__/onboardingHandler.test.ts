@@ -174,4 +174,113 @@ describe('onboardingHandler', () => {
       assert.equal(getProfile(9021)?.display_name, longName);
     });
   });
+
+  // I5 — invalid city ID in ob:city callback. The handler regex matches
+  // \d+ but doesn't verify the city actually exists in cities.json. The
+  // null-check at src/bot/onboardingHandler.ts:179 is the safety net.
+  // Existing tests never exercised this branch via the real callback path.
+  describe('ob:city callback — invalid city ID handling', () => {
+    function buildMockBot() {
+      const callbacks: Array<[string | RegExp, (ctx: import('grammy').Context) => Promise<void>]> = [];
+      return {
+        command: () => {},
+        callbackQuery: (pat: string | RegExp, h: (ctx: import('grammy').Context) => Promise<void>) => {
+          callbacks.push([pat, h]);
+        },
+        on: () => {},
+        catch: () => {},
+        _fireCb: async (data: string, ctx: import('grammy').Context) => {
+          for (const [pat, h] of callbacks) {
+            if (typeof pat === 'string' && pat === data) { await h(ctx); return; }
+            if (pat instanceof RegExp && pat.test(data)) {
+              (ctx as unknown as { match: RegExpMatchArray | null }).match = data.match(pat);
+              await h(ctx);
+              return;
+            }
+          }
+        },
+      };
+    }
+
+    function makeCtx(chatId: number, callbackData: string) {
+      const replyCalls: [string, unknown?][] = [];
+      const editCalls: [string, unknown?][] = [];
+      const ctx: unknown = {
+        chat: { id: chatId, type: 'private' },
+        message: { message_id: 1 },
+        callbackQuery: { data: callbackData, id: 'cb-1' },
+        match: null,
+        reply: async (t: string, opts?: unknown) => { replyCalls.push([t, opts]); },
+        editMessageText: async (t: string, opts?: unknown) => { editCalls.push([t, opts]); },
+        answerCallbackQuery: async () => undefined,
+        api: { sendMessage: async () => ({ message_id: 1 }) },
+        _replyCalls: replyCalls,
+        _editCalls: editCalls,
+      };
+      return ctx as import('grammy').Context;
+    }
+
+    it('ob:city with non-existent city ID replies with error and does NOT advance step', async () => {
+      const { registerOnboardingHandler } = await import('../bot/onboardingHandler.js');
+      const chatId = 9_100;
+      upsertUser(chatId);
+      setOnboardingStep(chatId, 'city');
+
+      const bot = buildMockBot();
+      registerOnboardingHandler(bot as unknown as import('grammy').Bot);
+
+      // 999_999 is far outside any real city ID range — getCityById returns undefined.
+      const ctx = makeCtx(chatId, 'ob:city:999999');
+      await bot._fireCb('ob:city:999999', ctx);
+
+      const replyCalls = (ctx as unknown as { _replyCalls: [string, unknown?][] })._replyCalls;
+      assert.ok(replyCalls.length >= 1, 'must reply with the "city not found" error');
+      assert.match(replyCalls[0]![0], /עיר לא נמצאה/);
+
+      // Profile must NOT have a home_city set, and the step must still be 'city'.
+      assert.equal(getProfile(chatId)?.home_city, null);
+      assert.equal(getProfile(chatId)?.onboarding_step, 'city', 'step must NOT advance to confirm');
+    });
+
+    it('ob:city with a real city ID (511 = אבו גוש) sets home_city and advances to confirm', async () => {
+      const { registerOnboardingHandler } = await import('../bot/onboardingHandler.js');
+      const chatId = 9_101;
+      upsertUser(chatId);
+      setOnboardingStep(chatId, 'city');
+
+      const bot = buildMockBot();
+      registerOnboardingHandler(bot as unknown as import('grammy').Bot);
+
+      const ctx = makeCtx(chatId, 'ob:city:511');
+      await bot._fireCb('ob:city:511', ctx);
+
+      assert.equal(getProfile(chatId)?.home_city, 'אבו גוש');
+      assert.equal(getProfile(chatId)?.onboarding_step, 'confirm');
+    });
+
+    it('ob:confirm with a stale home_city (no longer in cities.json) still completes onboarding', async () => {
+      // Edge case: a user's stored home_city points to a city that has been
+      // removed from cities.json since they set it. The auto-subscription
+      // should silently skip but onboarding must still complete.
+      const { registerOnboardingHandler } = await import('../bot/onboardingHandler.js');
+      const chatId = 9_102;
+      upsertUser(chatId);
+      // Force a bogus home_city directly into the DB.
+      updateProfile(chatId, { home_city: 'עיר שלא קיימת בשום מקום' });
+      setOnboardingStep(chatId, 'confirm');
+
+      const bot = buildMockBot();
+      registerOnboardingHandler(bot as unknown as import('grammy').Bot);
+
+      const ctx = makeCtx(chatId, 'ob:confirm');
+      await bot._fireCb('ob:confirm', ctx);
+
+      // Onboarding must be marked complete despite the stale home_city.
+      assert.equal(
+        isOnboardingCompleted(chatId),
+        true,
+        'completeOnboarding must run even when home_city resolution fails'
+      );
+    });
+  });
 });
