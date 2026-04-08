@@ -219,4 +219,79 @@ describe('GET /api/subscribers/export/csv', () => {
     assert.ok(header.includes('connection_code'));
     assert.ok(header.includes('contact_count'));
   });
+
+  // I1 — escCsv must (a) double embedded quotes per RFC 4180 and (b) prefix
+  // any value starting with =, +, -, or @ with a single quote to neutralise
+  // CSV formula injection in Excel/Sheets/Numbers. The original escCsv only
+  // did (a). The gotchas doc claimed escCsv was the mitigation but the code
+  // was incomplete. These tests lock down both invariants.
+
+  it('CSV: escapes embedded double quotes by doubling (RFC 4180)', async () => {
+    db.prepare("UPDATE users SET display_name = ? WHERE chat_id = 111").run('עם "ציטוט" באמצע');
+    const res = await request(app).get('/api/subscribers/export/csv');
+    const dataLine = res.text.split('\n')[1]!;
+    assert.ok(
+      dataLine.includes('"עם ""ציטוט"" באמצע"'),
+      'embedded quotes must be doubled and the field wrapped in quotes'
+    );
+  });
+
+  it('CSV: prefixes formula-injection chars (=, +, -, @) with apostrophe', async () => {
+    // Try every dangerous lead character one by one — each must be neutralised.
+    for (const lead of ['=', '+', '-', '@']) {
+      db.prepare("DELETE FROM subscriptions WHERE chat_id = 111").run();
+      db.prepare("DELETE FROM users WHERE chat_id = 111").run();
+      db.prepare("INSERT INTO users (chat_id, format, display_name) VALUES (?, ?, ?)")
+        .run(111, 'short', `${lead}cmd|/c calc`);
+
+      const res = await request(app).get('/api/subscribers/export/csv');
+      const dataLine = res.text.split('\n')[1]!;
+      assert.ok(
+        dataLine.includes(`"'${lead}cmd|/c calc"`),
+        `field starting with "${lead}" must be prefixed with apostrophe — got: ${dataLine}`
+      );
+    }
+  });
+
+  it('CSV: handles null display_name and home_city without crashing', async () => {
+    db.prepare("UPDATE users SET display_name = NULL, home_city = NULL WHERE chat_id = 111").run();
+    const res = await request(app).get('/api/subscribers/export/csv');
+    assert.equal(res.status, 200);
+    const dataLine = res.text.split('\n')[1]!;
+    // Null fields should render as empty quoted strings — never the literal "null".
+    assert.ok(
+      dataLine.includes('"",""'),
+      'null display_name/home_city must render as empty quoted fields'
+    );
+    assert.ok(!dataLine.includes('null'), 'literal "null" must not appear in CSV');
+  });
+
+  it('CSV: dangerous chars combined with quotes are escaped in both directions', async () => {
+    db.prepare("UPDATE users SET display_name = ? WHERE chat_id = 111").run('=HYPERLINK("evil","go")');
+    const res = await request(app).get('/api/subscribers/export/csv');
+    const dataLine = res.text.split('\n')[1]!;
+    // Both: leading apostrophe + doubled quotes inside.
+    assert.ok(
+      dataLine.includes(`"'=HYPERLINK(""evil"",""go"")"`),
+      `must apply both escapes — got: ${dataLine}`
+    );
+  });
+
+  it('CSV: header field count matches body field count (no escape misalignment)', async () => {
+    db.prepare("UPDATE users SET display_name = ?, home_city = ? WHERE chat_id = 111")
+      .run('A,B,C', '=1+1');
+    const res = await request(app).get('/api/subscribers/export/csv');
+    const lines = res.text.split('\n');
+    const headerCols = lines[0]!.split(',').length;
+    // Count columns in the data line by parsing properly: commas inside
+    // quoted fields don't count. Use a tiny regex that splits on commas
+    // outside of double-quoted segments.
+    const dataLine = lines[1]!;
+    const dataCols = dataLine.match(/(?:[^,"]+|"[^"]*")+/g)?.length ?? 0;
+    assert.equal(
+      dataCols,
+      headerCols,
+      `body column count (${dataCols}) must equal header column count (${headerCols}) even with embedded commas`
+    );
+  });
 });
