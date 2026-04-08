@@ -163,9 +163,11 @@ export function registerOnboardingHandler(bot: Bot): void {
           }
         }
         log('info', 'Onboarding', `User ${chatId} completed onboarding`);
+        const completionKeyboard = new InlineKeyboard()
+          .text('📋 פתח תפריט', 'menu:main');
         await ctx.reply(
-          '🎉 <b>ההרשמה הושלמה!</b>\n\nלחץ /start לפתיחת התפריט הראשי.',
-          { parse_mode: 'HTML' }
+          '🎉 <b>ההרשמה הושלמה!</b>\n\nלחץ על הכפתור להמשך.',
+          { parse_mode: 'HTML', reply_markup: completionKeyboard }
         );
         return;
       }

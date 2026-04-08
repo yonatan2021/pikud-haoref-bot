@@ -2,6 +2,7 @@ import { describe, it, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildMainMenu, registerMenuHandler } from '../bot/menuHandler';
 import { initDb } from '../db/schema.js';
+import { upsertUser, completeOnboarding } from '../db/userRepository.js';
 import type { Bot, Context } from 'grammy';
 
 before(() => {
@@ -60,9 +61,13 @@ describe('buildMainMenu — last alert indicator', () => {
 });
 
 describe('registerMenuHandler — /start routing', () => {
-  it('replies with the main menu in private chat', async () => {
+  it('replies with the main menu in private chat (onboarded user)', async () => {
     const bot = buildMockBot();
     registerMenuHandler(bot as unknown as Bot);
+
+    // Onboarding must be completed so /start routes to main menu, not onboarding
+    upsertUser(7001);
+    completeOnboarding(7001);
 
     const ctx = makeCtx({ chat: { id: 7001, type: 'private' } });
     await bot._fireCmd('start', ctx);
@@ -70,7 +75,21 @@ describe('registerMenuHandler — /start routing', () => {
     assert.equal((ctx as any)._replyCalls.length, 1, 'should reply once in private chat');
     const [text, opts] = (ctx as any)._replyCalls[0] as [string, { reply_markup?: unknown }];
     assert.ok(text.includes('בוט פיקוד העורף'), 'should show the main menu title');
+    assert.ok(!text.includes('ברוך הבא'), 'should NOT show onboarding name prompt');
     assert.ok(opts.reply_markup, 'should include the inline keyboard');
+  });
+
+  it('replies with onboarding prompt for new user', async () => {
+    const bot = buildMockBot();
+    registerMenuHandler(bot as unknown as Bot);
+
+    // chatId 7003 has no row in DB → isOnboardingCompleted returns false
+    const ctx = makeCtx({ chat: { id: 7003, type: 'private' } });
+    await bot._fireCmd('start', ctx);
+
+    assert.equal((ctx as any)._replyCalls.length, 1, 'should reply once');
+    const [text] = (ctx as any)._replyCalls[0] as [string];
+    assert.ok(text.includes('ברוך הבא'), 'should show onboarding name prompt');
   });
 
   it('does nothing in group chat', async () => {
