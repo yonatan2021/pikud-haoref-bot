@@ -124,4 +124,134 @@ describe('profileHandler', () => {
       assert.ok(text.includes('&lt;script&gt;'), 'should HTML-escape special chars');
     });
   });
+
+  // I4 — name input edge cases via the bot's text handler. The handler at
+  // src/bot/profileHandler.ts:170-178 stripHtmls the input, trims it, then
+  // rejects empty/over-50-char results. Existing tests only verified
+  // updateProfile() at the repository level, not the validation flow.
+  describe('name input via bot.on(message:text) handler', () => {
+    // Tiny mock bot that only records what we need: the name-edit callback
+    // setter and the text handler.
+    function buildMockBot() {
+      const callbacks: Array<[string | RegExp, (ctx: import('grammy').Context) => Promise<void>]> = [];
+      let textHandler: ((ctx: import('grammy').Context, next: () => Promise<void>) => Promise<void>) | null = null;
+      return {
+        command: () => {},
+        callbackQuery: (pat: string | RegExp, h: (ctx: import('grammy').Context) => Promise<void>) => {
+          callbacks.push([pat, h]);
+        },
+        on: (_evt: string, h: (ctx: import('grammy').Context, next: () => Promise<void>) => Promise<void>) => {
+          textHandler = h;
+        },
+        catch: () => {},
+        _fireCb: async (data: string, ctx: import('grammy').Context) => {
+          for (const [pat, h] of callbacks) {
+            if (typeof pat === 'string' && pat === data) { await h(ctx); return; }
+            if (pat instanceof RegExp && pat.test(data)) {
+              (ctx as unknown as { match: RegExpMatchArray | null }).match = data.match(pat);
+              await h(ctx);
+              return;
+            }
+          }
+        },
+        _fireText: async (ctx: import('grammy').Context) => {
+          if (textHandler) await textHandler(ctx, async () => undefined);
+        },
+      };
+    }
+
+    function makeCtx(chatId: number, text: string) {
+      const replyCalls: [string, unknown?][] = [];
+      const editCalls: [string, unknown?][] = [];
+      const ctx: unknown = {
+        chat: { id: chatId, type: 'private' },
+        message: { text, message_id: 1 },
+        match: null,
+        reply: async (t: string, opts?: unknown) => { replyCalls.push([t, opts]); },
+        editMessageText: async (t: string, opts?: unknown) => { editCalls.push([t, opts]); },
+        answerCallbackQuery: async () => undefined,
+        api: { sendMessage: async () => ({ message_id: 1 }) },
+        _replyCalls: replyCalls,
+        _editCalls: editCalls,
+      };
+      return ctx as import('grammy').Context;
+    }
+
+    async function setupNameEdit(chatId: number) {
+      const { registerProfileHandler } = await import('../bot/profileHandler.js');
+      const bot = buildMockBot();
+      registerProfileHandler(bot as unknown as import('grammy').Bot);
+      upsertUser(chatId);
+      // Put user into "name edit" pending state by firing the callback.
+      const ctx = makeCtx(chatId, '');
+      await bot._fireCb('pf:edit_name', ctx);
+      return bot;
+    }
+
+    it('rejects name longer than 50 characters with the validation reply', async () => {
+      const chatId = 8101;
+      const bot = await setupNameEdit(chatId);
+      const longName = 'א'.repeat(51);
+      const ctx = makeCtx(chatId, longName);
+      await bot._fireText(ctx);
+
+      const replyCalls = (ctx as unknown as { _replyCalls: [string, unknown?][] })._replyCalls;
+      assert.ok(replyCalls.length >= 1, 'must reply with validation error');
+      assert.match(replyCalls[0]![0], /1 ל-50/, 'reply must mention the 1-50 character limit');
+      assert.equal(getProfile(chatId)?.display_name, null, 'profile must NOT be updated');
+    });
+
+    it('rejects empty name (whitespace-only after strip+trim)', async () => {
+      const chatId = 8102;
+      const bot = await setupNameEdit(chatId);
+      const ctx = makeCtx(chatId, '   ');
+      await bot._fireText(ctx);
+
+      const replyCalls = (ctx as unknown as { _replyCalls: [string, unknown?][] })._replyCalls;
+      assert.match(replyCalls[0]![0], /1 ל-50/);
+      assert.equal(getProfile(chatId)?.display_name, null);
+    });
+
+    it('rejects name that becomes empty after stripHtml (HTML-only input)', async () => {
+      const chatId = 8103;
+      const bot = await setupNameEdit(chatId);
+      // Pure HTML markup — stripHtml leaves nothing.
+      const ctx = makeCtx(chatId, '<b></b>');
+      await bot._fireText(ctx);
+
+      const replyCalls = (ctx as unknown as { _replyCalls: [string, unknown?][] })._replyCalls;
+      assert.match(replyCalls[0]![0], /1 ל-50/);
+      assert.equal(getProfile(chatId)?.display_name, null);
+    });
+
+    it('strips HTML tags from name input but keeps the visible text', async () => {
+      const chatId = 8104;
+      const bot = await setupNameEdit(chatId);
+      const ctx = makeCtx(chatId, '<b>יונתן</b>');
+      await bot._fireText(ctx);
+
+      assert.equal(
+        getProfile(chatId)?.display_name,
+        'יונתן',
+        'tags must be stripped, the visible text kept'
+      );
+    });
+
+    it('accepts a valid 50-character name (boundary value)', async () => {
+      const chatId = 8105;
+      const bot = await setupNameEdit(chatId);
+      const exactlyFifty = 'א'.repeat(50);
+      const ctx = makeCtx(chatId, exactlyFifty);
+      await bot._fireText(ctx);
+      assert.equal(getProfile(chatId)?.display_name, exactlyFifty);
+    });
+
+    it('accepts a 1-character name (lower boundary)', async () => {
+      const chatId = 8106;
+      const bot = await setupNameEdit(chatId);
+      const ctx = makeCtx(chatId, 'א');
+      await bot._fireText(ctx);
+      assert.equal(getProfile(chatId)?.display_name, 'א');
+    });
+  });
 });
