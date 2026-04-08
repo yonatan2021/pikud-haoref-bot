@@ -17,3 +17,10 @@ export function getCached<T>(key: string): T | null {
 export function setCached<T>(key: string, data: T, ttlMs: number): void {
   store.set(key, { data, expiresAt: Date.now() + ttlMs });
 }
+
+// Test-only helper — call in `beforeEach` when a test suite makes multiple
+// requests to the same /stats endpoint, otherwise the second request returns
+// a stale cached response from the first.
+export function clearStatsCache(): void {
+  store.clear();
+}
