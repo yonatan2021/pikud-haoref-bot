@@ -229,6 +229,16 @@ export function initSchema(database: Database.Database): void {
   addColumnIfMissing(database, 'ALTER TABLE users ADD COLUMN connection_code TEXT');
   addColumnIfMissing(database, 'ALTER TABLE users ADD COLUMN onboarding_step TEXT');
 
+  // v0.4.1 backfill: pre-v0.4.1 subscribers get onboarding_completed = 0 from the DEFAULT.
+  // Users who already have subscriptions existed before onboarding was introduced —
+  // mark them as already onboarded so they go to the main menu, not the wizard.
+  database.prepare(`
+    UPDATE users
+    SET onboarding_completed = 1
+    WHERE onboarding_completed = 0
+      AND chat_id IN (SELECT DISTINCT chat_id FROM subscriptions)
+  `).run();
+
   // v0.4.4 — telegram listener topic support
   addColumnIfMissing(database, 'ALTER TABLE telegram_listeners ADD COLUMN source_topic_id INTEGER');
   addColumnIfMissing(database, 'ALTER TABLE telegram_known_chats ADD COLUMN is_forum INTEGER NOT NULL DEFAULT 0');

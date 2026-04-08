@@ -2,7 +2,7 @@ import { Bot, InlineKeyboard } from 'grammy';
 import type { Context } from 'grammy';
 import type Database from 'better-sqlite3';
 import { getSubscriptionCount } from '../db/subscriptionRepository.js';
-import { upsertUser, isOnboardingCompleted, getProfile, setOnboardingStep, setDmActive } from '../db/userRepository.js';
+import { upsertUser, isOnboardingCompleted, completeOnboarding, getProfile, setOnboardingStep, setDmActive } from '../db/userRepository.js';
 import { getRecentAlerts } from '../db/alertHistoryRepository.js';
 import { sendStepMessage } from './onboardingHandler.js';
 import { getSetting } from '../dashboard/settingsRepository.js';
@@ -59,6 +59,17 @@ export function registerMenuHandler(bot: Bot): void {
 
       // Gate new users into onboarding
       if (!isOnboardingCompleted(chatId)) {
+        // Safety valve: user has subscriptions → they're a real user, backfill the flag
+        const subCount = getSubscriptionCount(chatId);
+        if (subCount > 0) {
+          completeOnboarding(chatId);
+          log('info', 'Menu', `Backfilled onboarding_completed for legacy user ${chatId}`);
+          const lastAlert = getRecentAlerts(168)[0];
+          const { text, keyboard } = buildMainMenu(subCount, lastAlert);
+          await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard });
+          return;
+        }
+
         const profile = getProfile(chatId);
         const step = profile?.onboarding_step;
         if (step === null || step === undefined) {
