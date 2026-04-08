@@ -220,6 +220,47 @@ describe('PATCH /api/whatsapp/groups/:id', () => {
     assert.equal(res.status, 400);
     assert.ok(res.body.error);
   });
+
+  // I6 — fill the remaining edges. Most PATCH validation is already
+  // tested above. These add: non-string element in array, empty-array
+  // (valid), and "no DB mutation when validation fails".
+  it('returns 400 when alertTypes contains a non-string element', async () => {
+    // Array.isArray is true but one element is a number — the
+    // .every(t => typeof t === 'string') check must catch it.
+    const res = await request(app)
+      .patch('/api/whatsapp/groups/111%40g.us')
+      .send({ enabled: true, alertTypes: ['missiles', 42, 'earthQuake'] });
+    assert.equal(res.status, 400);
+    assert.ok(res.body.error);
+  });
+
+  it('accepts empty alertTypes array (group disabled for all types)', async () => {
+    upsertGroup(db, '444@g.us', 'קבוצה ד', true, ['missiles']);
+    const res = await request(app)
+      .patch('/api/whatsapp/groups/444%40g.us')
+      .send({ enabled: false, alertTypes: [] });
+    assert.equal(res.status, 200);
+    const groups = getAllGroups(db);
+    const group = groups.find(g => g.groupId === '444@g.us');
+    assert.ok(group);
+    assert.deepEqual(group.alertTypes, []);
+  });
+
+  it('does NOT mutate the DB row when validation fails', async () => {
+    // Seed a known good state.
+    upsertGroup(db, '555@g.us', 'קבוצה ה', true, ['missiles', 'earthQuake']);
+
+    // Attempt PATCH with an unknown alert type — must reject AND not touch the row.
+    const res = await request(app)
+      .patch('/api/whatsapp/groups/555%40g.us')
+      .send({ enabled: false, alertTypes: ['notARealType'] });
+    assert.equal(res.status, 400);
+
+    const group = getAllGroups(db).find(g => g.groupId === '555@g.us');
+    assert.ok(group);
+    assert.equal(group.enabled, true, 'enabled must remain true after rejected PATCH');
+    assert.deepEqual(group.alertTypes, ['missiles', 'earthQuake'], 'alertTypes must remain unchanged');
+  });
 });
 
 describe('POST /api/whatsapp/clear-session', () => {
