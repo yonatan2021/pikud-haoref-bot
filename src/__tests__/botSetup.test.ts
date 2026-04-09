@@ -36,8 +36,8 @@ describe('setupBotHandlers', () => {
     const bot = buildMockBot();
     await setupBotHandlers(bot as unknown as Bot);
 
-    const expected = ['start', 'profile', 'add', 'zones', 'mycities', 'settings', 'stats', 'history', 'connect', 'contacts', 'privacy', 'today', 'legend', 'status'];
-    assert.equal(bot._registeredCommands.length, expected.length, 'should register exactly 14 commands');
+    const expected = ['start', 'profile', 'add', 'zones', 'mycities', 'settings', 'stats', 'history', 'connect', 'contacts', 'group', 'privacy', 'today', 'legend', 'status'];
+    assert.equal(bot._registeredCommands.length, expected.length, `should register exactly ${expected.length} commands`);
     for (const cmd of expected) {
       assert.ok(
         bot._registeredCommands.includes(cmd),
@@ -111,16 +111,16 @@ describe('setupBotHandlers', () => {
     assert.equal(typeof bot._getCatchHandler(), 'function', 'catch handler should be a function');
   });
 
-  it('calls bot.api.setMyCommands with all 14 commands', async () => {
+  it('calls bot.api.setMyCommands with all 15 commands', async () => {
     const bot = buildMockBot();
     await setupBotHandlers(bot as unknown as Bot);
 
     const cmds = bot._getSetMyCommandsArg() as Array<{ command: string; description: string }>;
     assert.ok(Array.isArray(cmds), 'setMyCommands should receive an array');
-    assert.equal(cmds.length, 14, 'setMyCommands should receive exactly 14 commands');
+    assert.equal(cmds.length, 15, 'setMyCommands should receive exactly 15 commands');
 
     const commandNames = cmds.map((c) => c.command);
-    for (const name of ['start', 'profile', 'add', 'zones', 'mycities', 'settings', 'stats', 'history', 'connect', 'contacts', 'privacy', 'today', 'legend', 'status']) {
+    for (const name of ['start', 'profile', 'add', 'zones', 'mycities', 'settings', 'stats', 'history', 'connect', 'contacts', 'group', 'privacy', 'today', 'legend', 'status']) {
       assert.ok(commandNames.includes(name), `setMyCommands should include /${name}`);
     }
     // Each command must have a non-empty Hebrew description
