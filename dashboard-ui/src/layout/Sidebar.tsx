@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
-  Activity, Bell, Users, Radio, SlidersHorizontal,
+  Activity, Bell, Users, UsersRound, Radio, SlidersHorizontal,
   Globe, MessageSquare, Phone, Rss, MessageCircle,
   LayoutDashboard, Settings, ChevronLeft, ChevronDown, KeyRound,
 } from 'lucide-react';
@@ -31,6 +31,7 @@ const NAV: SidebarEntry[] = [
     },
   },
   { kind: 'item', item: { to: '/subscribers', icon: Users, label: 'מנויים' } },
+  { kind: 'item', item: { to: '/groups',      icon: UsersRound, label: 'קבוצות חוסן' } },
   { kind: 'item', item: { to: '/operations',  icon: Radio, label: 'מרכז פיקוד' }, dividerAfter: true },
   {
     kind: 'group',
