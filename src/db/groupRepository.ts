@@ -48,10 +48,23 @@ function decodeGroup(raw: RawGroup): Group {
 }
 
 function decodeMember(raw: RawMember): GroupMember {
+  // Hardened role decode — refuses to lie about an invalid union value.
+  // SQLite has a CHECK constraint, so 'owner'|'member' is the only legal
+  // value at write-time, but a corrupted/migrated DB row could still slip
+  // through. Default to 'member' (least-privileged) and log a warn rather
+  // than producing an unsafe `as` cast.
+  let role: 'owner' | 'member';
+  if (raw.role === 'owner' || raw.role === 'member') {
+    role = raw.role;
+  } else {
+    log('warn', 'GroupRepo', `unexpected role value for group_id=${raw.group_id} user_id=${raw.user_id}: ${JSON.stringify(raw.role)} — defaulting to 'member'`);
+    role = 'member';
+  }
+
   return {
     groupId: raw.group_id,
     userId: raw.user_id,
-    role: raw.role as 'owner' | 'member',
+    role,
     joinedAt: raw.joined_at,
     notifyGroup: raw.notify_group === 1, // strict INTEGER→boolean
   };
@@ -60,26 +73,57 @@ function decodeMember(raw: RawMember): GroupMember {
 // ─── Writes ──────────────────────────────────────────────────────────────────
 
 /**
+ * Sentinel error thrown when the invite_code UNIQUE constraint fires.
+ * Callers (groupHandler.handleCreate) catch this to retry with a fresh code.
+ *
+ * The pre-check in `generateInviteCode` is best-effort and is not safe under
+ * concurrent inserts — this sentinel makes the race recoverable.
+ */
+export class InviteCodeCollisionError extends Error {
+  constructor(code: string) {
+    super(`Invite code collision: ${code}`);
+    this.name = 'InviteCodeCollisionError';
+  }
+}
+
+/**
  * Creates a new group and inserts the owner as a member in a single transaction.
  * Rolls back atomically if either insert fails (e.g. invalid ownerId FK).
+ *
+ * Throws `InviteCodeCollisionError` if `invite_code` UNIQUE constraint fires
+ * (e.g. concurrent insert raced past the pre-check). Other errors propagate.
  */
 export function createGroup(
   db: Database.Database,
   input: { name: string; ownerId: number; inviteCode: string }
 ): Group {
-  return db.transaction(() => {
-    const raw = db
-      .prepare(
-        'INSERT INTO groups (name, invite_code, owner_id) VALUES (?, ?, ?) RETURNING *'
-      )
-      .get(input.name, input.inviteCode, input.ownerId) as RawGroup;
+  try {
+    return db.transaction(() => {
+      const raw = db
+        .prepare(
+          'INSERT INTO groups (name, invite_code, owner_id) VALUES (?, ?, ?) RETURNING *'
+        )
+        .get(input.name, input.inviteCode, input.ownerId) as RawGroup;
 
-    db.prepare(
-      "INSERT INTO group_members (group_id, user_id, role) VALUES (?, ?, 'owner')"
-    ).run(raw.id, input.ownerId);
+      db.prepare(
+        "INSERT INTO group_members (group_id, user_id, role) VALUES (?, ?, 'owner')"
+      ).run(raw.id, input.ownerId);
 
-    return decodeGroup(raw);
-  })();
+      return decodeGroup(raw);
+    })();
+  } catch (err: unknown) {
+    // better-sqlite3 throws SqliteError with `.code` property — narrow to the
+    // UNIQUE-constraint case so handlers can retry. Other errors propagate.
+    if (
+      err instanceof Error &&
+      'code' in err &&
+      (err as { code?: string }).code === 'SQLITE_CONSTRAINT_UNIQUE' &&
+      err.message.includes('groups.invite_code')
+    ) {
+      throw new InviteCodeCollisionError(input.inviteCode);
+    }
+    throw err;
+  }
 }
 
 /**

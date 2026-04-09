@@ -235,3 +235,86 @@ describe('listAllGroupsWithStats', () => {
     assert.equal(byId.get(g2.id), 2); // owner + USER_C
   });
 });
+
+// CRITICAL — UNIQUE constraint race recovery
+// PR #230 review item #6: invite code collision must be recoverable via the
+// InviteCodeCollisionError sentinel so handleCreate can retry generation.
+describe('createGroup — invite code UNIQUE collision', () => {
+  it('throws InviteCodeCollisionError when invite_code is already taken', async () => {
+    // Import lazily so the import doesn't fail before the file is regenerated
+    const { InviteCodeCollisionError } = await import('../db/groupRepository.js');
+    createGroup(db, { name: 'first',  ownerId: USER_A, inviteCode: 'COLL01' });
+
+    try {
+      createGroup(db, { name: 'second', ownerId: USER_B, inviteCode: 'COLL01' });
+      assert.fail('expected InviteCodeCollisionError');
+    } catch (err) {
+      assert.ok(err instanceof InviteCodeCollisionError, `expected InviteCodeCollisionError, got ${err instanceof Error ? err.constructor.name : typeof err}`);
+      assert.match((err as Error).message, /COLL01/);
+    }
+  });
+
+  it('does not wrap other errors as InviteCodeCollisionError', async () => {
+    const { InviteCodeCollisionError } = await import('../db/groupRepository.js');
+    // Non-existent owner FK throws SQLITE_CONSTRAINT_FOREIGNKEY, NOT UNIQUE.
+    // The wrapper must let it propagate as-is.
+    try {
+      createGroup(db, { name: 'x', ownerId: 999999, inviteCode: 'OK0001' });
+      assert.fail('expected throw');
+    } catch (err) {
+      assert.ok(!(err instanceof InviteCodeCollisionError), 'FK error must not be wrapped as collision');
+    }
+  });
+});
+
+// CRITICAL — role decode hardening (PR #230 review item #3)
+describe('decodeMember role hardening', () => {
+  it('downgrades unexpected role values to "member" without throwing', () => {
+    const g = createGroup(db, { name: 'x', ownerId: USER_A, inviteCode: 'ROL001' });
+
+    // Bypass CHECK constraint via PRAGMA — supported by SQLite for exactly
+    // this kind of corrupted-state simulation. Restored in finally{}.
+    db.pragma('ignore_check_constraints = ON');
+    try {
+      db.prepare("INSERT INTO group_members (group_id, user_id, role) VALUES (?, ?, 'admin')").run(g.id, USER_B);
+    } finally {
+      db.pragma('ignore_check_constraints = OFF');
+    }
+
+    const members = getMembersOfGroup(db, g.id);
+    const corrupt = members.find((m) => m.userId === USER_B);
+    assert.ok(corrupt, 'member with corrupt role should still be returned');
+    // Hardened decode defaults to least-privileged 'member'
+    assert.equal(corrupt.role, 'member');
+  });
+});
+
+// MINOR — FK cascade tests (PR #230 review pr-test-analyzer)
+describe('FK cascades', () => {
+  it('deleting a user removes all their group memberships', () => {
+    const g = createGroup(db, { name: 'x', ownerId: USER_A, inviteCode: 'CAS001' });
+    addMember(db, g.id, USER_B);
+    assert.equal(countMembersOfGroup(db, g.id), 2);
+
+    // Delete USER_B
+    db.prepare('DELETE FROM users WHERE chat_id = ?').run(USER_B);
+
+    // group_members.user_id FK CASCADE removes the membership row
+    assert.equal(countMembersOfGroup(db, g.id), 1);
+    // The group itself still exists (owner is USER_A, not USER_B)
+    assert.ok(findGroupById(db, g.id));
+  });
+
+  it('deleting the owner cascades to remove the entire group', () => {
+    const g = createGroup(db, { name: 'x', ownerId: USER_A, inviteCode: 'CAS002' });
+    addMember(db, g.id, USER_B);
+
+    // Delete USER_A (the owner)
+    db.prepare('DELETE FROM users WHERE chat_id = ?').run(USER_A);
+
+    // groups.owner_id FK CASCADE removes the group, then group_members CASCADE removes all members
+    assert.equal(findGroupById(db, g.id), undefined);
+    const remaining = db.prepare('SELECT * FROM group_members WHERE group_id = ?').all(g.id);
+    assert.equal(remaining.length, 0);
+  });
+});
