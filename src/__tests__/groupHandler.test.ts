@@ -18,8 +18,10 @@ import {
   MAX_GROUPS_PER_USER_FALLBACK,
   MAX_MEMBERS_PER_GROUP_FALLBACK,
   createGroupWithCollisionRetry,
+  renderGroupStatus,
 } from '../bot/groupHandler.js';
-import { InviteCodeCollisionError } from '../db/groupRepository.js';
+import { InviteCodeCollisionError, findGroupById } from '../db/groupRepository.js';
+import { upsertSafetyStatus } from '../db/safetyStatusRepository.js';
 import type { Bot, Context } from 'grammy';
 
 before(() => {
@@ -706,5 +708,248 @@ describe('groupHandler — /group leave', () => {
 
     // Group is gone
     assert.equal(findGroupByInviteCode(db, 'LV0003'), undefined);
+  });
+});
+
+// ─── Task 2 (#212) — /group status command ──────────────────────────────────
+
+describe('groupHandler — /group status command dispatch', () => {
+  it('shows empty state for user with no groups', async () => {
+    const bot = buildMockBot();
+    registerGroupHandler(bot as unknown as Bot);
+    upsertUser(1001);
+
+    const ctx = makeCtx({ message: { text: '/group status' } });
+    await bot._fireCmd('group', ctx);
+
+    const text = (ctx as any)._replyCalls[0][0] as string;
+    assert.match(text, /אינך חבר באף קבוצה/);
+  });
+
+  it('auto-picks single group and renders status card', async () => {
+    const bot = buildMockBot();
+    registerGroupHandler(bot as unknown as Bot);
+
+    upsertUser(1001);
+    const db = getDb();
+    const g = createGroup(db, { name: 'family', ownerId: 1001, inviteCode: 'STA001' });
+
+    const ctx = makeCtx({ chat: { id: 1001, type: 'private' }, message: { text: '/group status' } });
+    await bot._fireCmd('group', ctx);
+
+    assert.equal((ctx as any)._replyCalls.length, 1);
+    const text = (ctx as any)._replyCalls[0][0] as string;
+    assert.match(text, /family/);
+    // Single member who hasn't reported → shows "0/1 בסדר" + "לא דיווח"
+    assert.match(text, /0\/1 בסדר/);
+    assert.match(text, /לא דיווח/);
+    // Hint to /status command (no safety:menu callback exists)
+    assert.match(text, /\/status/);
+
+    // Inline keyboard should have just the refresh button targeting g:refresh:<id>
+    const markup = JSON.stringify((ctx as any)._replyCalls[0][1]?.reply_markup ?? {});
+    assert.ok(markup.includes(`g:refresh:${g.id}`), 'should have refresh button');
+    assert.ok(!markup.includes('safety:menu'), 'must NOT reference non-existent safety:menu');
+  });
+
+  it('shows multi-group picker when user belongs to ≥2 groups', async () => {
+    const bot = buildMockBot();
+    registerGroupHandler(bot as unknown as Bot);
+
+    upsertUser(1001);
+    const db = getDb();
+    const g1 = createGroup(db, { name: 'family', ownerId: 1001, inviteCode: 'STA002' });
+    const g2 = createGroup(db, { name: 'work',   ownerId: 1001, inviteCode: 'STA003' });
+
+    const ctx = makeCtx({ chat: { id: 1001, type: 'private' }, message: { text: '/group status' } });
+    await bot._fireCmd('group', ctx);
+
+    const text = (ctx as any)._replyCalls[0][0] as string;
+    assert.match(text, /בחר קבוצה/);
+    const markup = JSON.stringify((ctx as any)._replyCalls[0][1]?.reply_markup ?? {});
+    assert.ok(markup.includes(`g:s:${g1.id}`), 'picker should include g1');
+    assert.ok(markup.includes(`g:s:${g2.id}`), 'picker should include g2');
+  });
+
+  it('rejects non-member trying to view status by explicit groupId', async () => {
+    const bot = buildMockBot();
+    registerGroupHandler(bot as unknown as Bot);
+
+    upsertUser(1001);
+    upsertUser(9999);
+    const db = getDb();
+    const g = createGroup(db, { name: 'private', ownerId: 1001, inviteCode: 'STA004' });
+
+    const ctx = makeCtx({ chat: { id: 9999, type: 'private' }, message: { text: `/group status ${g.id}` } });
+    await bot._fireCmd('group', ctx);
+
+    const text = (ctx as any)._replyCalls[0][0] as string;
+    assert.match(text, /אינך חבר/);
+    // Group internals never leak
+    assert.doesNotMatch(text, /private/);
+  });
+
+  it('rejects NaN / negative groupId in /group status', async () => {
+    const bot = buildMockBot();
+    registerGroupHandler(bot as unknown as Bot);
+    upsertUser(1001);
+
+    for (const badId of ['abc', '-5', '0']) {
+      const ctx = makeCtx({ chat: { id: 1001, type: 'private' }, message: { text: `/group status ${badId}` } });
+      await bot._fireCmd('group', ctx);
+
+      const text = (ctx as any)._replyCalls[0][0] as string;
+      assert.match(text, /מזהה קבוצה לא תקין/, `expected validation error for badId="${badId}", got: ${text}`);
+    }
+  });
+});
+
+describe('renderGroupStatus — content + aggregate count', () => {
+  it('aggregates ok/help/dismissed/none with correct emoji + count', async () => {
+    upsertUser(1001);
+    upsertUser(1002);
+    upsertUser(1003);
+    upsertUser(1004);
+    const db = getDb();
+    const g = createGroup(db, { name: 'cell', ownerId: 1001, inviteCode: 'AGG001' });
+    db.prepare("INSERT INTO group_members (group_id, user_id, role) VALUES (?, ?, 'member')").run(g.id, 1002);
+    db.prepare("INSERT INTO group_members (group_id, user_id, role) VALUES (?, ?, 'member')").run(g.id, 1003);
+    db.prepare("INSERT INTO group_members (group_id, user_id, role) VALUES (?, ?, 'member')").run(g.id, 1004);
+
+    // Seed statuses: owner=ok, 1002=help, 1003=dismissed, 1004=no status
+    upsertSafetyStatus(db, 1001, 'ok');
+    upsertSafetyStatus(db, 1002, 'help');
+    upsertSafetyStatus(db, 1003, 'dismissed');
+
+    const ctx = makeCtx({ chat: { id: 1001, type: 'private' } });
+    // Inject lookupUser that reads from THIS db (not getDb() singleton).
+    // Without injection, getUser() reads from process.env DB_PATH, which is :memory:
+    // here so it would happen to work — but we test the seam explicitly.
+    const testLookup = (chatId: number) => {
+      const row = db.prepare('SELECT display_name, home_city FROM users WHERE chat_id = ?').get(chatId) as
+        | { display_name: string | null; home_city: string | null }
+        | undefined;
+      return row;
+    };
+    await renderGroupStatus(ctx as any, db, g.id, testLookup);
+
+    assert.equal((ctx as any)._replyCalls.length, 1);
+    const text = (ctx as any)._replyCalls[0][0] as string;
+
+    assert.match(text, /cell/);
+    assert.match(text, /✅/);
+    assert.match(text, /⚠️/);
+    assert.match(text, /🔇/);
+    assert.match(text, /❓/);
+    assert.match(text, /1\/4 בסדר/, 'only owner reported ok → 1/4');
+    assert.match(text, /\/status/);
+  });
+
+  it('uses editMessageText when called from a callback context (refresh path)', async () => {
+    upsertUser(1001);
+    const db = getDb();
+    const g = createGroup(db, { name: 'rfr', ownerId: 1001, inviteCode: 'RFR001' });
+
+    const ctx = makeCtx({
+      chat: { id: 1001, type: 'private' },
+      callbackQuery: { id: 'fakeId', data: `g:refresh:${g.id}` },
+    });
+    const lookup = (chatId: number) =>
+      db.prepare('SELECT display_name, home_city FROM users WHERE chat_id = ?').get(chatId) as any;
+
+    await renderGroupStatus(ctx as any, db, g.id, lookup);
+
+    // Should have called editMessageText, NOT reply
+    assert.equal((ctx as any)._editCalls.length, 1);
+    assert.equal((ctx as any)._replyCalls.length, 0);
+    const editText = (ctx as any)._editCalls[0][0] as string;
+    assert.match(editText, /rfr/);
+  });
+
+  it('handles missing display_name with fallback "משתמש #<id>"', async () => {
+    const db = getDb();
+    // Insert a user with NO display_name (simulating pre-onboarding state)
+    db.prepare("INSERT INTO users (chat_id, created_at) VALUES (?, datetime('now'))").run(7777);
+    const g = createGroup(db, { name: 'noname', ownerId: 7777, inviteCode: 'NON001' });
+
+    const ctx = makeCtx({ chat: { id: 7777, type: 'private' } });
+    const lookup = (chatId: number) =>
+      db.prepare('SELECT display_name, home_city FROM users WHERE chat_id = ?').get(chatId) as any;
+
+    await renderGroupStatus(ctx as any, db, g.id, lookup);
+    const text = (ctx as any)._replyCalls[0][0] as string;
+    assert.match(text, /משתמש #7777/);
+  });
+
+  it('returns "הקבוצה לא נמצאה" when group does not exist', async () => {
+    const db = getDb();
+    upsertUser(1001);
+    const ctx = makeCtx({ chat: { id: 1001, type: 'private' } });
+    const lookup = (chatId: number) =>
+      db.prepare('SELECT display_name, home_city FROM users WHERE chat_id = ?').get(chatId) as any;
+
+    await renderGroupStatus(ctx as any, db, 999999, lookup);
+    const text = (ctx as any)._replyCalls[0][0] as string;
+    assert.match(text, /הקבוצה לא נמצאה/);
+  });
+});
+
+describe('g:s and g:refresh callbacks', () => {
+  it('g:s:<id> callback renders status via editMessageText', async () => {
+    const bot = buildMockBot();
+    registerGroupHandler(bot as unknown as Bot);
+
+    upsertUser(1001);
+    const db = getDb();
+    const g = createGroup(db, { name: 'cb-test', ownerId: 1001, inviteCode: 'CBS001' });
+
+    const ctx = makeCtx({ chat: { id: 1001, type: 'private' } });
+    await bot._fireCb(`g:s:${g.id}`, ctx);
+
+    // Either edited or replied — the callback wraps editMessageText which the
+    // mock supports — but since renderGroupStatus checks ctx.callbackQuery
+    // truthiness, and the mock setter doesn't add it, expect a reply OR an edit.
+    // The picker→g:s flow uses editMessageText (the mock context will have
+    // callbackQuery via _fireCb path).
+    const totalCalls = (ctx as any)._editCalls.length + (ctx as any)._replyCalls.length;
+    assert.ok(totalCalls > 0, 'g:s should produce some output');
+    // Find the rendered text
+    const text = ((ctx as any)._editCalls[0]?.[0] ?? (ctx as any)._replyCalls[0]?.[0]) as string;
+    assert.match(text, /cb-test/);
+  });
+
+  it('g:s:<id> blocks non-members entirely', async () => {
+    const bot = buildMockBot();
+    registerGroupHandler(bot as unknown as Bot);
+
+    upsertUser(1001);
+    upsertUser(9999);
+    const db = getDb();
+    const g = createGroup(db, { name: 'secret', ownerId: 1001, inviteCode: 'CBS002' });
+
+    const ctx = makeCtx({ chat: { id: 9999, type: 'private' } });
+    await bot._fireCb(`g:s:${g.id}`, ctx);
+
+    const text = ((ctx as any)._editCalls[0]?.[0] ?? (ctx as any)._replyCalls[0]?.[0]) as string;
+    assert.match(text, /אינך חבר/);
+    // Group name never leaks to non-member
+    assert.doesNotMatch(text, /secret/);
+  });
+
+  it('g:refresh:<id> blocks non-members', async () => {
+    const bot = buildMockBot();
+    registerGroupHandler(bot as unknown as Bot);
+
+    upsertUser(1001);
+    upsertUser(9999);
+    const db = getDb();
+    const g = createGroup(db, { name: 'rfr-secret', ownerId: 1001, inviteCode: 'RFR002' });
+
+    const ctx = makeCtx({ chat: { id: 9999, type: 'private' } });
+    await bot._fireCb(`g:refresh:${g.id}`, ctx);
+
+    const text = ((ctx as any)._editCalls[0]?.[0] ?? (ctx as any)._replyCalls[0]?.[0]) as string;
+    assert.match(text, /אינך חבר/);
+    assert.doesNotMatch(text, /rfr-secret/);
   });
 });

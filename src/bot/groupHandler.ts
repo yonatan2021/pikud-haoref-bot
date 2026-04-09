@@ -2,13 +2,15 @@ import crypto from 'crypto';
 import type Database from 'better-sqlite3';
 import { Bot, InlineKeyboard } from 'grammy';
 import type { Context } from 'grammy';
-import { upsertUser } from '../db/userRepository.js';
+import { upsertUser, getUser } from '../db/userRepository.js';
+import type { User } from '../db/userRepository.js';
 import {
   createGroup,
   findGroupByInviteCode,
   findGroupById,
   getGroupsForUser,
   getMembersOfGroup,
+  getMemberStatusesForGroup,
   addMember,
   removeMember,
   deleteGroup,
@@ -19,7 +21,7 @@ import {
 } from '../db/groupRepository.js';
 import { getDb } from '../db/schema.js';
 import { log } from '../logger.js';
-import { escapeHtml } from '../textUtils.js';
+import { escapeHtml, formatRelativeTime } from '../textUtils.js';
 
 // ─── Constants (fallbacks until Task 4 #225 wires configResolver) ────────────
 
@@ -385,6 +387,132 @@ async function handleLeave(ctx: Context, groupIdArg: string | undefined): Promis
   await performLeave(ctx, groupId, chatId);
 }
 
+// ─── /group status — group-wide safety status aggregation ───────────────────
+
+/**
+ * Subset of `User` fields needed by the group status renderer. Tests inject
+ * a stub function returning this shape so they can drive renderGroupStatus
+ * with a `:memory:` DB that the production `getUser()` (singleton-backed)
+ * cannot see. Pattern: `pattern_getuser_singleton_vs_di.md` in memory.
+ */
+type GroupStatusUserLookup = (chatId: number) => Pick<User, 'display_name' | 'home_city'> | undefined;
+
+async function handleStatus(ctx: Context, groupIdArg: string | undefined): Promise<void> {
+  const chatId = ctx.chat?.id;
+  if (!chatId) return;
+  const db = getDb();
+
+  // Resolve target group: explicit id, single group auto-pick, or picker
+  let groupId: number;
+  if (groupIdArg) {
+    const parsed = Number(groupIdArg);
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      await ctx.reply('❌ מזהה קבוצה לא תקין.');
+      return;
+    }
+    groupId = parsed;
+  } else {
+    const groups = getGroupsForUser(db, chatId);
+    if (groups.length === 0) {
+      await ctx.reply('אינך חבר באף קבוצה.');
+      return;
+    }
+    if (groups.length === 1) {
+      const onlyGroup = groups[0];
+      if (!onlyGroup) return;
+      groupId = onlyGroup.id;
+    } else {
+      // Multi-group picker — show inline keyboard with one button per group
+      const kb = new InlineKeyboard();
+      for (const g of groups) {
+        kb.text(`👥 ${g.name}`, cb(`g:s:${g.id}`)).row();
+      }
+      await ctx.reply('בחר קבוצה לצפייה בסטטוס:', { reply_markup: kb });
+      return;
+    }
+  }
+
+  // Membership check (auth invariant) — only members can view a group's status
+  const members = getMembersOfGroup(db, groupId);
+  if (!members.some((m) => m.userId === chatId)) {
+    await ctx.reply('❌ אינך חבר בקבוצה זו.');
+    return;
+  }
+
+  await renderGroupStatus(ctx, db, groupId);
+}
+
+/**
+ * Renders the group status card. Used by both `/group status` (initial reply)
+ * and the `g:s:<id>` / `g:refresh:<id>` callbacks (in-place edit).
+ *
+ * Exported so tests can drive it directly with an injected `lookupUser` that
+ * reads from the test's `:memory:` DB instead of the `getDb()` singleton that
+ * `getUser()` reads from internally.
+ */
+export async function renderGroupStatus(
+  ctx: Context,
+  db: Database.Database,
+  groupId: number,
+  lookupUser: GroupStatusUserLookup = getUser,
+): Promise<void> {
+  const group = findGroupById(db, groupId);
+  if (!group) {
+    const message = '❌ הקבוצה לא נמצאה.';
+    if (ctx.callbackQuery) {
+      await ctx
+        .editMessageText(message)
+        .catch((e) => log('warn', 'Groups', `editMessageText (status not-found) failed: ${formatError(e)}`));
+    } else {
+      await ctx.reply(message);
+    }
+    return;
+  }
+
+  const statuses = getMemberStatusesForGroup(db, groupId);
+
+  let okCount = 0;
+  const lines: string[] = [`👥 <b>${escapeHtml(group.name)}</b>`, ''];
+  for (const { userId, status } of statuses) {
+    const user = lookupUser(userId);
+    const displayName = escapeHtml(user?.display_name ?? `משתמש #${userId}`);
+    const homeCity = user?.home_city ? ` · ${escapeHtml(user.home_city)}` : '';
+
+    let emoji = '❓';
+    let label = 'לא דיווח';
+    if (status?.status === 'ok') {
+      emoji = '✅';
+      label = 'בסדר';
+      okCount++;
+    } else if (status?.status === 'help') {
+      emoji = '⚠️';
+      label = 'צריך עזרה';
+    } else if (status?.status === 'dismissed') {
+      emoji = '🔇';
+      label = 'התעלם';
+    }
+
+    const when = status ? ` · ${formatRelativeTime(status.updated_at)}` : '';
+    lines.push(`${emoji} <b>${displayName}</b> · ${label}${homeCity}${when}`);
+  }
+  lines.push('', `<b>${okCount}/${statuses.length} בסדר</b>`);
+  // Hint: there's no "safety:menu" callback — use the slash command instead.
+  // Verified during planning against safetyStatusHandler.ts (only safety:back,
+  // safety:contacts, safety:ok:N, safety:help:N, safety:dismiss:N exist).
+  lines.push('', '<i>לעדכון הסטטוס שלך: /status</i>');
+
+  const kb = new InlineKeyboard().text('🔄 רענן', cb(`g:refresh:${groupId}`));
+  const text = lines.join('\n');
+
+  if (ctx.callbackQuery) {
+    await ctx
+      .editMessageText(text, { parse_mode: 'HTML', reply_markup: kb })
+      .catch((e) => log('warn', 'Groups', `editMessageText (status render) failed: ${formatError(e)}`));
+  } else {
+    await ctx.reply(text, { parse_mode: 'HTML', reply_markup: kb });
+  }
+}
+
 async function performLeave(
   ctx: Context,
   groupId: number,
@@ -469,6 +597,9 @@ async function handleGroupCommand(ctx: Context): Promise<void> {
     case 'leave':
       await handleLeave(ctx, args[1]);
       return;
+    case 'status':
+      await handleStatus(ctx, args[1]);
+      return;
     default:
       await ctx.reply(
         '❌ פקודה לא מוכרת.\n\n' +
@@ -476,7 +607,8 @@ async function handleGroupCommand(ctx: Context): Promise<void> {
           '<code>/group</code> — רשימת הקבוצות שלי\n' +
           '<code>/group create &lt;שם&gt;</code> — יצירת קבוצה\n' +
           '<code>/group join &lt;קוד&gt;</code> — הצטרפות עם קוד\n' +
-          '<code>/group leave [id]</code> — עזיבת קבוצה',
+          '<code>/group leave [id]</code> — עזיבת קבוצה\n' +
+          '<code>/group status [id]</code> — סטטוס קבוצתי',
         { parse_mode: 'HTML' }
       );
   }
@@ -566,6 +698,59 @@ export function registerGroupHandler(bot: Bot): void {
         .catch((err) => {
           log('warn', 'Groups', `editMessageText (g:c) failed: ${formatError(err)}`);
         });
+    }),
+  );
+
+  // g:s:<id> — render group status (from multi-group picker)
+  bot.callbackQuery(
+    /^g:s:(\d+)$/,
+    wrapCallback('g:s', async (ctx) => {
+      await ctx
+        .answerCallbackQuery()
+        .catch((e) => log('warn', 'Groups', `answerCallbackQuery (g:s) failed: ${formatError(e)}`));
+      const chatId = ctx.chat?.id;
+      if (!chatId) return;
+      const raw = ctx.match?.[1];
+      if (!raw) return;
+      const groupId = parseInt(raw, 10);
+      if (isNaN(groupId)) return;
+
+      const db = getDb();
+      // Auth check before render — non-members must NOT see status (privacy invariant).
+      const members = getMembersOfGroup(db, groupId);
+      if (!members.some((m) => m.userId === chatId)) {
+        await ctx
+          .editMessageText('❌ אינך חבר בקבוצה זו.')
+          .catch((e) => log('warn', 'Groups', `editMessageText (g:s non-member) failed: ${formatError(e)}`));
+        return;
+      }
+      await renderGroupStatus(ctx, db, groupId);
+    }),
+  );
+
+  // g:refresh:<id> — re-render in place (the 🔄 רענן button)
+  bot.callbackQuery(
+    /^g:refresh:(\d+)$/,
+    wrapCallback('g:refresh', async (ctx) => {
+      await ctx
+        .answerCallbackQuery()
+        .catch((e) => log('warn', 'Groups', `answerCallbackQuery (g:refresh) failed: ${formatError(e)}`));
+      const chatId = ctx.chat?.id;
+      if (!chatId) return;
+      const raw = ctx.match?.[1];
+      if (!raw) return;
+      const groupId = parseInt(raw, 10);
+      if (isNaN(groupId)) return;
+
+      const db = getDb();
+      const members = getMembersOfGroup(db, groupId);
+      if (!members.some((m) => m.userId === chatId)) {
+        await ctx
+          .editMessageText('❌ אינך חבר בקבוצה זו.')
+          .catch((e) => log('warn', 'Groups', `editMessageText (g:refresh non-member) failed: ${formatError(e)}`));
+        return;
+      }
+      await renderGroupStatus(ctx, db, groupId);
     }),
   );
 
