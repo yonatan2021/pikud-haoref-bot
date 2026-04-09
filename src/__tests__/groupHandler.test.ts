@@ -892,6 +892,30 @@ describe('renderGroupStatus — content + aggregate count', () => {
     const text = (ctx as any)._replyCalls[0][0] as string;
     assert.match(text, /הקבוצה לא נמצאה/);
   });
+
+  // PR #232 review item M1 — empty-group edge case
+  it('renders clean empty state when group has 0 members (defensive — should not happen via UI)', async () => {
+    const db = getDb();
+    upsertUser(1001);
+    const g = createGroup(db, { name: 'will-be-emptied', ownerId: 1001, inviteCode: 'EMP001' });
+
+    // Simulate a corruption or migration glitch: manually wipe group_members
+    // without deleting the group itself. This bypasses the auto-delete in
+    // performLeave that would normally fire when the last member leaves.
+    db.prepare('DELETE FROM group_members WHERE group_id = ?').run(g.id);
+    assert.equal(countMembersOfGroup(db, g.id), 0);
+
+    const ctx = makeCtx({ chat: { id: 1001, type: 'private' } });
+    const lookup = (chatId: number) =>
+      db.prepare('SELECT display_name, home_city FROM users WHERE chat_id = ?').get(chatId) as any;
+
+    await renderGroupStatus(ctx as any, db, g.id, lookup);
+    const text = (ctx as any)._replyCalls[0][0] as string;
+    assert.match(text, /will-be-emptied/);
+    assert.match(text, /הקבוצה ריקה/);
+    // Must NOT contain the ugly "0/0 בסדר" summary line
+    assert.doesNotMatch(text, /0\/0 בסדר/);
+  });
 });
 
 describe('g:s and g:refresh callbacks', () => {

@@ -433,6 +433,14 @@ async function handleStatus(ctx: Context, groupIdArg: string | undefined): Promi
   }
 
   // Membership check (auth invariant) — only members can view a group's status
+  // TODO(#213): consolidate this membership check pattern into a shared
+  // assertGroupMember(ctx, db, groupId, chatId) helper. The pattern is
+  // duplicated across 6 sites today (handleLeave, handleStatus, g:c, g:s,
+  // g:refresh, g:leaveY) and #213 will add a 7th. The helper should branch
+  // on ctx.callbackQuery for reply vs editMessageText. See PR #232 review
+  // item I1 for the proposed signature. Also kills the redundant
+  // getMembersOfGroup call (review I2): pass the resolved members list to
+  // getMemberStatusesForGroup so renderGroupStatus doesn't re-query.
   const members = getMembersOfGroup(db, groupId);
   if (!members.some((m) => m.userId === chatId)) {
     await ctx.reply('❌ אינך חבר בקבוצה זו.');
@@ -470,6 +478,23 @@ export async function renderGroupStatus(
   }
 
   const statuses = getMemberStatusesForGroup(db, groupId);
+
+  // Defensive — should not happen in practice because the last member
+  // leaving deletes the group via performLeave's auto-delete branch.
+  // But if it ever does, render a clean "empty" state instead of an
+  // ugly "0/0 בסדר" line.
+  if (statuses.length === 0) {
+    const emptyText =
+      `👥 <b>${escapeHtml(group.name)}</b>\n\n<i>הקבוצה ריקה.</i>`;
+    if (ctx.callbackQuery) {
+      await ctx
+        .editMessageText(emptyText, { parse_mode: 'HTML' })
+        .catch((e) => log('warn', 'Groups', `editMessageText (status empty) failed: ${formatError(e)}`));
+    } else {
+      await ctx.reply(emptyText, { parse_mode: 'HTML' });
+    }
+    return;
+  }
 
   let okCount = 0;
   const lines: string[] = [`👥 <b>${escapeHtml(group.name)}</b>`, ''];
