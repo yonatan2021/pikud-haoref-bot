@@ -47,6 +47,10 @@ export const CONFIG_KEYS: ReadonlySet<string> = new Set([
   'all_clear_topic_id',
   'landing_url',
   'privacy_defaults',
+  // v0.5.1 — group feature hot-config (refs #225)
+  'groups_max_per_user',
+  'groups_max_members',
+  'groups_invite_code_ttl_hours',
 ]);
 
 /** Keys whose change requires a process restart to take effect. */

@@ -22,13 +22,45 @@ import {
 import { getDb } from '../db/schema.js';
 import { log } from '../logger.js';
 import { escapeHtml, formatRelativeTime } from '../textUtils.js';
+import { resolveConfig } from '../config/configResolver.js';
 
-// ─── Constants (fallbacks until Task 4 #225 wires configResolver) ────────────
+// ─── Hot-config caps (resolved per call via configResolver) ──────────────────
 
-/** Max groups a single user may own. Task 4 will replace with hot-config. */
+/**
+ * Default max groups a single user may own. Overridable via the dashboard
+ * Settings page (writes to the `groups_max_per_user` key in the `settings`
+ * table). Read on every /group create call so dashboard changes take effect
+ * immediately without restart.
+ */
 export const MAX_GROUPS_PER_USER_FALLBACK = 5;
-/** Max members per group, including owner. Task 4 will replace with hot-config. */
+/**
+ * Default max members per group, including owner. Overridable via the
+ * dashboard Settings page (`groups_max_members`). Read on every /group join.
+ */
 export const MAX_MEMBERS_PER_GROUP_FALLBACK = 20;
+
+/**
+ * Resolves a hot-config integer cap with fallback. Wraps `resolveConfig`
+ * with parsing + fallback so the call sites stay clean. Reads on every
+ * call — appropriate for low-frequency user-triggered paths (/group create
+ * and /group join). For per-alert hot paths, prefer cached patterns.
+ */
+function resolveIntConfig(key: string, fallback: number): number {
+  const raw = resolveConfig(getDb(), key);
+  if (raw === null || raw === undefined) return fallback;
+  const n = Number(raw);
+  return Number.isFinite(n) && Number.isInteger(n) && n >= 0 ? n : fallback;
+}
+
+/** Hot-configurable — reads `groups_max_per_user` from DB→env→fallback. */
+function getMaxGroupsPerUser(): number {
+  return resolveIntConfig('groups_max_per_user', MAX_GROUPS_PER_USER_FALLBACK);
+}
+
+/** Hot-configurable — reads `groups_max_members` from DB→env→fallback. */
+function getMaxMembersPerGroup(): number {
+  return resolveIntConfig('groups_max_members', MAX_MEMBERS_PER_GROUP_FALLBACK);
+}
 
 const JOIN_COOLDOWN_MS = 5_000;
 const MAX_JOIN_FAILURES = 5;
@@ -247,9 +279,10 @@ async function handleCreate(ctx: Context, name: string): Promise<void> {
   }
 
   const db = getDb();
-  if (countGroupsOwnedBy(db, chatId) >= MAX_GROUPS_PER_USER_FALLBACK) {
+  const maxGroups = getMaxGroupsPerUser();
+  if (countGroupsOwnedBy(db, chatId) >= maxGroups) {
     await ctx.reply(
-      `❌ הגעת לגבול: ניתן ליצור עד ${MAX_GROUPS_PER_USER_FALLBACK} קבוצות.\nמחק קבוצה קיימת לפני יצירת חדשה.`
+      `❌ הגעת לגבול: ניתן ליצור עד ${maxGroups} קבוצות.\nמחק קבוצה קיימת לפני יצירת חדשה.`
     );
     return;
   }
@@ -326,9 +359,10 @@ async function handleJoin(ctx: Context, codeArg: string): Promise<void> {
     return;
   }
 
-  if (members.length >= MAX_MEMBERS_PER_GROUP_FALLBACK) {
+  const maxMembers = getMaxMembersPerGroup();
+  if (members.length >= maxMembers) {
     await ctx.reply(
-      `❌ הקבוצה מלאה (מקסימום ${MAX_MEMBERS_PER_GROUP_FALLBACK} חברים).`
+      `❌ הקבוצה מלאה (מקסימום ${maxMembers} חברים).`
     );
     return;
   }

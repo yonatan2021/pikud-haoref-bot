@@ -35,6 +35,10 @@ const ALLOWED_KEYS = new Set([
   'dm_relevance_in_area',
   'dm_relevance_nearby',
   'dm_relevance_not_area',
+  // v0.5.1 — group feature hot-config (refs #225)
+  'groups_max_per_user',
+  'groups_max_members',
+  'groups_invite_code_ttl_hours',
 ]);
 
 // ─── Per-key value validators ─────────────────────────────────────────────
@@ -83,6 +87,10 @@ const VALIDATORS: Record<string, (value: string) => string | null> = {
   quiet_hours_global:            validateBoolish,
   whatsapp_enabled:              validateBoolish,
   privacy_defaults:              validateJson,
+  // v0.5.1 — group feature hot-config (refs #225)
+  groups_max_per_user:           validateNonNegativeInt,
+  groups_max_members:            validateNonNegativeInt,
+  groups_invite_code_ttl_hours:  validateNonNegativeInt,
 };
 
 export function createSettingsRouter(db: Database.Database): Router {

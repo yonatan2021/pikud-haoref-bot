@@ -207,6 +207,65 @@ describe('groupHandler — /group create', () => {
     assert.match(text, /הגעת לגבול|מקסימום|מוגבל/);
     assert.equal(countGroupsOwnedBy(db, 1001), MAX_GROUPS_PER_USER_FALLBACK);
   });
+
+  // PR #225 — hot-config override for groups_max_per_user
+  it('reads groups_max_per_user from settings table at runtime (hot-config)', async () => {
+    const bot = buildMockBot();
+    registerGroupHandler(bot as unknown as Bot);
+    upsertUser(1001);
+    const db = getDb();
+
+    // Override the cap via the settings table — simulates a dashboard PATCH.
+    // Without the configResolver wiring, this would be ignored and the cap
+    // would still be MAX_GROUPS_PER_USER_FALLBACK (5). With the wiring, the
+    // handler reads `groups_max_per_user = 2` and rejects on the 3rd create.
+    db.prepare("INSERT OR REPLACE INTO settings (key, value, encrypted) VALUES (?, ?, 0)").run('groups_max_per_user', '2');
+
+    // Pre-create 2 groups (at the new cap)
+    createGroup(db, { name: 'g1', ownerId: 1001, inviteCode: 'HC0001' });
+    createGroup(db, { name: 'g2', ownerId: 1001, inviteCode: 'HC0002' });
+
+    // 3rd create should be rejected
+    const ctx = makeCtx({ message: { text: '/group create third' } });
+    await bot._fireCmd('group', ctx);
+
+    const text = (ctx as any)._replyCalls[0][0] as string;
+    assert.match(text, /הגעת לגבול/);
+    // Error message should reference the OVERRIDE value, not the fallback
+    assert.match(text, /\b2 קבוצות/, 'cap message should show the dashboard-overridden value (2)');
+    assert.equal(countGroupsOwnedBy(db, 1001), 2);
+
+    // Cleanup — restore default for subsequent tests
+    db.prepare("DELETE FROM settings WHERE key = 'groups_max_per_user'").run();
+  });
+
+  it('reads groups_max_members from settings table at runtime (hot-config)', async () => {
+    const bot = buildMockBot();
+    registerGroupHandler(bot as unknown as Bot);
+
+    upsertUser(1001);
+    const db = getDb();
+
+    // Cap members at 2 via dashboard override
+    db.prepare("INSERT OR REPLACE INTO settings (key, value, encrypted) VALUES (?, ?, 0)").run('groups_max_members', '2');
+
+    const group = createGroup(db, { name: 'tiny', ownerId: 1001, inviteCode: 'HCM001' });
+    upsertUser(1002);
+    db.prepare("INSERT INTO group_members (group_id, user_id, role) VALUES (?, ?, 'member')").run(group.id, 1002);
+    assert.equal(countMembersOfGroup(db, group.id), 2);
+
+    // 3rd member tries to join via /group join — should be rejected
+    upsertUser(1003);
+    const ctx = makeCtx({ chat: { id: 1003, type: 'private' }, message: { text: '/group join HCM001' } });
+    await bot._fireCmd('group', ctx);
+
+    const text = (ctx as any)._replyCalls[0][0] as string;
+    assert.match(text, /הקבוצה מלאה/);
+    assert.match(text, /\b2 חברים/);
+    assert.equal(countMembersOfGroup(db, group.id), 2);
+
+    db.prepare("DELETE FROM settings WHERE key = 'groups_max_members'").run();
+  });
 });
 
 describe('groupHandler — /group join', () => {
