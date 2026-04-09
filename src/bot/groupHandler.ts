@@ -13,6 +13,8 @@ import {
   deleteGroup,
   countGroupsOwnedBy,
   countMembersOfGroup,
+  InviteCodeCollisionError,
+  type Group,
 } from '../db/groupRepository.js';
 import { getDb } from '../db/schema.js';
 import { log } from '../logger.js';
@@ -28,9 +30,21 @@ export const MAX_MEMBERS_PER_GROUP_FALLBACK = 20;
 const JOIN_COOLDOWN_MS = 5_000;
 const MAX_JOIN_FAILURES = 5;
 const JOIN_FAILURE_BLOCK_MS = 60_000;
+/** Human-readable form of JOIN_FAILURE_BLOCK_MS for error messages. */
+const JOIN_FAILURE_BLOCK_LABEL_HE = 'דקה';
 const MAX_GROUP_NAME_LENGTH = 50;
 const INVITE_CODE_LENGTH = 6;
 const MAX_INVITE_CODE_RETRIES = 5;
+/** Number of times handleCreate will retry the full generate+insert cycle on UNIQUE collision race. */
+const MAX_CREATE_GROUP_COLLISION_RETRIES = 3;
+
+// ─── Error formatting ────────────────────────────────────────────────────────
+
+/** Preserve stack trace when available — String(err) drops it. */
+function formatError(err: unknown): string {
+  if (err instanceof Error) return err.stack ?? err.message;
+  return String(err);
+}
 
 // Unambiguous alphabet — no 0/O/I/1 to avoid copy-paste confusion
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -164,21 +178,36 @@ async function handleCreate(ctx: Context, name: string): Promise<void> {
     return;
   }
 
-  let inviteCode: string;
-  try {
-    inviteCode = generateInviteCode(db);
-  } catch (err) {
-    log('error', 'Groups', `generateInviteCode failed for ${chatId}: ${String(err)}`);
-    await ctx.reply('❌ שגיאת שרת ביצירת קוד הזמנה. נסה שוב.');
-    return;
+  // generate + insert in a retry loop — the pre-check in generateInviteCode
+  // is best-effort; UNIQUE collision under concurrent inserts is recoverable
+  // by retrying with a fresh code.
+  let group: Group | undefined;
+  let inviteCode: string | undefined;
+  for (let attempt = 0; attempt < MAX_CREATE_GROUP_COLLISION_RETRIES; attempt++) {
+    try {
+      inviteCode = generateInviteCode(db);
+    } catch (err) {
+      log('error', 'Groups', `generateInviteCode failed for ${chatId}: ${formatError(err)}`);
+      await ctx.reply('❌ שגיאת שרת ביצירת קוד הזמנה. נסה שוב.');
+      return;
+    }
+    try {
+      group = createGroup(db, { name: trimmed, ownerId: chatId, inviteCode });
+      break; // success
+    } catch (err) {
+      if (err instanceof InviteCodeCollisionError) {
+        log('warn', 'Groups', `Invite code collision for ${chatId} on attempt ${attempt + 1}: ${inviteCode} — retrying`);
+        continue; // generate a fresh code and retry
+      }
+      log('error', 'Groups', `createGroup failed for ${chatId}: ${formatError(err)}`);
+      await ctx.reply('❌ שגיאת שרת ביצירת הקבוצה. נסה שוב.');
+      return;
+    }
   }
 
-  let group;
-  try {
-    group = createGroup(db, { name: trimmed, ownerId: chatId, inviteCode });
-  } catch (err) {
-    log('error', 'Groups', `createGroup failed for ${chatId}: ${String(err)}`);
-    await ctx.reply('❌ שגיאת שרת ביצירת הקבוצה. נסה שוב.');
+  if (!group || !inviteCode) {
+    log('error', 'Groups', `createGroup exhausted ${MAX_CREATE_GROUP_COLLISION_RETRIES} collision retries for ${chatId}`);
+    await ctx.reply('❌ שגיאת שרת — לא הצלחנו ליצור קוד הזמנה ייחודי. נסה שוב.');
     return;
   }
 
@@ -198,16 +227,8 @@ async function handleJoin(ctx: Context, codeArg: string): Promise<void> {
   const chatId = ctx.chat?.id;
   if (!chatId) return;
 
-  if (isJoinBlocked(chatId)) {
-    await ctx.reply('⏳ יותר מדי ניסיונות שגויים. נסה שוב בעוד דקה.');
-    return;
-  }
-  if (isJoinOnCooldown(chatId)) {
-    await ctx.reply('⏳ נסה שוב בעוד כמה שניות.');
-    return;
-  }
-  setJoinCooldown(chatId);
-
+  // Validate format BEFORE consuming cooldown — avoid penalizing users who
+  // typo `/group join` with no args. Mirrors connectHandler.ts:268-282 ordering.
   const code = codeArg.trim().toUpperCase();
   if (code.length === 0) {
     await ctx.reply(
@@ -216,6 +237,16 @@ async function handleJoin(ctx: Context, codeArg: string): Promise<void> {
     );
     return;
   }
+
+  if (isJoinBlocked(chatId)) {
+    await ctx.reply(`⏳ יותר מדי ניסיונות שגויים. נסה שוב בעוד ${JOIN_FAILURE_BLOCK_LABEL_HE}.`);
+    return;
+  }
+  if (isJoinOnCooldown(chatId)) {
+    await ctx.reply('⏳ נסה שוב בעוד כמה שניות.');
+    return;
+  }
+  setJoinCooldown(chatId);
 
   const db = getDb();
   const group = findGroupByInviteCode(db, code);
@@ -245,7 +276,7 @@ async function handleJoin(ctx: Context, codeArg: string): Promise<void> {
   try {
     addMember(db, group.id, chatId);
   } catch (err) {
-    log('error', 'Groups', `addMember failed for ${chatId} → ${group.id}: ${String(err)}`);
+    log('error', 'Groups', `addMember failed for ${chatId} → ${group.id}: ${formatError(err)}`);
     await ctx.reply('❌ שגיאת שרת בהצטרפות. נסה שוב.');
     return;
   }
@@ -312,9 +343,12 @@ async function performLeave(
   const memberCount = countMembersOfGroup(db, groupId);
 
   if (isOwner && memberCount > 1) {
+    // Tracked: github.com/yonatan2021/pikud-haoref-bot/issues/231 (escape
+    // hatch for orphan groups — transfer / delete / force-delete in v0.5.2).
     await ctx.reply(
-      '❌ אינך יכול לעזוב — אתה הבעלים. העבר בעלות או מחק את הקבוצה.\n' +
-        '<i>(מחיקת קבוצות תיתמך בגרסה הבאה)</i>',
+      '❌ אינך יכול לעזוב — אתה הבעלים, ויש חברים נוספים בקבוצה.\n\n' +
+        '<i>העברת בעלות ומחיקת קבוצות יתמכו ב-v0.5.2.\n' +
+        'בינתיים: בקש מהחברים לעזוב, ואז תוכל לעזוב גם אתה.</i>',
       { parse_mode: 'HTML' }
     );
     return;
@@ -341,13 +375,20 @@ async function performLeave(
 // ─── Main dispatch ───────────────────────────────────────────────────────────
 
 async function handleGroupCommand(ctx: Context): Promise<void> {
-  if (ctx.chat?.type !== 'private') return;
+  if (ctx.chat?.type !== 'private') {
+    // Reply rather than silent no-op so users in groups understand why
+    // /group did nothing. Mirrors safetyStatusHandler / connectHandler.
+    await ctx
+      .reply('ℹ️ הפקודה /group זמינה רק בשיחה פרטית עם הבוט.')
+      .catch((err) => log('warn', 'Groups', `non-private reply failed: ${formatError(err)}`));
+    return;
+  }
   const chatId = ctx.chat.id;
 
   try {
     upsertUser(chatId);
   } catch (err) {
-    log('error', 'Groups', `Failed to upsert user ${chatId}: ${String(err)}`);
+    log('error', 'Groups', `Failed to upsert user ${chatId}: ${formatError(err)}`);
     await ctx.reply('❌ שגיאת שרת — נסה שוב.');
     return;
   }
@@ -385,73 +426,112 @@ async function handleGroupCommand(ctx: Context): Promise<void> {
 
 // ─── Registration ────────────────────────────────────────────────────────────
 
+/**
+ * Wraps a callback handler body with: (1) outer try/catch logging via the
+ * project logger (NOT stderr — Grammy's default handler bypasses src/logger.ts),
+ * (2) a user-facing answerCallbackQuery alert so users see something instead
+ * of a stuck spinner. Without this wrapper, any DB throw inside the body
+ * becomes an unhandled rejection.
+ */
+function wrapCallback(
+  tag: string,
+  body: (ctx: Context) => Promise<void>
+): (ctx: Context) => Promise<void> {
+  return async (ctx: Context): Promise<void> => {
+    try {
+      await body(ctx);
+    } catch (err) {
+      log('error', 'Groups', `${tag} callback error: ${formatError(err)}`);
+      await ctx
+        .answerCallbackQuery({ text: '⚠️ שגיאה — נסה שוב', show_alert: false })
+        .catch((e) => log('warn', 'Groups', `answerCallbackQuery (error path) failed: ${formatError(e)}`));
+    }
+  };
+}
+
 export function registerGroupHandler(bot: Bot): void {
   bot.command('group', async (ctx) => {
     try {
       await handleGroupCommand(ctx);
     } catch (err) {
-      log('error', 'Groups', `handler error: ${String(err)}`);
-      await ctx.reply('⚠️ שגיאה בטיפול בקבוצה').catch(() => undefined);
+      log('error', 'Groups', `handler error: ${formatError(err)}`);
+      await ctx
+        .reply('⚠️ שגיאה בטיפול בקבוצה')
+        .catch((e) => log('warn', 'Groups', `error-reply failed: ${formatError(e)}`));
     }
   });
 
   // g:c:<id> — show group card
-  bot.callbackQuery(/^g:c:(\d+)$/, async (ctx) => {
-    await ctx.answerCallbackQuery().catch(() => undefined);
-    const chatId = ctx.chat?.id;
-    if (!chatId) return;
-    const raw = ctx.match?.[1];
-    if (!raw) return;
-    const groupId = parseInt(raw, 10);
-    if (isNaN(groupId)) return;
+  bot.callbackQuery(
+    /^g:c:(\d+)$/,
+    wrapCallback('g:c', async (ctx) => {
+      await ctx
+        .answerCallbackQuery()
+        .catch((e) => log('warn', 'Groups', `answerCallbackQuery (g:c) failed: ${formatError(e)}`));
+      const chatId = ctx.chat?.id;
+      if (!chatId) return;
+      const raw = ctx.match?.[1];
+      if (!raw) return;
+      const groupId = parseInt(raw, 10);
+      if (isNaN(groupId)) return;
 
-    const db = getDb();
-    const group = findGroupById(db, groupId);
-    if (!group) {
-      await ctx.editMessageText('❌ הקבוצה לא נמצאה.').catch(() => undefined);
-      return;
-    }
-    const members = getMembersOfGroup(db, groupId);
-    if (!members.some((m) => m.userId === chatId)) {
-      await ctx.editMessageText('❌ אינך חבר בקבוצה זו.').catch(() => undefined);
-      return;
-    }
+      const db = getDb();
+      const group = findGroupById(db, groupId);
+      if (!group) {
+        await ctx
+          .editMessageText('❌ הקבוצה לא נמצאה.')
+          .catch((e) => log('warn', 'Groups', `editMessageText (g:c not-found) failed: ${formatError(e)}`));
+        return;
+      }
+      const members = getMembersOfGroup(db, groupId);
+      if (!members.some((m) => m.userId === chatId)) {
+        await ctx
+          .editMessageText('❌ אינך חבר בקבוצה זו.')
+          .catch((e) => log('warn', 'Groups', `editMessageText (g:c non-member) failed: ${formatError(e)}`));
+        return;
+      }
 
-    const isOwner = group.ownerId === chatId;
-    const lines = [
-      `📋 <b>${escapeHtml(group.name)}</b>`,
-      '',
-      `חברים: ${members.length}`,
-      `נוצרה: ${group.createdAt.split(' ')[0] ?? group.createdAt}`,
-    ];
-    if (isOwner) {
-      lines.push('', `קוד הזמנה: <code>${group.inviteCode}</code>`);
-    }
+      const isOwner = group.ownerId === chatId;
+      const lines = [
+        `📋 <b>${escapeHtml(group.name)}</b>`,
+        '',
+        `חברים: ${members.length}`,
+        `נוצרה: ${group.createdAt.split(' ')[0] ?? group.createdAt}`,
+      ];
+      if (isOwner) {
+        lines.push('', `קוד הזמנה: <code>${group.inviteCode}</code>`);
+      }
 
-    const kb = new InlineKeyboard().text('🚪 עזיבה', cb(`g:leaveY:${groupId}`));
-    await ctx
-      .editMessageText(lines.join('\n'), { parse_mode: 'HTML', reply_markup: kb })
-      .catch((err) => {
-        log('warn', 'Groups', `editMessageText (g:c) failed: ${String(err)}`);
-      });
-  });
+      const kb = new InlineKeyboard().text('🚪 עזיבה', cb(`g:leaveY:${groupId}`));
+      await ctx
+        .editMessageText(lines.join('\n'), { parse_mode: 'HTML', reply_markup: kb })
+        .catch((err) => {
+          log('warn', 'Groups', `editMessageText (g:c) failed: ${formatError(err)}`);
+        });
+    }),
+  );
 
-  // g:leaveY:<id> — confirm leave
-  bot.callbackQuery(/^g:leaveY:(\d+)$/, async (ctx) => {
-    await ctx.answerCallbackQuery().catch(() => undefined);
-    const chatId = ctx.chat?.id;
-    if (!chatId) return;
-    const raw = ctx.match?.[1];
-    if (!raw) return;
-    const groupId = parseInt(raw, 10);
-    if (isNaN(groupId)) return;
+  // g:leaveY:<id> — leave (no real confirm step yet — name preserved for stable callback_data)
+  bot.callbackQuery(
+    /^g:leaveY:(\d+)$/,
+    wrapCallback('g:leaveY', async (ctx) => {
+      await ctx
+        .answerCallbackQuery()
+        .catch((e) => log('warn', 'Groups', `answerCallbackQuery (g:leaveY) failed: ${formatError(e)}`));
+      const chatId = ctx.chat?.id;
+      if (!chatId) return;
+      const raw = ctx.match?.[1];
+      if (!raw) return;
+      const groupId = parseInt(raw, 10);
+      if (isNaN(groupId)) return;
 
-    const db = getDb();
-    const group = findGroupById(db, groupId);
-    if (!group) return;
-    const members = getMembersOfGroup(db, groupId);
-    if (!members.some((m) => m.userId === chatId)) return;
+      const db = getDb();
+      const group = findGroupById(db, groupId);
+      if (!group) return;
+      const members = getMembersOfGroup(db, groupId);
+      if (!members.some((m) => m.userId === chatId)) return;
 
-    await performLeave(ctx, groupId, chatId);
-  });
+      await performLeave(ctx, groupId, chatId);
+    }),
+  );
 }

@@ -294,6 +294,142 @@ describe('groupHandler — /group join', () => {
   });
 });
 
+// PR #230 review item #7 — invite alphabet exclusion (no 0/O/I/1)
+describe('invite code alphabet — generated codes never contain 0/O/I/1', () => {
+  it('500 generated codes all match /^[A-HJ-NP-Z2-9]{6}$/', async () => {
+    const bot = buildMockBot();
+    registerGroupHandler(bot as unknown as Bot);
+
+    upsertUser(1001);
+    const codes: string[] = [];
+    for (let i = 0; i < 500; i++) {
+      // Each /group create call mints a fresh code; capture it from reply text
+      const ctx = makeCtx({ message: { text: `/group create test${i}` } });
+      // Bypass the MAX_GROUPS_PER_USER cap by deleting prior groups before each call
+      getDb().prepare('DELETE FROM groups').run();
+      await bot._fireCmd('group', ctx);
+      const reply = (ctx as any)._replyCalls[0]?.[0] as string;
+      const m = reply.match(/<code>([A-Z2-9]{6})<\/code>/);
+      assert.ok(m, `iteration ${i}: reply did not contain a code: ${reply.slice(0, 80)}`);
+      codes.push(m[1]);
+    }
+
+    // 500 samples × 6 chars = 3000 characters scanned
+    const banned = /[0OI1]/;
+    for (const code of codes) {
+      assert.ok(!banned.test(code), `code ${code} contains a banned char`);
+      assert.match(code, /^[A-HJ-NP-Z2-9]{6}$/);
+    }
+  });
+});
+
+// PR #230 review item #10 — owner-only invite code disclosure (auth invariant)
+describe('g:c callback — owner-only invite code disclosure', () => {
+  it('shows invite code to the owner', async () => {
+    const bot = buildMockBot();
+    registerGroupHandler(bot as unknown as Bot);
+
+    upsertUser(1001);
+    const db = getDb();
+    const group = createGroup(db, { name: 'family', ownerId: 1001, inviteCode: 'OWN001' });
+
+    const ctx = makeCtx({ chat: { id: 1001, type: 'private' } });
+    await bot._fireCb(`g:c:${group.id}`, ctx);
+
+    // Latest editMessageText call is the rendered card
+    const editArgs = (ctx as any)._editCalls[0];
+    assert.ok(editArgs, 'expected an editMessageText call');
+    const text = editArgs[0] as string;
+    assert.match(text, /OWN001/, 'owner must see the invite code');
+  });
+
+  it('hides invite code from a non-owner member', async () => {
+    const bot = buildMockBot();
+    registerGroupHandler(bot as unknown as Bot);
+
+    upsertUser(1001); // owner
+    upsertUser(1002); // non-owner member
+    const db = getDb();
+    const group = createGroup(db, { name: 'family', ownerId: 1001, inviteCode: 'NOSEE1' });
+    db.prepare("INSERT INTO group_members (group_id, user_id, role) VALUES (?, ?, 'member')").run(group.id, 1002);
+
+    const ctx = makeCtx({ chat: { id: 1002, type: 'private' } });
+    await bot._fireCb(`g:c:${group.id}`, ctx);
+
+    const editArgs = (ctx as any)._editCalls[0];
+    assert.ok(editArgs, 'expected an editMessageText call');
+    const text = editArgs[0] as string;
+    assert.doesNotMatch(text, /NOSEE1/, 'non-owner must NOT see the invite code');
+    // But the group name should still appear (basic card view)
+    assert.match(text, /family/);
+  });
+
+  it('blocks non-members from viewing the card entirely', async () => {
+    const bot = buildMockBot();
+    registerGroupHandler(bot as unknown as Bot);
+
+    upsertUser(1001);
+    upsertUser(9999); // not a member
+    const db = getDb();
+    const group = createGroup(db, { name: 'private', ownerId: 1001, inviteCode: 'BLK001' });
+
+    const ctx = makeCtx({ chat: { id: 9999, type: 'private' } });
+    await bot._fireCb(`g:c:${group.id}`, ctx);
+
+    const editArgs = (ctx as any)._editCalls[0];
+    assert.ok(editArgs);
+    const text = editArgs[0] as string;
+    assert.match(text, /אינך חבר/);
+    // No invite code, no group internals leaked
+    assert.doesNotMatch(text, /BLK001/);
+    assert.doesNotMatch(text, /private/);
+  });
+});
+
+// PR #230 review minor items — name length, non-private chat, cooldown ordering
+describe('groupHandler — input validation', () => {
+  it('rejects group name longer than 50 chars', async () => {
+    const bot = buildMockBot();
+    registerGroupHandler(bot as unknown as Bot);
+    upsertUser(1001);
+
+    const longName = 'א'.repeat(51);
+    const ctx = makeCtx({ message: { text: `/group create ${longName}` } });
+    await bot._fireCmd('group', ctx);
+
+    const text = (ctx as any)._replyCalls[0][0] as string;
+    assert.match(text, /ארוך מדי|מקסימום/);
+    assert.equal(countGroupsOwnedBy(getDb(), 1001), 0);
+  });
+
+  it('replies with explanation in non-private chat (not silent)', async () => {
+    const bot = buildMockBot();
+    registerGroupHandler(bot as unknown as Bot);
+
+    const ctx = makeCtx({ chat: { id: -1001, type: 'group' }, message: { text: '/group' } });
+    await bot._fireCmd('group', ctx);
+
+    assert.equal((ctx as any)._replyCalls.length, 1);
+    const text = (ctx as any)._replyCalls[0][0] as string;
+    assert.match(text, /שיחה פרטית/);
+  });
+
+  it('does not consume cooldown when /group join has no args', async () => {
+    const bot = buildMockBot();
+    registerGroupHandler(bot as unknown as Bot);
+    upsertUser(1002);
+
+    // Empty args — should NOT set cooldown
+    const ctx = makeCtx({ chat: { id: 1002, type: 'private' }, message: { text: '/group join' } });
+    await bot._fireCmd('group', ctx);
+
+    const text = (ctx as any)._replyCalls[0][0] as string;
+    assert.match(text, /חסר קוד|שימוש/);
+    // Cooldown map should NOT have an entry for 1002
+    assert.equal(joinCooldownMap.has(1002), false);
+  });
+});
+
 describe('groupHandler — /group leave', () => {
   it('removes member from group', async () => {
     const bot = buildMockBot();
