@@ -9,6 +9,7 @@ import { createUserCooldown } from './userCooldown.js';
 import { formatRelativeTime, formatTimeUntil, escapeHtml } from '../textUtils.js';
 import { log } from '../logger.js';
 import { notifyContactsOfStatusChange } from '../services/safetyNotificationService.js';
+import { notifyGroupMembersOfStatusChange } from '../services/groupNotificationService.js';
 
 // Set before registering (called from index.ts after initDb).
 let _db: Database.Database | null = null;
@@ -194,6 +195,13 @@ export function registerSafetyStatusHandler(bot: Bot): void {
 
       await ctx.editMessageText(CONFIRMATION[status], { parse_mode: 'HTML' });
       await notifyContactsOfStatusChange(_db, bot, chatId, status);
+      // Fire-and-forget — group propagation must not block the user's UX or
+      // the contact-notification path. Errors are logged via the project
+      // logger; the shared dmQueue handles 429 retries internally. Mirrors
+      // the dispatchSafetyPrompts pattern in alertHandler.ts.
+      notifyGroupMembersOfStatusChange(_db, bot, chatId, status).catch((err) =>
+        log('error', 'GroupNotify', `propagate failed for ${chatId}: ${String(err)}`),
+      );
     } catch (err) {
       log('error', 'SafetyStatus', `כישלון בטיפול בסטטוס בטיחות: ${err}`);
     } finally {
