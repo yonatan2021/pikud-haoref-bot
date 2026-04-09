@@ -32,25 +32,23 @@ export function createGroupsRouter(db: Database.Database): Router {
    * GET /api/groups
    * Lists every group in the system with member count, owner display name,
    * and creation timestamp. Used by the dashboard Groups page table.
+   *
+   * PR #234 review #2: previously this called `getUser(g.ownerId)` per row
+   * (N+1). The owner display name now comes from the LEFT JOIN inside
+   * `listAllGroupsWithStats` itself — single SQL query regardless of row count.
    */
   router.get('/', (_req, res) => {
     try {
       const rows = listAllGroupsWithStats(db);
-      // Enrich each row with the owner's display name (single getUser call
-      // per group — bounded by the total number of groups in the system,
-      // which is small for the foreseeable future).
-      const groups = rows.map((g) => {
-        const owner = getUser(g.ownerId);
-        return {
-          id: g.id,
-          name: g.name,
-          inviteCode: g.inviteCode,
-          ownerId: g.ownerId,
-          ownerDisplayName: owner?.display_name ?? null,
-          createdAt: g.createdAt,
-          memberCount: g.memberCount,
-        };
-      });
+      const groups = rows.map((g) => ({
+        id: g.id,
+        name: g.name,
+        inviteCode: g.inviteCode,
+        ownerId: g.ownerId,
+        ownerDisplayName: g.ownerDisplayName,
+        createdAt: g.createdAt,
+        memberCount: g.memberCount,
+      }));
       res.json({ ok: true, groups });
     } catch (err) {
       log('error', 'Dashboard/Groups', `list failed: ${String(err)}`);
