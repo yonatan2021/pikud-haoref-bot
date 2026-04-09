@@ -44,22 +44,49 @@ export const MAX_MEMBERS_PER_GROUP_FALLBACK = 20;
  * with parsing + fallback so the call sites stay clean. Reads on every
  * call — appropriate for low-frequency user-triggered paths (/group create
  * and /group join). For per-alert hot paths, prefer cached patterns.
+ *
+ * PR #234 review #1 (3 reviewers converged): the dashboard validator
+ * `validatePositiveInt` rejects 0 at the PATCH boundary, but env vars
+ * and direct SQL writes bypass it. The `minimum` parameter enforces the
+ * floor at the runtime layer too — defense in depth. For cap keys, pass
+ * `minimum: 1` so a stray 0 falls back to the safe default instead of
+ * silently bricking the feature.
+ *
+ * PR #234 review #3: when raw is set but unparseable (e.g. an admin typo'd
+ * "five" into the dashboard, bypassing the validator via direct env var,
+ * or the row got corrupted), log a warn so the issue is visible. Without
+ * this, the bot would silently keep using the fallback forever with no
+ * trace in the logs that the override is being ignored.
  */
-function resolveIntConfig(key: string, fallback: number): number {
+function resolveIntConfig(key: string, fallback: number, minimum: number = 0): number {
   const raw = resolveConfig(getDb(), key);
   if (raw === null || raw === undefined) return fallback;
   const n = Number(raw);
-  return Number.isFinite(n) && Number.isInteger(n) && n >= 0 ? n : fallback;
+  if (Number.isFinite(n) && Number.isInteger(n) && n >= minimum) return n;
+  log(
+    'warn',
+    'Groups',
+    `invalid config value for "${key}": ${JSON.stringify(raw)} (minimum=${minimum}) — falling back to ${fallback}`,
+  );
+  return fallback;
 }
 
-/** Hot-configurable — reads `groups_max_per_user` from DB→env→fallback. */
+/**
+ * Hot-configurable — reads `groups_max_per_user` from DB→env→fallback.
+ * Minimum 1 enforced at the runtime layer (defense in depth — see
+ * resolveIntConfig docstring).
+ */
 function getMaxGroupsPerUser(): number {
-  return resolveIntConfig('groups_max_per_user', MAX_GROUPS_PER_USER_FALLBACK);
+  return resolveIntConfig('groups_max_per_user', MAX_GROUPS_PER_USER_FALLBACK, 1);
 }
 
-/** Hot-configurable — reads `groups_max_members` from DB→env→fallback. */
+/**
+ * Hot-configurable — reads `groups_max_members` from DB→env→fallback.
+ * Minimum 1 enforced at the runtime layer (defense in depth — see
+ * resolveIntConfig docstring).
+ */
 function getMaxMembersPerGroup(): number {
-  return resolveIntConfig('groups_max_members', MAX_MEMBERS_PER_GROUP_FALLBACK);
+  return resolveIntConfig('groups_max_members', MAX_MEMBERS_PER_GROUP_FALLBACK, 1);
 }
 
 const JOIN_COOLDOWN_MS = 5_000;

@@ -148,6 +148,49 @@ describe('PATCH /api/settings — value validation', () => {
     assert.equal(res.status, 400);
   });
 
+  // PR #234 review #1 — caps must be ≥1 (validatePositiveInt rejects 0).
+  // Three reviewer agents converged on this: groups_max_per_user=0 would
+  // make countGroupsOwnedBy(...) >= 0 always true → every create rejected.
+  it('rejects groups_max_per_user=0 (must be ≥1)', async () => {
+    const res = await request(app).patch('/api/settings').send({ groups_max_per_user: '0' });
+    assert.equal(res.status, 400);
+    assert.ok(res.body.error.includes('groups_max_per_user'));
+    assert.ok(res.body.error.includes('חיובי') || res.body.error.includes('≥1'));
+    // No partial write
+    const row = db.prepare("SELECT value FROM settings WHERE key = 'groups_max_per_user'").get();
+    assert.equal(row, undefined);
+  });
+
+  it('rejects groups_max_members=0 (must be ≥1)', async () => {
+    const res = await request(app).patch('/api/settings').send({ groups_max_members: '0' });
+    assert.equal(res.status, 400);
+    assert.ok(res.body.error.includes('groups_max_members'));
+    assert.ok(res.body.error.includes('חיובי') || res.body.error.includes('≥1'));
+  });
+
+  it('accepts groups_max_per_user=1 (boundary)', async () => {
+    const res = await request(app).patch('/api/settings').send({ groups_max_per_user: '1' });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.ok, true);
+  });
+
+  it('accepts groups_max_per_user=100 (typical hot-config value)', async () => {
+    const res = await request(app).patch('/api/settings').send({ groups_max_per_user: '100' });
+    assert.equal(res.status, 200);
+  });
+
+  it('rejects groups_max_per_user=-5 (also negative)', async () => {
+    const res = await request(app).patch('/api/settings').send({ groups_max_per_user: '-5' });
+    assert.equal(res.status, 400);
+  });
+
+  it('accepts groups_invite_code_ttl_hours=0 (means "never expire" in v0.5.2 semantics)', async () => {
+    // Unlike the cap keys, the TTL key uses validateNonNegativeInt because
+    // 0 plausibly encodes "no expiry". This is documented in settings.ts.
+    const res = await request(app).patch('/api/settings').send({ groups_invite_code_ttl_hours: '0' });
+    assert.equal(res.status, 200);
+  });
+
   it('does NOT partially apply when one key in a multi-key PATCH is invalid', async () => {
     // Both keys are allowed, but the second one fails validation. The first
     // key must NOT be persisted (validation runs as a separate pass before

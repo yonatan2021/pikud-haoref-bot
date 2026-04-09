@@ -60,6 +60,22 @@ function validateNonNegativeInt(value: string): string | null {
   return null;
 }
 
+/**
+ * Strict positive integer validator (n ≥ 1). Use for caps where 0 would
+ * silently disable the feature instead of expressing "no limit". For example:
+ * `groups_max_per_user = 0` would make `countGroupsOwnedBy(...) >= 0` always
+ * true, blocking every group creation with no error visible to the admin
+ * who set the value via the dashboard. Three reviewer agents independently
+ * flagged this on PR #234.
+ */
+function validatePositiveInt(value: string): string | null {
+  const n = Number(value);
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n < 1) {
+    return `הערך חייב להיות מספר שלם חיובי (≥1), התקבל: ${value}`;
+  }
+  return null;
+}
+
 function validateBoolish(value: string): string | null {
   return value === 'true' || value === 'false'
     ? null
@@ -88,8 +104,12 @@ const VALIDATORS: Record<string, (value: string) => string | null> = {
   whatsapp_enabled:              validateBoolish,
   privacy_defaults:              validateJson,
   // v0.5.1 — group feature hot-config (refs #225)
-  groups_max_per_user:           validateNonNegativeInt,
-  groups_max_members:            validateNonNegativeInt,
+  // PR #234 review: caps must be ≥1 because 0 would brick the feature
+  // (countGroupsOwnedBy(...) >= 0 is always true → every create rejected).
+  // groups_invite_code_ttl_hours stays non-negative because 0 plausibly
+  // means "never expire" (semantics to be defined when v0.5.2 enforces TTL).
+  groups_max_per_user:           validatePositiveInt,
+  groups_max_members:            validatePositiveInt,
   groups_invite_code_ttl_hours:  validateNonNegativeInt,
 };
 
