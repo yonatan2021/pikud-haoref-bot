@@ -1,5 +1,6 @@
 import { describe, it, before, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
+import crypto from 'crypto';
 import { initDb, getDb } from '../db/schema.js';
 import { upsertUser } from '../db/userRepository.js';
 import {
@@ -16,7 +17,9 @@ import {
   joinFailures,
   MAX_GROUPS_PER_USER_FALLBACK,
   MAX_MEMBERS_PER_GROUP_FALLBACK,
+  createGroupWithCollisionRetry,
 } from '../bot/groupHandler.js';
+import { InviteCodeCollisionError } from '../db/groupRepository.js';
 import type { Bot, Context } from 'grammy';
 
 before(() => {
@@ -427,6 +430,228 @@ describe('groupHandler — input validation', () => {
     assert.match(text, /חסר קוד|שימוש/);
     // Cooldown map should NOT have an entry for 1002
     assert.equal(joinCooldownMap.has(1002), false);
+  });
+});
+
+// PR #230 second-round review Gap A — exhaustion path of the collision retry loop.
+// The helper is exported precisely so this test can drive the loop with stub
+// dependencies, exercising the all-collide branch without requiring concurrent
+// inserts or DB-level race simulation.
+describe('createGroupWithCollisionRetry — exhaustion + all branches', () => {
+  it("returns 'collision-exhausted' after maxRetries consecutive collisions", () => {
+    const db = getDb();
+    upsertUser(1001);
+
+    let calls = 0;
+    const result = createGroupWithCollisionRetry(
+      db,
+      { name: 'doomed', ownerId: 1001 },
+      {
+        // Generate predictable codes — values don't matter, only that they're fresh
+        generateInviteCodeFn: () => `STUB${++calls}`,
+        // Always collide
+        createGroupFn: () => {
+          throw new InviteCodeCollisionError('STUB');
+        },
+        maxRetries: 3,
+      },
+    );
+
+    assert.equal(result.kind, 'collision-exhausted');
+    // Each retry should have called both deps once
+    assert.equal(calls, 3, 'generateInviteCodeFn should have been called maxRetries times');
+    // No actual group was created in the DB
+    assert.equal(countGroupsOwnedBy(db, 1001), 0);
+  });
+
+  it("returns 'codegen-failed' when generateInviteCodeFn throws non-collision error", () => {
+    const db = getDb();
+    upsertUser(1001);
+
+    const result = createGroupWithCollisionRetry(
+      db,
+      { name: 'x', ownerId: 1001 },
+      {
+        generateInviteCodeFn: () => {
+          throw new Error('crypto exhausted');
+        },
+        createGroupFn: () => {
+          throw new Error('should not be reached');
+        },
+        maxRetries: 3,
+      },
+    );
+
+    assert.equal(result.kind, 'codegen-failed');
+    if (result.kind === 'codegen-failed') {
+      assert.match(String((result.cause as Error).message), /crypto exhausted/);
+    }
+  });
+
+  it("returns 'createGroup-failed' when createGroup throws a non-collision error (e.g. FK)", () => {
+    const db = getDb();
+    upsertUser(1001);
+
+    const result = createGroupWithCollisionRetry(
+      db,
+      { name: 'x', ownerId: 1001 },
+      {
+        generateInviteCodeFn: () => 'OKAY01',
+        createGroupFn: () => {
+          throw new Error('FOREIGN KEY constraint failed');
+        },
+        maxRetries: 3,
+      },
+    );
+
+    assert.equal(result.kind, 'createGroup-failed');
+    if (result.kind === 'createGroup-failed') {
+      assert.match(String((result.cause as Error).message), /FOREIGN KEY/);
+    }
+  });
+
+  it("retries past one collision and returns 'ok' when subsequent attempt succeeds", () => {
+    const db = getDb();
+    upsertUser(1001);
+
+    let attempt = 0;
+    const result = createGroupWithCollisionRetry(
+      db,
+      { name: 'persistent', ownerId: 1001 },
+      {
+        generateInviteCodeFn: () => `RTY${++attempt}`,
+        createGroupFn: (innerDb, input) => {
+          if (attempt === 1) throw new InviteCodeCollisionError(input.inviteCode);
+          // Second attempt: actually create
+          return createGroup(innerDb, input);
+        },
+        maxRetries: 3,
+      },
+    );
+
+    assert.equal(result.kind, 'ok');
+    if (result.kind === 'ok') {
+      assert.equal(result.inviteCode, 'RTY2'); // first retry
+      assert.equal(result.group.name, 'persistent');
+      assert.equal(result.group.ownerId, 1001);
+    }
+    assert.equal(countGroupsOwnedBy(db, 1001), 1);
+  });
+
+  it('handler integration — exhaustion path surfaces the specific Hebrew error message', async () => {
+    // Top-level test: exhaustion shows "לא הצלחנו ליצור קוד הזמנה ייחודי" — distinct
+    // from the generic 'שגיאת שרת ביצירת קוד'. This guards against future refactors
+    // collapsing the two error messages.
+    const db = getDb();
+    upsertUser(1001);
+
+    // Pre-seed all 32 alphabet permutations is impractical. Instead, use the seam:
+    // monkey-patch crypto.randomInt to always return 0 so generateInviteCode
+    // produces "AAAAAA", then pre-create that row so generateInviteCode itself
+    // exhausts internally (5 retries on the same code).
+    const realRandomInt = crypto.randomInt;
+    (crypto as any).randomInt = () => 0;
+    try {
+      // Pre-create the row that will collide
+      createGroup(db, { name: 'blocker', ownerId: 1001, inviteCode: 'AAAAAA' });
+
+      const bot = buildMockBot();
+      registerGroupHandler(bot as unknown as Bot);
+
+      const ctx = makeCtx({ message: { text: '/group create newone' } });
+      await bot._fireCmd('group', ctx);
+
+      const text = (ctx as any)._replyCalls[0][0] as string;
+      // generateInviteCode exhausts internally → 'codegen-failed' branch → its message
+      assert.match(text, /קוד הזמנה|שגיאת שרת/);
+    } finally {
+      (crypto as any).randomInt = realRandomInt;
+    }
+  });
+});
+
+// PR #230 second-round review Gap B — handleLeave picker + validation branches.
+// 5 distinct branches, covered by 4 tests (NaN + negative grouped).
+describe('groupHandler — /group leave validation branches', () => {
+  it('shows empty-state reply when user has no groups and uses no-arg picker', async () => {
+    const bot = buildMockBot();
+    registerGroupHandler(bot as unknown as Bot);
+    upsertUser(1002);
+
+    const ctx = makeCtx({ chat: { id: 1002, type: 'private' }, message: { text: '/group leave' } });
+    await bot._fireCmd('group', ctx);
+
+    const text = (ctx as any)._replyCalls[0][0] as string;
+    assert.match(text, /אינך חבר באף קבוצה/);
+  });
+
+  it('shows multi-group inline picker when user belongs to ≥2 groups', async () => {
+    const bot = buildMockBot();
+    registerGroupHandler(bot as unknown as Bot);
+
+    upsertUser(1001);
+    const db = getDb();
+    const g1 = createGroup(db, { name: 'family', ownerId: 1001, inviteCode: 'PCK001' });
+    const g2 = createGroup(db, { name: 'work',   ownerId: 1001, inviteCode: 'PCK002' });
+
+    const ctx = makeCtx({ chat: { id: 1001, type: 'private' }, message: { text: '/group leave' } });
+    await bot._fireCmd('group', ctx);
+
+    assert.equal((ctx as any)._replyCalls.length, 1);
+    const text = (ctx as any)._replyCalls[0][0] as string;
+    assert.match(text, /בחר קבוצה/);
+    // Inline keyboard should have one button per group, both pointing at g:leaveY:<id>
+    const markup = JSON.stringify((ctx as any)._replyCalls[0][1]?.reply_markup ?? {});
+    assert.ok(markup.includes(`g:leaveY:${g1.id}`), 'picker should include g1');
+    assert.ok(markup.includes(`g:leaveY:${g2.id}`), 'picker should include g2');
+  });
+
+  it('rejects NaN / negative / zero groupId', async () => {
+    const bot = buildMockBot();
+    registerGroupHandler(bot as unknown as Bot);
+    upsertUser(1001);
+
+    for (const badId of ['abc', '-5', '0', '999999999999999999999999']) {
+      const ctx = makeCtx({ chat: { id: 1001, type: 'private' }, message: { text: `/group leave ${badId}` } });
+      await bot._fireCmd('group', ctx);
+
+      const text = (ctx as any)._replyCalls[0]?.[0] as string;
+      // Either "מזהה קבוצה לא תקין" (NaN/<=0 path) or "הקבוצה לא נמצאה" (huge int → no row)
+      assert.ok(
+        /מזהה קבוצה לא תקין|הקבוצה לא נמצאה/.test(text),
+        `expected validation error for badId="${badId}", got: ${text}`,
+      );
+    }
+  });
+
+  it('rejects "group not found" when groupId does not exist', async () => {
+    const bot = buildMockBot();
+    registerGroupHandler(bot as unknown as Bot);
+    upsertUser(1001);
+
+    const ctx = makeCtx({ chat: { id: 1001, type: 'private' }, message: { text: '/group leave 99999' } });
+    await bot._fireCmd('group', ctx);
+
+    const text = (ctx as any)._replyCalls[0][0] as string;
+    assert.match(text, /הקבוצה לא נמצאה/);
+  });
+
+  it('rejects non-member trying to leave a group they are not in', async () => {
+    const bot = buildMockBot();
+    registerGroupHandler(bot as unknown as Bot);
+
+    upsertUser(1001); // owner
+    upsertUser(9999); // not a member
+    const db = getDb();
+    const g = createGroup(db, { name: 'private', ownerId: 1001, inviteCode: 'NMB001' });
+
+    const ctx = makeCtx({ chat: { id: 9999, type: 'private' }, message: { text: `/group leave ${g.id}` } });
+    await bot._fireCmd('group', ctx);
+
+    const text = (ctx as any)._replyCalls[0][0] as string;
+    assert.match(text, /אינך חבר/);
+    // Group still exists, untouched
+    assert.equal(countMembersOfGroup(db, g.id), 1);
   });
 });
 

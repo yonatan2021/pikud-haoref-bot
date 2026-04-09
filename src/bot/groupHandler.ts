@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import type Database from 'better-sqlite3';
 import { Bot, InlineKeyboard } from 'grammy';
 import type { Context } from 'grammy';
 import { upsertUser } from '../db/userRepository.js';
@@ -153,6 +154,79 @@ async function handleList(ctx: Context): Promise<void> {
   await ctx.reply(lines.join('\n'), { parse_mode: 'HTML', reply_markup: kb });
 }
 
+/**
+ * Outcome of a group-creation attempt with collision retry. Distinguishes
+ * three branches that the handler must surface differently to the user:
+ * - 'ok': group created, inviteCode is the final code that was inserted
+ * - 'codegen-failed': generateInviteCode threw (e.g. internal exhaustion);
+ *   the generic 'שגיאת שרת ביצירת קוד' message is shown
+ * - 'collision-exhausted': the generate+insert cycle hit InviteCodeCollisionError
+ *   on every attempt; the more specific exhaustion message is shown
+ * - 'createGroup-failed': createGroup threw a non-collision error (FK / lock /
+ *   disk); the generic 'שגיאת שרת ביצירת הקבוצה' message is shown
+ */
+type CreateGroupOutcome =
+  | { kind: 'ok'; group: Group; inviteCode: string }
+  | { kind: 'codegen-failed'; cause: unknown }
+  | { kind: 'collision-exhausted' }
+  | { kind: 'createGroup-failed'; cause: unknown };
+
+/**
+ * Dependencies for createGroupWithCollisionRetry — the seam that lets tests
+ * exercise the exhaustion branch directly without depending on real
+ * crypto.randomInt or actually inserting colliding rows.
+ */
+export interface CreateGroupRetryDeps {
+  generateInviteCodeFn?: (db: Database.Database) => string;
+  createGroupFn?: (db: Database.Database, input: { name: string; ownerId: number; inviteCode: string }) => Group;
+  maxRetries?: number;
+}
+
+/**
+ * Generates an invite code and inserts the group. On UNIQUE collision the
+ * cycle retries up to maxRetries times with a fresh code each time. The
+ * loop is extracted from handleCreate so that:
+ * (1) the exhaustion branch is unit-testable in isolation via injected deps
+ * (2) the return type is a discriminated union — handleCreate no longer
+ *     needs the `if (!group || !inviteCode)` dual-undefined guard
+ *
+ * Exported only for testing — handleCreate is the only production caller.
+ */
+export function createGroupWithCollisionRetry(
+  db: Database.Database,
+  input: { name: string; ownerId: number },
+  deps: CreateGroupRetryDeps = {},
+): CreateGroupOutcome {
+  const generateFn = deps.generateInviteCodeFn ?? generateInviteCode;
+  const createFn = deps.createGroupFn ?? createGroup;
+  const maxRetries = deps.maxRetries ?? MAX_CREATE_GROUP_COLLISION_RETRIES;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    let inviteCode: string;
+    try {
+      inviteCode = generateFn(db);
+    } catch (err) {
+      log('error', 'Groups', `generateInviteCode failed for ${input.ownerId}: ${formatError(err)}`);
+      return { kind: 'codegen-failed', cause: err };
+    }
+
+    try {
+      const group = createFn(db, { name: input.name, ownerId: input.ownerId, inviteCode });
+      return { kind: 'ok', group, inviteCode };
+    } catch (err) {
+      if (err instanceof InviteCodeCollisionError) {
+        log('warn', 'Groups', `Invite code collision for ${input.ownerId} on attempt ${attempt + 1}: ${inviteCode} — retrying`);
+        continue;
+      }
+      log('error', 'Groups', `createGroup failed for ${input.ownerId}: ${formatError(err)}`);
+      return { kind: 'createGroup-failed', cause: err };
+    }
+  }
+
+  log('error', 'Groups', `createGroup exhausted ${maxRetries} collision retries for ${input.ownerId}`);
+  return { kind: 'collision-exhausted' };
+}
+
 async function handleCreate(ctx: Context, name: string): Promise<void> {
   const chatId = ctx.chat?.id;
   if (!chatId) return;
@@ -178,49 +252,33 @@ async function handleCreate(ctx: Context, name: string): Promise<void> {
     return;
   }
 
-  // generate + insert in a retry loop — the pre-check in generateInviteCode
-  // is best-effort; UNIQUE collision under concurrent inserts is recoverable
-  // by retrying with a fresh code.
-  let group: Group | undefined;
-  let inviteCode: string | undefined;
-  for (let attempt = 0; attempt < MAX_CREATE_GROUP_COLLISION_RETRIES; attempt++) {
-    try {
-      inviteCode = generateInviteCode(db);
-    } catch (err) {
-      log('error', 'Groups', `generateInviteCode failed for ${chatId}: ${formatError(err)}`);
+  const outcome = createGroupWithCollisionRetry(db, { name: trimmed, ownerId: chatId });
+
+  switch (outcome.kind) {
+    case 'codegen-failed':
       await ctx.reply('❌ שגיאת שרת ביצירת קוד הזמנה. נסה שוב.');
       return;
-    }
-    try {
-      group = createGroup(db, { name: trimmed, ownerId: chatId, inviteCode });
-      break; // success
-    } catch (err) {
-      if (err instanceof InviteCodeCollisionError) {
-        log('warn', 'Groups', `Invite code collision for ${chatId} on attempt ${attempt + 1}: ${inviteCode} — retrying`);
-        continue; // generate a fresh code and retry
-      }
-      log('error', 'Groups', `createGroup failed for ${chatId}: ${formatError(err)}`);
+    case 'createGroup-failed':
       await ctx.reply('❌ שגיאת שרת ביצירת הקבוצה. נסה שוב.');
+      return;
+    case 'collision-exhausted':
+      await ctx.reply('❌ שגיאת שרת — לא הצלחנו ליצור קוד הזמנה ייחודי. נסה שוב.');
+      return;
+    case 'ok': {
+      const { group, inviteCode } = outcome;
+      log('info', 'Groups', `User ${chatId} created group ${group.id} (${trimmed})`);
+
+      const kb = new InlineKeyboard().text('📋 כרטיס הקבוצה', cb(`g:c:${group.id}`));
+      await ctx.reply(
+        `✅ <b>קבוצה נוצרה: ${escapeHtml(trimmed)}</b>\n\n` +
+          `קוד הזמנה: <code>${inviteCode}</code>\n\n` +
+          `שתפו את הקוד עם בני המשפחה / חברים — הם יוכלו להצטרף עם:\n` +
+          `<code>/group join ${inviteCode}</code>`,
+        { parse_mode: 'HTML', reply_markup: kb }
+      );
       return;
     }
   }
-
-  if (!group || !inviteCode) {
-    log('error', 'Groups', `createGroup exhausted ${MAX_CREATE_GROUP_COLLISION_RETRIES} collision retries for ${chatId}`);
-    await ctx.reply('❌ שגיאת שרת — לא הצלחנו ליצור קוד הזמנה ייחודי. נסה שוב.');
-    return;
-  }
-
-  log('info', 'Groups', `User ${chatId} created group ${group.id} (${trimmed})`);
-
-  const kb = new InlineKeyboard().text('📋 כרטיס הקבוצה', cb(`g:c:${group.id}`));
-  await ctx.reply(
-    `✅ <b>קבוצה נוצרה: ${escapeHtml(trimmed)}</b>\n\n` +
-      `קוד הזמנה: <code>${inviteCode}</code>\n\n` +
-      `שתפו את הקוד עם בני המשפחה / חברים — הם יוכלו להצטרף עם:\n` +
-      `<code>/group join ${inviteCode}</code>`,
-    { parse_mode: 'HTML', reply_markup: kb }
-  );
 }
 
 async function handleJoin(ctx: Context, codeArg: string): Promise<void> {
