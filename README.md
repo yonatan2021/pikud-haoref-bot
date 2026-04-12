@@ -10,7 +10,7 @@
 
 <div align="center">
 
-[![גרסה](https://img.shields.io/badge/גרסה-0.5.0-brightgreen?style=for-the-badge)](CHANGELOG.md)
+[![גרסה](https://img.shields.io/badge/גרסה-0.5.1-brightgreen?style=for-the-badge)](CHANGELOG.md)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue?style=for-the-badge)](https://opensource.org/licenses/Apache-2.0)
 [![Node.js](https://img.shields.io/badge/Node.js-24-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
@@ -752,7 +752,7 @@ node landing/build.js   # מייצר landing/dist/ — פתח index.html בדפ�
 | עיירות מכוסות     | 1400 |
 | אזורים            | 28   |
 | קטגוריות          | 6    |
-| בדיקות אוטומטיות  | 1003 |
+| בדיקות אוטומטיות  | 1,615 |
 
 </div>
 

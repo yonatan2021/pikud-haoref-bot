@@ -30,6 +30,47 @@
 
 ---
 
+## [0.5.1] — 2026-04-12
+
+<div dir="rtl">
+
+### ✨ תכונות חדשות
+
+- **קבוצות חוסן — `/group`** — קבוצות משפחה/חברים/עבודה לתיאום ביטחוני: `/group create <שם>` יוצר קבוצה עם קוד הזמנה, `/group join <קוד>` מצטרף, `/group leave` עוזב, `/group list` מציג קבוצות (PR #230)
+- **מסך סטטוס קבוצתי — `/group status`** — תצוגה חיה של סטטוס הביטחוני של כל חברי הקבוצה (✅/⚠️/🔇/❓); בחירת קבוצה inline; כפתור רענון; מחיצת קבוצה בודדת — אוטומטית (PR #232)
+- **התראות קבוצה** — עדכון אוטומטי לכל חברי הקבוצה כשמישהו מעדכן סטטוס; `dismissed` לא מעדכן; `notify_group=0` מאפשר opt-out פר-חבר; dedup בין קבוצות חופפות (PR #233)
+- **ניהול קבוצות בדשבורד** — עמוד "קבוצות חוסן" חדש: KPI cards (סה"כ / ממוצע חברים / גדולה ביותר), טבלה עם drill-down ל-drawer חברים, מחיקת קבוצה עם rate-limit 5/דקה (PR #234)
+- **hot-config לקבוצות** — `groups_max_per_user` (ברירת מחדל 5) ו-`groups_max_members` (ברירת מחדל 20) ניתנים לשינוי מהדשבורד ללא restart; שמירה על `minimum=1` למניעת נעילת הפיצ'ר (PR #234)
+
+### ⚡ שיפורי ביצועים
+
+- **N+1 ב-GET /api/groups נפתר** — `listAllGroupsWithStats` מבצע LEFT JOIN ל-`users` בשאילתה אחת במקום N קריאות `getUser()` פר-קבוצה (PR #234)
+- **CI: חיסכון ~50% דקות Actions** — `pull_request` trigger מוגבל ל-`opened/reopened` בלבד; `synchronize` (push לענף PR) מכוסה ע"י ה-`push` trigger הקיים (PR #235)
+
+### 🐛 תיקוני באגים
+
+- **`groups_max_per_user=0` לא עוצר יצירת קבוצות** — `validatePositiveInt` (n≥1) בגבול ה-PATCH + `resolveIntConfig(..., { minimum: 1 })` ב-runtime; קוד שגוי `"0"` ב-DB נופל ל-fallback עם warn-log (PR #234)
+
+### 🧪 בדיקות
+
+- `groupHandler` — 1,150 שורות: `/group create|join|leave|list|status`, callback_data guard (64 bytes), collision retry, auth invariants (owner-only invite, non-member block), hot-config override
+- `groupRepository` — 320 שורות: CRUD, member count, stats helpers, `InviteCodeCollisionError`
+- `groupNotificationService` — 222 שורות: ok/help/dismissed, opt-out, cross-group dedup, XSS escaping, fallback display name
+- `dashboard/routes/groups` — 201 שורות: GET list/stats/detail, DELETE + rate-limit, input validation, CASCADE
+- `settings.test.ts` — 6 tests חדשים ל-`groups_max_per_user`/`groups_max_members` validation
+- **סה"כ: 1,615 tests (מ-1,086 ב-v0.5.0)**
+
+### 🔧 תחזוקה
+
+- `schema.ts` — 2 טבלאות חדשות: `groups` + `group_members` (CASCADE FKs, CHECK constraint על `role`, 3 indexes)
+- `botSetup.ts` — `registerGroupHandler` נוסף; `setMyCommands` — 15 פקודות (נוספה `/group`)
+- `configResolver.ts` — הוספת `groups_max_per_user`, `groups_max_members`, `groups_invite_code_ttl_hours` ל-`ALLOWED_CONFIG_KEYS`
+- `dashboard/router.ts` — `/api/groups` route חדש
+
+</div>
+
+---
+
 ## [0.5.0] — 2026-04-07
 
 <div dir="rtl">
@@ -943,7 +984,8 @@
 
 <div dir="rtl">
 
-[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.5...v0.5.0
 [0.4.5]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.4...v0.4.5
 [0.4.4]: https://github.com/yonatan2021/pikud-haoref-bot/compare/v0.4.3...v0.4.4
