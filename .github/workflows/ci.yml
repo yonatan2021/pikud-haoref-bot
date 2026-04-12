@@ -4,7 +4,12 @@ name: CI
 on:
   push:
     branches: ['**']
+  # Only trigger on PR open/reopen — `synchronize` (the event for PR-branch
+  # pushes) duplicates the `push` trigger above and was burning ~50% of
+  # Actions minutes on every PR push. The `push` trigger already covers
+  # PR-branch updates because PRs are just branches with commits.
   pull_request:
+    types: [opened, reopened]
     branches: ['**']
 
 concurrency:
