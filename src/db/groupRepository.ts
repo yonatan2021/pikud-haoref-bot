@@ -231,21 +231,37 @@ export function countMembersOfGroup(
 }
 
 /**
- * Dashboard listing helper — joins group with its member count in a single query.
- * Used by `src/dashboard/routes/groups.ts` in Task 4.
+ * Dashboard listing helper — joins group with its member count AND owner's
+ * display_name in a single query. Used by `src/dashboard/routes/groups.ts`.
+ *
+ * PR #234 review #2: previously this returned only the group + memberCount
+ * and the route called `getUser(g.ownerId)` once per row to enrich the owner
+ * display name — a classic N+1. At thousands of groups the dashboard would
+ * stall. The LEFT JOIN to `users` makes the entire enrichment a single query.
+ *
+ * LEFT JOIN (not INNER JOIN) defends against soft-corruption: if a group's
+ * owner row was deleted without CASCADE (shouldn't happen — FK enforces it,
+ * but defense in depth), we still return the group with `ownerDisplayName: null`
+ * instead of dropping the row from the result.
  */
 export function listAllGroupsWithStats(
   db: Database.Database
-): Array<Group & { memberCount: number }> {
+): Array<Group & { memberCount: number; ownerDisplayName: string | null }> {
   const rows = db
     .prepare(
       `SELECT g.*,
-              (SELECT COUNT(*) FROM group_members gm WHERE gm.group_id = g.id) AS member_count
+              (SELECT COUNT(*) FROM group_members gm WHERE gm.group_id = g.id) AS member_count,
+              u.display_name AS owner_display_name
        FROM groups g
+       LEFT JOIN users u ON u.chat_id = g.owner_id
        ORDER BY g.created_at DESC`
     )
-    .all() as Array<RawGroup & { member_count: number }>;
-  return rows.map((r) => ({ ...decodeGroup(r), memberCount: r.member_count }));
+    .all() as Array<RawGroup & { member_count: number; owner_display_name: string | null }>;
+  return rows.map((r) => ({
+    ...decodeGroup(r),
+    memberCount: r.member_count,
+    ownerDisplayName: r.owner_display_name,
+  }));
 }
 
 /**

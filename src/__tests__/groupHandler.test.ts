@@ -207,6 +207,65 @@ describe('groupHandler — /group create', () => {
     assert.match(text, /הגעת לגבול|מקסימום|מוגבל/);
     assert.equal(countGroupsOwnedBy(db, 1001), MAX_GROUPS_PER_USER_FALLBACK);
   });
+
+  // PR #225 — hot-config override for groups_max_per_user
+  it('reads groups_max_per_user from settings table at runtime (hot-config)', async () => {
+    const bot = buildMockBot();
+    registerGroupHandler(bot as unknown as Bot);
+    upsertUser(1001);
+    const db = getDb();
+
+    // Override the cap via the settings table — simulates a dashboard PATCH.
+    // Without the configResolver wiring, this would be ignored and the cap
+    // would still be MAX_GROUPS_PER_USER_FALLBACK (5). With the wiring, the
+    // handler reads `groups_max_per_user = 2` and rejects on the 3rd create.
+    db.prepare("INSERT OR REPLACE INTO settings (key, value, encrypted) VALUES (?, ?, 0)").run('groups_max_per_user', '2');
+
+    // Pre-create 2 groups (at the new cap)
+    createGroup(db, { name: 'g1', ownerId: 1001, inviteCode: 'HC0001' });
+    createGroup(db, { name: 'g2', ownerId: 1001, inviteCode: 'HC0002' });
+
+    // 3rd create should be rejected
+    const ctx = makeCtx({ message: { text: '/group create third' } });
+    await bot._fireCmd('group', ctx);
+
+    const text = (ctx as any)._replyCalls[0][0] as string;
+    assert.match(text, /הגעת לגבול/);
+    // Error message should reference the OVERRIDE value, not the fallback
+    assert.match(text, /\b2 קבוצות/, 'cap message should show the dashboard-overridden value (2)');
+    assert.equal(countGroupsOwnedBy(db, 1001), 2);
+
+    // Cleanup — restore default for subsequent tests
+    db.prepare("DELETE FROM settings WHERE key = 'groups_max_per_user'").run();
+  });
+
+  it('reads groups_max_members from settings table at runtime (hot-config)', async () => {
+    const bot = buildMockBot();
+    registerGroupHandler(bot as unknown as Bot);
+
+    upsertUser(1001);
+    const db = getDb();
+
+    // Cap members at 2 via dashboard override
+    db.prepare("INSERT OR REPLACE INTO settings (key, value, encrypted) VALUES (?, ?, 0)").run('groups_max_members', '2');
+
+    const group = createGroup(db, { name: 'tiny', ownerId: 1001, inviteCode: 'HCM001' });
+    upsertUser(1002);
+    db.prepare("INSERT INTO group_members (group_id, user_id, role) VALUES (?, ?, 'member')").run(group.id, 1002);
+    assert.equal(countMembersOfGroup(db, group.id), 2);
+
+    // 3rd member tries to join via /group join — should be rejected
+    upsertUser(1003);
+    const ctx = makeCtx({ chat: { id: 1003, type: 'private' }, message: { text: '/group join HCM001' } });
+    await bot._fireCmd('group', ctx);
+
+    const text = (ctx as any)._replyCalls[0][0] as string;
+    assert.match(text, /הקבוצה מלאה/);
+    assert.match(text, /\b2 חברים/);
+    assert.equal(countMembersOfGroup(db, group.id), 2);
+
+    db.prepare("DELETE FROM settings WHERE key = 'groups_max_members'").run();
+  });
 });
 
 describe('groupHandler — /group join', () => {
@@ -975,5 +1034,117 @@ describe('g:s and g:refresh callbacks', () => {
     const text = ((ctx as any)._editCalls[0]?.[0] ?? (ctx as any)._replyCalls[0]?.[0]) as string;
     assert.match(text, /אינך חבר/);
     assert.doesNotMatch(text, /rfr-secret/);
+  });
+});
+
+// PR #234 review #1 + #3 — defense in depth for hot-config caps.
+// Three reviewer agents independently flagged that cap=0 silently bricks the
+// feature. The fix has two layers:
+//   1. Dashboard validator (validatePositiveInt) rejects 0 at the PATCH
+//      boundary — covered by settings.test.ts.
+//   2. Runtime resolveIntConfig has a `minimum` parameter that clamps to
+//      fallback if the DB/env value is below the floor — covered HERE.
+//      This catches env-var bypass + direct-SQL writes + corrupt rows.
+describe('PR #234 review — hot-config defense in depth', () => {
+  it('cap=0 in DB falls back to MAX_GROUPS_PER_USER_FALLBACK (not 0)', async () => {
+    const bot = buildMockBot();
+    registerGroupHandler(bot as unknown as Bot);
+    upsertUser(1001);
+    const db = getDb();
+
+    // Bypass the dashboard validator by writing directly to settings —
+    // simulates an env var override, a corrupt row, or pre-validator data.
+    // The runtime should NOT use 0; resolveIntConfig clamps to fallback.
+    db.prepare("INSERT OR REPLACE INTO settings (key, value, encrypted) VALUES (?, ?, 0)")
+      .run('groups_max_per_user', '0');
+
+    // Pre-create exactly MAX_GROUPS_PER_USER_FALLBACK groups so the
+    // fallback's cap is hit on the next create
+    for (let i = 0; i < MAX_GROUPS_PER_USER_FALLBACK; i++) {
+      createGroup(db, { name: `g${i}`, ownerId: 1001, inviteCode: `D0D${i}AB` });
+    }
+
+    const ctx = makeCtx({ message: { text: '/group create blocked-by-fallback' } });
+    await bot._fireCmd('group', ctx);
+
+    const text = (ctx as any)._replyCalls[0][0] as string;
+    // The error message must reference the FALLBACK value (5), NOT 0.
+    // If the bug were unfixed, the message would say "ניתן ליצור עד 0 קבוצות".
+    assert.match(text, new RegExp(`ניתן ליצור עד ${MAX_GROUPS_PER_USER_FALLBACK}`));
+    assert.doesNotMatch(text, /ניתן ליצור עד 0/);
+    assert.equal(countGroupsOwnedBy(db, 1001), MAX_GROUPS_PER_USER_FALLBACK);
+
+    db.prepare("DELETE FROM settings WHERE key = 'groups_max_per_user'").run();
+  });
+
+  it('cap=0 still allows group creation when under fallback cap', async () => {
+    // The CRITICAL property: cap=0 must NOT block creation when the user
+    // has < fallback groups. This is the actual symptom of the bug —
+    // a fresh user with 0 groups gets ❌ "ניתן ליצור עד 0 קבוצות" on
+    // their first create.
+    const bot = buildMockBot();
+    registerGroupHandler(bot as unknown as Bot);
+    upsertUser(1001);
+    const db = getDb();
+
+    db.prepare("INSERT OR REPLACE INTO settings (key, value, encrypted) VALUES (?, ?, 0)")
+      .run('groups_max_per_user', '0');
+
+    const ctx = makeCtx({ message: { text: '/group create works-despite-zero' } });
+    await bot._fireCmd('group', ctx);
+
+    const text = (ctx as any)._replyCalls[0][0] as string;
+    // Success path: group is created using the fallback cap of 5
+    assert.match(text, /קבוצה נוצרה/);
+    assert.equal(countGroupsOwnedBy(db, 1001), 1);
+
+    db.prepare("DELETE FROM settings WHERE key = 'groups_max_per_user'").run();
+  });
+
+  it('groups_max_members=0 falls back to MAX_MEMBERS_PER_GROUP_FALLBACK', async () => {
+    const bot = buildMockBot();
+    registerGroupHandler(bot as unknown as Bot);
+    upsertUser(1001);
+    upsertUser(1002);
+    const db = getDb();
+
+    db.prepare("INSERT OR REPLACE INTO settings (key, value, encrypted) VALUES (?, ?, 0)")
+      .run('groups_max_members', '0');
+
+    const group = createGroup(db, { name: 'doomed', ownerId: 1001, inviteCode: 'MEMBR1' });
+    // Without defense in depth, this join would be rejected with
+    // "❌ הקבוצה מלאה (מקסימום 0 חברים)" — instead it should succeed
+    // because the fallback (20) kicks in.
+    const ctx = makeCtx({ chat: { id: 1002, type: 'private' }, message: { text: '/group join MEMBR1' } });
+    await bot._fireCmd('group', ctx);
+
+    const text = (ctx as any)._replyCalls[0][0] as string;
+    assert.match(text, /הצטרפת לקבוצה/);
+    assert.equal(countMembersOfGroup(db, group.id), 2);
+
+    db.prepare("DELETE FROM settings WHERE key = 'groups_max_members'").run();
+  });
+
+  it('unparseable cap value (PR #234 review #3) falls back without crashing', async () => {
+    // An admin typo'd "five" into the dashboard (bypass via env var or
+    // corrupt row). resolveIntConfig should warn-log AND fall back —
+    // group creation should proceed normally with the fallback cap.
+    const bot = buildMockBot();
+    registerGroupHandler(bot as unknown as Bot);
+    upsertUser(1001);
+    const db = getDb();
+
+    db.prepare("INSERT OR REPLACE INTO settings (key, value, encrypted) VALUES (?, ?, 0)")
+      .run('groups_max_per_user', 'five');
+
+    const ctx = makeCtx({ message: { text: '/group create works-anyway' } });
+    await bot._fireCmd('group', ctx);
+
+    // Success path proves the early-return-on-NaN was taken (fallback used)
+    const text = (ctx as any)._replyCalls[0][0] as string;
+    assert.match(text, /קבוצה נוצרה/);
+    assert.equal(countGroupsOwnedBy(db, 1001), 1);
+
+    db.prepare("DELETE FROM settings WHERE key = 'groups_max_per_user'").run();
   });
 });
