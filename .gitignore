@@ -29,3 +29,5 @@ AGENTS.md
 .claude-flow/*
 .mcp.json
 .swarm/*
+
+skills-lock.json
