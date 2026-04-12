@@ -12,6 +12,7 @@ import { registerPrivacyHandler } from './privacyHandler.js';
 import { registerTodayHandler } from './todayHandler.js';
 import { registerLegendHandler } from './legendHandler.js';
 import { registerSafetyStatusHandler } from './safetyStatusHandler.js';
+import { registerGroupHandler } from './groupHandler.js';
 import { log } from '../logger.js';
 
 export async function setupBotHandlers(bot: Bot): Promise<void> {
@@ -28,6 +29,7 @@ export async function setupBotHandlers(bot: Bot): Promise<void> {
   registerStatsHandler(bot);
   registerHistoryHandler(bot);
   registerConnectHandler(bot);
+  registerGroupHandler(bot);
   registerPrivacyHandler(bot);
   registerTodayHandler(bot);
   registerLegendHandler(bot);
@@ -47,6 +49,7 @@ export async function setupBotHandlers(bot: Bot): Promise<void> {
     { command: 'history',  description: 'היסטוריית התראות לאזורך' },
     { command: 'connect',  description: 'חיבור עם חברים' },
     { command: 'contacts', description: 'אנשי הקשר שלי' },
+    { command: 'group',    description: 'ניהול קבוצות חוסן' },
     { command: 'privacy',  description: 'הגדרות פרטיות' },
     { command: 'today',    description: 'סיכום יומי' },
     { command: 'legend',   description: 'מקרא אזורי ההתראה' },

@@ -184,6 +184,30 @@ export function initSchema(database: Database.Database): void {
       FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE
     );
 
+    -- v0.5.1 — resilience groups (family/friends/work cells)
+    CREATE TABLE IF NOT EXISTS groups (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      name         TEXT NOT NULL,
+      invite_code  TEXT NOT NULL UNIQUE,
+      owner_id     INTEGER NOT NULL,
+      created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (owner_id) REFERENCES users(chat_id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_groups_invite_code ON groups(invite_code);
+    CREATE INDEX IF NOT EXISTS idx_groups_owner ON groups(owner_id);
+
+    CREATE TABLE IF NOT EXISTS group_members (
+      group_id     INTEGER NOT NULL,
+      user_id      INTEGER NOT NULL,
+      role         TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('owner', 'member')),
+      joined_at    TEXT NOT NULL DEFAULT (datetime('now')),
+      notify_group INTEGER NOT NULL DEFAULT 1,
+      PRIMARY KEY (group_id, user_id),
+      FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id)  REFERENCES users(chat_id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_group_members_user ON group_members(user_id);
+
     CREATE TABLE IF NOT EXISTS safety_status (
       chat_id     INTEGER PRIMARY KEY,
       status      TEXT CHECK (status IN ('ok', 'help', 'dismissed')) NOT NULL,
