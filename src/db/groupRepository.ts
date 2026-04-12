@@ -1,5 +1,7 @@
 import type Database from 'better-sqlite3';
 import { log } from '../logger.js';
+import { getActiveStatusesForContacts } from './safetyStatusRepository.js';
+import type { SafetyStatusRow } from './safetyStatusRepository.js';
 
 // ─── Public types ────────────────────────────────────────────────────────────
 
@@ -246,5 +248,36 @@ export function listAllGroupsWithStats(
   return rows.map((r) => ({ ...decodeGroup(r), memberCount: r.member_count }));
 }
 
-// NOTE: `getMemberStatusesForGroup` (joining members with safetyStatusRepository)
-// will be added in Task 2 (#212) to keep this PR tight around #211.
+/**
+ * Aggregates each group member's current active safety_status row, or `null`
+ * if the member has no active status (never reported, or status expired past
+ * the 24h TTL). Used by the `/group status` command and the `g:s:<id>` /
+ * `g:refresh:<id>` callbacks added in #212.
+ *
+ * IMPORTANT: `getActiveStatusesForContacts` returns `SafetyStatusRow[]` (a
+ * plain array, NOT a Map). Verified: safetyStatusRepository.ts:62. The
+ * lookup Map is built locally so each member lookup is O(1).
+ *
+ * Member iteration order matches `getMembersOfGroup` (joined_at ASC), which
+ * gives a stable display order — the rendered card doesn't shuffle on refresh.
+ */
+export function getMemberStatusesForGroup(
+  db: Database.Database,
+  groupId: number,
+): Array<{ userId: number; status: SafetyStatusRow | null }> {
+  const members = getMembersOfGroup(db, groupId);
+  if (members.length === 0) return [];
+
+  const memberIds = members.map((m) => m.userId);
+  const statusRows = getActiveStatusesForContacts(db, memberIds);
+
+  // Build O(1) lookup keyed on chat_id (snake_case at the boundary —
+  // see SafetyStatusRow definition in safetyStatusRepository.ts:3-8).
+  const statusMap = new Map<number, SafetyStatusRow>();
+  for (const row of statusRows) statusMap.set(row.chat_id, row);
+
+  return members.map((m) => ({
+    userId: m.userId,
+    status: statusMap.get(m.userId) ?? null,
+  }));
+}
