@@ -19,6 +19,11 @@ export interface User {
   connection_code: string | null;
   onboarding_step: OnboardingStep | null;
   is_dm_active: boolean;
+  social_prompt_enabled: boolean;
+  social_banner_enabled: boolean;
+  social_contact_count_enabled: boolean;
+  social_group_alerts_enabled: boolean;
+  social_quick_ok_enabled: boolean;
   created_at: string;
 }
 
@@ -41,6 +46,11 @@ interface RawUserRow {
   connection_code: string | null;
   onboarding_step: string | null;
   is_dm_active: number;
+  social_prompt_enabled: number;
+  social_banner_enabled: number;
+  social_contact_count_enabled: number;
+  social_group_alerts_enabled: number;
+  social_quick_ok_enabled: number;
   created_at: string;
 }
 
@@ -57,6 +67,11 @@ function mapRowToUser(raw: RawUserRow): User {
     onboarding_step: raw.onboarding_step && VALID_ONBOARDING_STEPS.has(raw.onboarding_step)
       ? (raw.onboarding_step as OnboardingStep)
       : null,
+    social_prompt_enabled: raw.social_prompt_enabled === 1,
+    social_banner_enabled: raw.social_banner_enabled === 1,
+    social_contact_count_enabled: raw.social_contact_count_enabled === 1,
+    social_group_alerts_enabled: raw.social_group_alerts_enabled === 1,
+    social_quick_ok_enabled: raw.social_quick_ok_enabled === 1,
   };
 }
 
@@ -125,6 +140,29 @@ export function deleteUser(chatId: number): void {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   (require('./subscriptionRepository.js') as { evictSubscriberFromCache: (id: number) => void })
     .evictSubscriberFromCache(chatId);
+}
+
+// --- Social preferences (v0.5.2) ---
+
+export type SocialPrefField =
+  | 'social_prompt_enabled'
+  | 'social_banner_enabled'
+  | 'social_contact_count_enabled'
+  | 'social_group_alerts_enabled'
+  | 'social_quick_ok_enabled';
+
+export const VALID_SOCIAL_FIELDS: ReadonlySet<string> = new Set<string>([
+  'social_prompt_enabled',
+  'social_banner_enabled',
+  'social_contact_count_enabled',
+  'social_group_alerts_enabled',
+  'social_quick_ok_enabled',
+]);
+
+export function setSocialPref(chatId: number, field: SocialPrefField, enabled: boolean): void {
+  if (!VALID_SOCIAL_FIELDS.has(field)) throw new Error(`Invalid social pref: ${field}`);
+  upsertUser(chatId);
+  getDb().prepare(`UPDATE users SET ${field} = ? WHERE chat_id = ?`).run(enabled ? 1 : 0, chatId);
 }
 
 // --- Profile functions (v0.4.1) ---

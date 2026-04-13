@@ -23,6 +23,7 @@ import {
   setQuietHours,
   setMutedUntil,
   deleteUser,
+  setSocialPref,
 } from '../db/userRepository';
 
 describe('userRepository — v0.4.1 profile fields', () => {
@@ -343,5 +344,54 @@ describe('getUsersWithHomeCity', () => {
   it('returns empty array when no users have home_city set', () => {
     db.prepare('INSERT INTO users (chat_id) VALUES (1001)').run();
     assert.equal(getUsersWithHomeCity(db).length, 0);
+  });
+});
+
+describe('social preferences (v0.5.2)', () => {
+  before(() => { initDb(); });
+  after(() => { closeDb(); });
+  beforeEach(() => {
+    getDb().prepare('DELETE FROM subscriptions').run();
+    getDb().prepare('DELETE FROM users').run();
+  });
+
+  it('new user has all social prefs enabled by default', () => {
+    upsertUser(9001);
+    const user = getUser(9001);
+    assert.equal(user?.social_prompt_enabled, true);
+    assert.equal(user?.social_banner_enabled, true);
+    assert.equal(user?.social_contact_count_enabled, true);
+    assert.equal(user?.social_group_alerts_enabled, true);
+    assert.equal(user?.social_quick_ok_enabled, true);
+  });
+
+  it('setSocialPref toggles a field off and on', () => {
+    upsertUser(9002);
+    setSocialPref(9002, 'social_prompt_enabled', false);
+    assert.equal(getUser(9002)?.social_prompt_enabled, false);
+
+    setSocialPref(9002, 'social_prompt_enabled', true);
+    assert.equal(getUser(9002)?.social_prompt_enabled, true);
+  });
+
+  it('setSocialPref works for each field independently', () => {
+    upsertUser(9003);
+    setSocialPref(9003, 'social_banner_enabled', false);
+    setSocialPref(9003, 'social_quick_ok_enabled', false);
+
+    const user = getUser(9003)!;
+    assert.equal(user.social_banner_enabled, false);
+    assert.equal(user.social_quick_ok_enabled, false);
+    assert.equal(user.social_prompt_enabled, true);
+    assert.equal(user.social_contact_count_enabled, true);
+    assert.equal(user.social_group_alerts_enabled, true);
+  });
+
+  it('setSocialPref throws on invalid field', () => {
+    upsertUser(9004);
+    assert.throws(
+      () => setSocialPref(9004, 'bad_field' as any, false),
+      /Invalid social pref/
+    );
   });
 });

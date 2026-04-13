@@ -24,6 +24,11 @@ function makeUser(overrides: Partial<User> = {}): User {
     connection_code: null,
     onboarding_step: null,
     is_dm_active: true,
+    social_prompt_enabled: true,
+    social_banner_enabled: true,
+    social_contact_count_enabled: true,
+    social_group_alerts_enabled: true,
+    social_quick_ok_enabled: true,
     created_at: new Date().toISOString(),
     ...overrides,
   };

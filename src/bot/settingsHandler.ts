@@ -1,6 +1,10 @@
 import { Bot, InlineKeyboard } from 'grammy';
 import type { Context } from 'grammy';
-import { getUser, setQuietHours, setMutedUntil, isMuted, upsertUser } from '../db/userRepository.js';
+import {
+  getUser, setQuietHours, setMutedUntil, isMuted, upsertUser,
+  setSocialPref, VALID_SOCIAL_FIELDS,
+  type SocialPrefField,
+} from '../db/userRepository.js';
 import {
   removeSubscription,
   removeAllSubscriptions,
@@ -37,6 +41,8 @@ export function buildSettingsMenu(chatId: number): { text: string; keyboard: Inl
   keyboard
     .text('🔕 בטל כל המנויים', 'settings:clearall')
     .row()
+    .text('👥 הגדרות חברתיות', 'social:settings')
+    .row()
     .text('↩️ חזור', 'menu:main');
 
   const muteNote = muted && user?.muted_until
@@ -49,6 +55,32 @@ export function buildSettingsMenu(chatId: number): { text: string; keyboard: Inl
     muteNote;
 
   return { text, keyboard };
+}
+
+const SOCIAL_TOGGLE_LABELS: ReadonlyArray<{ label: string; field: SocialPrefField }> = [
+  { label: '📢 שאלת "הכל בסדר" אחרי אזעקה', field: 'social_prompt_enabled' },
+  { label: '⚠️ באנר תזכורת ב/start', field: 'social_banner_enabled' },
+  { label: '👥 מספר אנשי קשר בהתראה', field: 'social_contact_count_enabled' },
+  { label: '🏘️ התראות קבוצתיות', field: 'social_group_alerts_enabled' },
+  { label: '✅ כפתור "הכל בסדר" מהיר', field: 'social_quick_ok_enabled' },
+];
+
+export function buildSocialSettingsMenu(chatId: number): { text: string; keyboard: InlineKeyboard } {
+  const user = getUser(chatId);
+  const keyboard = new InlineKeyboard();
+
+  for (const { label, field } of SOCIAL_TOGGLE_LABELS) {
+    const enabled = user?.[field] ?? true;
+    const status = enabled ? '✓' : '✗';
+    keyboard.text(`${label}: ${status}`, `social:toggle:${field}`).row();
+  }
+
+  keyboard.text('↩️ חזור', 'menu:settings');
+
+  return {
+    text: '👥 <b>הגדרות חברתיות</b>\n\nשלוט באילו תכונות חברתיות פעילות עבורך.',
+    keyboard,
+  };
 }
 
 export function buildMyCitiesPage(chatId: number, page: number): { text: string; keyboard: InlineKeyboard } {
@@ -285,6 +317,42 @@ export function registerSettingsHandler(bot: Bot, writeCooldownMs = 1500): void 
       await ctx.answerCallbackQuery().catch((e) =>
         log('error', 'Settings', `כישלון ב-answerCallbackQuery אחרי שגיאת rm: ${e}`)
       );
+    }
+  });
+
+  // --- Social preferences (v0.5.2, #218) ---
+
+  bot.callbackQuery('social:settings', async (ctx: Context) => {
+    await ctx.answerCallbackQuery();
+    const chatId = ctx.chat?.id;
+    if (!chatId) return;
+    try {
+      const { text, keyboard } = buildSocialSettingsMenu(chatId);
+      await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
+    } catch (err) {
+      log('error', 'Settings', `social:settings נכשל: ${err}`);
+    }
+  });
+
+  bot.callbackQuery(/^social:toggle:(.+)$/, async (ctx: Context) => {
+    const chatId = ctx.chat?.id;
+    if (!chatId) return;
+    if (settingsWriteCooldown.isOnCooldown(chatId)) {
+      await ctx.answerCallbackQuery('⏳ נסה שוב בעוד רגע');
+      return;
+    }
+    await ctx.answerCallbackQuery();
+    settingsWriteCooldown.setCooldown(chatId);
+    try {
+      const field = ctx.match?.[1];
+      if (!field || !VALID_SOCIAL_FIELDS.has(field)) return;
+      const user = getUser(chatId);
+      const current = user?.[field as SocialPrefField] ?? true;
+      setSocialPref(chatId, field as SocialPrefField, !current);
+      const { text, keyboard } = buildSocialSettingsMenu(chatId);
+      await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
+    } catch (err) {
+      log('error', 'Settings', `social:toggle נכשל: ${err}`);
     }
   });
 }
