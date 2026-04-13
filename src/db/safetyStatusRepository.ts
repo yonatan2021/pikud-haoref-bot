@@ -34,6 +34,19 @@ export function upsertSafetyStatus(
   `).run(chatId, status);
 }
 
+export function upsertSafetyStatusWithTtl(
+  db: Database.Database,
+  chatId: number,
+  status: 'ok' | 'help' | 'dismissed',
+  ttlHours: number = 24
+): void {
+  const h = Math.max(1, Math.floor(ttlHours));
+  db.prepare(`
+    INSERT OR REPLACE INTO safety_status (chat_id, status, updated_at, expires_at)
+    VALUES (?, ?, datetime('now'), datetime('now', ? || ' hours'))
+  `).run(chatId, status, String(h));
+}
+
 export function getSafetyStatus(
   db: Database.Database,
   chatId: number
