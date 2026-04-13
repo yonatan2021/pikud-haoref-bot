@@ -5,7 +5,8 @@ import { getSubscriptionCount } from '../db/subscriptionRepository.js';
 import { upsertUser, isOnboardingCompleted, completeOnboarding, getProfile, setOnboardingStep, setDmActive, getUser } from '../db/userRepository.js';
 import { getRecentAlerts } from '../db/alertHistoryRepository.js';
 import { listContacts, getPermissions } from '../db/contactRepository.js';
-import { upsertSafetyStatusWithTtl } from '../db/safetyStatusRepository.js';
+import { upsertSafetyStatusWithTtl, getSafetyStatus } from '../db/safetyStatusRepository.js';
+import { getUnansweredPromptsForUser } from '../db/safetyPromptRepository.js';
 import { sendStepMessage } from './onboardingHandler.js';
 import { getSetting } from '../dashboard/settingsRepository.js';
 import { ALERT_TYPE_EMOJI, ALERT_TYPE_HE, escapeHtml } from '../telegramBot.js';
@@ -72,6 +73,28 @@ function getQuickOkOptions(chatId: number): MainMenuOptions {
   return { hasAcceptedContacts, quickOkEnabled: user?.social_quick_ok_enabled ?? true };
 }
 
+/**
+ * Build a safety reminder banner if the user has unanswered prompts.
+ * Returns the banner HTML string, or empty string if no banner needed.
+ */
+function buildSafetyBanner(chatId: number): string {
+  if (!_db) return '';
+  const user = getUser(chatId);
+  if (user?.social_banner_enabled === false) return '';
+
+  const unanswered = getUnansweredPromptsForUser(_db, chatId);
+  if (unanswered.length === 0) return '';
+
+  // Extract city from fingerprint (format: "type:city1|city2|...")
+  const fp = unanswered[0].fingerprint;
+  const colonIdx = fp.indexOf(':');
+  const citiesPart = colonIdx >= 0 ? fp.slice(colonIdx + 1) : '';
+  const firstCity = citiesPart.split('|')[0] || '';
+  const cityText = firstCity ? ` ב${escapeHtml(firstCity)}` : '';
+
+  return `⚠️ <b>לא עדכנת סטטוס</b> אחרי האזעקה${cityText} · לחץ לעדכון`;
+}
+
 export function registerMenuHandler(bot: Bot): void {
   // Single source of truth for /start: private chat opens the main menu (or onboarding for new users).
   bot.command('start', async (ctx: Context) => {
@@ -112,7 +135,17 @@ export function registerMenuHandler(bot: Bot): void {
       const count = getSubscriptionCount(chatId);
       const lastAlert = getRecentAlerts(168)[0];
       const opts = getQuickOkOptions(chatId);
-      const { text, keyboard } = buildMainMenu(count, lastAlert, opts);
+      const { text: menuText, keyboard } = buildMainMenu(count, lastAlert, opts);
+
+      // #216 — reminder banner for unanswered safety prompts
+      const bannerText = buildSafetyBanner(chatId);
+      if (bannerText) {
+        keyboard.row()
+          .text('✅ הכל בסדר', 'quickok:confirm')
+          .text('📊 עדכן סטטוס', 'banner:status');
+      }
+      const text = bannerText ? `${bannerText}\n\n${menuText}` : menuText;
+
       await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard });
     } catch (err) {
       log('error', 'Menu', `/start failed: ${err}`);
@@ -205,6 +238,21 @@ export function registerMenuHandler(bot: Bot): void {
       });
     } catch (err) {
       log('error', 'Menu', `quickok:confirm נכשל: ${err}`);
+    }
+  });
+
+  // #216 — banner:status redirects to /status
+  bot.callbackQuery('banner:status', async (ctx: Context) => {
+    await ctx.answerCallbackQuery();
+    const chatId = ctx.chat?.id;
+    if (!chatId) return;
+    try {
+      await ctx.editMessageText('💬 שלח <b>/status</b> כדי לעדכן את הסטטוס שלך.', {
+        parse_mode: 'HTML',
+        reply_markup: new InlineKeyboard().text('↩️ חזור', 'menu:main'),
+      });
+    } catch (err) {
+      log('error', 'Menu', `banner:status נכשל: ${err}`);
     }
   });
 

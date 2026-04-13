@@ -7,6 +7,7 @@ export interface SafetyPromptRow {
   sent_at: string;
   message_id: number | null;
   responded: boolean;
+  alert_type: string;
 }
 
 type RawRow = {
@@ -27,6 +28,7 @@ function decodeRow(raw: RawRow): SafetyPromptRow {
     sent_at: raw.sent_at,
     message_id: raw.message_id,
     responded: raw.responded === 1,
+    alert_type: raw.alert_type,
   };
 }
 
@@ -100,6 +102,25 @@ export function hasPromptBeenSent(
   fingerprint: string
 ): boolean {
   return getSafetyPrompt(db, chatId, fingerprint) !== null;
+}
+
+/**
+ * Returns unanswered safety prompts for a user within the last 24 hours.
+ * Used by /start banner to remind users of pending safety check responses.
+ * Hardcoded 24h — will be parametrized in #226 with maxAgeMinutes param.
+ */
+export function getUnansweredPromptsForUser(
+  db: Database.Database,
+  chatId: number
+): SafetyPromptRow[] {
+  return (
+    db.prepare(`
+      SELECT * FROM safety_prompts
+      WHERE chat_id = ? AND responded = 0
+        AND sent_at > datetime('now', '-24 hours')
+      ORDER BY sent_at DESC
+    `).all(chatId) as RawRow[]
+  ).map(decodeRow);
 }
 
 export function deleteSafetyPromptsForUser(
