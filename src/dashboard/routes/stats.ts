@@ -152,13 +152,18 @@ export function createStatsRouter(db: Database.Database): Router {
       const responseRate = totalWeek > 0 ? Math.round((respondedWeek / totalWeek) * 100) : 0;
 
       // Answer breakdown from safety_status (week scope)
+      // Answer breakdown: counts CURRENT status per user (safety_status is singleton).
+      // Known limitation: reflects most-recent answer only — a user who said "help"
+      // then later "ok" counts as "ok". Per-prompt answer tracking would require a
+      // response_status column on safety_prompts (future improvement).
       const answers = {
         ok: countQuery(db, "SELECT COUNT(*) as c FROM safety_status WHERE status = 'ok' AND updated_at >= ?", sevenDaysAgo),
         help: countQuery(db, "SELECT COUNT(*) as c FROM safety_status WHERE status = 'help' AND updated_at >= ?", sevenDaysAgo),
         dismissed: countQuery(db, "SELECT COUNT(*) as c FROM safety_status WHERE status = 'dismissed' AND updated_at >= ?", sevenDaysAgo),
       };
 
-      // Average response time (prompts responded to this week)
+      // Average response time: uses safety_status.updated_at (current status timestamp)
+      // minus prompt sent_at. Same singleton limitation as answer breakdown above.
       const avgRow = db.prepare(`
         SELECT AVG(
           (julianday(ss.updated_at) - julianday(sp.sent_at)) * 86400000
@@ -179,7 +184,7 @@ export function createStatsRouter(db: Database.Database): Router {
         ORDER BY day
       `).all(sevenDaysAgo) as Array<{ day: string; responseRate: number }>;
 
-      // Recent prompts (last 20)
+      // Recent prompts (last 20) — ss.status reflects current status, not per-prompt answer
       const rawPrompts = db.prepare(`
         SELECT
           sp.chat_id,
