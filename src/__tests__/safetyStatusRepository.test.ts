@@ -4,6 +4,7 @@ import Database from 'better-sqlite3';
 import { initSchema } from '../db/schema.js';
 import {
   upsertSafetyStatus,
+  upsertSafetyStatusWithTtl,
   getSafetyStatus,
   clearSafetyStatus,
   pruneExpiredSafetyStatuses,
@@ -145,6 +146,34 @@ describe('safetyStatusRepository — getActiveStatusesForContacts', () => {
   it('returns empty array for empty chatIds input', () => {
     const db = makeDb();
     assert.deepEqual(getActiveStatusesForContacts(db, []), []);
+  });
+});
+
+describe('safetyStatusRepository — upsertSafetyStatusWithTtl', () => {
+  it('creates status with custom TTL', () => {
+    const db = makeDb();
+    db.prepare('INSERT INTO users (chat_id) VALUES (?)').run(1);
+    upsertSafetyStatusWithTtl(db, 1, 'ok', 6);
+    const row = getSafetyStatus(db, 1);
+    assert.ok(row);
+    assert.equal(row.status, 'ok');
+    // expires_at should be ~6 hours from now, not 24
+    const expiresAt = new Date(row.expires_at + 'Z');
+    const now = new Date();
+    const hoursUntilExpiry = (expiresAt.getTime() - now.getTime()) / 3_600_000;
+    assert.ok(hoursUntilExpiry > 5 && hoursUntilExpiry <= 6.1, `Expected ~6h TTL, got ${hoursUntilExpiry.toFixed(1)}h`);
+  });
+
+  it('clamps TTL to minimum 1 hour', () => {
+    const db = makeDb();
+    db.prepare('INSERT INTO users (chat_id) VALUES (?)').run(2);
+    upsertSafetyStatusWithTtl(db, 2, 'ok', 0);
+    const row = getSafetyStatus(db, 2);
+    assert.ok(row);
+    const expiresAt = new Date(row.expires_at + 'Z');
+    const now = new Date();
+    const hoursUntilExpiry = (expiresAt.getTime() - now.getTime()) / 3_600_000;
+    assert.ok(hoursUntilExpiry > 0.5 && hoursUntilExpiry <= 1.1, `Expected ~1h TTL, got ${hoursUntilExpiry.toFixed(1)}h`);
   });
 });
 
