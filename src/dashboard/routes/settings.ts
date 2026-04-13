@@ -39,6 +39,18 @@ const ALLOWED_KEYS = new Set([
   'groups_max_per_user',
   'groups_max_members',
   'groups_invite_code_ttl_hours',
+  // v0.5.2 — social feature texts & defaults (refs #226)
+  'social_banner_reminder_text',
+  'social_quick_ok_button_label',
+  'social_quick_ok_confirm_text',
+  'social_quick_ok_broadcast_text',
+  'social_contact_count_line_template',
+  'social_default_prompt_enabled',
+  'social_default_banner_enabled',
+  'social_default_contact_count_enabled',
+  'social_default_group_alerts_enabled',
+  'social_default_quick_ok_enabled',
+  'social_banner_stale_prompt_minutes',
 ]);
 
 // ─── Per-key value validators ─────────────────────────────────────────────
@@ -111,6 +123,14 @@ const VALIDATORS: Record<string, (value: string) => string | null> = {
   groups_max_per_user:           validatePositiveInt,
   groups_max_members:            validatePositiveInt,
   groups_invite_code_ttl_hours:  validateNonNegativeInt,
+  // v0.5.2 — social feature defaults & threshold (refs #226)
+  // Text keys (social_banner_reminder_text, etc.) accept any string — no validator needed.
+  social_default_prompt_enabled:        validateBoolish,
+  social_default_banner_enabled:        validateBoolish,
+  social_default_contact_count_enabled: validateBoolish,
+  social_default_group_alerts_enabled:  validateBoolish,
+  social_default_quick_ok_enabled:      validateBoolish,
+  social_banner_stale_prompt_minutes:   validateNonNegativeInt,
 };
 
 export function createSettingsRouter(db: Database.Database): Router {

@@ -51,6 +51,18 @@ export const CONFIG_KEYS: ReadonlySet<string> = new Set([
   'groups_max_per_user',
   'groups_max_members',
   'groups_invite_code_ttl_hours',
+  // v0.5.2 — social feature texts & defaults (refs #226)
+  'social_banner_reminder_text',
+  'social_quick_ok_button_label',
+  'social_quick_ok_confirm_text',
+  'social_quick_ok_broadcast_text',
+  'social_contact_count_line_template',
+  'social_default_prompt_enabled',
+  'social_default_banner_enabled',
+  'social_default_contact_count_enabled',
+  'social_default_group_alerts_enabled',
+  'social_default_quick_ok_enabled',
+  'social_banner_stale_prompt_minutes',
 ]);
 
 /** Keys whose change requires a process restart to take effect. */
@@ -162,4 +174,26 @@ export function resolveRequiredConfigs(
   }
 
   return result;
+}
+
+// ── Typed convenience helpers ────────────────────────────────────────────────
+
+/** Resolve a string config with a default value. */
+export function getString(db: Database.Database, key: string, defaultValue: string): string {
+  return resolveConfig(db, key) ?? defaultValue;
+}
+
+/** Resolve a numeric config with a default value. Returns default for non-numeric strings. */
+export function getNumber(db: Database.Database, key: string, defaultValue: number): number {
+  const raw = resolveConfig(db, key);
+  if (raw === null) return defaultValue;
+  const n = Number(raw);
+  return isNaN(n) ? defaultValue : n;
+}
+
+/** Resolve a boolean config with a default value. Recognizes 'true'/'1' as true. */
+export function getBool(db: Database.Database, key: string, defaultValue: boolean): boolean {
+  const raw = resolveConfig(db, key);
+  if (raw === null) return defaultValue;
+  return raw === 'true' || raw === '1';
 }
