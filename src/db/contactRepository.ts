@@ -1,3 +1,4 @@
+import type Database from 'better-sqlite3';
 import { getDb } from './schema.js';
 
 export interface Contact {
@@ -163,6 +164,29 @@ export function pruneExpiredContacts(): number {
     .prepare("DELETE FROM contacts WHERE status = 'pending' AND created_at < datetime('now', '-7 days')")
     .run();
   return result.changes;
+}
+
+/**
+ * Count accepted contacts whose home_city is in the given cities list.
+ * Bidirectional — checks both user_id and contact_id sides.
+ */
+export function countContactsInCities(
+  db: Database.Database,
+  chatId: number,
+  cities: string[]
+): number {
+  if (cities.length === 0) return 0;
+  const placeholders = cities.map(() => '?').join(', ');
+  const row = db.prepare(`
+    SELECT COUNT(DISTINCT u.chat_id) AS cnt
+    FROM contacts c
+    JOIN users u ON u.chat_id = CASE
+      WHEN c.user_id = ? THEN c.contact_id ELSE c.user_id END
+    WHERE (c.user_id = ? OR c.contact_id = ?)
+      AND c.status = 'accepted'
+      AND u.home_city IN (${placeholders})
+  `).get(chatId, chatId, chatId, ...cities) as { cnt: number };
+  return row.cnt;
 }
 
 export function updatePermissions(
