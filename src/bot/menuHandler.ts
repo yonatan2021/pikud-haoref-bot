@@ -62,7 +62,8 @@ export function buildMainMenu(
   return { text, keyboard };
 }
 
-/** Query whether the user has accepted contacts with safety_status permission. */
+/** Query whether the user has accepted contacts with safety_status permission.
+ *  N+1: calls getPermissions per contact. Acceptable — most users have <10 contacts. */
 function getQuickOkOptions(chatId: number): MainMenuOptions {
   const user = getUser(chatId);
   const contacts = listContacts(chatId, 'accepted');

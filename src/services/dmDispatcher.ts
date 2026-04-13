@@ -285,7 +285,7 @@ export function notifySubscribers(
             text += `\n👥 ${contactCount} אנשי קשר שלך נמצאים באזור`;
           }
         }
-      } catch { /* non-fatal — skip line on error */ }
+      } catch (err) { log('warn', 'DM', `contact count query failed for ${chat_id}: ${err}`); }
 
       return { chatId: String(chat_id), text };
     });
