@@ -12,6 +12,7 @@ import { getSetting } from '../dashboard/settingsRepository.js';
 import { ALERT_TYPE_EMOJI, ALERT_TYPE_HE, escapeHtml } from '../telegramBot.js';
 import { formatRelativeHe } from './historyHandler.js';
 import { log } from '../logger.js';
+import { getString, getNumber } from '../config/configResolver.js';
 import { dmQueue } from '../services/dmQueue.js';
 import type { DmTask } from '../services/dmQueue.js';
 import type { AlertHistoryRow } from '../db/alertHistoryRepository.js';
@@ -48,7 +49,8 @@ export function buildMainMenu(
     .text('⚙️ הגדרות', 'menu:settings');
 
   if (options?.hasAcceptedContacts && options?.quickOkEnabled !== false) {
-    keyboard.row().text('✅ הכל בסדר — לכולם', 'menu:quickok');
+    const quickOkLabel = _db ? getString(_db, 'social_quick_ok_button_label', '✅ הכל בסדר — לכולם') : '✅ הכל בסדר — לכולם';
+    keyboard.row().text(quickOkLabel, 'menu:quickok');
   }
 
   const lastAlertLine = lastAlert
@@ -83,7 +85,8 @@ function buildSafetyBanner(chatId: number): string {
   const user = getUser(chatId);
   if (user?.social_banner_enabled === false) return '';
 
-  const unanswered = getUnansweredPromptsForUser(_db, chatId);
+  const staleMinutes = getNumber(_db, 'social_banner_stale_prompt_minutes', 1440);
+  const unanswered = getUnansweredPromptsForUser(_db, chatId, staleMinutes);
   if (unanswered.length === 0) return '';
 
   // Extract city from fingerprint (format: "type:city1|city2|...")
@@ -93,7 +96,8 @@ function buildSafetyBanner(chatId: number): string {
   const firstCity = citiesPart.split('|')[0] || '';
   const cityText = firstCity ? ` ב${escapeHtml(firstCity)}` : '';
 
-  return `⚠️ <b>לא עדכנת סטטוס</b> אחרי האזעקה${cityText} · לחץ לעדכון`;
+  const template = getString(_db, 'social_banner_reminder_text', '⚠️ <b>לא עדכנת סטטוס</b> אחרי האזעקה{{city}} · לחץ לעדכון');
+  return template.replace('{{city}}', cityText);
 }
 
 export function registerMenuHandler(bot: Bot): void {
@@ -196,10 +200,9 @@ export function registerMenuHandler(bot: Bot): void {
         .text(`✅ כן, שלח ל-${withSafetyPerm.length} אנשי קשר`, 'quickok:confirm')
         .row()
         .text('❌ ביטול', 'menu:main');
-      await ctx.editMessageText(
-        `✅ <b>הכל בסדר — שליחה מהירה</b>\n\nלשלוח עדכון "הכל בסדר" ל-<b>${withSafetyPerm.length}</b> אנשי קשר?`,
-        { parse_mode: 'HTML', reply_markup: keyboard }
-      );
+      const confirmTemplate = _db ? getString(_db, 'social_quick_ok_confirm_text', 'לשלוח עדכון "הכל בסדר" ל-{{count}} אנשי קשר?') : 'לשלוח עדכון "הכל בסדר" ל-{{count}} אנשי קשר?';
+      const confirmText = `✅ <b>הכל בסדר — שליחה מהירה</b>\n\n${confirmTemplate.replace('{{count}}', `<b>${withSafetyPerm.length}</b>`)}`;
+      await ctx.editMessageText(confirmText, { parse_mode: 'HTML', reply_markup: keyboard });
     } catch (err) {
       log('error', 'Menu', `menu:quickok נכשל: ${err}`);
     }
@@ -221,7 +224,8 @@ export function registerMenuHandler(bot: Bot): void {
       const timeStr = new Date().toLocaleTimeString('he-IL', {
         timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit', hour12: false,
       });
-      const msgText = `✅ <b>${displayName}</b> דיווח שהוא בסדר · ${timeStr}`;
+      const broadcastTemplate = _db ? getString(_db, 'social_quick_ok_broadcast_text', '✅ {{name}} דיווח שהוא בסדר · {{time}}') : '✅ {{name}} דיווח שהוא בסדר · {{time}}';
+      const msgText = broadcastTemplate.replace('{{name}}', `<b>${displayName}</b>`).replace('{{time}}', timeStr);
 
       const contacts = listContacts(chatId, 'accepted');
       const tasks: DmTask[] = [];

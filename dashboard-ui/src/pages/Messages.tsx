@@ -12,6 +12,7 @@ import { SystemMessagePanel } from '../components/messages/SystemMessagePanel';
 import { RoutingSection } from '../components/messages/RoutingSection';
 import { TemplateBodyEditor } from '../components/messages/TemplateBodyEditor';
 import { DmTemplatesPanel } from '../components/messages/DmTemplatesPanel';
+import { SocialTextsSection } from '../components/messages/SocialTextsSection';
 import type { TemplateEntry, TemplateEdit } from '../components/messages/TemplateRow';
 import { ORDERED_CATEGORIES, ALERT_TYPE_CATEGORY } from '../utils/categoryConfig';
 import type { AlertCategory } from '../utils/categoryConfig';
@@ -357,6 +358,9 @@ export default function Messages() {
           </div>
         </div>
       </div>
+
+      {/* Social texts section (#226) */}
+      <SocialTextsSection />
 
       {/* Import confirm modal */}
       <ConfirmModal

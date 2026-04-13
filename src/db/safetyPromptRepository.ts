@@ -105,21 +105,22 @@ export function hasPromptBeenSent(
 }
 
 /**
- * Returns unanswered safety prompts for a user within the last 24 hours.
+ * Returns unanswered safety prompts for a user within the configured time window.
  * Used by /start banner to remind users of pending safety check responses.
- * Hardcoded 24h — will be parametrized in #226 with maxAgeMinutes param.
  */
 export function getUnansweredPromptsForUser(
   db: Database.Database,
-  chatId: number
+  chatId: number,
+  maxAgeMinutes: number = 1440
 ): SafetyPromptRow[] {
+  const m = Math.max(1, Math.floor(maxAgeMinutes));
   return (
     db.prepare(`
       SELECT * FROM safety_prompts
       WHERE chat_id = ? AND responded = 0
-        AND sent_at > datetime('now', '-24 hours')
+        AND sent_at > datetime('now', ? || ' minutes')
       ORDER BY sent_at DESC
-    `).all(chatId) as RawRow[]
+    `).all(chatId, String(-m)) as RawRow[]
   ).map(decodeRow);
 }
 

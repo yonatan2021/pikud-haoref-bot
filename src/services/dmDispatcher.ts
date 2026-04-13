@@ -10,6 +10,7 @@ import { getSetting } from '../dashboard/settingsRepository.js';
 import { getDb } from '../db/schema.js';
 import { getUser } from '../db/userRepository.js';
 import { countContactsInCities } from '../db/contactRepository.js';
+import { getString } from '../config/configResolver.js';
 
 // Default relevance strings — overridable via dashboard settings
 const DEFAULT_RELEVANCE_IN_AREA = '🔴 באזורך';
@@ -282,7 +283,8 @@ export function notifySubscribers(
         if (user?.social_contact_count_enabled !== false) {
           const contactCount = countContactsInCities(getDb(), chat_id, matchedCities);
           if (contactCount > 0) {
-            text += `\n👥 ${contactCount} אנשי קשר שלך נמצאים באזור`;
+            const tmpl = getString(getDb(), 'social_contact_count_line_template', '👥 {{count}} אנשי קשר שלך נמצאים באזור');
+            text += '\n' + tmpl.replace('{{count}}', String(contactCount));
           }
         }
       } catch (err) { log('warn', 'DM', `contact count query failed for ${chat_id}: ${err}`); }
