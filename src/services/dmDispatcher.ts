@@ -8,6 +8,8 @@ import { log } from '../logger.js';
 import { renderCountdownBar } from '../config/urgency.js';
 import { getSetting } from '../dashboard/settingsRepository.js';
 import { getDb } from '../db/schema.js';
+import { getUser } from '../db/userRepository.js';
+import { countContactsInCities } from '../db/contactRepository.js';
 
 // Default relevance strings — overridable via dashboard settings
 const DEFAULT_RELEVANCE_IN_AREA = '🔴 באזורך';
@@ -272,7 +274,20 @@ export function notifySubscribers(
     const relevanceStrings = getRelevanceStrings();
     const tasks = afterMute.map(({ chat_id, matchedCities, home_city }) => {
       const personalAlert: Alert = { ...alert, cities: matchedCities };
-      return { chatId: String(chat_id), text: buildDmText(personalAlert, home_city, relevanceStrings) };
+      let text = buildDmText(personalAlert, home_city, relevanceStrings);
+
+      // #217 — contact count in alert DM
+      try {
+        const user = getUser(chat_id);
+        if (user?.social_contact_count_enabled !== false) {
+          const contactCount = countContactsInCities(getDb(), chat_id, matchedCities);
+          if (contactCount > 0) {
+            text += `\n👥 ${contactCount} אנשי קשר שלך נמצאים באזור`;
+          }
+        }
+      } catch { /* non-fatal — skip line on error */ }
+
+      return { chatId: String(chat_id), text };
     });
 
     const skippedQH = subscribers.length - afterQuietHours.length;
