@@ -141,7 +141,7 @@ export function registerMenuHandler(bot: Bot): void {
       const bannerText = buildSafetyBanner(chatId);
       if (bannerText) {
         keyboard.row()
-          .text('✅ הכל בסדר', 'quickok:confirm')
+          .text('✅ הכל בסדר', 'menu:quickok')
           .text('📊 עדכן סטטוס', 'banner:status');
       }
       const text = bannerText ? `${bannerText}\n\n${menuText}` : menuText;
