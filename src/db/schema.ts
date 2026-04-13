@@ -281,6 +281,13 @@ export function initSchema(database: Database.Database): void {
   // v0.4.6 — encrypted secrets support: flag column for settings table
   addColumnIfMissing(database, 'ALTER TABLE settings ADD COLUMN encrypted INTEGER NOT NULL DEFAULT 0');
 
+  // v0.5.2 — social preferences (refs #218)
+  addColumnIfMissing(database, 'ALTER TABLE users ADD COLUMN social_prompt_enabled INTEGER NOT NULL DEFAULT 1');
+  addColumnIfMissing(database, 'ALTER TABLE users ADD COLUMN social_banner_enabled INTEGER NOT NULL DEFAULT 1');
+  addColumnIfMissing(database, 'ALTER TABLE users ADD COLUMN social_contact_count_enabled INTEGER NOT NULL DEFAULT 1');
+  addColumnIfMissing(database, 'ALTER TABLE users ADD COLUMN social_group_alerts_enabled INTEGER NOT NULL DEFAULT 1');
+  addColumnIfMissing(database, 'ALTER TABLE users ADD COLUMN social_quick_ok_enabled INTEGER NOT NULL DEFAULT 1');
+
   database.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_connection_code ON users(connection_code) WHERE connection_code IS NOT NULL').run();
 
   // Seed the all-clear template so it appears in the dashboard Messages page on first run.
