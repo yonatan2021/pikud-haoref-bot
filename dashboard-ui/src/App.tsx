@@ -19,6 +19,7 @@ const WhatsAppListeners  = lazy(() => import('./pages/WhatsAppListeners').then(m
 const TelegramListeners  = lazy(() => import('./pages/TelegramListeners').then(m => ({ default: m.TelegramListeners })));
 const Configuration      = lazy(() => import('./pages/Configuration'));
 const Groups             = lazy(() => import('./pages/Groups'));
+const SafetyCheck        = lazy(() => import('./pages/SafetyCheck').then(m => ({ default: m.SafetyCheck })));
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000 } } });
 
@@ -46,6 +47,7 @@ export function App() {
               <Route path="telegram-listeners" element={<TelegramListeners />} />
               <Route path="configuration" element={<Configuration />} />
               <Route path="groups" element={<Groups />} />
+              <Route path="safety-check" element={<SafetyCheck />} />
             </Route>
           </Routes>
         </Suspense>

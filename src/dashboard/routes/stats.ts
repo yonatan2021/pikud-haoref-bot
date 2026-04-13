@@ -133,6 +133,102 @@ export function createStatsRouter(db: Database.Database): Router {
     }
   });
 
+  // ─── Safety Check stats (#214) ─────────────────────────────────────
+  router.get('/safety-check', (_req, res) => {
+    const cached = getCached<object>('stats:safety-check');
+    if (cached) return res.json(cached);
+
+    try {
+      const todayBoundary = israelMidnight();
+      const sevenDaysAgo = israelMidnightDaysAgo(7);
+      const thirtyDaysAgo = israelMidnightDaysAgo(30);
+
+      // KPIs
+      const totalToday = countQuery(db, 'SELECT COUNT(*) as c FROM safety_prompts WHERE sent_at >= ?', todayBoundary);
+      const totalWeek = countQuery(db, 'SELECT COUNT(*) as c FROM safety_prompts WHERE sent_at >= ?', sevenDaysAgo);
+      const totalMonth = countQuery(db, 'SELECT COUNT(*) as c FROM safety_prompts WHERE sent_at >= ?', thirtyDaysAgo);
+
+      const respondedWeek = countQuery(db, 'SELECT COUNT(*) as c FROM safety_prompts WHERE sent_at >= ? AND responded = 1', sevenDaysAgo);
+      const responseRate = totalWeek > 0 ? Math.round((respondedWeek / totalWeek) * 100) : 0;
+
+      // Answer breakdown from safety_status (week scope)
+      // Answer breakdown: counts CURRENT status per user (safety_status is singleton).
+      // Known limitation: reflects most-recent answer only — a user who said "help"
+      // then later "ok" counts as "ok". Per-prompt answer tracking would require a
+      // response_status column on safety_prompts (future improvement).
+      const answers = {
+        ok: countQuery(db, "SELECT COUNT(*) as c FROM safety_status WHERE status = 'ok' AND updated_at >= ?", sevenDaysAgo),
+        help: countQuery(db, "SELECT COUNT(*) as c FROM safety_status WHERE status = 'help' AND updated_at >= ?", sevenDaysAgo),
+        dismissed: countQuery(db, "SELECT COUNT(*) as c FROM safety_status WHERE status = 'dismissed' AND updated_at >= ?", sevenDaysAgo),
+      };
+
+      // Average response time: uses safety_status.updated_at (current status timestamp)
+      // minus prompt sent_at. Same singleton limitation as answer breakdown above.
+      const avgRow = db.prepare(`
+        SELECT AVG(
+          (julianday(ss.updated_at) - julianday(sp.sent_at)) * 86400000
+        ) as avg_ms
+        FROM safety_prompts sp
+        JOIN safety_status ss ON ss.chat_id = sp.chat_id
+        WHERE sp.responded = 1 AND sp.sent_at >= ?
+      `).get(sevenDaysAgo) as { avg_ms: number | null };
+      const avgResponseTimeMs = Math.round(avgRow?.avg_ms ?? 0);
+
+      // 7-day trend
+      const trend = db.prepare(`
+        SELECT date(sent_at) as day,
+          ROUND(CAST(SUM(responded) AS REAL) / COUNT(*) * 100) as responseRate
+        FROM safety_prompts
+        WHERE sent_at >= ?
+        GROUP BY date(sent_at)
+        ORDER BY day
+      `).all(sevenDaysAgo) as Array<{ day: string; responseRate: number }>;
+
+      // Recent prompts (last 20) — ss.status reflects current status, not per-prompt answer
+      const rawPrompts = db.prepare(`
+        SELECT
+          sp.chat_id,
+          u.display_name,
+          sp.alert_type,
+          sp.sent_at,
+          sp.responded,
+          ss.status as answer,
+          CASE WHEN sp.responded = 1 AND ss.updated_at IS NOT NULL
+            THEN ROUND((julianday(ss.updated_at) - julianday(sp.sent_at)) * 86400)
+            ELSE NULL
+          END as responseTimeSec
+        FROM safety_prompts sp
+        LEFT JOIN users u ON u.chat_id = sp.chat_id
+        LEFT JOIN safety_status ss ON ss.chat_id = sp.chat_id
+        WHERE sp.sent_at >= ?
+        ORDER BY sp.sent_at DESC
+        LIMIT 20
+      `).all(sevenDaysAgo) as Array<{
+        chat_id: number; display_name: string | null; alert_type: string;
+        sent_at: string; responded: number; answer: string | null; responseTimeSec: number | null;
+      }>;
+
+      const recentPrompts = rawPrompts.map(r => ({
+        maskedUser: r.display_name ?? `****${String(r.chat_id).slice(-4)}`,
+        alertType: r.alert_type,
+        sentAt: r.sent_at,
+        answer: r.responded === 1 ? (r.answer ?? 'unknown') : 'pending',
+        responseTimeSec: r.responseTimeSec,
+      }));
+
+      const result = {
+        kpis: { totalToday, totalWeek, totalMonth, responseRate, answers, avgResponseTimeMs },
+        trend,
+        recentPrompts,
+      };
+      setCached('stats:safety-check', result, 60_000);
+      return res.json(result);
+    } catch (err) {
+      log('error', 'Dashboard', `Safety check stats error: ${String(err)}`);
+      return res.status(500).json({ error: 'שגיאת שרת פנימית' });
+    }
+  });
+
   router.get('/alerts', (req, res) => {
     try {
       const query = req.query as Record<string, string>;
