@@ -10,6 +10,7 @@ import {
   upsertKnownTopic,
   clearKnownTopicsForChat,
   clearKnownChats,
+  repairStaleChatIds,
 } from '../db/telegramListenerRepository.js';
 import { log } from '../logger.js';
 
@@ -250,6 +251,10 @@ export async function refreshKnownChats(db: Database.Database, retryCount = 0): 
     }
 
     log('info', 'TG Listener', 'רשימת צ\'אטים מוכרים עודכנה');
+    const repaired = repairStaleChatIds(db);
+    if (repaired > 0) {
+      log('success', 'TG Listener', `תוקנו ${repaired} כלל/ים עם chatId מיושן`);
+    }
   } catch (err: unknown) {
     log('warn', 'TG Listener', `GetDialogs נכשל: ${err instanceof Error ? err.message : String(err)}`);
   }

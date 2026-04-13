@@ -285,3 +285,56 @@ export function getTopicsForChat(
 export function clearKnownTopicsForChat(db: Database.Database, chatId: string): void {
   db.prepare('DELETE FROM telegram_known_topics WHERE chat_id = ?').run(chatId);
 }
+
+export function repairStaleChatIds(db: Database.Database): number {
+  const orphaned = db
+    .prepare(
+      `SELECT id, chat_id, chat_name
+       FROM telegram_listeners
+       WHERE chat_id NOT IN (SELECT chat_id FROM telegram_known_chats)`
+    )
+    .all() as Array<{ id: number; chat_id: string; chat_name: string }>;
+
+  log('info', 'TG Listener', `בדיקת כללים מיושנים: ${orphaned.length} נמצאו`);
+
+  let repaired = 0;
+  for (const rule of orphaned) {
+    const matches = db
+      .prepare(`SELECT chat_id FROM telegram_known_chats WHERE chat_name = ? LIMIT 2`)
+      .all(rule.chat_name) as Array<{ chat_id: string }>;
+
+    if (matches.length !== 1) {
+      log(
+        'warn',
+        'TG Listener',
+        `listener ${rule.id} "${rule.chat_name}" (${rule.chat_id}) — ` +
+          (matches.length === 0
+            ? 'לא נמצאה קבוצה תואמת בשם — אולי הוסרת ממנה'
+            : 'שם לא ייחודי — מחק ובצור מחדש בדשבורד')
+      );
+      continue;
+    }
+
+    const newChatId = matches[0]!.chat_id;
+    const conflict = db
+      .prepare('SELECT 1 FROM telegram_listeners WHERE chat_id = ?')
+      .get(newChatId);
+    if (conflict) {
+      log(
+        'warn',
+        'TG Listener',
+        `listener ${rule.id} "${rule.chat_name}" — chatId מיושן, כבר קיים כלל ל-${newChatId}; מחק ידנית`
+      );
+      continue;
+    }
+
+    db.prepare('UPDATE telegram_listeners SET chat_id = ? WHERE id = ?').run(newChatId, rule.id);
+    log(
+      'info',
+      'TG Listener',
+      `תיקון listener ${rule.id} "${rule.chat_name}": ${rule.chat_id} → ${newChatId}`
+    );
+    repaired++;
+  }
+  return repaired;
+}
