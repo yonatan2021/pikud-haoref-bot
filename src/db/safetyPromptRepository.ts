@@ -118,9 +118,9 @@ export function getUnansweredPromptsForUser(
     db.prepare(`
       SELECT * FROM safety_prompts
       WHERE chat_id = ? AND responded = 0
-        AND sent_at > datetime('now', ? || ' minutes')
+        AND sent_at > datetime('now', '-' || ? || ' minutes')
       ORDER BY sent_at DESC
-    `).all(chatId, String(-m)) as RawRow[]
+    `).all(chatId, String(m)) as RawRow[]
   ).map(decodeRow);
 }
 
