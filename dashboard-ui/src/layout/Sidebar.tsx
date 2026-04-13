@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   Activity, Bell, Users, UsersRound, Radio, SlidersHorizontal,
-  Globe, MessageSquare, Phone, Rss, MessageCircle,
+  Globe, MessageSquare, Phone, Rss, MessageCircle, Shield,
   LayoutDashboard, Settings, ChevronLeft, ChevronDown, KeyRound,
 } from 'lucide-react';
 import { LiveDot } from '../components/ui';
@@ -25,8 +25,9 @@ const NAV: SidebarEntry[] = [
       label: 'ניטור',
       defaultOpen: true,
       items: [
-        { to: '/overview', icon: LayoutDashboard, label: 'לוח בקרה' },
-        { to: '/alerts',   icon: Bell,            label: 'היסטוריית התראות' },
+        { to: '/overview',      icon: LayoutDashboard, label: 'לוח בקרה' },
+        { to: '/alerts',        icon: Bell,            label: 'היסטוריית התראות' },
+        { to: '/safety-check',  icon: Shield,          label: 'בדיקת שלומות' },
       ],
     },
   },
