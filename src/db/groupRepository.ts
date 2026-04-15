@@ -164,6 +164,30 @@ export function deleteGroup(db: Database.Database, groupId: number): void {
   db.prepare('DELETE FROM groups WHERE id = ?').run(groupId);
 }
 
+/**
+ * Transfers group ownership from `fromOwnerId` to `toUserId`.
+ * Runs in a transaction: verifies ownership + membership, then swaps
+ * the `owner_id` on the groups row.
+ * Returns false if ownership verification fails (TOCTOU guard).
+ */
+export function transferOwnership(
+  db: Database.Database,
+  groupId: number,
+  fromOwnerId: number,
+  toUserId: number
+): boolean {
+  const transfer = db.transaction(() => {
+    const group = db.prepare('SELECT owner_id FROM groups WHERE id = ?').get(groupId) as { owner_id: number } | undefined;
+    if (!group || group.owner_id !== fromOwnerId) return false;
+    // Verify target is a member
+    const member = db.prepare('SELECT 1 FROM group_members WHERE group_id = ? AND user_id = ?').get(groupId, toUserId);
+    if (!member) return false;
+    db.prepare('UPDATE groups SET owner_id = ? WHERE id = ?').run(toUserId, groupId);
+    return true;
+  });
+  return transfer() as boolean;
+}
+
 // ─── Reads ───────────────────────────────────────────────────────────────────
 
 export function findGroupByInviteCode(

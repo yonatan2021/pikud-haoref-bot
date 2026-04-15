@@ -305,6 +305,18 @@ export function initSchema(database: Database.Database): void {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_nc_events_created ON neighbor_check_events(created_at);
+
+    -- v0.5.3 — group escape hatch audit log (refs #231)
+    -- NOTE: no FK on group_id — intentional; audit row must survive group deletion cascade
+    CREATE TABLE IF NOT EXISTS group_audit (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      group_id   INTEGER NOT NULL,
+      action     TEXT NOT NULL CHECK (action IN ('deleted','transferred')),
+      actor_id   INTEGER NOT NULL,
+      payload    TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_group_audit_group ON group_audit(group_id);
   `);
 
   database.exec(
