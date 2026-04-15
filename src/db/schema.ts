@@ -273,6 +273,18 @@ export function initSchema(database: Database.Database): void {
       updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_skill_catalog_active ON skill_catalog(is_active, sort_order);
+
+    -- v0.5.3 — user skills (refs #221)
+    CREATE TABLE IF NOT EXISTS user_skills (
+      chat_id    INTEGER NOT NULL REFERENCES users(chat_id) ON DELETE CASCADE,
+      skill_key  TEXT NOT NULL,
+      visibility TEXT NOT NULL DEFAULT 'contacts'
+                   CHECK (visibility IN ('public','contacts','private')),
+      note       TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (chat_id, skill_key)
+    );
+    CREATE INDEX IF NOT EXISTS idx_user_skills_skill ON user_skills(skill_key);
   `);
 
   database.exec(

@@ -61,6 +61,9 @@ const ALLOWED_KEYS = new Set([
   'stories_enabled',
   'stories_rate_limit_minutes',
   'stories_max_length',
+  // v0.5.3 — skills sharing (refs #221)
+  'skills_public_enabled',
+  'skills_need_radius_zones',
 ]);
 
 // ─── Per-key value validators ─────────────────────────────────────────────
@@ -157,6 +160,9 @@ const VALIDATORS: Record<string, (value: string) => string | null> = {
   stories_enabled:           validateBoolish,
   stories_rate_limit_minutes: validatePositiveInt,
   stories_max_length:        validatePositiveInt,
+  // v0.5.3 — skills sharing (refs #221)
+  skills_public_enabled:     validateBoolish,
+  skills_need_radius_zones:  validatePositiveInt,
 };
 
 export function createSettingsRouter(db: Database.Database): Router {

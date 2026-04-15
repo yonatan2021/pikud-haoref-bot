@@ -73,6 +73,9 @@ export const CONFIG_KEYS: ReadonlySet<string> = new Set([
   'stories_enabled',
   'stories_rate_limit_minutes',
   'stories_max_length',
+  // v0.5.3 — skills sharing (refs #221)
+  'skills_public_enabled',
+  'skills_need_radius_zones',
 ]);
 
 /** Keys whose change requires a process restart to take effect. */

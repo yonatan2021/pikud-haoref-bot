@@ -35,6 +35,8 @@ export function buildProfileSummary(
     .text('✏️ עריכת שם', 'pf:edit_name')
     .text('✏️ עריכת עיר', 'pf:edit_city')
     .row()
+    .text('🛠 כישורים', 'sk:list')
+    .row()
     .text('↩️ חזור', 'menu:main');
 
   return { text, keyboard };
