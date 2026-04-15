@@ -227,6 +227,18 @@ export function initSchema(database: Database.Database): void {
       UNIQUE (chat_id, fingerprint),
       FOREIGN KEY (chat_id) REFERENCES users(chat_id) ON DELETE CASCADE
     );
+
+    -- v0.5.3 — skills catalog (refs #228)
+    CREATE TABLE IF NOT EXISTS skill_catalog (
+      key         TEXT PRIMARY KEY,
+      label_he    TEXT NOT NULL,
+      description TEXT,
+      is_active   INTEGER NOT NULL DEFAULT 1,
+      sort_order  INTEGER NOT NULL DEFAULT 0,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_skill_catalog_active ON skill_catalog(is_active, sort_order);
   `);
 
   database.exec(
@@ -297,6 +309,13 @@ export function initSchema(database: Database.Database): void {
     INSERT OR IGNORE INTO message_templates (alert_type, emoji, title_he, instructions_prefix)
     VALUES ('all_clear', '✅', 'שקט חזר', 'נשמו. אתם בטוחים. 🕊')
   `).run();
+
+  // v0.5.3 — seed default skills (refs #228); INSERT OR IGNORE preserves admin edits
+  database.prepare(`INSERT OR IGNORE INTO skill_catalog (key, label_he, sort_order) VALUES ('first_aid', 'עזרה ראשונה', 1)`).run();
+  database.prepare(`INSERT OR IGNORE INTO skill_catalog (key, label_he, sort_order) VALUES ('shelter_host', 'אירוח במקלט', 2)`).run();
+  database.prepare(`INSERT OR IGNORE INTO skill_catalog (key, label_he, sort_order) VALUES ('psych_support', 'תמיכה נפשית', 3)`).run();
+  database.prepare(`INSERT OR IGNORE INTO skill_catalog (key, label_he, sort_order) VALUES ('ride_share', 'הסעה', 4)`).run();
+  database.prepare(`INSERT OR IGNORE INTO skill_catalog (key, label_he, sort_order) VALUES ('water_food', 'מזון ומים', 5)`).run();
 }
 
 export function initDb(): void {
