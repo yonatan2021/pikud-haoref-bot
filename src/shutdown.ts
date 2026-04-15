@@ -32,6 +32,8 @@ export interface ShutdownHandles {
   closeDb: () => void;
   /** Optional — cancel pending alertWindowTracker close timers on shutdown. */
   clearAlertWindowTimers?: () => void;
+  /** Optional — cancel pending neighbor check timers on shutdown. */
+  cancelNeighborCheckTimers?: () => void;
 }
 
 export interface ShutdownOptions {
@@ -87,6 +89,7 @@ export function createShutdown(
     clearInterval(handles.contactCleanupInterval);
     clearInterval(handles.safetyPruneInterval);
     handles.clearAlertWindowTimers?.();
+    handles.cancelNeighborCheckTimers?.();
 
     // ── Step 2: cancel pending all-clear timers (so they don't fire mid-shutdown)
     handles.allClearTracker.clearAll();
