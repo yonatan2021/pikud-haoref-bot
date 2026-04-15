@@ -68,6 +68,11 @@ export const CONFIG_KEYS: ReadonlySet<string> = new Set([
   'pulse_cooldown_hours',
   'pulse_aggregate_threshold',
   'pulse_prompt_text',
+  // v0.5.3 — shelter stories opt-in submissions (refs #220)
+  'topic_id_stories',
+  'stories_enabled',
+  'stories_rate_limit_minutes',
+  'stories_max_length',
 ]);
 
 /** Keys whose change requires a process restart to take effect. */
@@ -107,6 +112,7 @@ export const ENV_KEY_MAP: Readonly<Record<string, string>> = {
   telegram_chat_id:              'TELEGRAM_CHAT_ID',
   telegram_forward_group_id:     'TELEGRAM_FORWARD_GROUP_ID',
   telegram_listener_enabled:     'TELEGRAM_LISTENER_ENABLED',
+  topic_id_stories:              'TELEGRAM_TOPIC_ID_STORIES',
 };
 
 // ── Resolution ───────────────────────────────────────────────────────────────

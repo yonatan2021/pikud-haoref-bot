@@ -12,6 +12,7 @@ import { createListenersRouter } from './routes/whatsappListeners.js';
 import { createTelegramListenerRouter } from './routes/telegramListeners.js';
 import { createSecretsRouter } from './routes/secrets.js';
 import { createGroupsRouter } from './routes/groups.js';
+import { createStoriesRouter } from './routes/stories.js';
 import * as whatsappService from '../whatsapp/whatsappService.js';
 import { getEnabledGroupsForAlertType } from '../db/whatsappGroupRepository.js';
 
@@ -32,5 +33,6 @@ export function createApiRouter(db: Database.Database, bot: Bot): Router {
   router.use('/telegram', createTelegramListenerRouter(db, bot));
   router.use('/secrets', createSecretsRouter(db));
   router.use('/groups', createGroupsRouter(db));
+  router.use('/stories', createStoriesRouter(db, bot));
   return router;
 }

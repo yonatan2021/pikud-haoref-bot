@@ -56,6 +56,11 @@ const ALLOWED_KEYS = new Set([
   'pulse_cooldown_hours',
   'pulse_aggregate_threshold',
   'pulse_prompt_text',
+  // v0.5.3 — shelter stories opt-in submissions (refs #220)
+  'topic_id_stories',
+  'stories_enabled',
+  'stories_rate_limit_minutes',
+  'stories_max_length',
 ]);
 
 // ─── Per-key value validators ─────────────────────────────────────────────
@@ -141,6 +146,17 @@ const VALIDATORS: Record<string, (value: string) => string | null> = {
   pulse_cooldown_hours:      validatePositiveInt,
   pulse_aggregate_threshold: validatePositiveInt,
   // pulse_prompt_text accepts any string — no validator needed
+  // v0.5.3 — shelter stories opt-in submissions (refs #220)
+  // topic_id_stories rejects 1 — reserved Telegram thread ID (same guard as approve route)
+  topic_id_stories:          (v) => {
+    const base = validateNonNegativeInt(v);
+    if (base) return base;
+    if (Number(v) === 1) return 'מזהה נושא 1 שמור על ידי טלגרם ואינו תקין';
+    return null;
+  },
+  stories_enabled:           validateBoolish,
+  stories_rate_limit_minutes: validatePositiveInt,
+  stories_max_length:        validatePositiveInt,
 };
 
 export function createSettingsRouter(db: Database.Database): Router {

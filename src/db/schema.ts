@@ -247,6 +247,21 @@ export function initSchema(database: Database.Database): void {
     );
     CREATE INDEX IF NOT EXISTS idx_pulse_responses_chat ON community_pulse_responses(chat_id, created_at);
 
+    -- v0.5.3 — shelter stories opt-in submissions (refs #220)
+    CREATE TABLE IF NOT EXISTS shelter_stories (
+      id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat_id              INTEGER NOT NULL REFERENCES users(chat_id) ON DELETE CASCADE,
+      body                 TEXT NOT NULL CHECK (length(body) <= 200),
+      status               TEXT NOT NULL DEFAULT 'pending'
+                             CHECK (status IN ('pending','approved','rejected','published')),
+      published_message_id INTEGER,
+      created_at           TEXT NOT NULL DEFAULT (datetime('now')),
+      reviewed_at          TEXT,
+      reviewed_by          TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_stories_status ON shelter_stories(status);
+    CREATE INDEX IF NOT EXISTS idx_stories_chat ON shelter_stories(chat_id, created_at);
+
     -- v0.5.3 — skills catalog (refs #228)
     CREATE TABLE IF NOT EXISTS skill_catalog (
       key         TEXT PRIMARY KEY,
@@ -348,6 +363,7 @@ export function initDb(): void {
     database.prepare(`DELETE FROM safety_status WHERE expires_at < datetime('now')`).run();
     database.prepare(`DELETE FROM safety_prompts WHERE sent_at < datetime('now', '-24 hours')`).run();
     database.prepare(`DELETE FROM community_pulses WHERE created_at < datetime('now', '-7 days')`).run();
+    database.prepare(`DELETE FROM shelter_stories WHERE status IN ('rejected','published') AND created_at < datetime('now','-30 days')`).run();
   })();
 
   // Integrity check — warn if users table is empty but alert history exists (possible data loss)

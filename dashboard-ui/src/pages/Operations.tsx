@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2, CheckCircle, Radio } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -10,6 +10,7 @@ import { GlassCard } from '../components/ui/GlassCard';
 import { PageTransition } from '../components/ui/PageTransition';
 import { AnimatedCounter } from '../components/ui/AnimatedCounter';
 import { LiveDot } from '../components/ui/LiveDot';
+import { StoryCard } from './stories/StoryCard';
 
 interface QueueStats {
   pending: number;
@@ -26,6 +27,19 @@ interface AlertWindowRow {
 
 interface OverviewStats {
   totalSubscribers: number;
+}
+
+interface StoryRowData {
+  id: number;
+  chatId: number;
+  body: string;
+  status: 'pending' | 'approved' | 'rejected' | 'published';
+  createdAt: string;
+}
+
+interface StoriesResponse {
+  stories: StoryRowData[];
+  counts: Record<string, number>;
 }
 
 function relTime(ms: number): string {
@@ -115,6 +129,36 @@ export function Operations() {
     onSuccess: () => toast.success('שולח 6 הודעות בדיקה...'),
     onError: () => toast.error('שגיאה בשליחת בדיקה'),
   });
+
+  const { data: storiesData, refetch: refetchStories } = useQuery<StoriesResponse>({
+    queryKey: ['stories-pending'],
+    queryFn: () => api.get('/api/stories?status=pending&limit=20'),
+    refetchInterval: 30_000,
+  });
+
+  const [storyLoadingId, setStoryLoadingId] = useState<number | null>(null);
+
+  const approveMutation = useMutation({
+    mutationFn: (id: number) => api.post(`/api/stories/${id}/approve`, {}),
+    onMutate: (id) => setStoryLoadingId(id),
+    onSuccess: () => { toast.success('הסיפור אושר ופורסם'); void refetchStories(); },
+    onError: () => toast.error('שגיאה באישור הסיפור'),
+    onSettled: () => setStoryLoadingId(null),
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: (id: number) => api.post(`/api/stories/${id}/reject`, {}),
+    onMutate: (id) => setStoryLoadingId(id),
+    onSuccess: () => { toast.success('הסיפור נדחה'); void refetchStories(); },
+    onError: () => toast.error('שגיאה בדחיית הסיפור'),
+    onSettled: () => setStoryLoadingId(null),
+  });
+
+  const handleApprove = useCallback((id: number) => approveMutation.mutate(id), [approveMutation]);
+  const handleReject = useCallback((id: number) => rejectMutation.mutate(id), [rejectMutation]);
+
+  const pendingStories = storiesData?.stories ?? [];
+  const pendingStoriesCount = storiesData?.counts?.['pending'] ?? 0;
 
   const parsedCities = (row: AlertWindowRow): string[] => {
     try { return JSON.parse(row.cities) as string[]; }
@@ -357,6 +401,41 @@ export function Operations() {
               {testAllMutation.isPending ? 'שולח...' : 'שלח לכל 6 הקטגוריות'}
             </button>
           </div>
+        </GlassCard>
+
+        {/* Shelter Stories */}
+        <GlassCard className="p-4">
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="font-semibold text-text-primary flex items-center gap-2">
+              🏠 הודעות מהמקלט
+              {pendingStoriesCount > 0 && (
+                <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded-full font-medium">
+                  {pendingStoriesCount} ממתינות
+                </span>
+              )}
+            </h2>
+          </div>
+          <p className="text-text-muted text-xs mb-4">
+            חוויות שמשתמשים שיתפו מהמקלט — ממתינות לאישור לפני פרסום בערוץ
+          </p>
+          {pendingStories.length === 0 ? (
+            <EmptyState icon="🏠" message="אין הודעות ממתינות לסקירה" />
+          ) : (
+            <div className="flex flex-col gap-3">
+              {pendingStories.map((story) => (
+                <StoryCard
+                  key={story.id}
+                  id={story.id}
+                  body={story.body}
+                  status={story.status}
+                  createdAt={story.createdAt}
+                  onApprove={handleApprove}
+                  onReject={handleReject}
+                  loading={storyLoadingId === story.id}
+                />
+              ))}
+            </div>
+          )}
         </GlassCard>
 
         {/* Modals */}
