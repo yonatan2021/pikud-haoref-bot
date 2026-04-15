@@ -51,6 +51,11 @@ const ALLOWED_KEYS = new Set([
   'social_default_group_alerts_enabled',
   'social_default_quick_ok_enabled',
   'social_banner_stale_prompt_minutes',
+  // v0.5.3 — community pulse survey (refs #219)
+  'pulse_enabled',
+  'pulse_cooldown_hours',
+  'pulse_aggregate_threshold',
+  'pulse_prompt_text',
 ]);
 
 // ─── Per-key value validators ─────────────────────────────────────────────
@@ -131,6 +136,11 @@ const VALIDATORS: Record<string, (value: string) => string | null> = {
   social_default_group_alerts_enabled:  validateBoolish,
   social_default_quick_ok_enabled:      validateBoolish,
   social_banner_stale_prompt_minutes:   validateNonNegativeInt,
+  // v0.5.3 — community pulse survey (refs #219)
+  pulse_enabled:             validateBoolish,
+  pulse_cooldown_hours:      validatePositiveInt,
+  pulse_aggregate_threshold: validatePositiveInt,
+  // pulse_prompt_text accepts any string — no validator needed
 };
 
 export function createSettingsRouter(db: Database.Database): Router {

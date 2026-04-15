@@ -63,6 +63,11 @@ export const CONFIG_KEYS: ReadonlySet<string> = new Set([
   'social_default_group_alerts_enabled',
   'social_default_quick_ok_enabled',
   'social_banner_stale_prompt_minutes',
+  // v0.5.3 — community pulse survey (refs #219)
+  'pulse_enabled',
+  'pulse_cooldown_hours',
+  'pulse_aggregate_threshold',
+  'pulse_prompt_text',
 ]);
 
 /** Keys whose change requires a process restart to take effect. */

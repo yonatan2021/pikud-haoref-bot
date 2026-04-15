@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { AlertPoller } from './alertPoller';
 import { generateMapImage } from './mapService';
 import { sendAlert, getBot, editAlert } from './telegramBot';
-import { getActiveMessage, trackMessage, loadActiveMessages } from './alertWindowTracker';
+import { getActiveMessage, trackMessage, loadActiveMessages, setWindowCloseCallback, clearAllCloseTimers } from './alertWindowTracker';
 import { getTopicId } from './topicRouter';
 import { Alert } from './types';
 import { initDb, closeDb } from './db/schema';
@@ -42,6 +42,7 @@ import { getDensityLabel } from './config/alertDensity.js';
 import { pruneExpiredContacts } from './db/contactRepository.js';
 import { pruneExpiredSafetyStatuses } from './db/safetyStatusRepository.js';
 import { pruneOldPrompts } from './db/safetyPromptRepository.js';
+import { fireCommunityPulse } from './services/communityPulseService.js';
 import { initCrypto } from './dashboard/crypto.js';
 import { getSetting, setSetting } from './dashboard/settingsRepository.js';
 import { resolveConfig, resolveRequiredConfigs, ConfigMissingError, SECRET_KEYS, envKeyFor } from './config/configResolver.js';
@@ -159,6 +160,14 @@ function autoMigrateEnvSecrets(db: ReturnType<typeof getDb>): void {
 
   const bot = getBot(resolvedConfig['telegram_bot_token']);
   await setupBotHandlers(bot);
+
+  // Wire community pulse: fires when an alert window expires (lazy expiry in getActiveMessage).
+  // MUST NOT fire in loadActiveMessages() — stale startup pruning must not trigger pulses.
+  setWindowCloseCallback((alertType, tracked) => {
+    fireCommunityPulse(getDb(), bot, alertType, tracked).catch((err) =>
+      log('error', 'CommunityPulse', `fireCommunityPulse error: ${String(err)}`)
+    );
+  });
 
   const tgListenerEnabled = resolveConfig(getDb(), 'telegram_listener_enabled') === 'true'
     || process.env.TELEGRAM_LISTENER_ENABLED === 'true';
@@ -344,6 +353,7 @@ function autoMigrateEnvSecrets(db: ReturnType<typeof getDb>): void {
     tgListenerEnabled,
     disconnectTelegramListener: () => disconnectTelegramListener(getDb()),
     closeDb,
+    clearAlertWindowTimers: clearAllCloseTimers,
   });
   process.once('SIGTERM', () => { void shutdown('SIGTERM'); });
   process.once('SIGINT',  () => { void shutdown('SIGINT');  });

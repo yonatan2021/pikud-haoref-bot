@@ -13,6 +13,7 @@ import { registerTodayHandler } from './todayHandler.js';
 import { registerLegendHandler } from './legendHandler.js';
 import { registerSafetyStatusHandler } from './safetyStatusHandler.js';
 import { registerGroupHandler } from './groupHandler.js';
+import { registerCommunityPulseHandler } from './communityPulseHandler.js';
 import { log } from '../logger.js';
 
 export async function setupBotHandlers(bot: Bot): Promise<void> {
@@ -33,6 +34,7 @@ export async function setupBotHandlers(bot: Bot): Promise<void> {
   registerPrivacyHandler(bot);
   registerTodayHandler(bot);
   registerLegendHandler(bot);
+  registerCommunityPulseHandler(bot);
 
   bot.catch((err) => {
     log('error', 'Bot', `Unhandled error: ${String(err)}`);
