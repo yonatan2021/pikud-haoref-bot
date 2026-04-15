@@ -4,7 +4,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   Activity, Bell, Users, UsersRound, Radio, SlidersHorizontal,
   Globe, MessageSquare, Phone, Rss, MessageCircle, Shield,
-  LayoutDashboard, Settings, ChevronLeft, ChevronDown, KeyRound,
+  LayoutDashboard, Settings, ChevronLeft, ChevronDown, KeyRound, Users2,
 } from 'lucide-react';
 import { LiveDot } from '../components/ui';
 
@@ -56,6 +56,7 @@ const NAV: SidebarEntry[] = [
       label: 'מערכת',
       defaultOpen: false,
       items: [
+        { to: '/community',     icon: Users2,         label: 'קהילה' },
         { to: '/configuration', icon: KeyRound,       label: 'הגדרות ואבטחה' },
         { to: '/settings',      icon: Settings,       label: 'הגדרות' },
         { to: '/messages',      icon: MessageSquare,  label: 'תבניות הודעות' },
