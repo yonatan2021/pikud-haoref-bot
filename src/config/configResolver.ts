@@ -76,6 +76,10 @@ export const CONFIG_KEYS: ReadonlySet<string> = new Set([
   // v0.5.3 — skills sharing (refs #221)
   'skills_public_enabled',
   'skills_need_radius_zones',
+  // v0.5.3 — neighbor check (refs #222)
+  'neighbor_check_enabled_default',
+  'neighbor_check_delay_minutes',
+  'neighbor_check_text',
 ]);
 
 /** Keys whose change requires a process restart to take effect. */

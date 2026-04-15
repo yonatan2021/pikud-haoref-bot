@@ -285,6 +285,26 @@ export function initSchema(database: Database.Database): void {
       PRIMARY KEY (chat_id, skill_key)
     );
     CREATE INDEX IF NOT EXISTS idx_user_skills_skill ON user_skills(skill_key);
+
+    -- v0.5.3 — neighbor check (refs #222)
+    CREATE TABLE IF NOT EXISTS neighbor_check_prompts (
+      chat_id     INTEGER NOT NULL REFERENCES users(chat_id) ON DELETE CASCADE,
+      fingerprint TEXT NOT NULL,
+      sent_at     TEXT NOT NULL DEFAULT (datetime('now')),
+      responded   INTEGER NOT NULL DEFAULT 0,
+      message_id  INTEGER,
+      PRIMARY KEY (chat_id, fingerprint)
+    );
+    CREATE INDEX IF NOT EXISTS idx_nc_prompts_msg ON neighbor_check_prompts(message_id);
+
+    CREATE TABLE IF NOT EXISTS neighbor_check_events (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      alert_fp   TEXT NOT NULL,
+      response   TEXT NOT NULL CHECK (response IN ('checked','unable','dismissed')),
+      city       TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_nc_events_created ON neighbor_check_events(created_at);
   `);
 
   database.exec(
@@ -346,6 +366,9 @@ export function initSchema(database: Database.Database): void {
   addColumnIfMissing(database, 'ALTER TABLE users ADD COLUMN social_group_alerts_enabled INTEGER NOT NULL DEFAULT 1');
   addColumnIfMissing(database, 'ALTER TABLE users ADD COLUMN social_quick_ok_enabled INTEGER NOT NULL DEFAULT 1');
 
+  // v0.5.3 — neighbor check (refs #222)
+  addColumnIfMissing(database, 'ALTER TABLE users ADD COLUMN neighbor_check_enabled INTEGER NOT NULL DEFAULT 1');
+
   database.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_connection_code ON users(connection_code) WHERE connection_code IS NOT NULL').run();
 
   // Seed the all-clear template so it appears in the dashboard Messages page on first run.
@@ -376,6 +399,8 @@ export function initDb(): void {
     database.prepare(`DELETE FROM safety_prompts WHERE sent_at < datetime('now', '-24 hours')`).run();
     database.prepare(`DELETE FROM community_pulses WHERE created_at < datetime('now', '-7 days')`).run();
     database.prepare(`DELETE FROM shelter_stories WHERE status IN ('rejected','published') AND created_at < datetime('now','-30 days')`).run();
+    database.prepare(`DELETE FROM neighbor_check_prompts WHERE sent_at < datetime('now','-1 day')`).run();
+    database.prepare(`DELETE FROM neighbor_check_events WHERE created_at < datetime('now','-30 days')`).run();
   })();
 
   // Integrity check — warn if users table is empty but alert history exists (possible data loss)

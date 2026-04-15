@@ -64,6 +64,10 @@ const ALLOWED_KEYS = new Set([
   // v0.5.3 — skills sharing (refs #221)
   'skills_public_enabled',
   'skills_need_radius_zones',
+  // v0.5.3 — neighbor check (refs #222)
+  'neighbor_check_enabled_default',
+  'neighbor_check_delay_minutes',
+  'neighbor_check_text',
 ]);
 
 // ─── Per-key value validators ─────────────────────────────────────────────
@@ -163,6 +167,10 @@ const VALIDATORS: Record<string, (value: string) => string | null> = {
   // v0.5.3 — skills sharing (refs #221)
   skills_public_enabled:     validateBoolish,
   skills_need_radius_zones:  validatePositiveInt,
+  // v0.5.3 — neighbor check (refs #222)
+  // neighbor_check_text accepts any string — no validator needed
+  neighbor_check_enabled_default: validateBoolish,
+  neighbor_check_delay_minutes:   validatePositiveInt,
 };
 
 export function createSettingsRouter(db: Database.Database): Router {

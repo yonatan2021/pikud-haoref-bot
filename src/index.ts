@@ -43,6 +43,8 @@ import { pruneExpiredContacts } from './db/contactRepository.js';
 import { pruneExpiredSafetyStatuses } from './db/safetyStatusRepository.js';
 import { pruneOldPrompts } from './db/safetyPromptRepository.js';
 import { fireCommunityPulse } from './services/communityPulseService.js';
+import { scheduleNeighborCheck, cancelAll as cancelNeighborCheckAll } from './services/neighborCheckService.js';
+import { setNeighborCheckHandlerDb } from './bot/neighborCheckHandler.js';
 import { initCrypto } from './dashboard/crypto.js';
 import { getSetting, setSetting } from './dashboard/settingsRepository.js';
 import { resolveConfig, resolveRequiredConfigs, ConfigMissingError, SECRET_KEYS, envKeyFor } from './config/configResolver.js';
@@ -125,6 +127,7 @@ function autoMigrateEnvSecrets(db: ReturnType<typeof getDb>): void {
     loadRoutingCache(getDb());
     setMenuHandlerDb(getDb());
     setSafetyStatusHandlerDeps(getDb());
+    setNeighborCheckHandlerDb(getDb());
     alertsToday = countAlertsToday();
     initAlertSerial(alertsToday);
   } catch (err) {
@@ -309,6 +312,7 @@ function autoMigrateEnvSecrets(db: ReturnType<typeof getDb>): void {
       insertAlertHistory,
       broadcastToWhatsApp,
       dispatchSafetyPrompts: (alert) => dispatchSafetyPrompts(getDb(), alert, bot),
+      scheduleNeighborCheck: (alert) => scheduleNeighborCheck(getDb(), bot, alert),
       getNextSerial: getNextAlertSerial,
       getDensityHint: () => getDensityLabel(countAlertsToday(), getDailyCountsForMonth()),
     });
@@ -354,6 +358,7 @@ function autoMigrateEnvSecrets(db: ReturnType<typeof getDb>): void {
     disconnectTelegramListener: () => disconnectTelegramListener(getDb()),
     closeDb,
     clearAlertWindowTimers: clearAllCloseTimers,
+    cancelNeighborCheckTimers: cancelNeighborCheckAll,
   });
   process.once('SIGTERM', () => { void shutdown('SIGTERM'); });
   process.once('SIGINT',  () => { void shutdown('SIGINT');  });

@@ -16,6 +16,7 @@ import { registerGroupHandler } from './groupHandler.js';
 import { registerCommunityPulseHandler } from './communityPulseHandler.js';
 import { registerShelterStoriesHandler } from './shelterStoriesHandler.js';
 import { registerSkillsHandler } from './skillsHandler.js';
+import { registerNeighborCheckHandler } from './neighborCheckHandler.js';
 import { log } from '../logger.js';
 
 export async function setupBotHandlers(bot: Bot): Promise<void> {
@@ -38,6 +39,7 @@ export async function setupBotHandlers(bot: Bot): Promise<void> {
   registerLegendHandler(bot);
   registerShelterStoriesHandler(bot);
   registerSkillsHandler(bot);
+  registerNeighborCheckHandler(bot);
   registerCommunityPulseHandler(bot);
 
   bot.catch((err) => {

@@ -29,6 +29,7 @@ export interface AlertHandlerDeps {
   insertAlertHistory: (alert: Alert) => void;
   broadcastToWhatsApp?: (alert: Alert, imageBuffer?: Buffer | null) => Promise<void>;
   dispatchSafetyPrompts?: (alert: Alert) => Promise<void>;
+  scheduleNeighborCheck?: (alert: Alert) => void;
   getNextSerial?: () => number;
   getDensityHint?: () => 'חריג' | 'רגיל' | null;
 }
@@ -47,6 +48,7 @@ export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Prom
     insertAlertHistory,
     broadcastToWhatsApp,
     dispatchSafetyPrompts,
+    scheduleNeighborCheck,
     getNextSerial,
     getDensityHint,
   } = deps;
@@ -187,6 +189,7 @@ export async function handleNewAlert(alert: Alert, deps: AlertHandlerDeps): Prom
     notifySubscribers({ ...alert, cities: dmCities });
     dispatchSafetyPrompts?.({ ...alert, cities: dmCities })
       .catch((err) => log('error', 'AlertHandler', `[safetyPrompts] ${err}`));
+    scheduleNeighborCheck?.({ ...alert, cities: dmCities });
   }
 
   if (broadcastToWhatsApp) {

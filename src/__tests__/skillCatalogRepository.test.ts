@@ -150,6 +150,8 @@ describe('skillCatalogRepository', () => {
     `;
     db.prepare(createUserSkills).run();
 
+    // Insert user first (FK constraint on user_skills.chat_id → users.chat_id)
+    db.prepare('INSERT OR IGNORE INTO users (chat_id) VALUES (?)').run(1001);
     // Insert one usage row for first_aid (seeded by initSchema)
     db.prepare('INSERT OR IGNORE INTO user_skills (chat_id, skill_key) VALUES (?, ?)').run(1001, 'first_aid');
 
