@@ -765,7 +765,7 @@
           revealObserver.unobserve(e.target);
         }
       });
-    }, { threshold: 0.1 });
+    }, { threshold: 0.05 }); /* reduced from 0.1 — prevents tall sections failing to trigger on short mobile viewports */
 
     document.querySelectorAll('.reveal').forEach(function(el) {
       revealObserver.observe(el);
@@ -982,8 +982,62 @@
     document.addEventListener('keydown', function(e) {
       if (e.key === 'Escape' && cityDropdown && cityDropdown.getAttribute('aria-expanded') === 'true') {
         closeCityDd();
+        if (cityDropdownBtn) cityDropdownBtn.focus();
       }
     });
+
+    // ── Keyboard navigation for city dropdown ────────────────────────────────
+    if (cityDropdownBtn) {
+      cityDropdownBtn.addEventListener('keydown', function(e) {
+        if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          openCityDd();
+          var firstItem = cityDropdownList
+            ? cityDropdownList.querySelector('.city-dropdown-item:not(.city-dropdown-item--placeholder)')
+            : null;
+          if (firstItem) {
+            firstItem.setAttribute('tabindex', '0');
+            firstItem.focus();
+          }
+        }
+      });
+    }
+
+    if (cityDropdownList) {
+      var allItems = Array.from(
+        cityDropdownList.querySelectorAll('.city-dropdown-item:not(.city-dropdown-item--placeholder)')
+      );
+      allItems.forEach(function(item, idx) {
+        item.setAttribute('tabindex', '-1');
+        item.addEventListener('keydown', function(e) {
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            var next = allItems[idx + 1];
+            if (next) { next.setAttribute('tabindex', '0'); next.focus(); }
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (idx === 0) {
+              if (cityDropdownBtn) cityDropdownBtn.focus();
+            } else {
+              var prev = allItems[idx - 1];
+              if (prev) { prev.setAttribute('tabindex', '0'); prev.focus(); }
+            }
+          } else if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            item.click();
+            if (cityDropdownBtn) cityDropdownBtn.focus();
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            closeCityDd();
+            if (cityDropdownBtn) cityDropdownBtn.focus();
+          }
+        });
+        /* Reset tabindex on blur so only one item is reachable at a time */
+        item.addEventListener('blur', function() {
+          item.setAttribute('tabindex', '-1');
+        });
+      });
+    }
 
     // ── 8. FAQ chat bubbles ───────────────────────────────────────────────────
     document.querySelectorAll('.faq-item').forEach(function(item) {

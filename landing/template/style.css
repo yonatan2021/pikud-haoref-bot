@@ -112,6 +112,41 @@ img {
 }
 
 /* ----------------------------------------------------------
+   1b. Focus-visible ring system (accessibility)
+   ---------------------------------------------------------- */
+/* Default ring — applies to all interactive elements */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+/* Pill-shaped elements */
+.btn:focus-visible,
+.features-tab:focus-visible,
+.hero-ticker:focus-visible,
+.changelog-show-more:focus-visible,
+.features-show-more:focus-visible {
+  border-radius: var(--radius-btn);
+  outline-offset: 2px;
+}
+/* Circular elements */
+.mobile-fab:focus-visible,
+.cmd-trigger:focus-visible,
+.cmd-close:focus-visible {
+  border-radius: 50%;
+}
+/* Full-width accordion button — inset ring */
+.faq-q:focus-visible {
+  outline-offset: -2px;
+  border-radius: 0;
+}
+/* City dropdown — custom shadow-based focus */
+.city-dropdown-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(34, 158, 217, 0.35);
+}
+
+/* ----------------------------------------------------------
    2. Utilities
    ---------------------------------------------------------- */
 .glass-card {
@@ -926,6 +961,7 @@ img {
   border-radius: 7px;
   color: var(--text-muted);
   padding: 0.3rem 0.5rem;
+  min-height: 36px; /* secondary action — 44px would bulk up code blocks */
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -1336,11 +1372,11 @@ img {
   .feature-icon {
     font-size: 1.2rem;
   }
-  /* Expand chevron indicator */
+  /* Expand chevron indicator — RTL: ‹ points toward reading direction "more" */
   .feature-card::after {
-    content: '›';
+    content: '‹';
     position: absolute;
-    left: 0.9rem;
+    left: 0.9rem; /* physical left = reading-end in RTL = correct for expand indicator */
     top: 50%;
     transform: translateY(-50%) rotate(0deg);
     font-size: 1.1rem;
@@ -1349,7 +1385,7 @@ img {
     line-height: 1;
   }
   .feature-card.expanded::after {
-    transform: translateY(-50%) rotate(90deg);
+    transform: translateY(-50%) rotate(-90deg); /* ‹ rotated -90deg = downward arrow */
   }
 
   /* Show-more button + truncation now global — see above desktop rules */
@@ -1388,11 +1424,12 @@ img {
   }
 
   /* ── Mobile FAB ── */
+  /* RTL fix: inset-inline-start = right in RTL, opposite side from cmd-trigger (inline-end=left) */
   .mobile-fab {
     display: flex;
     position: fixed;
     bottom: 1.25rem;
-    left: 1.25rem;
+    inset-inline-start: 1.25rem;
     width: 52px;
     height: 52px;
     border-radius: 50%;
@@ -1760,6 +1797,9 @@ img {
 }
 .city-dropdown-item {
   padding: 0.5rem 1rem;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
   cursor: pointer;
   font-size: 0.9rem;
   color: var(--text-primary);
@@ -1933,7 +1973,7 @@ img {
 }
 .faq-q--open {
   background: rgba(34, 158, 217, 0.06);
-  border-inline-end: 3px solid var(--accent);
+  border-inline-start: 3px solid var(--accent); /* RTL: inline-start = right edge (reading-start) */
 }
 .faq-q--open::after {
   content: '−';
