@@ -8,26 +8,62 @@
    0. CSS Custom Properties
    ---------------------------------------------------------- */
 :root {
+  /* ── Core palette ─────────────────────────────── */
   --bg:            #07080f;
   --surface:       rgba(255, 255, 255, 0.05);
   --surface-hover: rgba(255, 255, 255, 0.08);
+  --surface-glass: rgba(15, 17, 28, 0.85);
   --border:        rgba(255, 255, 255, 0.08);
   --border-hover:  rgba(34, 158, 217, 0.4);
   --accent:        #229ED9;
+  --accent-hover:  #1e93cc;
   --accent-glow:   rgba(34, 158, 217, 0.15);
   --accent-deep:   rgba(34, 158, 217, 0.07);
   --purple:        #7c3aed;
   --red:           #ef4444;
   --green:         #22c55e;
+  /* ── WhatsApp ─────────────────────────────────── */
+  --whatsapp:      #25D366;
+  --whatsapp-hover:#1ebe5d;
+  --whatsapp-glow: rgba(37, 211, 102, 0.15);
+  /* ── Sponsor button ───────────────────────────── */
+  --sponsor-color: #f472b6;
+  --sponsor-bg:    rgba(234, 74, 170, 0.08);
+  --sponsor-border:rgba(234, 74, 170, 0.35);
+  /* ── Terminal / code syntax ───────────────────── */
+  --terminal-alert:#f87171;
+  --terminal-warn: #fbbf24;
+  --terminal-ok:   #86efac;
+  /* ── Misc ─────────────────────────────────────── */
+  --city-dd-bg:    #0e1822;
+  /* ── Text ─────────────────────────────────────── */
   --text-primary:  #f1f5f9;
   --text-secondary:#94a3b8;
   --text-muted:    #64748b;
+  /* ── Typography & layout ──────────────────────── */
   --font:          'Heebo', 'Arial Hebrew', sans-serif;
   --container-max: 1100px;
   --section-py:    5rem;
   --radius-card:   16px;
   --radius-btn:    10px;
-  --transition:    0.22s ease;
+  /* ── Spacing scale (4pt system) ───────────────── */
+  --sp-1:  0.25rem;  /* 4px  */
+  --sp-2:  0.5rem;   /* 8px  */
+  --sp-3:  0.75rem;  /* 12px */
+  --sp-4:  1rem;     /* 16px */
+  --sp-5:  1.25rem;  /* 20px */
+  --sp-6:  1.5rem;   /* 24px */
+  --sp-8:  2rem;     /* 32px */
+  --sp-10: 2.5rem;   /* 40px */
+  --sp-12: 3rem;     /* 48px */
+  /* ── Animation timing ─────────────────────────── */
+  --dur-fast:       0.22s;
+  --dur-medium:     0.32s;
+  --dur-reveal:     0.65s;
+  --ease-out-cubic: cubic-bezier(0.16, 1, 0.3, 1);
+  --transition:     var(--dur-fast) ease;
+  /* ── Screenshot widths ────────────────────────── */
+  --screenshot-w:   200px;
   /* Updated by JS for cursor spotlight */
   --cursor-x:      50%;
   --cursor-y:      50%;
@@ -107,8 +143,8 @@ img {
   opacity: 0;
   transform: translateY(28px);
   transition:
-    opacity 0.65s ease,
-    transform 0.65s ease;
+    opacity var(--dur-reveal) ease,
+    transform var(--dur-reveal) ease;
   transition-delay: var(--reveal-delay, 0s);
 }
 .reveal.visible {
@@ -227,18 +263,18 @@ img {
   color: #fff;
 }
 .btn-primary:hover {
-  background: #1e93cc;
+  background: var(--accent-hover);
   box-shadow: 0 6px 24px var(--accent-glow);
   color: #fff;
 }
 
 .btn-whatsapp {
-  background: #25D366;
+  background: var(--whatsapp);
   color: #fff;
 }
 .btn-whatsapp:hover {
-  background: #1ebe5d;
-  box-shadow: 0 6px 24px rgba(37, 211, 102, 0.15);
+  background: var(--whatsapp-hover);
+  box-shadow: 0 6px 24px var(--whatsapp-glow);
   color: #fff;
 }
 
@@ -423,7 +459,7 @@ img {
   top: 18%;
   left: 4%;
   width: 240px;
-  background: rgba(15, 17, 28, 0.85);
+  background: var(--surface-glass);
   border: 1px solid rgba(239, 68, 68, 0.3);
   border-inline-start: 3px solid var(--red);
   border-radius: 12px;
@@ -954,7 +990,7 @@ img {
 
 .screenshot-item {
   flex: 0 0 auto;
-  width: 200px;
+  width: var(--screenshot-w);
 }
 
 /* Phone frame */
@@ -1187,9 +1223,9 @@ img {
   gap: 0.4rem;
   padding: 0.45rem 1.1rem;
   border-radius: 20px;
-  border: 1px solid rgba(234, 74, 170, 0.35);
-  background: rgba(234, 74, 170, 0.08);
-  color: #f472b6;
+  border: 1px solid var(--sponsor-border);
+  background: var(--sponsor-bg);
+  color: var(--sponsor-color);
   font-size: 0.82rem;
   font-weight: 600;
   text-decoration: none;
@@ -1201,7 +1237,7 @@ img {
 .sponsor-btn:hover {
   background: rgba(234, 74, 170, 0.18);
   border-color: rgba(234, 74, 170, 0.6);
-  color: #f9a8d4;
+  color: #f9a8d4; /* lighter variant of --sponsor-color on hover */
   opacity: 1;
 }
 
@@ -1444,8 +1480,10 @@ img {
     gap: 0.3rem;
   }
 
-  .screenshot-item { width: 170px; }
+  :root { --screenshot-w: 170px; }
 }
+
+
 
 /* ----------------------------------------------------------
    16. Reduced motion — disable animations for users who prefer it
@@ -1609,10 +1647,10 @@ img {
   gap: 0.3rem;
 }
 .terminal-line { color: var(--text-primary); line-height: 1.5; }
-.terminal-line--alert       { color: #f87171; font-weight: 600; }
+.terminal-line--alert       { color: var(--terminal-alert); font-weight: 600; }
 .terminal-line--meta        { color: var(--text-secondary); font-size: 0.75rem; }
-.terminal-line--instruction { color: #fbbf24; }
-.terminal-line--bar         { color: #f87171; }
+.terminal-line--instruction { color: var(--terminal-warn); }
+.terminal-line--bar         { color: var(--terminal-alert); }
 .terminal-line--cities      { color: var(--text-secondary); }
 .terminal-highlight         { color: var(--accent); font-weight: 600; }
 
@@ -1632,7 +1670,7 @@ img {
 .chip--yes {
   background: rgba(34, 197, 94, 0.08);
   border-color: rgba(34, 197, 94, 0.3);
-  color: #86efac;
+  color: var(--terminal-ok);
 }
 .chip--no {
   background: rgba(148, 163, 184, 0.05);
@@ -1703,7 +1741,7 @@ img {
   inset-inline-start: 0;
   inset-inline-end: 0;
   top: 100%;
-  background: #0e1822;
+  background: var(--city-dd-bg);
   border: 1px solid var(--accent);
   border-top: none;
   border-end-start-radius: var(--radius-btn);
@@ -1905,7 +1943,7 @@ img {
 .faq-a {
   max-height: 0;
   overflow: hidden;
-  transition: max-height 0.32s ease;
+  transition: max-height var(--dur-medium) ease;
 }
 
 .faq-bubble--bot {
