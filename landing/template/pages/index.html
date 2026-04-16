@@ -77,42 +77,64 @@
       </div>
     </div>
 
-    <!-- Simulated alert cards (rotate every ~7s, hidden on narrow viewports) -->
-    <div class="alert-sim alert-sim--1" aria-hidden="true">
-      <div class="alert-sim-header">
-        <span class="alert-sim-dot"></span> התראה · לדוגמה
+    <!-- Alert Simulator v2 — interactive Telegram-clone bubble -->
+    <div class="sim-container" aria-label="הדמיית הודעת התראה">
+      <div class="sim-controls">
+        <label for="sim-city-input" class="sim-label">הדמה התראה לעיר שלך</label>
+        <div class="sim-input-wrap">
+          <input
+            type="text"
+            id="sim-city-input"
+            class="sim-city-input"
+            placeholder="חפש עיר להדמיה..."
+            autocomplete="off"
+            aria-autocomplete="list"
+            aria-controls="sim-city-suggestions"
+          >
+          <ul id="sim-city-suggestions" class="sim-suggestions" role="listbox" aria-label="הצעות ערים" hidden>
+            <li class="sim-suggestion" role="option" data-city="חיפה" data-zone="חיפה" data-seconds="90">חיפה</li>
+            <li class="sim-suggestion" role="option" data-city="תל אביב" data-zone="גוש דן" data-seconds="90">תל אביב</li>
+            <li class="sim-suggestion" role="option" data-city="באר שבע" data-zone="שפלת יהודה" data-seconds="60">באר שבע</li>
+            <li class="sim-suggestion" role="option" data-city="אשדוד" data-zone="שפלת יהודה" data-seconds="45">אשדוד</li>
+          </ul>
+        </div>
+        <button id="sim-run" class="sim-run-btn btn btn-primary" type="button" aria-label="הפעל הדמיית התראה">
+          &#9654; הפעל הדמיה
+        </button>
       </div>
-      <div class="alert-sim-type">🚀 ירי טילים ורקטות</div>
-      <div class="alert-sim-cities">תל אביב · רמת גן · גבעתיים</div>
-      <div class="alert-sim-action">היכנס למרחב המוגן מיד</div>
-    </div>
 
-    <div class="alert-sim alert-sim--2" aria-hidden="true">
-      <div class="alert-sim-header">
-        <span class="alert-sim-dot"></span> התראה · לדוגמה
+      <!-- Pulse waves container -->
+      <div class="sim-pulse-container" id="sim-pulse" aria-hidden="true" hidden>
+        <!-- Telegram-clone bubble -->
+        <article class="tg-bubble" id="tg-bubble" role="alert" aria-label="הדמיית הודעת טלגרם" hidden>
+          <span class="tg-watermark" aria-hidden="true">הדמיה</span>
+          <aside class="tg-bubble-avatar">
+            <img src="/logo.jpg" alt="" width="36" height="36" loading="lazy" decoding="async">
+          </aside>
+          <div class="tg-bubble-body">
+            <header class="tg-bubble-sender">
+              <span class="tg-sender-name">📢 פיקוד העורף</span>
+              <span class="tg-sender-verified" aria-label="ערוץ מאומת">✓</span>
+            </header>
+            <div class="tg-bubble-content">
+              <div class="tg-alert-header" id="tg-alert-header">🔴 <b>ירי רקטות וטילים</b></div>
+              <div class="tg-alert-zones" id="tg-alert-zones"><b>▸ גוש דן</b></div>
+              <div class="tg-alert-cities" id="tg-alert-cities">תל אביב · רמת גן · גבעתיים · בני ברק</div>
+              <div class="tg-alert-instructions" id="tg-alert-instructions">🛡 להיכנס למרחב מוגן ולהישאר בו 10 דקות</div>
+              <div class="tg-alert-countdown">
+                <span class="tg-countdown-label">זמן כניסה למרחב מוגן:</span>
+                <span class="tg-countdown-value" id="tg-countdown-value">01:30</span>
+                <div class="tg-countdown-bar"><div class="tg-countdown-fill" id="tg-countdown-fill"></div></div>
+              </div>
+            </div>
+            <footer class="tg-bubble-meta">
+              <time id="tg-bubble-time">16:42</time>
+              <span class="tg-bubble-views">👁 1.2K</span>
+              <span class="tg-bubble-forwards">🔁 342</span>
+            </footer>
+          </div>
+        </article>
       </div>
-      <div class="alert-sim-type">✈️ חדירת כלי טיס עוין</div>
-      <div class="alert-sim-cities">חיפה · חוף הכרמל · עתלית</div>
-      <div class="alert-sim-action">היכנס למרחב המוגן מיד</div>
-    </div>
-
-    <div class="alert-sim alert-sim--3" aria-hidden="true">
-      <div class="alert-sim-header">
-        <span class="alert-sim-dot"></span> התראה · לדוגמה
-      </div>
-      <div class="alert-sim-type">🔒 סייגור</div>
-      <div class="alert-sim-cities">ירושלים · מבשרת ציון</div>
-      <div class="alert-sim-action">נעל דלתות, הישאר בפנים</div>
-    </div>
-
-    <!-- Right-side decorative card — compositional balance, staggered offset -->
-    <div class="alert-sim alert-sim--4" aria-hidden="true">
-      <div class="alert-sim-header">
-        <span class="alert-sim-dot"></span> התראה · לדוגמה
-      </div>
-      <div class="alert-sim-type">☢️ אירוע רדיולוגי</div>
-      <div class="alert-sim-cities">דימונה · ירוחם</div>
-      <div class="alert-sim-action">הישאר בפנים, אל תצא</div>
     </div>
   </header>
 
