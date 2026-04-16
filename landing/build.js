@@ -65,6 +65,77 @@ function parseFeatureTable(text) {
     .join('\n');
 }
 
+function parseFullChangelog(changelogContent) {
+  // Walk every ## [x.y.z] heading and render all subsections.
+  // Returns HTML with one <section class="cl-version"> per version.
+  const versionPattern = /^## \[(\d+\.\d+\.\d+)\]\s*(?:—|-|–)\s*(\d{4}-\d{2}-\d{2})/gm;
+  const versions = [];
+  let m;
+  while ((m = versionPattern.exec(changelogContent)) !== null) {
+    versions.push({ version: m[1], date: m[2], index: m.index, fullMatch: m[0] });
+  }
+
+  if (versions.length === 0) return '<!-- no versioned entries found in CHANGELOG.md -->';
+
+  const htmlParts = [];
+
+  for (let i = 0; i < versions.length; i++) {
+    const v = versions[i];
+    const blockStart = v.index + v.fullMatch.length;
+    const blockEnd = i + 1 < versions.length ? versions[i + 1].index : changelogContent.length;
+    const block = changelogContent.slice(blockStart, blockEnd);
+
+    // Parse subsections: ### emoji title
+    const subsectionPattern = /^### (.+)$/gm;
+    const subsections = [];
+    let sm;
+    while ((sm = subsectionPattern.exec(block)) !== null) {
+      subsections.push({ title: sm[1].trim(), index: sm.index, fullMatch: sm[0] });
+    }
+
+    let categoriesHtml = '';
+    for (let j = 0; j < subsections.length; j++) {
+      const sec = subsections[j];
+      const secStart = sec.index + sec.fullMatch.length;
+      const secEnd = j + 1 < subsections.length ? subsections[j + 1].index : block.length;
+      const secContent = block.slice(secStart, secEnd);
+
+      const items = [];
+      for (const line of secContent.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith('- ') && !trimmed.startsWith('* ')) continue;
+        let text = trimmed.slice(2).trim();
+        // Preserve inline code: `foo` -> <code>foo</code>
+        text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+        // Preserve bold: **foo** -> <strong>foo</strong>
+        text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+        // Escape stray ampersands not already part of HTML entities
+        text = text.replace(/&(?!amp;|lt;|gt;|quot;|#)/g, '&amp;');
+        if (text.length > 2) items.push(`<li>${text}</li>`);
+      }
+      if (items.length === 0) continue;
+
+      categoriesHtml += `<section class="cl-category">
+  <h3>${escapeHtml(sec.title)}</h3>
+  <ul>
+${items.map((li) => '    ' + li).join('\n')}
+  </ul>
+</section>\n`;
+    }
+
+    if (!categoriesHtml.trim()) continue;
+
+    htmlParts.push(
+      `<section class="cl-version">\n` +
+      `  <h2>v${escapeHtml(v.version)} <span class="cl-date">— ${escapeHtml(v.date)}</span></h2>\n` +
+      categoriesHtml +
+      `</section>`
+    );
+  }
+
+  return htmlParts.join('\n');
+}
+
 function parseLatestChangelog(changelogContent) {
   const versionPattern = /^## \[(\d+\.\d+\.\d+)\]/m;
   const match = changelogContent.match(versionPattern);
@@ -344,6 +415,25 @@ async function loadSources() {
 
   const statStars = await fetchGitHubStars();
 
+  // Full changelog
+  const fullChangelogHtml = parseFullChangelog(changelog);
+
+  // FAQ data — shared between /faq/ and home FAQ section
+  const faqData = require('./faq.data');
+
+  function renderFaqItem(item, idx) {
+    const delay = idx > 0 ? ` style="--reveal-delay: ${(idx * 0.05).toFixed(2)}s"` : '';
+    return (
+      `<details class="faq-item reveal"${delay}>\n` +
+      `  <summary class="faq-q">${escapeHtml(item.q)}</summary>\n` +
+      `  <div class="faq-answer">${item.a}</div>\n` +
+      `</details>`
+    );
+  }
+
+  const faqItemsHtml = faqData.map(renderFaqItem).join('\n');
+  const homeFaqHtml = faqData.slice(0, 8).map(renderFaqItem).join('\n');
+
   const buildDate = new Date().toLocaleDateString('he-IL', {
     year: 'numeric', month: 'long', day: 'numeric',
   });
@@ -355,9 +445,13 @@ async function loadSources() {
     devFeaturesHtml,
     changelogVersion,
     whatsNewHtml,
+    fullChangelogHtml,
     pathsHtml,
     pathsSectionTitle,
     whatsappLink,
+    faqData,
+    faqItemsHtml,
+    homeFaqHtml,
     stats: { cities: statCities, zones: statZones, cats: statCats, tests: statTests, stars: statStars },
   };
 }
@@ -378,7 +472,7 @@ function loadPartials() {
 
 const BASE_URL = process.env.LANDING_BASE_URL || 'https://yonatan2021.github.io/pikud-haoref-bot-landing';
 
-function buildJsonLd(page) {
+function buildJsonLd(page, sources) {
   if (!page.jsonLd || page.jsonLd.length === 0) return '';
 
   const scripts = [];
@@ -430,22 +524,26 @@ function buildJsonLd(page) {
         };
       }
     } else if (type === 'faqpage') {
-      // FAQ items are defined in pages.config.js as page.faqItems
-      if (page.faqItems && page.faqItems.length > 0) {
+      // Use shared faq.data.js loaded into sources.faqData
+      // Home page uses first 8 items; /faq/ page uses all 20.
+      const faqItems = sources && sources.faqData
+        ? (page.slug === '/' ? sources.faqData.slice(0, 8) : sources.faqData)
+        : (page.faqItems || []);
+      if (faqItems.length > 0) {
         obj = {
           '@context': 'https://schema.org',
           '@type': 'FAQPage',
-          mainEntity: page.faqItems.map((item) => ({
+          mainEntity: faqItems.map((item) => ({
             '@type': 'Question',
-            name: item.question,
+            name: item.q,
             acceptedAnswer: {
               '@type': 'Answer',
-              text: item.answer,
+              // Strip HTML tags for JSON-LD plain text
+              text: item.a.replace(/<[^>]+>/g, ''),
             },
           })),
         };
       }
-      // If no faqItems provided, skip — FAQ data extracted in later task
     } else if (type === 'article') {
       obj = {
         '@context': 'https://schema.org',
@@ -529,7 +627,7 @@ function renderPage(page, partials, sources, globals) {
 
   // SEO placeholders
   const pageCanonical = BASE_URL + page.slug;
-  const jsonLdHtml = buildJsonLd(page);
+  const jsonLdHtml = buildJsonLd(page, sources);
 
   let composed = partials.head + navHtml + bodyWithFooter + partials.scripts;
 

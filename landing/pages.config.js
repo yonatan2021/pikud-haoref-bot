@@ -31,8 +31,40 @@ module.exports = [
     priority: 1.0,
     kind: 'home',
     jsonLd: ['organization', 'website', 'softwareapplication', 'faqpage'],
-    // No page-specific placeholders — home uses the global set.
-    placeholders: null,
+    // Home-specific placeholders beyond the global set.
+    placeholders: (src) => ({
+      HOME_FAQ_HTML: src.homeFaqHtml,
+    }),
+  },
+  {
+    slug: '/changelog/',
+    out: 'changelog/index.html',
+    template: 'pages/changelog.html',
+    title: 'יומן שינויים — התראות פיקוד העורף',
+    description: 'היסטוריית כל הגרסאות והשינויים. Keep a Changelog + SemVer.',
+    ogImage: '/og/changelog.png',
+    priority: 0.6,
+    kind: 'subpage',
+    jsonLd: ['organization', 'breadcrumblist'],
+    breadcrumbs: [{ name: 'בית', url: '/' }, { name: 'יומן שינויים', url: '/changelog/' }],
+    placeholders: (src) => ({
+      FULL_CHANGELOG_HTML: src.fullChangelogHtml,
+    }),
+  },
+  {
+    slug: '/faq/',
+    out: 'faq/index.html',
+    template: 'pages/faq.html',
+    title: 'שאלות נפוצות — התראות פיקוד העורף',
+    description: '20 השאלות הנפוצות ביותר על בוט התראות פיקוד העורף. חינמי, קוד פתוח, Telegram + WhatsApp.',
+    ogImage: '/og/faq.png',
+    priority: 0.7,
+    kind: 'subpage',
+    jsonLd: ['organization', 'breadcrumblist', 'faqpage'],
+    breadcrumbs: [{ name: 'בית', url: '/' }, { name: 'שאלות ותשובות', url: '/faq/' }],
+    placeholders: (src) => ({
+      FAQ_ITEMS_HTML: src.faqItemsHtml,
+    }),
   },
   {
     slug: '/privacy/',

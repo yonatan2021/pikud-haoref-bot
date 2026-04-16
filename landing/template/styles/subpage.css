@@ -387,3 +387,132 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ----------------------------------------------------------
+   Changelog page — .changelog-list
+   ---------------------------------------------------------- */
+
+.changelog-list .cl-version {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 1.5rem;
+  margin-top: 2rem;
+}
+
+.changelog-list .cl-version:first-child {
+  border-top: none;
+  padding-top: 0;
+  margin-top: 0;
+}
+
+.changelog-list .cl-version h2 {
+  font-size: clamp(1.1rem, 2.5vw, 1.4rem);
+  margin-bottom: 1rem;
+  color: var(--text-primary);
+}
+
+.changelog-list .cl-version .cl-date {
+  font-weight: 400;
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.9em;
+}
+
+.changelog-list .cl-category {
+  margin-top: 1rem;
+}
+
+.changelog-list .cl-category h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--accent, #58a6ff);
+  margin-bottom: 0.4rem;
+  margin-top: 0;
+}
+
+.changelog-list .cl-category ul {
+  padding-inline-start: 1.4rem;
+  margin: 0;
+}
+
+.changelog-list .cl-category ul li {
+  margin-bottom: 0.3rem;
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+
+.changelog-list .cl-category ul li code {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+  font-size: 0.85em;
+}
+
+/* ----------------------------------------------------------
+   FAQ page — <details> accordion
+   ---------------------------------------------------------- */
+
+details.faq-item {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0.75rem 0;
+}
+
+details.faq-item:first-child {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+details.faq-item summary.faq-q {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--text-primary);
+  list-style: none;
+  padding: 0.25rem 0;
+  position: relative;
+  padding-inline-end: 2rem;
+  user-select: none;
+}
+
+details.faq-item summary.faq-q::-webkit-details-marker {
+  display: none;
+}
+
+details.faq-item summary.faq-q::after {
+  content: '+';
+  position: absolute;
+  inset-inline-end: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.3rem;
+  color: var(--text-secondary, #94a3b8);
+  transition: transform 0.2s ease;
+}
+
+details.faq-item[open] summary.faq-q::after {
+  content: '−';
+}
+
+.faq-answer {
+  padding-top: 0.6rem;
+  padding-inline-end: 2rem;
+  color: var(--text-secondary, #94a3b8);
+  line-height: 1.7;
+  font-size: 0.95rem;
+}
+
+.faq-answer a {
+  color: var(--accent, #58a6ff);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.faq-answer code {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+  font-size: 0.85em;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  details.faq-item summary.faq-q::after {
+    transition: transform 0.2s ease, color 0.2s ease;
+  }
+}

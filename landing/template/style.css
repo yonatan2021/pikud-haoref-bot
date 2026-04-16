@@ -366,6 +366,17 @@ img {
   box-shadow: 0 6px 24px var(--accent-glow);
 }
 
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.btn-ghost:hover {
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.05);
+}
+
 .btn--large {
   padding: 0.85rem 2.2rem;
   font-size: 1.05rem;
