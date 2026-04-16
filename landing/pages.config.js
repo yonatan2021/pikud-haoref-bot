@@ -34,4 +34,17 @@ module.exports = [
     // No page-specific placeholders — home uses the global set.
     placeholders: null,
   },
+  {
+    slug: '/privacy/',
+    out: 'privacy/index.html',
+    template: 'pages/privacy.html',
+    title: 'מדיניות פרטיות — התראות פיקוד העורף',
+    description: 'מה אנחנו אוספים, מה לא, כמה זמן, ואיך למחוק. בלי שטויות.',
+    ogImage: '/og/privacy.png',
+    priority: 0.5,
+    kind: 'subpage',
+    jsonLd: ['organization', 'breadcrumblist'],
+    breadcrumbs: [{ name: 'בית', url: '/' }, { name: 'מדיניות פרטיות', url: '/privacy/' }],
+    placeholders: null,
+  },
 ];

@@ -1,0 +1,67 @@
+<main class="subpage" id="main">
+  <nav class="breadcrumb" aria-label="פירורי לחם">
+    <ol>
+      <li><a href="/">בית</a></li>
+      <li aria-current="page">מדיניות פרטיות</li>
+    </ol>
+  </nav>
+
+  <header class="subpage-hero">
+    <h1>מדיניות פרטיות</h1>
+    <p class="subtitle">מה אנחנו אוספים, מה אנחנו <em>לא</em> אוספים, כמה זמן שומרים, ואיך למחוק. עדכון אחרון: {{BUILD_DATE}}.</p>
+  </header>
+
+  <article class="prose">
+    <h2>1. מי אנחנו</h2>
+    <p>שירות לא-מסחרי, קוד-פתוח (Apache 2.0), המפיץ התראות של פיקוד העורף בטלגרם וב-WhatsApp. מתוחזק בהתנדבות.</p>
+
+    <h2>2. מה נאסף</h2>
+    <ul>
+      <li><strong>מזהה Telegram (chat_id)</strong> — מספר המוקצה לך על ידי Telegram. לא שם פרטי, לא טלפון.</li>
+      <li><strong>ערים שבחרת לעקוב אחריהן</strong> — כדי להפנות אליך רק התראות רלוונטיות.</li>
+      <li><strong>שם תצוגה</strong> — אופציונלי. רק אם הזנת ב-<code>/profile</code>.</li>
+      <li><strong>עיר מגורים</strong> — אופציונלי. משמשת להוספת תוספת רלוונטיות בהודעת ה-DM.</li>
+      <li><strong>שעות שקט</strong> — אם הגדרת ב-<code>/settings</code>.</li>
+      <li><strong>אנשי קשר</strong> — אם התחברת לחבר דרך <code>/connect</code>, נשמר ה-chat_id שלו בטבלת contacts עם ההרשאות שהגדרת.</li>
+      <li><strong>חותמות זמן של התראות 7 ימים אחרונים</strong> — לצורך <code>/history</code>.</li>
+    </ul>
+
+    <h2>3. מה <em>לא</em> נאסף</h2>
+    <ul>
+      <li>שם פרטי/משפחה מלא, ת"ז, מספר טלפון, כתובת פיזית, אימייל.</li>
+      <li>תוכן הודעות שאינן פקודות בוט.</li>
+      <li>מיקום GPS, כתובת IP — Telegram Bot API לא חושף אותם לבוט.</li>
+      <li>שום מידע לא מועבר, נמכר או משותף עם צדדים שלישיים.</li>
+    </ul>
+
+    <h2>4. עוגיות וניתוח באתר</h2>
+    <p>באתר הנחיתה מופעל <strong>Google Analytics 4</strong> לסטטיסטיקות גלישה מצטברות (מספר כניסות, דפים פופולריים). GA4 אוסף מידע אנונימי ומשתמש בעוגיות. ניתן לחסום דרך הגדרות הדפדפן. בבוט עצמו (ב-Telegram/WhatsApp) אין עוגיות ואין מעקב.</p>
+
+    <h2>5. שמירה ואחסון</h2>
+    <ul>
+      <li>נתוני מנוי נשמרים כל עוד אתה רשום. ברגע שחסמת את הבוט או השתמשת בפקודת מחיקה — הרשומה נמחקת.</li>
+      <li>היסטוריית התראות נשמרת <strong>7 ימים בלבד</strong>.</li>
+      <li>נתונים מאוחסנים ב-SQLite על שרת פרטי; סודות (טוקנים, סשן MTProto) מוצפנים ב-AES-256-GCM.</li>
+    </ul>
+
+    <h2>6. זכויותיך</h2>
+    <ul>
+      <li><strong>מחיקה</strong>: חסימת הבוט או יציאה תמחק את הרשומה שלך. ניתן גם לפנות דרך GitHub Issues.</li>
+      <li><strong>תיקון</strong>: פקודות <code>/profile</code>, <code>/mycities</code>, <code>/privacy</code>, <code>/settings</code>.</li>
+      <li><strong>ייצוא</strong>: בקשה דרך GitHub Issues.</li>
+    </ul>
+
+    <h2>7. קטינים</h2>
+    <p>השירות לא מיועד או מכוון לילדים מתחת לגיל 13. אם ילד נרשם, אנא בקש את מחיקתו.</p>
+
+    <h2>8. שינויים</h2>
+    <p>מדיניות זו עשויה להתעדכן. גרסאות קודמות זמינות דרך היסטוריית ה-Git של המאגר.</p>
+
+    <h2>9. יצירת קשר</h2>
+    <p>GitHub Issues: <a href="https://github.com/yonatan2021/pikud-haoref-bot/issues" rel="noopener">github.com/yonatan2021/pikud-haoref-bot/issues</a>.</p>
+
+    <div class="callout callout-info">
+      <strong>שים לב:</strong> זהו טיוטה טכנית. לפני deploy לייצור — לעבור בדיקה משפטית על ידי עו"ד ישראלי מוסמך.
+    </div>
+  </article>
+</main>
