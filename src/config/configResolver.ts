@@ -17,6 +17,7 @@ export const SECRET_KEYS: ReadonlySet<string> = new Set([
   'github_pat',
   'telegram_api_id',
   'telegram_api_hash',
+  'telegram_listener_session',
 ]);
 
 /** Non-secret config keys that can be stored in the DB (many already are). */
