@@ -47,7 +47,7 @@ import { scheduleNeighborCheck, cancelAll as cancelNeighborCheckAll } from './se
 import { setNeighborCheckHandlerDb } from './bot/neighborCheckHandler.js';
 import { initCrypto } from './dashboard/crypto.js';
 import { getSetting, setSetting } from './dashboard/settingsRepository.js';
-import { resolveConfig, resolveRequiredConfigs, ConfigMissingError, SECRET_KEYS, envKeyFor, getNumber } from './config/configResolver.js';
+import { resolveConfig, resolveRequiredConfigs, ConfigMissingError, SECRET_KEYS, envKeyFor, getNumber, getBool } from './config/configResolver.js';
 import { isCryptoReady } from './dashboard/crypto.js';
 
 // Prevent broken-pipe errors from crashing the bot when a stdout consumer exits.
@@ -313,7 +313,8 @@ function autoMigrateEnvSecrets(db: ReturnType<typeof getDb>): void {
       getActiveMessage,
       trackMessage,
       notifySubscribers,
-      shouldSkipMap,
+      shouldSkipMap: (alertType, instructions) =>
+        shouldSkipMap(alertType, instructions, () => getBool(getDb(), 'mapbox_skip_drills', false)),
       getTopicId,
       insertAlertHistory,
       broadcastToWhatsApp,

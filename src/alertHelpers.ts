@@ -22,11 +22,20 @@ export function isPreliminaryAlert(instructions?: string): boolean {
 }
 
 /** Exported for testing — determines if we should skip map generation for this alert.
- *  Preliminary newsFlash alerts (pre-warnings) DO get a map for zone-level context. */
-export function shouldSkipMap(alertType: string, instructions?: string): boolean {
+ *  Preliminary newsFlash alerts (pre-warnings) DO get a map for zone-level context.
+ *  `skipDrillsFn` is an injectable resolver for the `mapbox_skip_drills` flag;
+ *  defaults to reading `process.env.MAPBOX_SKIP_DRILLS` directly (useful for
+ *  unit tests). Production (src/index.ts) injects a DB-backed resolver via
+ *  `getBool(db, 'mapbox_skip_drills', false)` so dashboard edits take effect
+ *  without a restart. */
+export function shouldSkipMap(
+  alertType: string,
+  instructions?: string,
+  skipDrillsFn: () => boolean = () => process.env.MAPBOX_SKIP_DRILLS === 'true',
+): boolean {
   if (alertType === 'newsFlash') {
     return !isPreliminaryAlert(instructions);
   }
-  if (process.env.MAPBOX_SKIP_DRILLS === 'true' && isDrillAlert(alertType)) return true;
+  if (isDrillAlert(alertType) && skipDrillsFn()) return true;
   return false;
 }
