@@ -31,7 +31,12 @@ export function StatusStrip({ onUptime }: { onUptime: (u: number) => void }) {
 
   if (isLoading) {
     return (
-      <div className="bg-[var(--color-glass)] backdrop-blur-sm border-b border-border px-4 py-1.5 text-xs text-text-muted flex items-center gap-1.5">
+      <div
+        role="status"
+        aria-live="polite"
+        aria-label="מצב חיבור"
+        className="bg-[var(--color-glass)] backdrop-blur-sm border-b border-border px-4 py-1.5 text-xs text-text-muted flex items-center gap-1.5"
+      >
         <Loader2 size={12} className="animate-spin" />
         מתחבר...
       </div>
@@ -40,7 +45,13 @@ export function StatusStrip({ onUptime }: { onUptime: (u: number) => void }) {
 
   if (isError) {
     return (
-      <div className="bg-[var(--color-glass)] backdrop-blur-sm border-b border-red-700/50 px-4 py-1 text-xs text-red-300 flex items-center gap-1.5">
+      <div
+        role="status"
+        aria-live="polite"
+        aria-label="אין חיבור לשרת"
+        className="bg-[var(--color-glass)] backdrop-blur-sm border-b border-red-700/50 border-t-2 px-4 py-1 text-xs text-red-300 flex items-center gap-1.5"
+        style={{ borderTopColor: 'rgba(239,68,68,0.5)' }}
+      >
         <WifiOff size={12} />
         אין חיבור לשרת
       </div>
@@ -49,8 +60,11 @@ export function StatusStrip({ onUptime }: { onUptime: (u: number) => void }) {
 
   return (
     <div
+      role="status"
+      aria-live="polite"
+      aria-label="מצב הבוט"
       className="bg-[var(--color-glass)] backdrop-blur-sm border-b border-border border-t-2 px-4 py-1.5 flex items-center gap-6 text-xs text-text-secondary"
-      style={{ borderTopColor: 'color-mix(in srgb, var(--color-amber) 30%, transparent)' }}
+      style={{ borderTopColor: 'color-mix(in srgb, var(--color-green) 40%, transparent)' }}
     >
       <span className="flex items-center gap-1.5">
         <LiveDot color="green" size="sm" />

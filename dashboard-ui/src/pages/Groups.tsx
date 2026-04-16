@@ -105,19 +105,19 @@ function Groups(): React.ReactElement {
         {/* KPI cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <GlassCard className="p-4">
-            <div className="text-sm text-gray-400">סה״כ קבוצות</div>
+            <div className="text-sm text-text-secondary">סה״כ קבוצות</div>
             <div className="text-3xl font-bold mt-1">{stats?.total ?? '—'}</div>
           </GlassCard>
           <GlassCard className="p-4">
-            <div className="text-sm text-gray-400">חברים בממוצע</div>
+            <div className="text-sm text-text-secondary">חברים בממוצע</div>
             <div className="text-3xl font-bold mt-1">{stats?.avgMembers ?? '—'}</div>
           </GlassCard>
           <GlassCard className="p-4">
-            <div className="text-sm text-gray-400">קבוצה עם הכי הרבה חברים</div>
+            <div className="text-sm text-text-secondary">קבוצה עם הכי הרבה חברים</div>
             <div className="text-xl font-semibold mt-1 truncate">
               {stats?.top10[0]?.name ?? '—'}
               {stats?.top10[0] !== undefined && (
-                <span className="text-sm text-gray-400 mr-2">
+                <span className="text-sm text-text-muted mr-2">
                   ({stats.top10[0].memberCount})
                 </span>
               )}
@@ -138,7 +138,7 @@ function Groups(): React.ReactElement {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-white/10 text-sm text-gray-400">
+                  <tr className="border-b border-white/10 text-sm text-text-secondary">
                     <th className="p-2 text-right">שם</th>
                     <th className="p-2 text-right">בעלים</th>
                     <th className="p-2 text-right">חברים</th>
@@ -156,11 +156,11 @@ function Groups(): React.ReactElement {
                     >
                       <td className="p-2 font-medium">{g.name}</td>
                       <td className="p-2 text-sm">
-                        {g.ownerDisplayName ?? <span className="text-gray-500">—</span>}
+                        {g.ownerDisplayName ?? <span className="text-text-muted">—</span>}
                       </td>
                       <td className="p-2">{g.memberCount}</td>
                       <td className="p-2 font-mono text-xs">{g.inviteCode}</td>
-                      <td className="p-2 text-sm text-gray-400">{relDate(g.createdAt)}</td>
+                      <td className="p-2 text-sm text-text-muted">{relDate(g.createdAt)}</td>
                       <td className="p-2 text-left">
                         <button
                           aria-label={`מחק קבוצה ${g.name}`}
@@ -197,14 +197,14 @@ function Groups(): React.ReactElement {
                 <h2 className="text-xl font-bold">{detail.group.name}</h2>
                 <button
                   aria-label="סגור"
-                  className="text-gray-400 hover:text-white"
+                  className="text-text-secondary hover:text-text-primary"
                   onClick={() => setDrillId(null)}
                 >
                   <X size={20} />
                 </button>
               </div>
 
-              <div className="text-sm text-gray-400 space-y-1">
+              <div className="text-sm text-text-secondary space-y-1">
                 <div>
                   קוד הזמנה: <span className="font-mono text-white">{detail.group.inviteCode}</span>
                 </div>
@@ -213,7 +213,7 @@ function Groups(): React.ReactElement {
               </div>
 
               <div className="border-t border-white/10 pt-4">
-                <h3 className="text-sm font-semibold mb-2 text-gray-300">חברים</h3>
+                <h3 className="text-sm font-semibold mb-2 text-text-primary">חברים</h3>
                 <ul className="space-y-2">
                   {detail.members.map((m) => (
                     <li key={m.userId} className="flex items-center justify-between p-2 rounded bg-white/5">
@@ -223,10 +223,10 @@ function Groups(): React.ReactElement {
                           {m.role === 'owner' && <span className="mr-2 text-xs text-blue-400">בעלים</span>}
                         </div>
                         {m.homeCity !== null && m.homeCity !== '' && (
-                          <div className="text-xs text-gray-400">{m.homeCity}</div>
+                          <div className="text-xs text-text-muted">{m.homeCity}</div>
                         )}
                       </div>
-                      <div className="text-xs text-gray-500">
+                      <div className="text-xs text-text-muted">
                         {m.notifyGroup ? '🔔' : '🔕'}
                       </div>
                     </li>
