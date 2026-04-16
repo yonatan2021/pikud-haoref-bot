@@ -20,6 +20,7 @@ const TelegramListeners  = lazy(() => import('./pages/TelegramListeners').then(m
 const Configuration      = lazy(() => import('./pages/Configuration'));
 const Groups             = lazy(() => import('./pages/Groups'));
 const SafetyCheck        = lazy(() => import('./pages/SafetyCheck').then(m => ({ default: m.SafetyCheck })));
+const Community          = lazy(() => import('./pages/Community').then(m => ({ default: m.Community })));
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000 } } });
 
@@ -48,6 +49,7 @@ export function App() {
               <Route path="configuration" element={<Configuration />} />
               <Route path="groups" element={<Groups />} />
               <Route path="safety-check" element={<SafetyCheck />} />
+              <Route path="community" element={<Community />} />
             </Route>
           </Routes>
         </Suspense>

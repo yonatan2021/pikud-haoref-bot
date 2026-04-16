@@ -227,6 +227,96 @@ export function initSchema(database: Database.Database): void {
       UNIQUE (chat_id, fingerprint),
       FOREIGN KEY (chat_id) REFERENCES users(chat_id) ON DELETE CASCADE
     );
+
+    -- v0.5.3 — community pulse survey (refs #219)
+    CREATE TABLE IF NOT EXISTS community_pulses (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      fingerprint TEXT NOT NULL UNIQUE,
+      alert_type  TEXT NOT NULL,
+      zones       TEXT NOT NULL,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_pulses_fp ON community_pulses(fingerprint);
+
+    CREATE TABLE IF NOT EXISTS community_pulse_responses (
+      pulse_id   INTEGER NOT NULL REFERENCES community_pulses(id) ON DELETE CASCADE,
+      chat_id    INTEGER NOT NULL,
+      answer     TEXT NOT NULL CHECK (answer IN ('ok','scared','helping')),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (pulse_id, chat_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_pulse_responses_chat ON community_pulse_responses(chat_id, created_at);
+
+    -- v0.5.3 — shelter stories opt-in submissions (refs #220)
+    CREATE TABLE IF NOT EXISTS shelter_stories (
+      id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat_id              INTEGER NOT NULL REFERENCES users(chat_id) ON DELETE CASCADE,
+      body                 TEXT NOT NULL,
+      status               TEXT NOT NULL DEFAULT 'pending'
+                             CHECK (status IN ('pending','approved','rejected','published')),
+      published_message_id INTEGER,
+      created_at           TEXT NOT NULL DEFAULT (datetime('now')),
+      reviewed_at          TEXT,
+      reviewed_by          TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_stories_status ON shelter_stories(status);
+    CREATE INDEX IF NOT EXISTS idx_stories_chat ON shelter_stories(chat_id, created_at);
+
+    -- v0.5.3 — skills catalog (refs #228)
+    CREATE TABLE IF NOT EXISTS skill_catalog (
+      key         TEXT PRIMARY KEY,
+      label_he    TEXT NOT NULL,
+      description TEXT,
+      is_active   INTEGER NOT NULL DEFAULT 1,
+      sort_order  INTEGER NOT NULL DEFAULT 0,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_skill_catalog_active ON skill_catalog(is_active, sort_order);
+
+    -- v0.5.3 — user skills (refs #221)
+    CREATE TABLE IF NOT EXISTS user_skills (
+      chat_id    INTEGER NOT NULL REFERENCES users(chat_id) ON DELETE CASCADE,
+      skill_key  TEXT NOT NULL,
+      visibility TEXT NOT NULL DEFAULT 'contacts'
+                   CHECK (visibility IN ('public','contacts','private')),
+      note       TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (chat_id, skill_key)
+    );
+    CREATE INDEX IF NOT EXISTS idx_user_skills_skill ON user_skills(skill_key);
+
+    -- v0.5.3 — neighbor check (refs #222)
+    CREATE TABLE IF NOT EXISTS neighbor_check_prompts (
+      chat_id     INTEGER NOT NULL REFERENCES users(chat_id) ON DELETE CASCADE,
+      fingerprint TEXT NOT NULL,
+      sent_at     TEXT NOT NULL DEFAULT (datetime('now')),
+      responded   INTEGER NOT NULL DEFAULT 0,
+      message_id  INTEGER,
+      PRIMARY KEY (chat_id, fingerprint)
+    );
+    CREATE INDEX IF NOT EXISTS idx_nc_prompts_msg ON neighbor_check_prompts(message_id);
+
+    CREATE TABLE IF NOT EXISTS neighbor_check_events (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      alert_fp   TEXT NOT NULL,
+      response   TEXT NOT NULL CHECK (response IN ('checked','unable','dismissed')),
+      city       TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_nc_events_created ON neighbor_check_events(created_at);
+
+    -- v0.5.3 — group escape hatch audit log (refs #231)
+    -- NOTE: no FK on group_id — intentional; audit row must survive group deletion cascade
+    CREATE TABLE IF NOT EXISTS group_audit (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      group_id   INTEGER NOT NULL,
+      action     TEXT NOT NULL CHECK (action IN ('deleted','transferred')),
+      actor_id   INTEGER NOT NULL,
+      payload    TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_group_audit_group ON group_audit(group_id);
   `);
 
   database.exec(
@@ -288,6 +378,9 @@ export function initSchema(database: Database.Database): void {
   addColumnIfMissing(database, 'ALTER TABLE users ADD COLUMN social_group_alerts_enabled INTEGER NOT NULL DEFAULT 1');
   addColumnIfMissing(database, 'ALTER TABLE users ADD COLUMN social_quick_ok_enabled INTEGER NOT NULL DEFAULT 1');
 
+  // v0.5.3 — neighbor check (refs #222)
+  addColumnIfMissing(database, 'ALTER TABLE users ADD COLUMN neighbor_check_enabled INTEGER NOT NULL DEFAULT 1');
+
   database.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_connection_code ON users(connection_code) WHERE connection_code IS NOT NULL').run();
 
   // Seed the all-clear template so it appears in the dashboard Messages page on first run.
@@ -297,6 +390,13 @@ export function initSchema(database: Database.Database): void {
     INSERT OR IGNORE INTO message_templates (alert_type, emoji, title_he, instructions_prefix)
     VALUES ('all_clear', '✅', 'שקט חזר', 'נשמו. אתם בטוחים. 🕊')
   `).run();
+
+  // v0.5.3 — seed default skills (refs #228); INSERT OR IGNORE preserves admin edits
+  database.prepare(`INSERT OR IGNORE INTO skill_catalog (key, label_he, sort_order) VALUES ('first_aid', 'עזרה ראשונה', 1)`).run();
+  database.prepare(`INSERT OR IGNORE INTO skill_catalog (key, label_he, sort_order) VALUES ('shelter_host', 'אירוח במקלט', 2)`).run();
+  database.prepare(`INSERT OR IGNORE INTO skill_catalog (key, label_he, sort_order) VALUES ('psych_support', 'תמיכה נפשית', 3)`).run();
+  database.prepare(`INSERT OR IGNORE INTO skill_catalog (key, label_he, sort_order) VALUES ('ride_share', 'הסעה', 4)`).run();
+  database.prepare(`INSERT OR IGNORE INTO skill_catalog (key, label_he, sort_order) VALUES ('water_food', 'מזון ומים', 5)`).run();
 }
 
 export function initDb(): void {
@@ -309,6 +409,10 @@ export function initDb(): void {
     database.prepare(`DELETE FROM contacts WHERE status = 'pending' AND created_at < datetime('now', '-7 days')`).run();
     database.prepare(`DELETE FROM safety_status WHERE expires_at < datetime('now')`).run();
     database.prepare(`DELETE FROM safety_prompts WHERE sent_at < datetime('now', '-24 hours')`).run();
+    database.prepare(`DELETE FROM community_pulses WHERE created_at < datetime('now', '-7 days')`).run();
+    database.prepare(`DELETE FROM shelter_stories WHERE status IN ('rejected','published') AND created_at < datetime('now','-30 days')`).run();
+    database.prepare(`DELETE FROM neighbor_check_prompts WHERE sent_at < datetime('now','-1 day')`).run();
+    database.prepare(`DELETE FROM neighbor_check_events WHERE created_at < datetime('now','-30 days')`).run();
   })();
 
   // Integrity check — warn if users table is empty but alert history exists (possible data loss)

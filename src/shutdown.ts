@@ -30,6 +30,10 @@ export interface ShutdownHandles {
   tgListenerEnabled: boolean;
   disconnectTelegramListener: () => Promise<void>;
   closeDb: () => void;
+  /** Optional — cancel pending alertWindowTracker close timers on shutdown. */
+  clearAlertWindowTimers?: () => void;
+  /** Optional — cancel pending neighbor check timers on shutdown. */
+  cancelNeighborCheckTimers?: () => void;
 }
 
 export interface ShutdownOptions {
@@ -84,6 +88,8 @@ export function createShutdown(
     // ── Step 1: stop background timers
     clearInterval(handles.contactCleanupInterval);
     clearInterval(handles.safetyPruneInterval);
+    handles.clearAlertWindowTimers?.();
+    handles.cancelNeighborCheckTimers?.();
 
     // ── Step 2: cancel pending all-clear timers (so they don't fire mid-shutdown)
     handles.allClearTracker.clearAll();

@@ -3,6 +3,7 @@ import type { Context } from 'grammy';
 import {
   getUser, setQuietHours, setMutedUntil, isMuted, upsertUser,
   setSocialPref, VALID_SOCIAL_FIELDS,
+  setNeighborCheckEnabled,
   type SocialPrefField,
 } from '../db/userRepository.js';
 import {
@@ -74,6 +75,11 @@ export function buildSocialSettingsMenu(chatId: number): { text: string; keyboar
     const status = enabled ? '✓' : '✗';
     keyboard.text(`${label}: ${status}`, `social:toggle:${field}`).row();
   }
+
+  // Neighbor check toggle (stored on users table, not social_* fields)
+  const ncEnabled = user?.neighbor_check_enabled ?? true;
+  const ncStatus = ncEnabled ? '✓' : '✗';
+  keyboard.text(`🏠 בדיקת שכנים אחרי אזעקה: ${ncStatus}`, 'nc:settings:toggle').row();
 
   keyboard.text('↩️ חזור', 'menu:settings');
 
@@ -353,6 +359,28 @@ export function registerSettingsHandler(bot: Bot, writeCooldownMs = 1500): void 
       await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
     } catch (err) {
       log('error', 'Settings', `social:toggle נכשל: ${err}`);
+    }
+  });
+
+  // Neighbor check toggle (v0.5.3, #222)
+  bot.callbackQuery('nc:settings:toggle', async (ctx: Context) => {
+    const chatId = ctx.chat?.id;
+    if (!chatId) return;
+    if (settingsWriteCooldown.isOnCooldown(chatId)) {
+      await ctx.answerCallbackQuery('⏳ נסה שוב בעוד רגע');
+      return;
+    }
+    await ctx.answerCallbackQuery();
+    settingsWriteCooldown.setCooldown(chatId);
+    try {
+      const { getDb } = await import('../db/schema.js');
+      const user = getUser(chatId);
+      const current = user?.neighbor_check_enabled ?? true;
+      setNeighborCheckEnabled(getDb(), chatId, !current);
+      const { text, keyboard } = buildSocialSettingsMenu(chatId);
+      await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
+    } catch (err) {
+      log('error', 'Settings', `nc:settings:toggle נכשל: ${err}`);
     }
   });
 }

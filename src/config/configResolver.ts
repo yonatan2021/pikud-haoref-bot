@@ -63,6 +63,23 @@ export const CONFIG_KEYS: ReadonlySet<string> = new Set([
   'social_default_group_alerts_enabled',
   'social_default_quick_ok_enabled',
   'social_banner_stale_prompt_minutes',
+  // v0.5.3 — community pulse survey (refs #219)
+  'pulse_enabled',
+  'pulse_cooldown_hours',
+  'pulse_aggregate_threshold',
+  'pulse_prompt_text',
+  // v0.5.3 — shelter stories opt-in submissions (refs #220)
+  'topic_id_stories',
+  'stories_enabled',
+  'stories_rate_limit_minutes',
+  'stories_max_length',
+  // v0.5.3 — skills sharing (refs #221)
+  'skills_public_enabled',
+  'skills_need_radius_zones',
+  // v0.5.3 — neighbor check (refs #222)
+  'neighbor_check_enabled_default',
+  'neighbor_check_delay_minutes',
+  'neighbor_check_text',
 ]);
 
 /** Keys whose change requires a process restart to take effect. */
@@ -102,6 +119,7 @@ export const ENV_KEY_MAP: Readonly<Record<string, string>> = {
   telegram_chat_id:              'TELEGRAM_CHAT_ID',
   telegram_forward_group_id:     'TELEGRAM_FORWARD_GROUP_ID',
   telegram_listener_enabled:     'TELEGRAM_LISTENER_ENABLED',
+  topic_id_stories:              'TELEGRAM_TOPIC_ID_STORIES',
 };
 
 // ── Resolution ───────────────────────────────────────────────────────────────

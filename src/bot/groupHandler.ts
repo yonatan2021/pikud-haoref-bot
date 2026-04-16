@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import type Database from 'better-sqlite3';
 import { Bot, InlineKeyboard } from 'grammy';
 import type { Context } from 'grammy';
-import { upsertUser, getUser } from '../db/userRepository.js';
+import { upsertUser, getUser, findUserByConnectionCode } from '../db/userRepository.js';
 import type { User } from '../db/userRepository.js';
 import {
   createGroup,
@@ -14,11 +14,14 @@ import {
   addMember,
   removeMember,
   deleteGroup,
+  transferOwnership,
   countGroupsOwnedBy,
   countMembersOfGroup,
   InviteCodeCollisionError,
   type Group,
 } from '../db/groupRepository.js';
+import { insertAudit } from '../db/groupAuditRepository.js';
+import { dmQueue } from '../services/dmQueue.js';
 import { getDb } from '../db/schema.js';
 import { log } from '../logger.js';
 import { escapeHtml, formatRelativeTime } from '../textUtils.js';
@@ -644,6 +647,115 @@ async function performLeave(
   });
 }
 
+// ─── Pending delete nonces (ephemeral, in-memory) ───────────────────────────
+
+interface PendingDelete {
+  groupId: number;
+  nonce: string;
+  expiresAt: number;
+}
+
+/** chatId → pending delete confirmation. Exported for test reset. */
+export const pendingDeletes = new Map<number, PendingDelete>();
+
+// ─── /group delete <name> ────────────────────────────────────────────────────
+
+async function handleDelete(ctx: Context, name: string): Promise<void> {
+  const chatId = ctx.chat?.id;
+  if (!chatId) return;
+
+  const trimmed = name.trim();
+  if (trimmed.length === 0) {
+    await ctx.reply(
+      '❌ חסר שם קבוצה.\nשימוש: <code>/group delete &lt;שם&gt;</code>',
+      { parse_mode: 'HTML' }
+    );
+    return;
+  }
+
+  const db = getDb();
+  const groups = getGroupsForUser(db, chatId);
+  const group = groups.find((g) => g.name === trimmed && g.ownerId === chatId);
+  if (!group) {
+    await ctx.reply('❌ קבוצה לא נמצאה או שאינך הבעלים שלה.');
+    return;
+  }
+
+  const nonce = crypto.randomBytes(4).toString('hex');
+  pendingDeletes.set(chatId, { groupId: group.id, nonce, expiresAt: Date.now() + 60_000 });
+
+  const kb = new InlineKeyboard()
+    .text('✅ אשר מחיקה', cb(`gdel:conf:${group.id}:${nonce}`))
+    .text('❌ ביטול', cb(`gdel:cancel:${group.id}`));
+
+  await ctx.reply(
+    `⚠️ האם למחוק את הקבוצה "${escapeHtml(trimmed)}" ולהסיר את כל חברי הקבוצה? פעולה זו אינה הפיכה.`,
+    { parse_mode: 'HTML', reply_markup: kb }
+  );
+}
+
+// ─── /group transfer <name> <code> ──────────────────────────────────────────
+
+async function handleTransfer(ctx: Context, args: string[]): Promise<void> {
+  const chatId = ctx.chat?.id;
+  if (!chatId) return;
+
+  const name = args.slice(0, -1).join(' ').trim();
+  const code = args[args.length - 1]?.trim() ?? '';
+
+  if (!name || !code) {
+    await ctx.reply(
+      '❌ שימוש: <code>/group transfer &lt;שם&gt; &lt;קוד חיבור&gt;</code>',
+      { parse_mode: 'HTML' }
+    );
+    return;
+  }
+
+  const db = getDb();
+  const groups = getGroupsForUser(db, chatId);
+  const group = groups.find((g) => g.name === name && g.ownerId === chatId);
+  if (!group) {
+    await ctx.reply('❌ קבוצה לא נמצאה או שאינך הבעלים שלה.');
+    return;
+  }
+
+  const target = findUserByConnectionCode(code);
+  if (!target) {
+    await ctx.reply('❌ לא נמצא משתמש עם קוד החיבור הזה.');
+    return;
+  }
+
+  const members = getMembersOfGroup(db, group.id);
+  if (!members.some((m) => m.userId === target.chat_id)) {
+    await ctx.reply('❌ המשתמש אינו חבר בקבוצה זו.');
+    return;
+  }
+
+  const ok = transferOwnership(db, group.id, chatId, target.chat_id);
+  if (!ok) {
+    await ctx.reply('❌ העברת הבעלות נכשלה — נסה שוב.');
+    return;
+  }
+
+  insertAudit(db, {
+    groupId: group.id,
+    action: 'transferred',
+    actorId: chatId,
+    payload: JSON.stringify({ to: target.chat_id }),
+  });
+
+  log('info', 'Groups', `User ${chatId} transferred group ${group.id} (${group.name}) to ${target.chat_id}`);
+
+  // Notify new owner via DM queue
+  dmQueue.enqueueAll([
+    { chatId: String(target.chat_id), text: `אתה כעת מנהל הקבוצה "${name}".` },
+  ]);
+
+  await ctx.reply(`✅ הבעלות על הקבוצה "${escapeHtml(name)}" הועברה.`, {
+    parse_mode: 'HTML',
+  });
+}
+
 // ─── Main dispatch ───────────────────────────────────────────────────────────
 
 async function handleGroupCommand(ctx: Context): Promise<void> {
@@ -686,6 +798,12 @@ async function handleGroupCommand(ctx: Context): Promise<void> {
     case 'status':
       await handleStatus(ctx, args[1]);
       return;
+    case 'delete':
+      await handleDelete(ctx, rest);
+      return;
+    case 'transfer':
+      await handleTransfer(ctx, args.slice(1));
+      return;
     default:
       await ctx.reply(
         '❌ פקודה לא מוכרת.\n\n' +
@@ -694,7 +812,9 @@ async function handleGroupCommand(ctx: Context): Promise<void> {
           '<code>/group create &lt;שם&gt;</code> — יצירת קבוצה\n' +
           '<code>/group join &lt;קוד&gt;</code> — הצטרפות עם קוד\n' +
           '<code>/group leave [id]</code> — עזיבת קבוצה\n' +
-          '<code>/group status [id]</code> — סטטוס קבוצתי',
+          '<code>/group status [id]</code> — סטטוס קבוצתי\n' +
+          '<code>/group delete &lt;שם&gt;</code> — מחיקת קבוצה\n' +
+          '<code>/group transfer &lt;שם&gt; &lt;קוד&gt;</code> — העברת בעלות',
         { parse_mode: 'HTML' }
       );
   }
@@ -837,6 +957,70 @@ export function registerGroupHandler(bot: Bot): void {
         return;
       }
       await renderGroupStatus(ctx, db, groupId);
+    }),
+  );
+
+  // gdel:conf:<groupId>:<nonce> — confirm group deletion
+  bot.callbackQuery(
+    /^gdel:conf:(\d+):([0-9a-f]{8})$/,
+    wrapCallback('gdel:conf', async (ctx) => {
+      await ctx
+        .answerCallbackQuery()
+        .catch((e) => log('warn', 'Groups', `answerCallbackQuery (gdel:conf) failed: ${formatError(e)}`));
+      const chatId = ctx.chat?.id;
+      if (!chatId) return;
+
+      const groupId = parseInt(ctx.match?.[1] ?? '', 10);
+      const nonce = ctx.match?.[2];
+      if (isNaN(groupId) || !nonce) return;
+
+      const pending = pendingDeletes.get(chatId);
+      if (!pending || pending.groupId !== groupId || pending.nonce !== nonce) {
+        await ctx.reply('❌ הבקשה לא תקינה או פגה תוקף. הפעל /group delete שוב.');
+        return;
+      }
+      if (Date.now() > pending.expiresAt) {
+        pendingDeletes.delete(chatId);
+        await ctx.reply('❌ זמן האישור פג. הפעל /group delete שוב.');
+        return;
+      }
+      pendingDeletes.delete(chatId);
+
+      const db = getDb();
+      // TOCTOU guard: re-verify ownership before deletion
+      const group = findGroupById(db, groupId);
+      if (!group || group.ownerId !== chatId) {
+        await ctx.reply('❌ אין לך הרשאה למחוק קבוצה זו.');
+        return;
+      }
+
+      const groupName = group.name;
+      const members = getMembersOfGroup(db, groupId);
+      deleteGroup(db, groupId);
+      insertAudit(db, { groupId, action: 'deleted', actorId: chatId, payload: null });
+      log('info', 'Groups', `User ${chatId} deleted group ${groupId} (${groupName})`);
+
+      // Notify all OTHER members
+      const tasks = members
+        .filter((m) => m.userId !== chatId)
+        .map((m) => ({ chatId: String(m.userId), text: `הקבוצה "${groupName}" נמחקה על ידי המנהל.` }));
+      if (tasks.length > 0) dmQueue.enqueueAll(tasks);
+
+      await ctx.reply(`✅ הקבוצה "${escapeHtml(groupName)}" נמחקה.`, { parse_mode: 'HTML' });
+    }),
+  );
+
+  // gdel:cancel:<groupId> — cancel group deletion
+  bot.callbackQuery(
+    /^gdel:cancel:(\d+)$/,
+    wrapCallback('gdel:cancel', async (ctx) => {
+      await ctx
+        .answerCallbackQuery()
+        .catch((e) => log('warn', 'Groups', `answerCallbackQuery (gdel:cancel) failed: ${formatError(e)}`));
+      const chatId = ctx.chat?.id;
+      if (!chatId) return;
+      pendingDeletes.delete(chatId);
+      await ctx.reply('❌ המחיקה בוטלה.');
     }),
   );
 

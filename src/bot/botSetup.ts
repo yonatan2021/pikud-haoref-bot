@@ -13,6 +13,10 @@ import { registerTodayHandler } from './todayHandler.js';
 import { registerLegendHandler } from './legendHandler.js';
 import { registerSafetyStatusHandler } from './safetyStatusHandler.js';
 import { registerGroupHandler } from './groupHandler.js';
+import { registerCommunityPulseHandler } from './communityPulseHandler.js';
+import { registerShelterStoriesHandler } from './shelterStoriesHandler.js';
+import { registerSkillsHandler } from './skillsHandler.js';
+import { registerNeighborCheckHandler } from './neighborCheckHandler.js';
 import { log } from '../logger.js';
 
 export async function setupBotHandlers(bot: Bot): Promise<void> {
@@ -33,6 +37,10 @@ export async function setupBotHandlers(bot: Bot): Promise<void> {
   registerPrivacyHandler(bot);
   registerTodayHandler(bot);
   registerLegendHandler(bot);
+  registerShelterStoriesHandler(bot);
+  registerSkillsHandler(bot);
+  registerNeighborCheckHandler(bot);
+  registerCommunityPulseHandler(bot);
 
   bot.catch((err) => {
     log('error', 'Bot', `Unhandled error: ${String(err)}`);
@@ -54,5 +62,7 @@ export async function setupBotHandlers(bot: Bot): Promise<void> {
     { command: 'today',    description: 'סיכום יומי' },
     { command: 'legend',   description: 'מקרא אזורי ההתראה' },
     { command: 'status',   description: 'סטטוס ביטחוני שלך ואנשי קשר' },
+    { command: 'share',    description: 'שתף חוויה מהמקלט' },
+    { command: 'need',     description: 'מצא עזרה לפי כישור' },
   ]);
 }

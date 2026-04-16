@@ -29,6 +29,7 @@ function makeUser(overrides: Partial<User> = {}): User {
     social_contact_count_enabled: true,
     social_group_alerts_enabled: true,
     social_quick_ok_enabled: true,
+    neighbor_check_enabled: true,
     created_at: new Date().toISOString(),
     ...overrides,
   };

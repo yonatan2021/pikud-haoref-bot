@@ -51,6 +51,23 @@ const ALLOWED_KEYS = new Set([
   'social_default_group_alerts_enabled',
   'social_default_quick_ok_enabled',
   'social_banner_stale_prompt_minutes',
+  // v0.5.3 — community pulse survey (refs #219)
+  'pulse_enabled',
+  'pulse_cooldown_hours',
+  'pulse_aggregate_threshold',
+  'pulse_prompt_text',
+  // v0.5.3 — shelter stories opt-in submissions (refs #220)
+  'topic_id_stories',
+  'stories_enabled',
+  'stories_rate_limit_minutes',
+  'stories_max_length',
+  // v0.5.3 — skills sharing (refs #221)
+  'skills_public_enabled',
+  'skills_need_radius_zones',
+  // v0.5.3 — neighbor check (refs #222)
+  'neighbor_check_enabled_default',
+  'neighbor_check_delay_minutes',
+  'neighbor_check_text',
 ]);
 
 // ─── Per-key value validators ─────────────────────────────────────────────
@@ -131,6 +148,29 @@ const VALIDATORS: Record<string, (value: string) => string | null> = {
   social_default_group_alerts_enabled:  validateBoolish,
   social_default_quick_ok_enabled:      validateBoolish,
   social_banner_stale_prompt_minutes:   validateNonNegativeInt,
+  // v0.5.3 — community pulse survey (refs #219)
+  pulse_enabled:             validateBoolish,
+  pulse_cooldown_hours:      validatePositiveInt,
+  pulse_aggregate_threshold: validatePositiveInt,
+  // pulse_prompt_text accepts any string — no validator needed
+  // v0.5.3 — shelter stories opt-in submissions (refs #220)
+  // topic_id_stories rejects 1 — reserved Telegram thread ID (same guard as approve route)
+  topic_id_stories:          (v) => {
+    const base = validateNonNegativeInt(v);
+    if (base) return base;
+    if (Number(v) === 1) return 'מזהה נושא 1 שמור על ידי טלגרם ואינו תקין';
+    return null;
+  },
+  stories_enabled:           validateBoolish,
+  stories_rate_limit_minutes: validatePositiveInt,
+  stories_max_length:        validatePositiveInt,
+  // v0.5.3 — skills sharing (refs #221)
+  skills_public_enabled:     validateBoolish,
+  skills_need_radius_zones:  validatePositiveInt,
+  // v0.5.3 — neighbor check (refs #222)
+  // neighbor_check_text accepts any string — no validator needed
+  neighbor_check_enabled_default: validateBoolish,
+  neighbor_check_delay_minutes:   validatePositiveInt,
 };
 
 export function createSettingsRouter(db: Database.Database): Router {

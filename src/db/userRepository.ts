@@ -24,6 +24,7 @@ export interface User {
   social_contact_count_enabled: boolean;
   social_group_alerts_enabled: boolean;
   social_quick_ok_enabled: boolean;
+  neighbor_check_enabled: boolean;
   created_at: string;
 }
 
@@ -51,6 +52,7 @@ interface RawUserRow {
   social_contact_count_enabled: number;
   social_group_alerts_enabled: number;
   social_quick_ok_enabled: number;
+  neighbor_check_enabled: number;
   created_at: string;
 }
 
@@ -72,6 +74,7 @@ function mapRowToUser(raw: RawUserRow): User {
     social_contact_count_enabled: raw.social_contact_count_enabled === 1,
     social_group_alerts_enabled: raw.social_group_alerts_enabled === 1,
     social_quick_ok_enabled: raw.social_quick_ok_enabled === 1,
+    neighbor_check_enabled: raw.neighbor_check_enabled === 1,
   };
 }
 
@@ -239,6 +242,13 @@ export function findUserByConnectionCode(code: string): User | undefined {
     .get(code) as RawUserRow | undefined;
   if (!raw) return undefined;
   return mapRowToUser(raw);
+}
+
+// --- Neighbor check preference (v0.5.3, #222) ---
+
+export function setNeighborCheckEnabled(db: Database.Database, chatId: number, enabled: boolean): void {
+  upsertUser(chatId);
+  db.prepare('UPDATE users SET neighbor_check_enabled = ? WHERE chat_id = ?').run(enabled ? 1 : 0, chatId);
 }
 
 /**
