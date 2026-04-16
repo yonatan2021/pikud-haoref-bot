@@ -374,6 +374,103 @@ function loadPartials() {
   };
 }
 
+// ---- SEO helpers ----------------------------------------------------------
+
+const BASE_URL = process.env.LANDING_BASE_URL || 'https://yonatan2021.github.io/pikud-haoref-bot-landing';
+
+function buildJsonLd(page) {
+  if (!page.jsonLd || page.jsonLd.length === 0) return '';
+
+  const scripts = [];
+
+  for (const type of page.jsonLd) {
+    let obj = null;
+
+    if (type === 'organization') {
+      obj = {
+        '@context': 'https://schema.org',
+        '@type': 'Organization',
+        name: 'התראות פיקוד העורף',
+        url: BASE_URL,
+        logo: BASE_URL + '/logo.jpg',
+      };
+    } else if (type === 'website') {
+      obj = {
+        '@context': 'https://schema.org',
+        '@type': 'WebSite',
+        name: 'התראות פיקוד העורף',
+        url: BASE_URL,
+        inLanguage: 'he',
+      };
+    } else if (type === 'softwareapplication') {
+      obj = {
+        '@context': 'https://schema.org',
+        '@type': 'SoftwareApplication',
+        name: 'בוט התראות פיקוד העורף',
+        applicationCategory: 'CommunicationApplication',
+        operatingSystem: 'Telegram, WhatsApp, Web',
+        inLanguage: 'he',
+        offers: {
+          '@type': 'Offer',
+          price: 0,
+          priceCurrency: 'ILS',
+        },
+      };
+    } else if (type === 'breadcrumblist') {
+      if (page.breadcrumbs && page.breadcrumbs.length > 0) {
+        obj = {
+          '@context': 'https://schema.org',
+          '@type': 'BreadcrumbList',
+          itemListElement: page.breadcrumbs.map((crumb, idx) => ({
+            '@type': 'ListItem',
+            position: idx + 1,
+            name: crumb.name,
+            item: BASE_URL + crumb.url,
+          })),
+        };
+      }
+    } else if (type === 'faqpage') {
+      // FAQ items are defined in pages.config.js as page.faqItems
+      if (page.faqItems && page.faqItems.length > 0) {
+        obj = {
+          '@context': 'https://schema.org',
+          '@type': 'FAQPage',
+          mainEntity: page.faqItems.map((item) => ({
+            '@type': 'Question',
+            name: item.question,
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: item.answer,
+            },
+          })),
+        };
+      }
+      // If no faqItems provided, skip — FAQ data extracted in later task
+    } else if (type === 'article') {
+      obj = {
+        '@context': 'https://schema.org',
+        '@type': 'Article',
+        headline: page.title,
+        inLanguage: 'he',
+        datePublished: new Date().toISOString().slice(0, 10),
+      };
+    }
+
+    if (obj) {
+      scripts.push(`<script type="application/ld+json">${JSON.stringify(obj)}</script>`);
+    }
+  }
+
+  return scripts.join('\n');
+}
+
+function generateSitemap(pages) {
+  const today = new Date().toISOString().slice(0, 10);
+  const urls = pages.map((p) => `  <url>\n    <loc>${BASE_URL}${p.slug}</loc>\n    <lastmod>${today}</lastmod>\n    <priority>${p.priority != null ? p.priority : 0.5}</priority>\n  </url>`).join('\n');
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>`;
+  fs.writeFileSync(path.join(DIST_DIR, 'sitemap.xml'), xml);
+}
+
 // ---- GA4 injection --------------------------------------------------------
 
 function buildGa4Snippet() {
@@ -423,10 +520,30 @@ function renderPage(page, partials, sources, globals) {
     ? '<link rel="stylesheet" href="/styles/subpage.css">'
     : '';
 
+  // Hero image preload — only for home page
+  const heroPreload = (page.kind === 'home' || page.slug === '/')
+    ? '<link rel="preload" as="image" href="/screenshots/start.jpg" fetchpriority="high">'
+    : '';
+
+  // SEO placeholders
+  const pageCanonical = BASE_URL + page.slug;
+  const jsonLdHtml = buildJsonLd(page);
+
   let composed = partials.head + navHtml + bodyWithFooter + partials.scripts;
 
   const pageCtx = page.placeholders ? page.placeholders(sources) : {};
-  const ctx = { ...globals, ...pageCtx, SUBPAGE_STYLES: subpageStyles };
+  const ctx = {
+    ...globals,
+    ...pageCtx,
+    SUBPAGE_STYLES: subpageStyles,
+    HERO_PRELOAD: heroPreload,
+    PAGE_TITLE: page.title || globals.VERSION,
+    PAGE_DESCRIPTION: page.description || '',
+    PAGE_CANONICAL: pageCanonical,
+    PAGE_CANONICAL_BASE: BASE_URL,
+    PAGE_OG_IMAGE: page.ogImage || '/og/home.png',
+    JSON_LD: jsonLdHtml,
+  };
   composed = replacePlaceholders(composed, ctx);
 
   // GA4 injection — the head partial carries <!-- GA4_PLACEHOLDER -->
@@ -485,6 +602,21 @@ function copyAssets() {
       fs.copyFileSync(path.join(shotsSrc, f), path.join(shotsDst, f));
     }
   }
+
+  // Fonts (self-hosted woff2)
+  copyDir(path.join(TEMPLATE_DIR, 'fonts'), path.join(DIST_DIR, 'fonts'));
+
+  // robots.txt
+  const robotsSrc = path.join(TEMPLATE_DIR, 'robots.txt');
+  if (fs.existsSync(robotsSrc)) {
+    fs.copyFileSync(robotsSrc, path.join(DIST_DIR, 'robots.txt'));
+  }
+
+  // .nojekyll — empty file, prevents GitHub Pages Jekyll transforms
+  const nojekyllSrc = path.join(TEMPLATE_DIR, '.nojekyll');
+  if (fs.existsSync(nojekyllSrc)) {
+    fs.copyFileSync(nojekyllSrc, path.join(DIST_DIR, '.nojekyll'));
+  }
 }
 
 // ---- Main -----------------------------------------------------------------
@@ -501,6 +633,7 @@ async function main() {
     writePage(page, html);
   }
 
+  generateSitemap(PAGES);
   copyAssets();
   console.log(`✅  Built ${PAGES.length} landing page(s) v${sources.version} → landing/dist/`);
 }
