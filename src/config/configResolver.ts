@@ -48,6 +48,7 @@ export const CONFIG_KEYS: ReadonlySet<string> = new Set([
   'all_clear_topic_id',
   'all_clear_quiet_window_seconds',
   'dm_queue_concurrency',
+  'map_city_display_limit',
   'landing_url',
   'privacy_defaults',
   // v0.5.1 — group feature hot-config (refs #225)

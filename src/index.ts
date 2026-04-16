@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { AlertPoller } from './alertPoller';
 import { generateMapImage } from './mapService';
-import { sendAlert, getBot, editAlert } from './telegramBot';
+import { sendAlert, getBot, editAlert, setCityLimitProvider } from './telegramBot';
 import { getActiveMessage, trackMessage, loadActiveMessages, setWindowCloseCallback, clearAllCloseTimers } from './alertWindowTracker';
 import { getTopicId } from './topicRouter';
 import { Alert } from './types';
@@ -127,6 +127,7 @@ function autoMigrateEnvSecrets(db: ReturnType<typeof getDb>): void {
     loadRoutingCache(getDb());
     // Hot-configurable DM queue concurrency — read per drain() decision.
     dmQueue.setConcurrencyProvider(() => getNumber(getDb(), 'dm_queue_concurrency', 10));
+    setCityLimitProvider(() => getNumber(getDb(), 'map_city_display_limit', 25));
     setMenuHandlerDb(getDb());
     setSafetyStatusHandlerDeps(getDb());
     setNeighborCheckHandlerDb(getDb());

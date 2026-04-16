@@ -216,6 +216,17 @@ export const SETTINGS_SCHEMA: readonly SettingDef[] = [
     order: 2,
   },
   {
+    key: 'map_city_display_limit',
+    tab: 'maps',
+    label: 'מקסימום ערים בהודעה',
+    description: 'כמה ערים מוצגות ברשימה בהודעת התראה לפני קיצור ל"ועוד X ערים". ברירת מחדל: 25, טווח: 5–100',
+    type: 'number',
+    defaultValue: '25',
+    hotReload: true,
+    validation: { min: 5, max: 100 },
+    order: 4,
+  },
+  {
     key: 'mapbox_skip_drills',
     tab: 'maps',
     label: 'דלג על מפות לתרגילים',
