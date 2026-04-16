@@ -60,4 +60,17 @@ module.exports = [
     breadcrumbs: [{ name: 'בית', url: '/' }, { name: 'תנאי שימוש', url: '/terms/' }],
     placeholders: null,
   },
+  {
+    slug: '/accessibility/',
+    out: 'accessibility/index.html',
+    template: 'pages/accessibility.html',
+    title: 'הצהרת נגישות — התראות פיקוד העורף',
+    description: 'הצהרת נגישות לפי תקנות שוויון זכויות לאנשים עם מוגבלות. WCAG 2.1 AA.',
+    ogImage: '/og/accessibility.png',
+    priority: 0.5,
+    kind: 'subpage',
+    jsonLd: ['organization', 'breadcrumblist'],
+    breadcrumbs: [{ name: 'בית', url: '/' }, { name: 'הצהרת נגישות', url: '/accessibility/' }],
+    placeholders: null,
+  },
 ];

@@ -504,6 +504,8 @@ function globalContext(sources) {
     PATHS_HTML: sources.pathsHtml,
     PATHS_SECTION_TITLE: escapeHtml(sources.pathsSectionTitle),
     WHATSAPP_LINK: escapeHtml(sources.whatsappLink),
+    ACCESSIBILITY_CONTACT_NAME: process.env.ACCESSIBILITY_CONTACT_NAME || 'יונתן גלפמן',
+    ACCESSIBILITY_CONTACT_EMAIL: process.env.ACCESSIBILITY_CONTACT_EMAIL || 'a11y@example.com',
   };
 }
 
