@@ -98,17 +98,22 @@ export function getStoryById(
   return row ? decodeRow(row) : null;
 }
 
-export function approveStory(
+/**
+ * Phase 2 of approve flow: transitions approved → published after the Telegram message is sent.
+ * Returns false if the story is not in 'approved' status (e.g. was rejected concurrently).
+ */
+export function publishStory(
   db: Database.Database,
   id: number,
   reviewedBy: string,
   publishedMessageId: number
-): void {
-  db.prepare(
+): boolean {
+  const result = db.prepare(
     `UPDATE shelter_stories
      SET status = 'published', published_message_id = ?, reviewed_at = datetime('now'), reviewed_by = ?
-     WHERE id = ?`
+     WHERE id = ? AND status = 'approved'`
   ).run(publishedMessageId, reviewedBy, id);
+  return result.changes > 0;
 }
 
 /**

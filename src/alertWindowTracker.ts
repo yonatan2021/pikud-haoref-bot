@@ -52,7 +52,7 @@ function scheduleCloseTimer(alertType: string, msg: TrackedMessage): void {
       }
     }
     activeMessages.delete(alertType);
-    try { deleteWindow(alertType); } catch { /* ignore */ }
+    try { deleteWindow(alertType); } catch (err) { log('warn', 'AlertWindow', `deleteWindow on timer failed: ${err}`); }
   }, delay);
   closeTimers.set(alertType, timer);
 }

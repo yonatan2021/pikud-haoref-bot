@@ -8,7 +8,7 @@ import {
   getStoriesByStatus,
   getStoryById,
   lockForApproval,
-  approveStory,
+  publishStory,
   rejectStory,
   countStoriesByUserSince,
   getCountsByStatus,
@@ -35,9 +35,10 @@ describe('shelterStoryRepository', () => {
     assert.ok(story.id > 0);
   });
 
-  it('createStory rejects body > 200 chars (SQLite CHECK constraint)', () => {
-    const longBody = 'א'.repeat(201);
-    assert.throws(() => createStory(db, 1001, longBody));
+  it('createStory accepts body of any length (app layer enforces limit)', () => {
+    const longBody = 'א'.repeat(300);
+    const story = createStory(db, 1001, longBody);
+    assert.equal(story.body, longBody);
   });
 
   it('lockForApproval returns true and sets status=approved for pending story', () => {
@@ -61,16 +62,26 @@ describe('shelterStoryRepository', () => {
     assert.equal(result, false);
   });
 
-  it('approveStory sets status=published and publishedMessageId', () => {
+  it('publishStory transitions approved→published and returns true', () => {
     const story = createStory(db, 1001, 'חוויה מהמקלט לאישור');
     lockForApproval(db, story.id); // lock first (as the route does)
-    approveStory(db, story.id, 'admin', 9999);
+    const result = publishStory(db, story.id, 'admin', 9999);
+    assert.equal(result, true);
     const updated = getStoryById(db, story.id);
     assert.ok(updated !== null);
     assert.equal(updated!.status, 'published');
     assert.equal(updated!.publishedMessageId, 9999);
     assert.equal(updated!.reviewedBy, 'admin');
     assert.ok(updated!.reviewedAt !== null);
+  });
+
+  it('publishStory returns false for non-approved story', () => {
+    const story = createStory(db, 1001, 'סיפור בהמתנה');
+    // skip lockForApproval — story is still 'pending'
+    const result = publishStory(db, story.id, 'admin', 1234);
+    assert.equal(result, false);
+    const updated = getStoryById(db, story.id);
+    assert.equal(updated!.status, 'pending');
   });
 
   it('rejectStory returns true and sets status=rejected for pending story', () => {
@@ -164,7 +175,8 @@ describe('shelterStoryRepository', () => {
     const s3 = createStory(testDb, 2001, 'to reject');
     rejectStory(testDb, s3.id, 'admin');
     const s4 = createStory(testDb, 2001, 'to approve');
-    approveStory(testDb, s4.id, 'admin', 111);
+    lockForApproval(testDb, s4.id);
+    publishStory(testDb, s4.id, 'admin', 111);
 
     const counts = getCountsByStatus(testDb);
     assert.equal(counts.pending, 2);

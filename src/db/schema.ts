@@ -251,7 +251,7 @@ export function initSchema(database: Database.Database): void {
     CREATE TABLE IF NOT EXISTS shelter_stories (
       id                   INTEGER PRIMARY KEY AUTOINCREMENT,
       chat_id              INTEGER NOT NULL REFERENCES users(chat_id) ON DELETE CASCADE,
-      body                 TEXT NOT NULL CHECK (length(body) <= 200),
+      body                 TEXT NOT NULL,
       status               TEXT NOT NULL DEFAULT 'pending'
                              CHECK (status IN ('pending','approved','rejected','published')),
       published_message_id INTEGER,

@@ -114,6 +114,11 @@ export async function fireCommunityPulse(
   if (enqueue) {
     enqueue(tasks);
   } else {
-    void Promise.allSettled(tasks.map((fn) => fn()));
+    Promise.allSettled(tasks.map((fn) => fn())).then((results) => {
+      const failed = results.filter((r) => r.status === 'rejected').length;
+      if (failed > 0) {
+        log('error', 'CommunityPulse', `${failed}/${results.length} שליחות נכשלו · pulse=${pulse.id}`);
+      }
+    });
   }
 }

@@ -68,16 +68,20 @@ export function listAllSkills(db: Database.Database): SkillCatalogRow[] {
       )
       .all() as RawRow[];
     return rows.map(decodeRow);
-  } catch {
-    // user_skills table does not exist yet — fall back to 0 counts
-    const rows = db
-      .prepare(
-        `SELECT key, label_he, description, is_active, sort_order, created_at, updated_at
-         FROM skill_catalog
-         ORDER BY sort_order ASC`
-      )
-      .all() as RawRow[];
-    return rows.map((r) => decodeRow({ ...r, usage_count: 0 }));
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('no such table')) {
+      // Safety net: user_skills table missing (unlikely — both created in initSchema)
+      const rows = db
+        .prepare(
+          `SELECT key, label_he, description, is_active, sort_order, created_at, updated_at
+           FROM skill_catalog
+           ORDER BY sort_order ASC`
+        )
+        .all() as RawRow[];
+      return rows.map((r) => decodeRow({ ...r, usage_count: 0 }));
+    }
+    throw err;
   }
 }
 
@@ -149,7 +153,9 @@ export function getUsageCount(db: Database.Database, key: string): number {
       .prepare(`SELECT COUNT(*) AS n FROM user_skills WHERE skill_key = ?`)
       .get(key) as { n: number };
     return row.n;
-  } catch {
-    return 0;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('no such table')) return 0;
+    throw err;
   }
 }

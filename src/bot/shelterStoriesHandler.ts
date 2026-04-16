@@ -56,9 +56,10 @@ export function registerShelterStoriesHandler(bot: Bot): void {
       pendingShares.set(chatId, { startedAt: Date.now() });
       log('info', 'ShelterStories', `User ${chatId} started /share`);
 
+      const maxLength = getNumber(db, 'stories_max_length', 200);
       const keyboard = new InlineKeyboard().text('❌ ביטול', 'story:cancel');
       await ctx.reply(
-        '📝 <b>שתף חוויה מהמקלט</b>\n\nשלח הודעה קצרה (עד 200 תווים) ונשלח אותה לסקירה.',
+        `📝 <b>שתף חוויה מהמקלט</b>\n\nשלח הודעה קצרה (עד ${maxLength} תווים) ונשלח אותה לסקירה.`,
         { parse_mode: 'HTML', reply_markup: keyboard }
       );
     } catch (err) {
@@ -120,6 +121,7 @@ export function registerShelterStoriesHandler(bot: Bot): void {
       log('info', 'ShelterStories', `User ${chatId} submitted a story`);
       await ctx.reply('תודה! הודעתך נשלחה לבדיקה ✅');
     } catch (err) {
+      pendingShares.delete(chatId);
       log('error', 'ShelterStories', `Story submission failed for ${chatId}: ${String(err)}`);
       await ctx.reply('אירעה שגיאה. נסה שוב מאוחר יותר.').catch((e) =>
         log('error', 'ShelterStories', `Failed to send error reply: ${e}`)

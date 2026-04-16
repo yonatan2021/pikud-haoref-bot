@@ -46,7 +46,7 @@ export function registerCommunityPulseHandler(bot: Bot): void {
   bot.callbackQuery(/^pulse:(ok|scared|helping):\d+$/, async (ctx) => {
     const chatId = ctx.from?.id;
     if (!chatId) {
-      await ctx.answerCallbackQuery().catch(() => {});
+      await ctx.answerCallbackQuery().catch((e) => log('warn', 'CommunityPulse', `answerCallbackQuery: ${e}`));
       return;
     }
 
@@ -62,13 +62,15 @@ export function registerCommunityPulseHandler(bot: Bot): void {
       const { answer, pulseId } = parsed;
       const db = getDb();
 
-      insertResponse(db, pulseId, chatId, answer);
+      const inserted = insertResponse(db, pulseId, chatId, answer);
 
       const threshold = getNumber(db, 'pulse_aggregate_threshold', 5);
       const agg = getAggregate(db, pulseId);
 
       const label = ANSWER_LABELS[answer];
-      let text = `תודה על המענה ${label} ✅`;
+      let text = inserted
+        ? `תודה על המענה ${label} ✅`
+        : `כבר ענית על הסקר הזה — התשובה המקורית שלך נשמרה.`;
 
       if (agg.total >= threshold) {
         text += `\n\n${buildAggregateText(agg.total, agg.ok, agg.scared, agg.helping)}`;
@@ -86,7 +88,7 @@ export function registerCommunityPulseHandler(bot: Bot): void {
       log('error', 'CommunityPulse', `callback error: ${String(err)}`);
     } finally {
       if (!answered) {
-        await ctx.answerCallbackQuery().catch(() => {});
+        await ctx.answerCallbackQuery().catch((e) => log('warn', 'CommunityPulse', `answerCallbackQuery: ${e}`));
       }
     }
   });
@@ -118,7 +120,7 @@ export function registerCommunityPulseHandler(bot: Bot): void {
       log('error', 'CommunityPulse', `agg callback error: ${String(err)}`);
     } finally {
       if (!answered) {
-        await ctx.answerCallbackQuery().catch(() => {});
+        await ctx.answerCallbackQuery().catch((e) => log('warn', 'CommunityPulse', `answerCallbackQuery: ${e}`));
       }
     }
   });

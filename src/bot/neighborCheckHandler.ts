@@ -44,7 +44,9 @@ export function registerNeighborCheckHandler(bot: Bot): void {
 
       if (!row) {
         log('info', 'NeighborCheck', `לא נמצא prompt עבור chatId=${chatId} fp=${fpShort}`);
-        await ctx.editMessageText('⏱ הפרומפט פג תוקף.').catch(() => {});
+        await ctx.editMessageText('⏱ הפרומפט פג תוקף.').catch((e) =>
+          log('warn', 'NeighborCheck', `editMessageText expired: ${e}`)
+        );
         return;
       }
 
@@ -54,7 +56,9 @@ export function registerNeighborCheckHandler(bot: Bot): void {
       }
 
       const confirmation = CONFIRMATION_TEXT[responseStr];
-      await ctx.editMessageText(confirmation, { parse_mode: 'HTML' }).catch(() => {});
+      await ctx.editMessageText(confirmation, { parse_mode: 'HTML' }).catch((e) =>
+        log('warn', 'NeighborCheck', `editMessageText confirmation: ${e}`)
+      );
     } catch (err) {
       log('error', 'NeighborCheck', `שגיאה בטיפול ב-nc callback: ${err}`);
     }

@@ -69,17 +69,19 @@ export function getPulseByFingerprint(
 
 /**
  * INSERT OR IGNORE — dedup at (pulse_id, chat_id) PRIMARY KEY.
+ * Returns true if the row was inserted, false if the user already responded.
  */
 export function insertResponse(
   db: Database.Database,
   pulseId: number,
   chatId: number,
   answer: PulseAnswer
-): void {
-  db.prepare(
+): boolean {
+  const result = db.prepare(
     `INSERT OR IGNORE INTO community_pulse_responses (pulse_id, chat_id, answer)
      VALUES (?, ?, ?)`
   ).run(pulseId, chatId, answer);
+  return result.changes > 0;
 }
 
 export function getAggregate(

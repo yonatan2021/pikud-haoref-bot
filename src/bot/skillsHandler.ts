@@ -206,6 +206,7 @@ export function registerSkillsHandler(bot: Bot): void {
       await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
     } catch (err) {
       log('error', 'Skills', `sk:list failed for ${chatId}: ${err}`);
+      await ctx.reply('אירעה שגיאה. נסה שוב מאוחר יותר.').catch(() => {});
     }
   });
 
@@ -223,6 +224,7 @@ export function registerSkillsHandler(bot: Bot): void {
       );
     } catch (err) {
       log('error', 'Skills', `sk:pick failed for ${chatId}: ${err}`);
+      await ctx.reply('אירעה שגיאה. נסה שוב מאוחר יותר.').catch(() => {});
     }
   });
 
@@ -243,6 +245,7 @@ export function registerSkillsHandler(bot: Bot): void {
       );
     } catch (err) {
       log('error', 'Skills', `sk:add failed for ${chatId}: ${err}`);
+      await ctx.reply('אירעה שגיאה. נסה שוב מאוחר יותר.').catch(() => {});
     }
   });
 
@@ -266,6 +269,7 @@ export function registerSkillsHandler(bot: Bot): void {
       );
     } catch (err) {
       log('error', 'Skills', `sk:vis failed for ${chatId}: ${err}`);
+      await ctx.reply('אירעה שגיאה. נסה שוב מאוחר יותר.').catch(() => {});
     }
   });
 
@@ -285,6 +289,7 @@ export function registerSkillsHandler(bot: Bot): void {
       await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
     } catch (err) {
       log('error', 'Skills', `sk:rm failed for ${chatId}: ${err}`);
+      await ctx.reply('אירעה שגיאה. נסה שוב מאוחר יותר.').catch(() => {});
     }
   });
 
@@ -305,6 +310,7 @@ export function registerSkillsHandler(bot: Bot): void {
       );
     } catch (err) {
       log('error', 'Skills', `sk:note failed for ${chatId}: ${err}`);
+      await ctx.reply('אירעה שגיאה. נסה שוב מאוחר יותר.').catch(() => {});
     }
   });
 
@@ -321,6 +327,7 @@ export function registerSkillsHandler(bot: Bot): void {
       await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
     } catch (err) {
       log('error', 'Skills', `need callback failed for ${chatId}: ${err}`);
+      await ctx.reply('אירעה שגיאה. נסה שוב מאוחר יותר.').catch(() => {});
     }
   });
 

@@ -75,42 +75,46 @@ export function scheduleNeighborCheck(
   const handle = schedule(() => {
     activeHandles.delete(fingerprint);
 
-    const users = deps.getUsersInCitiesFn
-      ? deps.getUsersInCitiesFn(alert.cities)
-      : getUsersInAlertCities(db, alert.cities);
+    try {
+      const users = deps.getUsersInCitiesFn
+        ? deps.getUsersInCitiesFn(alert.cities)
+        : getUsersInAlertCities(db, alert.cities);
 
-    if (users.length === 0) return;
+      if (users.length === 0) return;
 
-    const fpShort = fingerprint.slice(0, 8);
-    const msgText = '🏠 <b>בדיקת שכנים</b>\n\n' + text;
+      const fpShort = fingerprint.slice(0, 8);
+      const msgText = '🏠 <b>בדיקת שכנים</b>\n\n' + text;
 
-    const sendFn = deps.sendFn ?? ((chatId: number, msgTxt: string, keyboard: object) =>
-      bot.api.sendMessage(chatId, msgTxt, {
-        parse_mode: 'HTML' as const,
-        reply_markup: keyboard as any,
-      })
-    );
+      const sendFn = deps.sendFn ?? ((chatId: number, msgTxt: string, keyboard: object) =>
+        bot.api.sendMessage(chatId, msgTxt, {
+          parse_mode: 'HTML' as const,
+          reply_markup: keyboard as any,
+        })
+      );
 
-    for (const user of users) {
-      const chatId = user.chat_id;
-      const keyboard = {
-        inline_keyboard: [[
-          { text: '✅ בדקתי', callback_data: `nc:checked:${chatId}:${fpShort}` },
-          { text: '😔 לא יכולתי', callback_data: `nc:unable:${chatId}:${fpShort}` },
-          { text: '🔇 דלג', callback_data: `nc:dismissed:${chatId}:${fpShort}` },
-        ]],
-      };
+      for (const user of users) {
+        const chatId = user.chat_id;
+        const keyboard = {
+          inline_keyboard: [[
+            { text: '✅ בדקתי', callback_data: `nc:checked:${chatId}:${fpShort}` },
+            { text: '😔 לא יכולתי', callback_data: `nc:unable:${chatId}:${fpShort}` },
+            { text: '🔇 דלג', callback_data: `nc:dismissed:${chatId}:${fpShort}` },
+          ]],
+        };
 
-      // Insert prompt row synchronously before fire-and-forget send (INSERT OR IGNORE — idempotent).
-      // Row must exist before the message arrives so the callback handler can look it up.
-      insertPrompt(db, chatId, fingerprint, undefined);
+        // Insert prompt row synchronously before fire-and-forget send (INSERT OR IGNORE — idempotent).
+        // Row must exist before the message arrives so the callback handler can look it up.
+        insertPrompt(db, chatId, fingerprint, undefined);
 
-      sendFn(chatId, msgText, keyboard)
-        .then((msg) => updatePromptMessageId(db, chatId, fingerprint, msg.message_id))
-        .catch((err) => log('warn', 'NeighborCheck', `שגיאה בשליחה ל-${chatId}: ${err}`));
+        sendFn(chatId, msgText, keyboard)
+          .then((msg) => updatePromptMessageId(db, chatId, fingerprint, msg.message_id))
+          .catch((err) => log('warn', 'NeighborCheck', `שגיאה בשליחה ל-${chatId}: ${err}`));
+      }
+
+      log('info', 'NeighborCheck', `בדיקת שכנים לאחר ${delayMinutes} דק׳ — ${users.length} משתמשים (fp=${fpShort})`);
+    } catch (err) {
+      log('error', 'NeighborCheck', `שגיאה בטיימר שכנים (fp=${fingerprint}): ${err}`);
     }
-
-    log('info', 'NeighborCheck', `בדיקת שכנים לאחר ${delayMinutes} דק׳ — ${users.length} משתמשים (fp=${fpShort})`);
   }, delayMs);
 
   activeHandles.set(fingerprint, handle);

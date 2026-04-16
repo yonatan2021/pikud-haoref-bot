@@ -29,17 +29,17 @@ interface CommunityForm {
 
 const DEFAULTS: CommunityForm = {
   pulse_enabled: 'false',
-  pulse_cooldown_hours: '24',
+  pulse_cooldown_hours: '6',
   pulse_aggregate_threshold: '10',
   pulse_prompt_text: '',
   topic_id_stories: '0',
   stories_enabled: 'false',
   stories_rate_limit_minutes: '60',
-  stories_max_length: '500',
+  stories_max_length: '200',
   skills_public_enabled: 'false',
   skills_need_radius_zones: '3',
   neighbor_check_enabled_default: 'false',
-  neighbor_check_delay_minutes: '10',
+  neighbor_check_delay_minutes: '7',
   neighbor_check_text: '',
 };
 

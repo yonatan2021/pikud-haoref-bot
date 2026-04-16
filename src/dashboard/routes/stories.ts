@@ -6,7 +6,7 @@ import {
   getStoriesByStatus,
   getStoryById,
   lockForApproval,
-  approveStory,
+  publishStory,
   rejectStory,
   getCountsByStatus,
 } from '../../db/shelterStoryRepository.js';
@@ -101,7 +101,7 @@ export function createStoriesRouter(db: Database.Database, bot: Bot): Router {
         { parse_mode: 'HTML', message_thread_id: topicId }
       );
 
-      approveStory(db, id, 'admin', message_id);
+      publishStory(db, id, 'admin', message_id);
       log('info', 'Stories', `Story ${id} approved and published (msg ${message_id})`);
       res.json({ ok: true, messageId: message_id });
     } catch (err) {
