@@ -471,6 +471,209 @@
         }
       });
     });
+
+    // ── 12. Alert Simulator v2 — Telegram-clone bubble ───────────────────────
+    (function() {
+      var SIM_DATA = {
+        'חיפה':        { zone: 'חיפה',              cities: ['חיפה','קריית ים','קריית אתא','חוף הכרמל'],       seconds: 90 },
+        'תל אביב':     { zone: 'גוש דן',             cities: ['תל אביב','רמת גן','גבעתיים','בני ברק'],          seconds: 90 },
+        'באר שבע':     { zone: 'שפלת יהודה',         cities: ['באר שבע','אשקלון','קריית גת','נתיבות'],          seconds: 60 },
+        'אשדוד':       { zone: 'שפלת יהודה',         cities: ['אשדוד','אשקלון','קריית מלאכי','גן יבנה'],        seconds: 45 },
+        'ירושלים':     { zone: 'ירושלים',            cities: ['ירושלים','מבשרת ציון','מעלה אדומים','בית שמש'],  seconds: 90 },
+        'נתניה':       { zone: 'השרון',               cities: ['נתניה','רעננה','הוד השרון','כפר סבא'],            seconds: 90 },
+        'פתח תקווה':   { zone: 'גוש דן',             cities: ['פתח תקווה','ראש העין','אלעד','רמלה'],             seconds: 90 },
+        'ראשון לציון': { zone: 'גוש דן',             cities: ['ראשון לציון','חולון','בת ים','אור יהודה'],        seconds: 90 },
+        'חדרה':        { zone: 'חדרה ועמק יזרעאל',   cities: ['חדרה','פרדס חנה','זיכרון יעקב','בנימינה'],        seconds: 90 },
+        'אשקלון':      { zone: 'שפלת יהודה',         cities: ['אשקלון','שקמים','מיגדל הנגב','ברכיה'],           seconds: 30 },
+        'עכו':         { zone: 'חיפה',               cities: ['עכו','נהריה','כרמיאל','מעלות-תרשיחא'],           seconds: 90 },
+        'נצרת':        { zone: 'הגליל',              cities: ['נצרת','עפולה','יזרעאל','שפרעם'],                  seconds: 90 },
+        'אילת':        { zone: 'אילת',               cities: ['אילת'],                                           seconds: 180 },
+        'מודיעין':     { zone: 'ירושלים',            cities: ['מודיעין','מכבים-רעות','שוהם','אבן יהודה'],        seconds: 90 },
+        'רחובות':      { zone: 'גוש דן',             cities: ['רחובות','נס ציונה','יבנה','גדרה'],                seconds: 90 },
+        'כפר סבא':     { zone: 'השרון',              cities: ['כפר סבא','רעננה','אלקנה','עמנואל'],               seconds: 90 },
+        'טבריה':       { zone: 'כינרת',              cities: ['טבריה','כינרת','מגדל','גינוסר'],                  seconds: 90 },
+        'צפת':         { zone: 'הגליל העליון',        cities: ['צפת','מירון','ביריה','עמוקה'],                    seconds: 90 },
+        'דימונה':      { zone: 'הנגב',               cities: ['דימונה','ערד','ירוחם','מצפה רמון'],               seconds: 60 },
+        'קריית שמונה': { zone: 'הגליל העליון',        cities: ['קריית שמונה','מטולה','מנרה','כפר בלום'],          seconds: 30 }
+      };
+      var CAT_EMOJI = '🔴';
+      var CAT_NAME  = 'ירי רקטות וטילים';
+      var CAT_INSTR = '\u{1F6E1} להיכנס למרחב מוגן ולהישאר בו 10 דקות';
+
+      var simInput    = document.getElementById('sim-city-input');
+      var simSugList  = document.getElementById('sim-city-suggestions');
+      var simRun      = document.getElementById('sim-run');
+      var simPulse    = document.getElementById('sim-pulse');
+      var tgBubble    = document.getElementById('tg-bubble');
+      var tgHeader    = document.getElementById('tg-alert-header');
+      var tgZones     = document.getElementById('tg-alert-zones');
+      var tgCities    = document.getElementById('tg-alert-cities');
+      var tgInstr     = document.getElementById('tg-alert-instructions');
+      var tgCountdown = document.getElementById('tg-countdown-value');
+      var tgFill      = document.getElementById('tg-countdown-fill');
+      var tgTime      = document.getElementById('tg-bubble-time');
+
+      if (!simInput) return;
+
+      var allCities = Object.keys(SIM_DATA);
+      var selectedCity = null;
+      var cdTimer = null;
+
+      function fmtMmSs(s) {
+        var m = Math.floor(s / 60), sec = s % 60;
+        return (m < 10 ? '0' + m : String(m)) + ':' + (sec < 10 ? '0' + sec : String(sec));
+      }
+
+      function buildSuggestions(q) {
+        if (!simSugList) return;
+        while (simSugList.firstChild) simSugList.removeChild(simSugList.firstChild);
+        var matches = q
+          ? allCities.filter(function(c) { return c.indexOf(q) !== -1; })
+          : ['חיפה','תל אביב','באר שבע','אשדוד'];
+        if (!matches.length) { simSugList.hidden = true; return; }
+        matches.slice(0, 6).forEach(function(city) {
+          var li = document.createElement('li');
+          li.className = 'sim-suggestion';
+          li.setAttribute('role', 'option');
+          li.textContent = city;
+          li.addEventListener('mousedown', function(ev) {
+            ev.preventDefault();
+            selectCity(city);
+          });
+          simSugList.appendChild(li);
+        });
+        simSugList.hidden = false;
+      }
+
+      function selectCity(city) {
+        selectedCity = city;
+        if (simInput) simInput.value = city;
+        if (simSugList) simSugList.hidden = true;
+      }
+
+      simInput.addEventListener('input',  function() { buildSuggestions(simInput.value.trim()); });
+      simInput.addEventListener('focus',  function() { buildSuggestions(simInput.value.trim()); });
+      simInput.addEventListener('blur',   function() { setTimeout(function() { if (simSugList) simSugList.hidden = true; }, 150); });
+      simInput.addEventListener('keydown', function(ev) {
+        if (ev.key === 'Enter') {
+          if (simSugList && !simSugList.hidden) {
+            var first = simSugList.querySelector('.sim-suggestion');
+            if (first) selectCity(first.textContent.trim());
+          }
+          runSim();
+        }
+      });
+
+      // Wire static suggestion items already in HTML
+      if (simSugList) {
+        simSugList.querySelectorAll('.sim-suggestion').forEach(function(li) {
+          li.addEventListener('mousedown', function(ev) {
+            ev.preventDefault();
+            selectCity(li.dataset.city || li.textContent.trim());
+          });
+        });
+      }
+
+      function runSim() {
+        var city = selectedCity || (simInput ? simInput.value.trim() : '') || 'תל אביב';
+        var data = SIM_DATA[city] || SIM_DATA['תל אביב'];
+
+        if (tgHeader) {
+          while (tgHeader.firstChild) tgHeader.removeChild(tgHeader.firstChild);
+          tgHeader.appendChild(document.createTextNode(CAT_EMOJI + ' '));
+          var b = document.createElement('b');
+          b.textContent = CAT_NAME;
+          tgHeader.appendChild(b);
+        }
+        if (tgZones) {
+          while (tgZones.firstChild) tgZones.removeChild(tgZones.firstChild);
+          var bz = document.createElement('b');
+          bz.textContent = '\u25B8 ' + data.zone;
+          tgZones.appendChild(bz);
+        }
+        if (tgCities) tgCities.textContent = data.cities.join(' \u00B7 ');
+        if (tgInstr)  tgInstr.textContent  = CAT_INSTR;
+
+        var now = new Date();
+        var hh = now.getHours(), mm = now.getMinutes();
+        if (tgTime) tgTime.textContent = (hh < 10 ? '0' + hh : hh) + ':' + (mm < 10 ? '0' + mm : mm);
+
+        var total = data.seconds;
+        var remaining = total;
+        if (tgCountdown) tgCountdown.textContent = fmtMmSs(remaining);
+        if (tgFill) {
+          tgFill.style.transition = 'none';
+          tgFill.style.transform  = 'scaleX(1)';
+        }
+        if (simPulse) simPulse.hidden = false;
+        if (tgBubble) tgBubble.hidden = false;
+
+        requestAnimationFrame(function() {
+          if (tgFill) {
+            tgFill.style.transition = 'transform ' + total + 's linear';
+            tgFill.style.transform  = 'scaleX(0)';
+          }
+        });
+
+        if (cdTimer) clearInterval(cdTimer);
+        cdTimer = setInterval(function() {
+          remaining = Math.max(0, remaining - 1);
+          if (tgCountdown) tgCountdown.textContent = fmtMmSs(remaining);
+          if (remaining === 0) clearInterval(cdTimer);
+        }, 1000);
+      }
+
+      if (simRun) simRun.addEventListener('click', runSim);
+    })();
+
+    // ── 13. Light/Dark theme toggle ───────────────────────────────────────────
+    document.addEventListener('click', function(ev) {
+      var btn = ev.target.closest('[data-theme-toggle]');
+      if (!btn) return;
+      var cur = document.documentElement.dataset.theme;
+      var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      var next = cur === 'dark' ? 'light' : cur === 'light' ? 'dark' : (prefersDark ? 'light' : 'dark');
+      document.documentElement.dataset.theme = next;
+      try { localStorage.setItem('theme', next); } catch(e) {}
+    });
+
+  </script>
+
+  <!-- All routes for command palette — injected at build time -->
+  <script>window.__ROUTES = {{ROUTES_JSON}};</script>
+
+  <script>
+    // ── 14. Command Palette — routes extension ────────────────────────────────
+    (function() {
+      var cmdList = document.getElementById('cmd-list');
+      if (!cmdList || !window.__ROUTES) return;
+      window.__ROUTES.forEach(function(route) {
+        var li = document.createElement('li');
+        li.className = 'cmd-item cmd-item--route';
+        li.setAttribute('data-href', route.slug);
+        li.setAttribute('data-cmd', route.title);
+        var iconSpan = document.createElement('span');
+        iconSpan.className = 'cmd-icon';
+        iconSpan.textContent = '\uD83D\uDD17';
+        var labelSpan = document.createElement('span');
+        labelSpan.className = 'cmd-label';
+        labelSpan.textContent = '\u05E0\u05D5\u05D5\u05D8: ' + route.title;
+        var descSpan = document.createElement('span');
+        descSpan.className = 'cmd-desc';
+        descSpan.textContent = route.slug;
+        li.appendChild(iconSpan);
+        li.appendChild(labelSpan);
+        li.appendChild(descSpan);
+        li.addEventListener('mouseenter', function() {
+          if (typeof setCmdActive === 'function') setCmdActive(li);
+        });
+        li.addEventListener('click', function() {
+          if (typeof closeCmdPalette === 'function') closeCmdPalette();
+          window.location.href = route.slug;
+        });
+        cmdList.appendChild(li);
+      });
+    })();
   </script>
 
 </body>
