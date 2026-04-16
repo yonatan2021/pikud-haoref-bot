@@ -375,6 +375,15 @@ img {
   left: -5%;
   animation: floatBlob2 28s ease-in-out infinite alternate;
 }
+/* 3rd blob: subtle red warmth — urgency cue for emergency product (max 0.09 opacity) */
+.aurora-blob--3 {
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.09) 0%, transparent 65%);
+  top: 40%;
+  right: 55%;
+  animation: floatBlob2 18s ease-in-out 6s infinite alternate;
+}
 
 /* Cursor spotlight */
 .spotlight {
@@ -400,6 +409,14 @@ img {
   gap: 1.5rem;
   max-width: 720px;
   padding: 3rem 2.5rem;
+  /* 2d: accent top-border directs eye down through panel content */
+  border-top-color: rgba(34, 158, 217, 0.4);
+}
+
+@keyframes logoPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(34, 158, 217, 0.4), 0 0 32px var(--accent-glow), 0 4px 24px rgba(0,0,0,0.5); }
+  50%  { box-shadow: 0 0 0 14px rgba(34, 158, 217, 0), 0 0 52px rgba(34,158,217,0.3), 0 4px 24px rgba(0,0,0,0.5); }
+  100% { box-shadow: 0 0 0 0 rgba(34, 158, 217, 0), 0 0 32px var(--accent-glow), 0 4px 24px rgba(0,0,0,0.5); }
 }
 
 .hero-logo {
@@ -411,6 +428,8 @@ img {
     0 0 32px var(--accent-glow),
     0 4px 24px rgba(0, 0, 0, 0.5);
   object-fit: cover;
+  /* 2c: single pulse ring on load — urgency feel without fatigue */
+  animation: logoPulse 2.5s ease-out 0.3s 1 forwards;
 }
 
 .hero-title {
@@ -418,6 +437,11 @@ img {
   font-weight: 900;
   line-height: 1.2;
   letter-spacing: -0.5px;
+  /* 2b: gradient text — 315deg = accent on right (reading-start in RTL) */
+  background: linear-gradient(315deg, var(--text-primary) 0%, var(--accent) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .hero-subtitle-wrap {
@@ -443,12 +467,21 @@ img {
   animation: blink 0.75s step-end infinite, cursorFade 0.4s ease 2.9s forwards;
 }
 
-/* CTA group */
+/* CTA group — 2g: staggered entrance after typing animation (~2.5s) */
+@keyframes btnAppear {
+  to { opacity: 1; transform: translateY(0); }
+}
 .cta-group {
   display: flex;
   flex-wrap: wrap;
   gap: 0.875rem;
   justify-content: center;
+}
+.cta-group .btn {
+  opacity: 0;
+  transform: translateY(8px);
+  animation: btnAppear 0.4s ease forwards;
+  animation-delay: calc(var(--btn-delay, 0s) + 2.5s);
 }
 
 /* Live badge */
@@ -508,6 +541,13 @@ img {
 .alert-sim--1 { animation: alertCycle 21s ease-in-out 1.5s infinite both; }
 .alert-sim--2 { animation: alertCycle 21s ease-in-out 8.5s infinite both; }
 .alert-sim--3 { animation: alertCycle 21s ease-in-out 15.5s infinite both; }
+/* 2f: right-side card for compositional balance — inset-inline-start: auto unsets inherited left:4% */
+.alert-sim--4 {
+  inset-inline-start: auto;
+  inset-inline-end: 4%;
+  top: 25%;
+  animation: alertCycle 21s ease-in-out 5s infinite both;
+}
 
 .alert-sim-header {
   display: flex;
@@ -1539,11 +1579,22 @@ img {
   .step-connector-line { transform: scaleX(1); }
   .mobile-fab { transition: none; }
   .feature-card::after { transition: none; }
+  /* Phase 2 additions */
+  .hero-logo   { animation: none; }
+  .hero-ticker { animation: none; }
+  .cta-group .btn { opacity: 1; transform: none; animation: none; }
+  /* Show only first left-side alert card statically; hide rest + right-side card */
+  .alert-sim--1 { animation: none; opacity: 1; }
+  .alert-sim--2, .alert-sim--3, .alert-sim--4 { display: none; }
 }
 
 /* ----------------------------------------------------------
    17. Hero ticker — replaces old hero-badge (no duplication)
    ---------------------------------------------------------- */
+@keyframes tickerShimmer {
+  0%, 100% { border-color: rgba(255, 255, 255, 0.1); }
+  50%       { border-color: rgba(34, 158, 217, 0.3); }
+}
 .hero-ticker {
   display: inline-flex;
   align-items: center;
@@ -1557,6 +1608,8 @@ img {
   padding: 0.3rem 1rem;
   white-space: nowrap;
   flex-wrap: nowrap;
+  /* 2e: slow shimmer conveys "live feed" without being distracting */
+  animation: tickerShimmer 3s ease-in-out infinite;
 }
 .hero-ticker-text { color: var(--text-primary); font-weight: 600; }
 .hero-ticker-sep  { opacity: 0.3; }
