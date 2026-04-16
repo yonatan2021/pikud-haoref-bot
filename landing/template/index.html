@@ -26,6 +26,8 @@
     <div class="aurora" aria-hidden="true">
       <div class="aurora-blob aurora-blob--1"></div>
       <div class="aurora-blob aurora-blob--2"></div>
+      <!-- 3rd blob: subtle red urgency warmth, max opacity 0.09 -->
+      <div class="aurora-blob aurora-blob--3"></div>
     </div>
 
     <!-- Cursor spotlight (position driven by JS CSS vars) -->
@@ -51,6 +53,7 @@
         <a
           href="https://t.me/phalaret"
           class="btn btn-primary btn--large"
+          style="--btn-delay: 0s"
           target="_blank"
           rel="noopener noreferrer"
         >
@@ -59,6 +62,7 @@
         <a
           href="{{WHATSAPP_LINK}}"
           class="btn btn-whatsapp btn--large"
+          style="--btn-delay: 0.1s"
           target="_blank"
           rel="noopener noreferrer"
         >
@@ -67,6 +71,7 @@
         <a
           href="#paths"
           class="btn btn-secondary btn--large"
+          style="--btn-delay: 0.2s"
         >
           🚀 הרץ instance משלך
         </a>
@@ -108,6 +113,16 @@
       <div class="alert-sim-type">🔒 סייגור</div>
       <div class="alert-sim-cities">ירושלים · מבשרת ציון</div>
       <div class="alert-sim-action">נעל דלתות, הישאר בפנים</div>
+    </div>
+
+    <!-- Right-side decorative card — compositional balance, staggered offset -->
+    <div class="alert-sim alert-sim--4" aria-hidden="true">
+      <div class="alert-sim-header">
+        <span class="alert-sim-dot"></span> התראה · לדוגמה
+      </div>
+      <div class="alert-sim-type">☢️ אירוע רדיולוגי</div>
+      <div class="alert-sim-cities">דימונה · ירוחם</div>
+      <div class="alert-sim-action">הישאר בפנים, אל תצא</div>
     </div>
   </header>
 
