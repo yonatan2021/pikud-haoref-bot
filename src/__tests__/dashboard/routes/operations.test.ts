@@ -48,6 +48,12 @@ describe('DELETE /api/operations/alert-window/:type', () => {
     assert.equal(res.status, 200);
     assert.equal(db.prepare('SELECT * FROM alert_window WHERE alert_type = ?').get('missiles'), undefined);
   });
+
+  it('rejects an invalid alert type with 400', async () => {
+    const res = await request(app).delete('/api/operations/alert-window/javascript:alert(1)');
+    assert.equal(res.status, 400);
+    assert.equal(typeof res.body.error, 'string');
+  });
 });
 
 describe('POST /api/operations/broadcast', () => {

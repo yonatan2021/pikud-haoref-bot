@@ -16,6 +16,15 @@ interface LandingConfig {
   deployStatus: 'deployed' | 'never';
 }
 
+function isSafeUrl(url: string): boolean {
+  try {
+    const { protocol } = new URL(url);
+    return protocol === 'https:' || protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
 function relTime(iso: string): string {
   const s = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
   if (s < 60) return `לפני ${s} שנ׳`;
@@ -139,9 +148,11 @@ export function LandingPage() {
                 <span className="inline-flex items-center gap-1.5 text-xs text-green mt-1.5">
                   <LiveDot color="green" />
                   האתר פעיל
-                  <a href={siteUrl} target="_blank" rel="noopener noreferrer" className="text-blue hover:underline inline-flex items-center gap-0.5">
-                    פתח <ExternalLink className="w-3 h-3" />
-                  </a>
+                  {isSafeUrl(siteUrl) && (
+                    <a href={siteUrl} target="_blank" rel="noopener noreferrer" className="text-blue hover:underline inline-flex items-center gap-0.5">
+                      פתח <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
                 </span>
               ) : (
                 <span className="text-text-muted text-xs mt-1.5 block">הכנס כתובת לאחר פרסום ראשון</span>
@@ -179,7 +190,7 @@ export function LandingPage() {
                   GitHub Actions <ExternalLink className="w-3 h-3" />
                 </a>
               )}
-              {siteUrl && (
+              {siteUrl && isSafeUrl(siteUrl) && (
                 <a
                   href={siteUrl}
                   target="_blank"

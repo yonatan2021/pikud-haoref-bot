@@ -5,6 +5,7 @@ import { getQueueStats } from '../../services/dmQueue.js';
 import { getTopicId } from '../../topicRouter.js';
 import { log } from '../../logger.js';
 import { createRateLimitMiddleware } from '../rateLimiter.js';
+import { ALL_ALERT_TYPES } from '../../config/alertTypeDefaults.js';
 
 // Exported for test isolation — tests that send multiple broadcast requests
 // must call `broadcastLimiter.clearStore()` in `beforeEach` (2/min cap).
@@ -41,7 +42,12 @@ export function createOperationsRouter(db: Database.Database, bot: Bot): Router 
   });
 
   router.delete('/alert-window/:type', deleteWindowLimiter, (req, res) => {
-    db.prepare('DELETE FROM alert_window WHERE alert_type = ?').run(req.params.type);
+    const type = req.params['type'] as string;
+    if (!ALL_ALERT_TYPES.includes(type)) {
+      res.status(400).json({ error: 'סוג התראה לא חוקי' });
+      return;
+    }
+    db.prepare('DELETE FROM alert_window WHERE alert_type = ?').run(type);
     res.json({ ok: true });
   });
 
