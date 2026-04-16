@@ -230,6 +230,8 @@ export function Overview() {
           </motion.div>
         )}
 
+        <hr className="border-t border-border" />
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Live Alert Feed */}
           <GlassCard className="p-5">
