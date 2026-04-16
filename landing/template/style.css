@@ -594,7 +594,19 @@ img {
 .stats-strip {
   padding-block: 2.5rem;
   border-block: 1px solid var(--border);
+  position: relative;
 }
+/* Accent frame lines — top and bottom glow tracks */
+.stats-strip::before,
+.stats-strip::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--accent), transparent);
+}
+.stats-strip::before { top: 0; }
+.stats-strip::after  { bottom: 0; }
 .stats-inner {
   max-width: var(--container-max);
   margin-inline: auto;
@@ -638,6 +650,10 @@ img {
 .stat-icon {
   font-size: 1.4rem;
   line-height: 1;
+  background: var(--accent-deep);
+  border-radius: 8px;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid rgba(34, 158, 217, 0.15);
 }
 .stat-value {
   display: flex;
@@ -787,6 +803,12 @@ img {
   color: var(--accent);
   background: var(--surface-hover);
 }
+.features-show-more[aria-expanded="true"] {
+  border-color: var(--border-hover);
+  color: var(--accent);
+}
+.features-show-more[aria-expanded="true"]::before  { content: '▲ '; font-size: 0.7rem; }
+.features-show-more[aria-expanded="false"]::before { content: '▼ '; font-size: 0.7rem; }
 
 /* Two-column layout: user panel | dev panel */
 .features-columns {
@@ -1662,6 +1684,8 @@ img {
 .compare-card--telegram {
   border-color: rgba(34, 158, 217, 0.45);
   box-shadow: 0 0 32px rgba(34, 158, 217, 0.1);
+  /* 3d: subtle gradient differentiates from WhatsApp card (additive — verify visually) */
+  background: linear-gradient(160deg, rgba(34, 158, 217, 0.07) 0%, var(--surface) 60%);
 }
 .compare-card--whatsapp {
   border-color: rgba(37, 211, 102, 0.3);
@@ -1670,7 +1694,9 @@ img {
 .compare-card-badge {
   position: absolute;
   inset-block-start: -0.6rem;
-  inset-inline-start: 50%;
+  /* 3e: use physical left:50% for centering — translateX(-50%) is physical,
+     not logical; inset-inline-start:50% breaks centering in RTL */
+  left: 50%;
   transform: translateX(-50%);
   background: linear-gradient(135deg, #f59e0b, #d97706);
   color: #fff;
@@ -2209,9 +2235,12 @@ img {
 }
 
 @media (max-width: 640px) {
-  /* Stats strip — 2+3 split on small phones */
+  /* Stats strip — 2+3 split on small phones; 5th item spans full width */
   .stats-inner {
     grid-template-columns: repeat(2, 1fr);
+  }
+  .stats-inner .stat-item:last-child {
+    grid-column: 1 / -1;
   }
 
   .city-preview-bubble { min-width: unset; }
