@@ -1,9 +1,9 @@
 import type { Bot } from 'grammy';
 import type Database from 'better-sqlite3';
-import { getPromptByPrefix, markResponded, recordEvent } from '../db/neighborCheckRepository.js';
+import { getPromptByPrefix, markResponded, recordEvent, type NeighborCheckResponse } from '../db/neighborCheckRepository.js';
 import { log } from '../logger.js';
 
-const CONFIRMATION_TEXT: Record<'checked' | 'unable' | 'dismissed', string> = {
+const CONFIRMATION_TEXT: Record<NeighborCheckResponse, string> = {
   checked:   '✅ תודה על הדיווח',
   unable:    '✅ תודה על הדיווח',
   dismissed: '🔇 הובן',
@@ -30,7 +30,7 @@ export function registerNeighborCheckHandler(bot: Bot): void {
     const match = ctx.match;
     if (!match) return;
 
-    const responseStr = match[1] as 'checked' | 'unable' | 'dismissed';
+    const responseStr = match[1] as NeighborCheckResponse;
     const chatId = parseInt(match[2], 10);
     const fpShort = match[3];
 

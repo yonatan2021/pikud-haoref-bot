@@ -13,6 +13,8 @@ interface RawEventRow {
   cnt: number;
 }
 
+export type NeighborCheckResponse = 'checked' | 'unable' | 'dismissed';
+
 export interface NeighborCheckPromptRow {
   chat_id: number;
   fingerprint: string;
@@ -99,7 +101,7 @@ export function getPromptByPrefix(
 export function recordEvent(
   db: Database.Database,
   alertFp: string,
-  response: 'checked' | 'unable' | 'dismissed',
+  response: NeighborCheckResponse,
   city: string | null
 ): void {
   db.prepare(

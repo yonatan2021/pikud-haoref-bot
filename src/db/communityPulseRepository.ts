@@ -30,7 +30,14 @@ function decodeRow(row: PulseDbRow): PulseRow {
     id: row.id,
     fingerprint: row.fingerprint,
     alertType: row.alert_type,
-    zones: JSON.parse(row.zones) as string[],
+    zones: (() => {
+      try {
+        const parsed = JSON.parse(row.zones);
+        return Array.isArray(parsed) ? parsed as string[] : [];
+      } catch {
+        return [];
+      }
+    })(),
     createdAt: row.created_at,
   };
 }
