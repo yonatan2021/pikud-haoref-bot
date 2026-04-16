@@ -41,6 +41,7 @@
         class="hero-logo"
         width="86"
         height="86"
+        decoding="sync"
       />
 
       <h1 class="hero-title">בוט התראות פיקוד העורף</h1>
@@ -406,7 +407,7 @@
   <section class="paths section" id="paths">
     <div class="container">
       <h2 class="section-title reveal">{{PATHS_SECTION_TITLE}}</h2>
-      <p class="section-subtitle">בחר מה מתאים לך — אפשר גם וגם</p>
+      <p class="section-subtitle reveal" style="--reveal-delay: 0.05s">בחר מה מתאים לך — אפשר גם וגם</p>
 
       <div class="paths-grid">
 {{PATHS_HTML}}
@@ -426,35 +427,35 @@
 
         <div class="screenshot-item" role="listitem">
           <div class="screenshot-frame">
-            <img src="screenshots/start.jpg" alt="תפריט ראשי של הבוט" loading="lazy" width="200" height="356" />
+            <img src="screenshots/start.jpg" alt="תפריט ראשי של הבוט" loading="lazy" width="200" height="356" decoding="async" />
           </div>
           <p class="screenshot-caption">תפריט ראשי</p>
         </div>
 
         <div class="screenshot-item" role="listitem">
           <div class="screenshot-frame">
-            <img src="screenshots/zones.jpg" alt="ממשק בחירת אזור" loading="lazy" width="200" height="356" />
+            <img src="screenshots/zones.jpg" alt="ממשק בחירת אזור" loading="lazy" width="200" height="356" decoding="async" />
           </div>
           <p class="screenshot-caption">בחירת אזור</p>
         </div>
 
         <div class="screenshot-item" role="listitem">
           <div class="screenshot-frame">
-            <img src="screenshots/add.jpg" alt="חיפוש עיר להוספה" loading="lazy" width="200" height="356" />
+            <img src="screenshots/add.jpg" alt="חיפוש עיר להוספה" loading="lazy" width="200" height="356" decoding="async" />
           </div>
           <p class="screenshot-caption">חיפוש עיר</p>
         </div>
 
         <div class="screenshot-item" role="listitem">
           <div class="screenshot-frame">
-            <img src="screenshots/mycities.jpg" alt="רשימת הערים שהמשתמש עקב אחריהן" loading="lazy" width="200" height="356" />
+            <img src="screenshots/mycities.jpg" alt="רשימת הערים שהמשתמש עקב אחריהן" loading="lazy" width="200" height="356" decoding="async" />
           </div>
           <p class="screenshot-caption">הערים שלי</p>
         </div>
 
         <div class="screenshot-item" role="listitem">
           <div class="screenshot-frame">
-            <img src="screenshots/settings.jpg" alt="הגדרות הבוט" loading="lazy" width="200" height="356" />
+            <img src="screenshots/settings.jpg" alt="הגדרות הבוט" loading="lazy" width="200" height="356" decoding="async" />
           </div>
           <p class="screenshot-caption">הגדרות</p>
         </div>
@@ -462,35 +463,35 @@
         <!-- Duplicate set for seamless loop -->
         <div class="screenshot-item" aria-hidden="true">
           <div class="screenshot-frame">
-            <img src="screenshots/start.jpg" alt="" loading="lazy" width="200" height="356" />
+            <img src="screenshots/start.jpg" alt="" loading="lazy" width="200" height="356" decoding="async" />
           </div>
           <p class="screenshot-caption">תפריט ראשי</p>
         </div>
 
         <div class="screenshot-item" aria-hidden="true">
           <div class="screenshot-frame">
-            <img src="screenshots/zones.jpg" alt="" loading="lazy" width="200" height="356" />
+            <img src="screenshots/zones.jpg" alt="" loading="lazy" width="200" height="356" decoding="async" />
           </div>
           <p class="screenshot-caption">בחירת אזור</p>
         </div>
 
         <div class="screenshot-item" aria-hidden="true">
           <div class="screenshot-frame">
-            <img src="screenshots/add.jpg" alt="" loading="lazy" width="200" height="356" />
+            <img src="screenshots/add.jpg" alt="" loading="lazy" width="200" height="356" decoding="async" />
           </div>
           <p class="screenshot-caption">חיפוש עיר</p>
         </div>
 
         <div class="screenshot-item" aria-hidden="true">
           <div class="screenshot-frame">
-            <img src="screenshots/mycities.jpg" alt="" loading="lazy" width="200" height="356" />
+            <img src="screenshots/mycities.jpg" alt="" loading="lazy" width="200" height="356" decoding="async" />
           </div>
           <p class="screenshot-caption">הערים שלי</p>
         </div>
 
         <div class="screenshot-item" aria-hidden="true">
           <div class="screenshot-frame">
-            <img src="screenshots/settings.jpg" alt="" loading="lazy" width="200" height="356" />
+            <img src="screenshots/settings.jpg" alt="" loading="lazy" width="200" height="356" decoding="async" />
           </div>
           <p class="screenshot-caption">הגדרות</p>
         </div>
@@ -822,6 +823,8 @@
             requestAnimationFrame(animate);
           } else {
             el.textContent = target.toLocaleString('he-IL');
+            el.classList.add('stat-counted');
+            setTimeout(function() { el.classList.remove('stat-counted'); }, 600);
           }
         };
         requestAnimationFrame(animate);
