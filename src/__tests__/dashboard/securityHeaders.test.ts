@@ -10,18 +10,32 @@ function buildTestApp(): express.Express {
   const app = express();
   app.use(helmet({
     contentSecurityPolicy: {
+      useDefaults: false,
       directives: {
         defaultSrc: ["'self'"],
+        baseUri: ["'self'"],
         scriptSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", 'data:', 'blob:'],
         connectSrc: ["'self'"],
         fontSrc: ["'self'"],
         objectSrc: ["'none'"],
-        upgradeInsecureRequests: [],
+        formAction: ["'self'"],
+        frameAncestors: ["'self'"],
+        scriptSrcAttr: ["'none'"],
       },
     },
   }));
+  app.use((req, res, next) => {
+    if (req.method === 'GET' && req.path === '/probe') {
+      res.set({
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        Pragma: 'no-cache',
+        Expires: '0',
+      });
+    }
+    next();
+  });
   app.get('/probe', (_req, res) => res.json({ ok: true }));
   return app;
 }
@@ -51,9 +65,19 @@ describe('HTTP security headers (helmet)', () => {
     const csp = res.headers['content-security-policy'] as string;
     assert.ok(csp, 'CSP header must be present');
     assert.match(csp, /default-src 'self'/);
+    assert.match(csp, /base-uri 'self'/);
     assert.match(csp, /script-src 'self'/);
     assert.match(csp, /object-src 'none'/);
-    assert.match(csp, /upgrade-insecure-requests/);
+    assert.match(csp, /form-action 'self'/);
+    assert.match(csp, /frame-ancestors 'self'/);
+    assert.match(csp, /script-src-attr 'none'/);
+  });
+
+  it('disables cache for HTML shells', async () => {
+    const res = await request(buildTestApp()).get('/probe');
+    assert.match(res.headers['cache-control'] as string, /no-store/);
+    assert.equal(res.headers['pragma'], 'no-cache');
+    assert.equal(res.headers['expires'], '0');
   });
 
   it('sets Referrer-Policy header', async () => {
