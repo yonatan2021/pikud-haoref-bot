@@ -52,6 +52,17 @@ export const SETTINGS_SCHEMA: readonly SettingDef[] = [
     order: 1,
   },
   {
+    key: 'dm_queue_concurrency',
+    tab: 'bot',
+    label: 'מקביליות תור DM',
+    description: 'כמה הודעות פרטיות נשלחות במקביל. גבוה יותר = שליחה מהירה אבל סיכון rate-limit. ברירת מחדל: 10, טווח: 1–50',
+    type: 'number',
+    defaultValue: '10',
+    hotReload: true,
+    validation: { min: 1, max: 50 },
+    order: 3,
+  },
+  {
     key: 'quiet_hours_global',
     tab: 'bot',
     label: 'שעות שקט גלובליות',

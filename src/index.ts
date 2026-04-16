@@ -125,6 +125,8 @@ function autoMigrateEnvSecrets(db: ReturnType<typeof getDb>): void {
     loadActiveMessages();
     loadTemplateCache();
     loadRoutingCache(getDb());
+    // Hot-configurable DM queue concurrency — read per drain() decision.
+    dmQueue.setConcurrencyProvider(() => getNumber(getDb(), 'dm_queue_concurrency', 10));
     setMenuHandlerDb(getDb());
     setSafetyStatusHandlerDeps(getDb());
     setNeighborCheckHandlerDb(getDb());

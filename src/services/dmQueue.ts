@@ -12,6 +12,12 @@ type SendFn = (task: DmTask) => Promise<void>;
 
 interface DmQueueOptions {
   concurrency?: number;
+  /**
+   * Dynamic concurrency provider — called on each drain() decision so
+   * dashboard edits to `dm_queue_concurrency` take effect without restart.
+   * When set, overrides the static `concurrency` option.
+   */
+  getConcurrency?: () => number;
 }
 
 export class DmQueue {
@@ -19,14 +25,32 @@ export class DmQueue {
   private running = 0;
   private paused = false;
   private pauseTimer: ReturnType<typeof setTimeout> | null = null;
-  private readonly concurrency: number;
+  private readonly staticConcurrency: number;
+  private concurrencyProvider: (() => number) | null;
   private readonly send: SendFn;
 
   constructor(send: SendFn, options: DmQueueOptions = {}) {
     this.send = send;
     const requested = options.concurrency ?? 10;
     if (requested <= 0) throw new Error(`DmQueue: concurrency must be positive, got ${requested}`);
-    this.concurrency = requested;
+    this.staticConcurrency = requested;
+    this.concurrencyProvider = options.getConcurrency ?? null;
+  }
+
+  /**
+   * Wire a dynamic concurrency provider post-construction. Used by index.ts
+   * after initDb() so the provider can read the settings DB that was not
+   * initialised when the singleton was instantiated at module load.
+   */
+  setConcurrencyProvider(fn: () => number): void {
+    this.concurrencyProvider = fn;
+  }
+
+  private currentConcurrency(): number {
+    if (!this.concurrencyProvider) return this.staticConcurrency;
+    const n = this.concurrencyProvider();
+    // Guard bad values — drain loop must have a positive int to avoid hang/hotloop.
+    return Number.isFinite(n) && Number.isInteger(n) && n >= 1 ? n : this.staticConcurrency;
   }
 
   enqueueAll(tasks: DmTask[]): void {
@@ -49,7 +73,7 @@ export class DmQueue {
   // In-flight sends (already past running++) complete even when paused; their
   // finally() re-calls drain() which is a no-op while paused is true.
   private drain(): void {
-    while (!this.paused && this.running < this.concurrency && this.queue.length > 0) {
+    while (!this.paused && this.running < this.currentConcurrency() && this.queue.length > 0) {
       const task = this.queue.shift()!;
       this.running++;
       this.send(task)
