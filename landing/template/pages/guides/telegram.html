@@ -1,0 +1,132 @@
+<main class="subpage" id="main">
+  <nav class="breadcrumb" aria-label="פירורי לחם">
+    <ol>
+      <li><a href="/">בית</a></li>
+      <li><a href="/guides/">מדריכים</a></li>
+      <li aria-current="page">רישום בטלגרם</li>
+    </ol>
+  </nav>
+
+  <header class="subpage-hero">
+    <h1>📱 רישום בטלגרם</h1>
+    <p class="subpage-subtitle">פתח את הבוט, בחר עיר, קבל התראות — מדריך צעד אחר צעד · זמן קריאה: ~3 דק׳</p>
+  </header>
+
+  <article class="prose">
+    <p>מדריך זה מלווה אותך מרגע ההתחלה ועד לקבלת ההתראה הראשונה. כל התהליך אורך כ-2 דקות.</p>
+
+    <ol class="step-list">
+      <li class="step-block">
+        <span class="step-block-num" aria-hidden="true"></span>
+        <div class="step-block-content">
+          <p class="step-block-title">פתח את Telegram במכשיר שלך</p>
+          <p class="step-block-body">
+            ניתן להשתמש באפליקציה לנייד (iOS / Android) או בגרסת הדסקטופ. אם עדיין אין לך Telegram,
+            הורד אותה בחינם מ-<a href="https://telegram.org" rel="noopener noreferrer" target="_blank">telegram.org</a>.
+          </p>
+        </div>
+      </li>
+
+      <li class="step-block">
+        <span class="step-block-num" aria-hidden="true"></span>
+        <div class="step-block-content">
+          <p class="step-block-title">חפש את הבוט</p>
+          <p class="step-block-body">
+            בשדה החיפוש של Telegram הקלד <span class="keycap">@PikudHaorefBot</span> —
+            או לחץ ישירות על <a href="https://t.me/PikudHaorefBot" rel="noopener noreferrer" target="_blank">הקישור בעמוד הבית</a>.
+            וודא שמדובר בבוט הנכון: שם המשתמש המלא הוא <span class="keycap">@PikudHaorefBot</span>.
+          </p>
+        </div>
+      </li>
+
+      <li class="step-block">
+        <span class="step-block-num" aria-hidden="true"></span>
+        <div class="step-block-content">
+          <p class="step-block-title">לחץ "התחל" או שלח <span class="keycap">/start</span></p>
+          <p class="step-block-body">
+            בחלון הצ'אט מופיע כפתור כחול "התחל" — לחץ עליו, או הקלד ידנית <span class="keycap">/start</span>.
+            הבוט ישיב עם פתיחת תהליך ה-onboarding.
+          </p>
+        </div>
+      </li>
+
+      <li class="step-block">
+        <span class="step-block-num" aria-hidden="true"></span>
+        <div class="step-block-content">
+          <p class="step-block-title">הזן את שמך (אופציונלי)</p>
+          <p class="step-block-body">
+            הבוט ישאל לשמך (עד 50 תווים). זה מופיע בפרופיל שלך ובהתראות לאנשי קשר.
+            אפשר לדלג בלחיצה על כפתור "דלג" — ניתן להוסיף אחר כך דרך <span class="keycap">/profile</span>.
+          </p>
+        </div>
+      </li>
+
+      <li class="step-block">
+        <span class="step-block-num" aria-hidden="true"></span>
+        <div class="step-block-content">
+          <p class="step-block-title">חפש את העיר שלך</p>
+          <p class="step-block-body">
+            הקלד לפחות 2 אותיות משם עירך — הבוט יציג עד 5 הצעות תואמות.
+            החיפוש חלקי: "תל" יחזיר תל אביב ותל מונד. אין רגישות לניקוד.
+          </p>
+        </div>
+      </li>
+
+      <li class="step-block">
+        <span class="step-block-num" aria-hidden="true"></span>
+        <div class="step-block-content">
+          <p class="step-block-title">בחר עיר מהרשימה</p>
+          <p class="step-block-body">
+            לחץ על שם העיר המתאים מהרשימה שהוצגה. הבוט יבקש ממך לאשר את הבחירה.
+            ניתן להוסיף ערים נוספות בהמשך דרך <span class="keycap">/add</span> או <span class="keycap">/zones</span>.
+          </p>
+        </div>
+      </li>
+
+      <li class="step-block">
+        <span class="step-block-num" aria-hidden="true"></span>
+        <div class="step-block-content">
+          <p class="step-block-title">אשר ✅ — מוכן!</p>
+          <p class="step-block-body">
+            לחץ "אישור" בסיכום הפרופיל. הבוט ישלח תפריט ראשי ומעתה תקבל התראות
+            בזמן אמת לעיר שנבחרה.
+          </p>
+        </div>
+      </li>
+    </ol>
+
+    <div class="screenshot-row">
+      <figure class="screenshot-frame">
+        <img src="/screenshots/start.jpg" alt="מסך הפתיחה של בוט פיקוד העורף" loading="lazy" width="440" height="auto">
+        <figcaption>מסך פתיחה — לחץ "התחל" להתחלת ה-onboarding</figcaption>
+      </figure>
+      <figure class="screenshot-frame">
+        <img src="/screenshots/add.jpg" alt="הוספת עיר להתראות" loading="lazy" width="440" height="auto">
+        <figcaption>חיפוש עיר — הקלד 2+ אותיות לחיפוש</figcaption>
+      </figure>
+      <figure class="screenshot-frame">
+        <img src="/screenshots/mycities.jpg" alt="רשימת הערים שנרשמת אליהן" loading="lazy" width="440" height="auto">
+        <figcaption>הערים שנבחרו — תצוגת /mycities</figcaption>
+      </figure>
+    </div>
+
+    <h2>טיפים שימושיים</h2>
+    <ul>
+      <li>כדי להוסיף עוד ערים אחרי הרישום, שלח <span class="keycap">/add</span> או <span class="keycap">/zones</span>.</li>
+      <li>לצפייה בכל הערים שנרשמת אליהן, שלח <span class="keycap">/mycities</span>.</li>
+      <li>להגדרות שקט לילי ושינה, גש ל- <span class="keycap">/settings</span>.</li>
+      <li>אם ה-onboarding לא הסתיים — שלח <span class="keycap">/start</span> שוב כדי להפעיל אותו מחדש.</li>
+    </ul>
+
+    <nav class="guide-cta" aria-label="המשך קריאה">
+      <p class="guide-cta-title">המשך לקרוא</p>
+      <div class="guide-cta-links">
+        <a class="guide-cta-link guide-cta-link-primary" href="/guides/commands/">⚡ כל פקודות הבוט</a>
+        <a class="guide-cta-link" href="/guides/onboarding/">🚀 onboarding מפורט</a>
+        <a class="guide-cta-link" href="/faq/">❓ שאלות נפוצות</a>
+      </div>
+    </nav>
+  </article>
+</main>
+
+<!--[partial:footer]-->

@@ -615,10 +615,14 @@ function renderPage(page, partials, sources, globals) {
   const activeSlug = page.slug || '/';
   const navHtml = replacePlaceholders(partials.nav, { ACTIVE_SLUG: activeSlug });
 
-  // Subpage stylesheet — only for kind:'subpage' pages
-  const subpageStyles = (page.kind === 'subpage')
-    ? '<link rel="stylesheet" href="/styles/subpage.css">'
-    : '';
+  // Subpage stylesheet — for kind:'subpage' and kind:'guide' pages
+  let subpageStyles = '';
+  if (page.kind === 'subpage' || page.kind === 'guide') {
+    subpageStyles = '<link rel="stylesheet" href="/styles/subpage.css">';
+  }
+  if (page.kind === 'guide') {
+    subpageStyles += '\n<link rel="stylesheet" href="/styles/guides.css">';
+  }
 
   // Hero image preload — only for home page
   const heroPreload = (page.kind === 'home' || page.slug === '/')
