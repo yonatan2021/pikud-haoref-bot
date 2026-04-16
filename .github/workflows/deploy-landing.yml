@@ -25,9 +25,11 @@ jobs:
           node-version: '22'
 
       - name: Build landing page
-        run: node landing/build.js
+        run: npm run build:landing
         env:
           GA4_MEASUREMENT_ID: ${{ secrets.GA4_MEASUREMENT_ID }}
+          ACCESSIBILITY_CONTACT_NAME: ${{ secrets.ACCESSIBILITY_CONTACT_NAME }}
+          ACCESSIBILITY_CONTACT_EMAIL: ${{ secrets.ACCESSIBILITY_CONTACT_EMAIL }}
 
       - name: Setup SSH deploy key
         run: |

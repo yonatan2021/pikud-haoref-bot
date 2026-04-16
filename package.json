@@ -12,6 +12,7 @@
     "dev": "tsx watch src/index.ts",
     "test": "DB_PATH=:memory: tsx --test src/__tests__/*.test.ts",
     "build:dashboard": "cd dashboard-ui && npm ci && npm run build",
+    "build:landing": "node landing/build.js && node landing/check-links.js",
     "dev:dashboard": "cd dashboard-ui && npm run dev"
   },
   "engines": {
