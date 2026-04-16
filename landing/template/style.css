@@ -1620,10 +1620,36 @@ img {
   .alert-sim--2, .alert-sim--3, .alert-sim--4 { display: none; }
   /* FAQ opacity — skip fade animation, show immediately */
   .faq-a { opacity: 1; transition: max-height var(--dur-medium) ease; }
+  /* Stat sparkle — no scale pop */
+  .stat-num.stat-counted { animation: none; }
 }
 
 /* ----------------------------------------------------------
-   17. Hero ticker — replaces old hero-badge (no duplication)
+   17. Micro-interactions (Phase 6)
+   ---------------------------------------------------------- */
+
+/* 6a. Stat count-up completion sparkle */
+@keyframes statPop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.12); color: #fff; }
+  100% { transform: scale(1); }
+}
+.stat-num.stat-counted {
+  animation: statPop 0.5s var(--ease-out-cubic) forwards;
+}
+
+/* 6b. Copy button checkmark scale-in */
+@keyframes checkPop {
+  0%   { transform: scale(0.7); }
+  60%  { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+.copy-btn.copied .copy-feedback {
+  animation: checkPop 0.25s var(--ease-out-cubic) forwards;
+}
+
+/* ----------------------------------------------------------
+   18. Hero ticker — replaces old hero-badge (no duplication)
    ---------------------------------------------------------- */
 @keyframes tickerShimmer {
   0%, 100% { border-color: rgba(255, 255, 255, 0.1); }
