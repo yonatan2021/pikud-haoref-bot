@@ -5,6 +5,40 @@
    ============================================================ */
 
 /* ----------------------------------------------------------
+   Self-hosted Heebo (Hebrew + Latin subset, 4 weights)
+   Source: google-webfonts-helper (gwfh.mranftl.com)
+   Files: landing/template/fonts/heebo-{400,500,700,900}.woff2
+   ---------------------------------------------------------- */
+@font-face {
+  font-family: 'Heebo';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/heebo-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Heebo';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/heebo-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Heebo';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/heebo-700.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Heebo';
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url('/fonts/heebo-900.woff2') format('woff2');
+}
+
+/* ----------------------------------------------------------
    0. CSS Custom Properties
    ---------------------------------------------------------- */
 :root {
