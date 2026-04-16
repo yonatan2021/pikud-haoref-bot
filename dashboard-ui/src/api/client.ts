@@ -6,11 +6,24 @@ class ApiError extends Error {
   }
 }
 
+function getDashboardBasePath(): string {
+  const { pathname } = window.location;
+  if (pathname === '/dashboard' || pathname.startsWith('/dashboard/')) {
+    return '/dashboard';
+  }
+  return '';
+}
+
+function redirectToLogin(): never {
+  const base = getDashboardBasePath();
+  window.location.href = `${base}/login`;
+  throw new ApiError(401, 'Unauthorized');
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, { credentials: 'include', ...init });
   if (res.status === 401) {
-    window.location.href = '/login';
-    throw new ApiError(401, 'Unauthorized');
+    redirectToLogin();
   }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));

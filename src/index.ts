@@ -49,6 +49,7 @@ import { initCrypto } from './dashboard/crypto.js';
 import { getSetting, setSetting } from './dashboard/settingsRepository.js';
 import { resolveConfig, resolveRequiredConfigs, ConfigMissingError, SECRET_KEYS, envKeyFor } from './config/configResolver.js';
 import { isCryptoReady } from './dashboard/crypto.js';
+import { getPrimaryLocalIPv4Address } from './localNetwork.js';
 
 // Prevent broken-pipe errors from crashing the bot when a stdout consumer exits.
 process.stdout.on('error', (err: NodeJS.ErrnoException) => {
@@ -58,6 +59,16 @@ process.stdout.on('error', (err: NodeJS.ErrnoException) => {
 // DASHBOARD_SECRET is the only hard-required env var (bootstrap: encryption + auth).
 // All other config is resolved from DB → env fallback after initDb().
 const dashboardSecretBoot = process.env.DASHBOARD_SECRET;
+
+function buildLocalDashboardUrl(port: number, localIp: string | null): string {
+  const host = localIp ?? 'localhost';
+  return `http://${host}:${port}/dashboard`;
+}
+
+function buildLocalHealthUrl(port: number, localIp: string | null): string {
+  const host = localIp ?? 'localhost';
+  return `http://${host}:${port}/health`;
+}
 
 /**
  * One-time migration: copies secrets from .env to encrypted DB storage.
@@ -160,6 +171,9 @@ function autoMigrateEnvSecrets(db: ReturnType<typeof getDb>): void {
   const dashboardSecret = dashboardSecretBoot;
   const rawDashboardPort = parseInt(process.env.DASHBOARD_PORT ?? '4000', 10);
   const dashboardPort = Number.isFinite(rawDashboardPort) && rawDashboardPort > 0 ? rawDashboardPort : 4000;
+  const localIp = getPrimaryLocalIPv4Address();
+  const dashboardUrl = buildLocalDashboardUrl(dashboardPort, localIp);
+  const healthUrl = buildLocalHealthUrl(resolvedHealthPort, localIp);
 
   const bot = getBot(resolvedConfig['telegram_bot_token']);
   await setupBotHandlers(bot);
@@ -364,9 +378,9 @@ function autoMigrateEnvSecrets(db: ReturnType<typeof getDb>): void {
   process.once('SIGINT',  () => { void shutdown('SIGINT');  });
 
   logStartupHeader('0.5.0', [
-    { name: 'Health Server', detail: healthOk ? toVisualRtl(`פורט ${resolvedHealthPort}`) : toVisualRtl('נכשל בהפעלה'), ok: healthOk, url: healthOk ? `http://localhost:${resolvedHealthPort}/health` : undefined },
+    { name: 'Health Server', detail: healthOk ? toVisualRtl(`פורט ${resolvedHealthPort}`) : toVisualRtl('נכשל בהפעלה'), ok: healthOk, url: healthOk ? healthUrl : undefined },
     { name: 'Alert Poller',  detail: toVisualRtl('כל 2 שניות'),                                                ok: true },
-    { name: 'Dashboard',     detail: dashboardSecret ? toVisualRtl(`פורט ${dashboardPort}`) : toVisualRtl('כבוי (אין DASHBOARD_SECRET)'), ok: !!dashboardSecret, url: dashboardSecret ? `http://localhost:${dashboardPort}/dashboard` : undefined },
+    { name: 'Dashboard',     detail: dashboardSecret ? toVisualRtl(`פורט ${dashboardPort}`) : toVisualRtl('כבוי (אין DASHBOARD_SECRET)'), ok: !!dashboardSecret, url: dashboardSecret ? dashboardUrl : undefined },
     { name: 'Database',      detail: toVisualRtl('מאותחל'),                                                ok: true },
     { name: 'WhatsApp',      detail: toVisualRtl(process.env.WHATSAPP_ENABLED === 'true' ? 'מופעל' : 'כבוי'), ok: process.env.WHATSAPP_ENABLED === 'true' },
     { name: 'TG Listener',  detail: toVisualRtl(tgListenerEnabled ? 'מופעל' : 'כבוי'), ok: tgListenerEnabled },
