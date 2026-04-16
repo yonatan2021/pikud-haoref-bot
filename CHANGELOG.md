@@ -30,6 +30,45 @@
 
 ---
 
+## [0.5.3] — 2026-04-16
+
+<div dir="rtl">
+
+### ✨ תכונות חדשות
+
+- **Community Pulse** — סקר "מה שלומך?" אוטומטי אחרי אזעקה בעיר המגורים; 3 אפשרויות (✅ בסדר / 😰 מפחד/ת / 🤝 עוזר/ת לאחרים); תוצאות מרוכזות כשמגיעים ל-threshold מוגדר; opt-in; cooldown מוגדר (ברירת מחדל 6 שעות) (PR #219)
+- **סיפורי מקלט** — שיתוף חוויה קצרה מהמקלט (עד 200 תווים); flow אישור בדשבורד (lock → publish); פרסום בערוץ נושא ייעודי (`TELEGRAM_TOPIC_ID_STORIES`); INSERT OR IGNORE מגן מפני כפילויות (PR #220)
+- **שיתוף מיומנויות** — `/skills` להצהרת מיומנויות מרשימה מוגדרת מראש (30 מיומנויות + קטגוריות); `/need [מיומנות]` לחיפוש אנשי קשר מתאימים לסיוע בשעת חירום; `skill_catalog` table + repository (PR #221, #228)
+- **בדיקת שכנים** — X דקות לאחר אזעקה בעיר מגורים → DM אוטומטי "בדקת את שכניך?" עם 3 כפתורי מענה (בדקתי / לא יכולתי / הבנתי); injectable `scheduleFn`/`sendFn`/`cancelScheduleFn` לבדיקות; kill-switch ב-dashboard (PR #222)
+- **מחיקת/העברת קבוצה** — מנהל קבוצה יכול למחוק אותה עם confirmation, או להעביר בעלות לחבר אחר; audit log בטבלה ייעודית (`group_transfer_log`) (PR #231)
+- **Community Config Dashboard** — עמוד `/community` בדשבורד עם 5 הגדרות hot-configurable: cooldown סקרים, מגבלת תווים לסיפורים, threshold תוצאות, השהיית בדיקת שכנים, מתג הפעלה כלל-מערכתי (PR #227)
+
+### 🐛 תיקוני באגים
+
+- **`CHECK (length(body) <= 200)` הוסר מ-DB** — ה-constraint גרם ל-crash מובטח כשה-dashboard default הוא 500; app layer אחראי לבדיקה
+- **`insertResponse` מחזירה `boolean`** — מאפשר לזהות duplicate response ב-`communityPulseHandler` ולהציג "כבר ענית על הסקר הזה"
+- **`shelterStoriesHandler` — pending state נמחק רק בהצלחה** — שגיאת שרת לא "תתקע" את המשתמש בלולאת תגובה; `pendingShares.delete` ב-success path + catch block, לא ב-`finally`
+- **`publishStory` עם status guard** — `UPDATE ... WHERE status = 'approved'` מונע publish כפול או מקדים
+- **Empty catch blocks** — `neighborCheckHandler`, `skillsHandler` — כל catch מוסיף `log('error/warn', ...)` + reply למשתמש
+
+### 🧪 בדיקות
+
+- `alertWindowTracker` — 5 tests ל-`setWindowCloseCallback`: lazy expiry, no-double-fire, copy semantics, `clearAllCloseTimers` independence
+- `neighborCheckHandler` — 5 callback tests: checked/unable/dismissed confirmations, already-responded guard, expiry message (injected `:memory:` DB via `setNeighborCheckHandlerDb`)
+- `communityPulseHandler` — 6 callback tests: first-response תודה, duplicate guard, multi-user, missing `from`, agg threshold
+- `alertHandler` — 4 tests ל-`scheduleNeighborCheck` dep: fresh send, dmCities filter on edit, empty dmCities guard, optional dep
+- **סה"כ: 1,789 tests (1,418 main suite + 371 dashboard)**
+
+### 🔧 תחזוקה
+
+- `cancelNeighborCheckTimers` מחובר ל-`shutdown()` ב-`index.ts` — graceful shutdown מלא
+- TS2571 fix: `(calls[0].arguments[0] as Alert).cities` ב-`alertHandler.test.ts`
+- `alertWindowTracker` silent catch הוחלף ב-`log('warn', ...)` עם context
+
+</div>
+
+---
+
 ## [0.5.2] — 2026-04-13
 
 <div dir="rtl">
