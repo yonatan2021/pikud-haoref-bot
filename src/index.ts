@@ -47,7 +47,7 @@ import { scheduleNeighborCheck, cancelAll as cancelNeighborCheckAll } from './se
 import { setNeighborCheckHandlerDb } from './bot/neighborCheckHandler.js';
 import { initCrypto } from './dashboard/crypto.js';
 import { getSetting, setSetting } from './dashboard/settingsRepository.js';
-import { resolveConfig, resolveRequiredConfigs, ConfigMissingError, SECRET_KEYS, envKeyFor } from './config/configResolver.js';
+import { resolveConfig, resolveRequiredConfigs, ConfigMissingError, SECRET_KEYS, envKeyFor, getNumber } from './config/configResolver.js';
 import { isCryptoReady } from './dashboard/crypto.js';
 
 // Prevent broken-pipe errors from crashing the bot when a stdout consumer exits.
@@ -263,6 +263,9 @@ function autoMigrateEnvSecrets(db: ReturnType<typeof getDb>): void {
 
   const allClearTracker = createAllClearTracker({
     getCityZone: (city) => getCityData(city)?.zone,
+    // Read on every recordAlert() so dashboard edits to
+    // `all_clear_quiet_window_seconds` take effect without restart.
+    getQuietWindowMs: () => getNumber(getDb(), 'all_clear_quiet_window_seconds', 600) * 1000,
     onAllClear: (events) => {
       allClearService.handleAllClear(events).catch(err =>
         log('error', 'Index', `handleAllClear נכשל: ${String(err)}`)

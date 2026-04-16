@@ -240,6 +240,17 @@ export const SETTINGS_SCHEMA: readonly SettingDef[] = [
 
   // ── DM Messages ─────────────────────────────────
   {
+    key: 'all_clear_quiet_window_seconds',
+    tab: 'dm',
+    label: 'חלון שקט חזר (שניות)',
+    description: 'כמה שניות ללא התראות חדשות באזור לפני שליחת "שקט חזר". ברירת מחדל: 600 (10 דקות). טווח: 60–3600',
+    type: 'number',
+    defaultValue: '600',
+    hotReload: true,
+    validation: { min: 60, max: 3600 },
+    order: 0,
+  },
+  {
     key: 'all_clear_mode',
     tab: 'dm',
     label: 'אופן שליחת שקט חזר',

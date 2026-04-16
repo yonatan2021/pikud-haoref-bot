@@ -8,7 +8,14 @@ export interface AllClearDeps {
   scheduleFn?: (cb: () => void, ms: number) => ReturnType<typeof setTimeout>;
   cancelScheduleFn?: (id: ReturnType<typeof setTimeout>) => void;
   onAllClear: (events: AllClearEvent[]) => void;
+  /** Static fallback (ms). Ignored if getQuietWindowMs is provided. */
   quietWindowMs?: number;
+  /**
+   * Dynamic quiet-window provider — called on every recordAlert() so dashboard
+   * changes to `all_clear_quiet_window_seconds` take effect immediately (no
+   * restart needed). Takes precedence over `quietWindowMs` when both are set.
+   */
+  getQuietWindowMs?: () => number;
   /** Maps a city name to its zone. Used to filter alertCities per zone. */
   getCityZone?: (city: string) => string | undefined;
 }
@@ -26,10 +33,18 @@ export function createAllClearTracker(deps: AllClearDeps) {
   const firedZones = new Set<string>();
   const schedule = deps.scheduleFn ?? setTimeout;
   const cancel = deps.cancelScheduleFn ?? clearTimeout;
-  const windowMs = deps.quietWindowMs ?? DEFAULT_QUIET_WINDOW_MS;
+  const staticWindowMs = deps.quietWindowMs ?? DEFAULT_QUIET_WINDOW_MS;
   const getCityZone = deps.getCityZone ?? (() => undefined);
 
+  function resolveWindowMs(): number {
+    if (!deps.getQuietWindowMs) return staticWindowMs;
+    const ms = deps.getQuietWindowMs();
+    // Guard against 0/negative/NaN — would fire all-clear immediately or never.
+    return ms > 0 && Number.isFinite(ms) ? ms : staticWindowMs;
+  }
+
   function recordAlert(zones: string[], alertType: string, alertCities: string[] = []): void {
+    const windowMs = resolveWindowMs();
     for (const zone of zones) {
       const existing = timers.get(zone);
       if (existing) cancel(existing.id);

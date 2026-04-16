@@ -46,6 +46,7 @@ export const CONFIG_KEYS: ReadonlySet<string> = new Set([
   'quiet_hours_global',
   'all_clear_mode',
   'all_clear_topic_id',
+  'all_clear_quiet_window_seconds',
   'landing_url',
   'privacy_defaults',
   // v0.5.1 — group feature hot-config (refs #225)

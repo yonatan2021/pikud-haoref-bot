@@ -31,6 +31,7 @@ const ALLOWED_KEYS = new Set([
   'privacy_defaults',
   'all_clear_mode',
   'all_clear_topic_id',
+  'all_clear_quiet_window_seconds',
   'dm_all_clear_text',
   'dm_relevance_in_area',
   'dm_relevance_nearby',
@@ -105,6 +106,24 @@ function validatePositiveInt(value: string): string | null {
   return null;
 }
 
+/**
+ * Factory for bounded integer validators. Use when a setting must stay within
+ * operational limits (e.g. all-clear window 60–3600s — too short fires false
+ * all-clears, too long feels unresponsive).
+ */
+function validateIntInRange(min: number, max: number): (value: string) => string | null {
+  return (value: string) => {
+    const n = Number(value);
+    if (!Number.isFinite(n) || !Number.isInteger(n)) {
+      return `הערך חייב להיות מספר שלם, התקבל: ${value}`;
+    }
+    if (n < min || n > max) {
+      return `הערך חייב להיות בטווח ${min}–${max}, התקבל: ${value}`;
+    }
+    return null;
+  };
+}
+
 function validateBoolish(value: string): string | null {
   return value === 'true' || value === 'false'
     ? null
@@ -128,6 +147,7 @@ const VALIDATORS: Record<string, (value: string) => string | null> = {
   topic_id_general:              validateNonNegativeInt,
   topic_id_whatsapp:             validateNonNegativeInt,
   all_clear_topic_id:            validateNonNegativeInt,
+  all_clear_quiet_window_seconds: validateIntInRange(60, 3600),
   mapbox_skip_drills:            validateBoolish,
   quiet_hours_global:            validateBoolish,
   whatsapp_enabled:              validateBoolish,
