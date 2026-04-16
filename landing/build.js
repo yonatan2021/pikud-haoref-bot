@@ -14,6 +14,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { JSDOM } = require('jsdom');
 
 const TEMPLATE_DIR = path.join(__dirname, 'template');
 const DIST_DIR     = path.join(__dirname, 'dist');
@@ -23,6 +24,16 @@ const PAGES        = require('./pages.config');
 
 function escapeHtml(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function stripHtmlToText(input) {
+  const value = String(input || '');
+  try {
+    const dom = new JSDOM(`<!doctype html><body>${value}</body>`);
+    return dom.window.document.body.textContent || '';
+  } catch (_) {
+    return value.replace(/<|>/g, '');
+  }
 }
 
 function replacePlaceholders(html, ctx) {
@@ -539,7 +550,7 @@ function buildJsonLd(page, sources) {
             acceptedAnswer: {
               '@type': 'Answer',
               // Strip HTML tags for JSON-LD plain text
-              text: item.a.replace(/<[^>]+>/g, ''),
+              text: stripHtmlToText(item.a),
             },
           })),
         };
