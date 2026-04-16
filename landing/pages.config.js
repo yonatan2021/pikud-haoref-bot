@@ -47,4 +47,17 @@ module.exports = [
     breadcrumbs: [{ name: 'בית', url: '/' }, { name: 'מדיניות פרטיות', url: '/privacy/' }],
     placeholders: null,
   },
+  {
+    slug: '/terms/',
+    out: 'terms/index.html',
+    template: 'pages/terms.html',
+    title: 'תנאי שימוש — התראות פיקוד העורף',
+    description: 'תנאי שימוש לשירות התראות פיקוד העורף. כולל הגבלת אחריות והתראת חיים חשובה.',
+    ogImage: '/og/terms.png',
+    priority: 0.5,
+    kind: 'subpage',
+    jsonLd: ['organization', 'breadcrumblist'],
+    breadcrumbs: [{ name: 'בית', url: '/' }, { name: 'תנאי שימוש', url: '/terms/' }],
+    placeholders: null,
+  },
 ];
