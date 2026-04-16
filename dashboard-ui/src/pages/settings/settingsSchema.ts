@@ -511,6 +511,17 @@ export const SETTINGS_SCHEMA: readonly SettingDef[] = [
     order: 1,
   },
   {
+    key: 'dashboard_session_ttl_hours',
+    tab: 'system',
+    label: 'תוקף סשן דשבורד (שעות)',
+    description: 'כמה שעות טוקן התחברות לדשבורד תקף. ברירת מחדל: 168 (7 ימים), טווח: 1–720 (=30 ימים). חל על התחברויות חדשות בלבד — סשנים קיימים שומרים את תוקפם המקורי',
+    type: 'number',
+    defaultValue: '168',
+    hotReload: true,
+    validation: { min: 1, max: 720 },
+    order: 3,
+  },
+  {
     key: 'landing_url',
     tab: 'system',
     label: 'כתובת דף נחיתה',
