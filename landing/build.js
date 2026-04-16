@@ -462,6 +462,9 @@ function copyAssets() {
   // Stylesheet
   fs.copyFileSync(path.join(TEMPLATE_DIR, 'style.css'), path.join(DIST_DIR, 'style.css'));
 
+  // Sub-page stylesheets (styles/ directory)
+  copyDir(path.join(TEMPLATE_DIR, 'styles'), path.join(DIST_DIR, 'styles'));
+
   // Logo (pre-compressed copy preferred)
   const logoSrc = fs.existsSync(path.join(TEMPLATE_DIR, 'logo.jpg'))
     ? path.join(TEMPLATE_DIR, 'logo.jpg')

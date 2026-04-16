@@ -67,6 +67,13 @@
   /* Updated by JS for cursor spotlight */
   --cursor-x:      50%;
   --cursor-y:      50%;
+  /* ── Nav + Sub-page tokens ────────────────────── */
+  --nav-height:    64px;
+  --nav-bg:        rgba(7,8,15,0.72);
+  --prose-max:     72ch;
+  --prose-leading: 1.85;
+  --legal-muted:   #8b94a8;    /* AA: 4.6:1 vs --bg */
+  --breadcrumb-sep-color: #475569;
 }
 
 /* ----------------------------------------------------------
