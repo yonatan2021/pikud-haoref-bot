@@ -368,6 +368,7 @@ function loadPartials() {
   const read = (p) => fs.readFileSync(path.join(TEMPLATE_DIR, 'partials', p), 'utf8');
   return {
     head:    read('head.html'),
+    nav:     read('nav.html'),
     footer:  read('footer.html'),
     scripts: read('scripts.html'),
   };
@@ -412,10 +413,20 @@ function globalContext(sources) {
 function renderPage(page, partials, sources, globals) {
   const bodyTpl = fs.readFileSync(path.join(TEMPLATE_DIR, page.template), 'utf8');
   const bodyWithFooter = bodyTpl.replace('<!--[partial:footer]-->', partials.footer);
-  let composed = partials.head + bodyWithFooter + partials.scripts;
+
+  // Inject nav with ACTIVE_SLUG resolved for this page
+  const activeSlug = page.slug || '/';
+  const navHtml = replacePlaceholders(partials.nav, { ACTIVE_SLUG: activeSlug });
+
+  // Subpage stylesheet — only for kind:'subpage' pages
+  const subpageStyles = (page.kind === 'subpage')
+    ? '<link rel="stylesheet" href="/styles/subpage.css">'
+    : '';
+
+  let composed = partials.head + navHtml + bodyWithFooter + partials.scripts;
 
   const pageCtx = page.placeholders ? page.placeholders(sources) : {};
-  const ctx = { ...globals, ...pageCtx };
+  const ctx = { ...globals, ...pageCtx, SUBPAGE_STYLES: subpageStyles };
   composed = replacePlaceholders(composed, ctx);
 
   // GA4 injection — the head partial carries <!-- GA4_PLACEHOLDER -->
