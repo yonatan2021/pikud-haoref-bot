@@ -1,0 +1,62 @@
+<main class="subpage" id="main">
+  <nav class="breadcrumb" aria-label="פירורי לחם">
+    <ol><li><a href="/">בית</a></li><li aria-current="page">אבטחה וחשיפה</li></ol>
+  </nav>
+
+  <header class="subpage-hero">
+    <h1>אבטחה וחשיפה אחראית</h1>
+    <p class="subtitle">דיווח על פגיעויות, מודל איום, והצפנה. עדכון: {{BUILD_DATE}}.</p>
+  </header>
+
+  <article class="prose">
+    <h2>1. מודל איום</h2>
+    <p>הפרויקט הוא <strong>קוד-פתוח</strong> (Apache 2.0) ופועל על <strong>שרת יחיד</strong> פרטי. קוד הבוט גלוי לציבור ב-GitHub — מה שמאפשר ביקורת עצמאית. סודות (טוקנים, סשן MTProto) מוצפנים ומנוהלים דרך משתני סביבה, לא בקוד.</p>
+
+    <h2>2. מה רגיש</h2>
+    <ul>
+      <li><strong>chat_id של משתמשים</strong> — מזהה Telegram הפרטי של כל מנוי.</li>
+      <li><strong>טוקן הבוט</strong> (<code>TELEGRAM_BOT_TOKEN</code>) — מאפשר שליחת הודעות בשם הבוט.</li>
+      <li><strong>סשן MTProto</strong> — StringSession של חשבון המאזין ל-Telegram (כאשר <code>TELEGRAM_LISTENER_ENABLED=true</code>).</li>
+      <li><strong>סוד הדאשבורד</strong> (<code>DASHBOARD_SECRET</code>) — מגן על ממשק הניהול.</li>
+    </ul>
+
+    <h2>3. הצפנה</h2>
+    <p>סודות רגישים מוצפנים ב-<strong>AES-256-GCM envelope encryption</strong> לפני אחסון ב-SQLite. המפתח גזור ממשתנה סביבה (<code>ENCRYPTION_KEY</code>). גיבויי SQLite גולמיים לא חושפים ערכים בטקסט פשוט.</p>
+
+    <h2>4. דיווח אחראי</h2>
+    <p>אם מצאת פגיעות אבטחה, <strong>אל תפתח Issue פומבי</strong>. השתמש במנגנון GitHub Security Advisories:</p>
+    <p>
+      <a
+        href="https://github.com/yonatan2021/pikud-haoref-bot/security/advisories/new"
+        rel="noopener"
+        class="btn btn-secondary"
+      >דווח על פגיעות (חסוי)</a>
+    </p>
+    <p>כלול בדיווח: תיאור הפגיעות, שלבים לשחזור, השפעה פוטנציאלית, גרסה מושפעת.</p>
+
+    <h2>5. SLO — הסכם רמת שירות לאבטחה</h2>
+    <ul>
+      <li><strong>אישור קבלה:</strong> תוך 72 שעות עסקיות.</li>
+      <li><strong>תיקון פגיעויות חמורות (Critical/High):</strong> תוך 30 יום.</li>
+      <li><strong>תיקון פגיעויות בינוניות (Medium):</strong> תוך 90 יום.</li>
+      <li>לאחר תיקון — פרסום Advisory פומבי ועדכון דף זה.</li>
+    </ul>
+
+    <h2>6. מחוץ לתחום (Out of Scope)</h2>
+    <ul>
+      <li>תשתיות Telegram ו-WhatsApp עצמן — דווח ישירות לחברות.</li>
+      <li>מניעת שירות (DoS) — לא מתמודדים ברמת השרת האישי.</li>
+      <li>ממשק API של פיקוד העורף — אינו בשליטתנו.</li>
+      <li>בעיות שמקורן בהגדרות שגויות של המשתמש (כגון טוקן חשוף ב-.env שלא הוגדר כראוי).</li>
+    </ul>
+
+    <h2>7. פרטי קשר</h2>
+    <p>
+      GitHub Security Advisories:
+      <a href="https://github.com/yonatan2021/pikud-haoref-bot/security/advisories/new" rel="noopener">
+        github.com/yonatan2021/pikud-haoref-bot/security/advisories/new
+      </a>
+    </p>
+    <p>ראה גם: <a href="/.well-known/security.txt"><code>/.well-known/security.txt</code></a></p>
+  </article>
+</main>

@@ -73,4 +73,17 @@ module.exports = [
     breadcrumbs: [{ name: 'בית', url: '/' }, { name: 'הצהרת נגישות', url: '/accessibility/' }],
     placeholders: null,
   },
+  {
+    slug: '/security/',
+    out: 'security/index.html',
+    template: 'pages/security.html',
+    title: 'אבטחה וחשיפה אחראית — התראות פיקוד העורף',
+    description: 'דיווח על פגיעויות, מודל איום, הצפנה AES-256-GCM, ו-SLO תגובה.',
+    ogImage: '/og/security.png',
+    priority: 0.5,
+    kind: 'subpage',
+    jsonLd: ['organization', 'breadcrumblist'],
+    breadcrumbs: [{ name: 'בית', url: '/' }, { name: 'אבטחה וחשיפה', url: '/security/' }],
+    placeholders: null,
+  },
 ];

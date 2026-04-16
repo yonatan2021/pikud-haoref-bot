@@ -619,6 +619,9 @@ function copyAssets() {
   if (fs.existsSync(nojekyllSrc)) {
     fs.copyFileSync(nojekyllSrc, path.join(DIST_DIR, '.nojekyll'));
   }
+
+  // .well-known/ — security.txt and other well-known files
+  copyDir(path.join(TEMPLATE_DIR, '.well-known'), path.join(DIST_DIR, '.well-known'));
 }
 
 // ---- Main -----------------------------------------------------------------
