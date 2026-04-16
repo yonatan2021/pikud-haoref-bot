@@ -1,14 +1,24 @@
 import { Command } from 'cmdk';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import {
+  LayoutDashboard, Bell, Users, Radio, Settings, Globe,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
-const PAGES = [
-  { label: 'לוח בקרה', to: '/overview', icon: '📊' },
-  { label: 'התראות', to: '/alerts', icon: '🔔' },
-  { label: 'מנויים', to: '/subscribers', icon: '👥' },
-  { label: 'מרכז פיקוד', to: '/operations', icon: '📡' },
-  { label: 'הגדרות', to: '/settings', icon: '⚙️' },
-  { label: 'אתר נחיתה', to: '/landing', icon: '🌐' },
+interface Page {
+  label: string;
+  to: string;
+  icon: LucideIcon;
+}
+
+const PAGES: Page[] = [
+  { label: 'לוח בקרה', to: '/overview', icon: LayoutDashboard },
+  { label: 'התראות', to: '/alerts', icon: Bell },
+  { label: 'מנויים', to: '/subscribers', icon: Users },
+  { label: 'מרכז פיקוד', to: '/operations', icon: Radio },
+  { label: 'הגדרות', to: '/settings', icon: Settings },
+  { label: 'אתר נחיתה', to: '/landing', icon: Globe },
 ];
 
 export function CommandPalette() {
@@ -46,16 +56,19 @@ export function CommandPalette() {
             <Command.Empty className="text-center text-text-muted text-sm py-4">
               לא נמצאו תוצאות
             </Command.Empty>
-            {PAGES.map(p => (
-              <Command.Item
-                key={p.to}
-                onSelect={() => { navigate(p.to); setOpen(false); }}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-sm text-text-secondary data-[selected=true]:bg-amber/10 data-[selected=true]:text-amber"
-              >
-                <span>{p.icon}</span>
-                <span>{p.label}</span>
-              </Command.Item>
-            ))}
+            {PAGES.map(p => {
+              const Icon = p.icon;
+              return (
+                <Command.Item
+                  key={p.to}
+                  onSelect={() => { navigate(p.to); setOpen(false); }}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-sm text-text-secondary data-[selected=true]:bg-amber/10 data-[selected=true]:text-amber"
+                >
+                  <Icon size={16} className="flex-shrink-0" />
+                  <span>{p.label}</span>
+                </Command.Item>
+              );
+            })}
           </Command.List>
         </Command>
         <p className="text-center text-text-muted text-xs py-2 border-t border-border">⌘K לסגירה</p>

@@ -284,7 +284,7 @@ export function Subscribers() {
               ))}
             </div>
           ) : users.length === 0 ? (
-            <EmptyState icon="👥" message="לא נמצאו מנויים" />
+            <EmptyState icon={<Users size={36} />} message="לא נמצאו מנויים" />
           ) : (
             <>
               <table className="w-full text-sm">
@@ -470,7 +470,7 @@ export function Subscribers() {
                                               onClick={() =>
                                                 removeCityMutation.mutate({ id: user.chat_id, city })
                                               }
-                                              className="text-text-muted hover:text-red-400 mr-1"
+                                              className="text-text-muted hover:text-red-400 ms-1"
                                               title={`הסר ${city}`}
                                             >
                                               ×

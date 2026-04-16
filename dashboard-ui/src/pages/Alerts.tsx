@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bell } from 'lucide-react';
+import { Bell, BellOff } from 'lucide-react';
 import { api } from '../api/client';
 import { EmptyState } from '../components/EmptyState';
 import { Skeleton } from '../components/Skeleton';
@@ -250,7 +250,7 @@ export function Alerts() {
               </div>
             ) : alerts.length === 0 ? (
               <EmptyState
-                icon="🔔"
+                icon={<BellOff size={36} />}
                 message={isFiltered ? 'אין תוצאות עבור הסינון הנוכחי' : 'אין התראות לתקופה זו'}
               />
             ) : (

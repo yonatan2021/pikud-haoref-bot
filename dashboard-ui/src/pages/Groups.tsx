@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { UsersRound, Trash2, X } from 'lucide-react';
+import { UsersRound, Trash2, X, Users } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -117,7 +117,7 @@ function Groups(): React.ReactElement {
             <div className="text-xl font-semibold mt-1 truncate">
               {stats?.top10[0]?.name ?? '—'}
               {stats?.top10[0] !== undefined && (
-                <span className="text-sm text-text-muted mr-2">
+                <span className="text-sm text-text-muted ms-2">
                   ({stats.top10[0].memberCount})
                 </span>
               )}
@@ -131,7 +131,7 @@ function Groups(): React.ReactElement {
             <Skeleton className="h-64" />
           ) : !list?.groups || list.groups.length === 0 ? (
             <EmptyState
-              icon="👥"
+              icon={<Users size={36} />}
               message="אין קבוצות עדיין. קבוצות נוצרות מהבוט עם /group create."
             />
           ) : (
@@ -220,7 +220,7 @@ function Groups(): React.ReactElement {
                       <div>
                         <div className="font-medium">
                           {m.displayName ?? `משתמש #${m.userId}`}
-                          {m.role === 'owner' && <span className="mr-2 text-xs text-blue-400">בעלים</span>}
+                          {m.role === 'owner' && <span className="ms-2 text-xs text-blue-400">בעלים</span>}
                         </div>
                         {m.homeCity !== null && m.homeCity !== '' && (
                           <div className="text-xs text-text-muted">{m.homeCity}</div>

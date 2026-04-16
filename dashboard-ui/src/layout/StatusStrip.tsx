@@ -80,7 +80,7 @@ export function StatusStrip({ onUptime }: { onUptime: (u: number) => void }) {
       </span>
       <span className="flex items-center gap-1">
         התראות היום:
-        <AnimatedCounter value={data?.alertsToday ?? 0} className="text-amber font-bold mr-1" />
+        <AnimatedCounter value={data?.alertsToday ?? 0} className="text-amber font-bold ms-1" />
       </span>
     </div>
   );

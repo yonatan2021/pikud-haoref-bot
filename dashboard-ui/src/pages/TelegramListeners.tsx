@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Loader2, Phone, Unplug, MessageCircle } from 'lucide-react';
+import { Loader2, Phone, Unplug, MessageCircle, Radio } from 'lucide-react';
 import { api } from '../api/client';
 import { GlassCard } from '../components/ui/GlassCard';
 import { PageTransition } from '../components/ui/PageTransition';
@@ -480,7 +480,7 @@ export function TelegramListeners() {
             </div>
           ) : !rules || rules.length === 0 ? (
             <div className="py-6">
-              <EmptyState icon="📡" message="אין כללי האזנה עדיין" />
+              <EmptyState icon={<Radio size={36} />} message="אין כללי האזנה עדיין" />
               <p className="text-center text-text-muted text-xs -mt-2">מלא את הטופס למטה כדי להוסיף כלל ראשון</p>
             </div>
           ) : (

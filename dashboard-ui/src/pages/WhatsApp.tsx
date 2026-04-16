@@ -167,7 +167,7 @@ function GroupRow({ group, onUpdate }: { group: WhatsAppGroup; onUpdate: (groupI
         <span className={`text-sm ${group.enabled ? 'font-semibold text-text-primary' : 'text-text-secondary'}`}>
           {group.name}
           {!group.inClient && (
-            <span className="mr-2 text-xs px-1.5 py-0.5 rounded bg-white/5 text-text-muted border border-border">
+            <span className="ms-2 text-xs px-1.5 py-0.5 rounded bg-white/5 text-text-muted border border-border">
               לא בחשבון
             </span>
           )}

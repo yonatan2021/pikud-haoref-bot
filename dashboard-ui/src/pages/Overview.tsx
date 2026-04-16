@@ -242,7 +242,7 @@ export function Overview() {
             ) : liveAlertsError ? (
               <div className="py-8 text-center text-red-300 text-sm">שגיאה בטעינת התראות</div>
             ) : !liveAlerts?.length ? (
-              <EmptyState icon="🔔" message="אין התראות היום" />
+              <EmptyState icon={<Bell size={36} />} message="אין התראות היום" />
             ) : (
               <div className="space-y-2 max-h-72 overflow-y-auto">
                 <AnimatePresence initial={false}>
@@ -293,7 +293,7 @@ export function Overview() {
             ) : topCitiesError ? (
               <div className="h-[220px] flex items-center justify-center text-red-300 text-sm">שגיאה בטעינת ערים</div>
             ) : topCities.length === 0 ? (
-              <EmptyState icon="📍" message="אין נתונים" />
+              <EmptyState icon={<MapPin size={36} />} message="אין נתונים" />
             ) : (
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={topCities} layout="vertical" margin={{ right: 170, left: 8 }}>
@@ -325,7 +325,7 @@ export function Overview() {
           ) : byCategoryError ? (
             <div className="h-[260px] flex items-center justify-center text-red-300 text-sm">שגיאה בטעינת גרף</div>
           ) : byCategory.length === 0 ? (
-            <EmptyState icon="📊" message="אין נתונים לתקופה זו" />
+            <EmptyState icon={<BarChart2 size={36} />} message="אין נתונים לתקופה זו" />
           ) : (
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={chartData} margin={{ right: 16, bottom: 8 }}>

@@ -182,7 +182,7 @@ function CollapsibleGroup({ group, collapsed }: { group: NavGroup; collapsed: bo
             className="overflow-hidden"
           >
             {group.items.map(item => (
-              <div key={item.to} className={collapsed ? '' : 'pr-2'}>
+              <div key={item.to} className={collapsed ? '' : 'ps-2'}>
                 <NavItemLink item={item} collapsed={collapsed} />
               </div>
             ))}
@@ -223,7 +223,7 @@ export function Sidebar({ uptime }: { uptime: number }) {
           onClick={() => setCollapsed(c => !c)}
           aria-label={collapsed ? 'הרחב סרגל צד' : 'כווץ סרגל צד'}
           aria-expanded={!collapsed}
-          className="mr-auto text-text-muted hover:text-text-secondary flex-shrink-0"
+          className="me-auto text-text-muted hover:text-text-secondary flex-shrink-0"
         >
           <ChevronLeft
             size={16}
