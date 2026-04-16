@@ -344,6 +344,58 @@ describe('handleNewAlert', () => {
     });
   });
 
+  describe('scheduleNeighborCheck dep', () => {
+    it('calls scheduleNeighborCheck with full cities on a fresh send', async () => {
+      const scheduleNeighborCheck = mock.fn();
+      const deps = makeDeps({ scheduleNeighborCheck });
+      await handleNewAlert(BASE_ALERT, deps);
+
+      const calls = (scheduleNeighborCheck as ReturnType<typeof mock.fn>).mock.calls;
+      assert.equal(calls.length, 1, 'scheduleNeighborCheck should be called once');
+      assert.deepEqual(calls[0].arguments[0].cities, BASE_ALERT.cities, 'should pass all cities on fresh send');
+    });
+
+    it('calls scheduleNeighborCheck with ONLY new cities on edit (dmCities filter)', async () => {
+      // Active message already has תל אביב — חיפה is the new city
+      const active = makeTracked({ alert: { type: 'missiles', cities: ['תל אביב'] } });
+      const scheduleNeighborCheck = mock.fn();
+      const deps = makeDeps({
+        getActiveMessage: mock.fn(() => active),
+        scheduleNeighborCheck,
+      });
+      const alert: Alert = { type: 'missiles', cities: ['תל אביב', 'חיפה'] };
+      await handleNewAlert(alert, deps);
+
+      const calls = (scheduleNeighborCheck as ReturnType<typeof mock.fn>).mock.calls;
+      assert.equal(calls.length, 1, 'should be called once for the new city');
+      assert.deepEqual(
+        calls[0].arguments[0].cities,
+        ['חיפה'],
+        'should only include cities not already in the active window'
+      );
+    });
+
+    it('does NOT call scheduleNeighborCheck when all alert cities are already active', async () => {
+      // Active message has all cities from the incoming alert — dmCities will be empty
+      const active = makeTracked({ alert: { type: 'missiles', cities: ['תל אביב', 'חיפה'] } });
+      const scheduleNeighborCheck = mock.fn();
+      const deps = makeDeps({
+        getActiveMessage: mock.fn(() => active),
+        scheduleNeighborCheck,
+      });
+      const alert: Alert = { type: 'missiles', cities: ['תל אביב'] };
+      await handleNewAlert(alert, deps);
+
+      const calls = (scheduleNeighborCheck as ReturnType<typeof mock.fn>).mock.calls;
+      assert.equal(calls.length, 0, 'must not be called when dmCities is empty');
+    });
+
+    it('is optional — omitting scheduleNeighborCheck does not throw', async () => {
+      const deps = makeDeps(); // default makeDeps has no scheduleNeighborCheck
+      await assert.doesNotReject(async () => handleNewAlert(BASE_ALERT, deps));
+    });
+  });
+
   describe('getDensityHint dep', () => {
     it('passes density from getDensityHint to sendAlert as 5th argument', async () => {
       const deps = makeDeps({

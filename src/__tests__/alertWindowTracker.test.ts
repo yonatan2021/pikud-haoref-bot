@@ -5,8 +5,10 @@ import {
   getActiveMessage,
   trackMessage,
   clearAll,
+  clearAllCloseTimers,
   clearMemoryOnly,
   loadActiveMessages,
+  setWindowCloseCallback,
   TrackedMessage,
 } from '../alertWindowTracker.js';
 import { initDb, closeDb } from '../db/schema.js';
@@ -142,5 +144,90 @@ describe('alertWindowTracker — DB persistence', () => {
     // loadActiveMessages should evict the expired entry rather than restore it
     loadActiveMessages();
     assert.equal(getActiveMessage('earthQuake'), null, 'expired window must not be restored from DB');
+  });
+});
+
+describe('alertWindowTracker — window close callback', () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    clearAll();
+    // Reset module-level callback so it doesn't leak between tests
+    setWindowCloseCallback(() => {});
+    process.env = { ...originalEnv, ALERT_UPDATE_WINDOW_SECONDS: '120' };
+  });
+
+  afterEach(() => {
+    setWindowCloseCallback(() => {});
+    process.env = originalEnv;
+  });
+
+  it('fires callback on lazy expiry detected by getActiveMessage', () => {
+    const calls: Array<{ alertType: string; tracked: TrackedMessage }> = [];
+    setWindowCloseCallback((alertType, tracked) => calls.push({ alertType, tracked }));
+
+    // Backdating sentAt forces the lazy expiry path in getActiveMessage
+    trackMessage('missiles', makeMsg({ sentAt: Date.now() - 200_000 }));
+    const result = getActiveMessage('missiles');
+
+    assert.equal(result, null);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].alertType, 'missiles');
+    assert.equal(calls[0].tracked.messageId, 1);
+  });
+
+  it('fires callback only once — entry is evicted after first getActiveMessage', () => {
+    let callCount = 0;
+    setWindowCloseCallback(() => { callCount++; });
+
+    trackMessage('missiles', makeMsg({ sentAt: Date.now() - 200_000 }));
+
+    getActiveMessage('missiles'); // evicts and fires callback
+    getActiveMessage('missiles'); // entry gone — no second fire
+
+    assert.equal(callCount, 1);
+  });
+
+  it('does not fire callback when message is still within the active window', () => {
+    let called = false;
+    setWindowCloseCallback(() => { called = true; });
+
+    trackMessage('missiles', makeMsg()); // sentAt = Date.now()
+    getActiveMessage('missiles');
+
+    assert.equal(called, false);
+  });
+
+  it('callback receives a shallow copy, not the original tracked reference', () => {
+    let received: TrackedMessage | null = null;
+    setWindowCloseCallback((_, tracked) => { received = tracked; });
+
+    const original = makeMsg({ sentAt: Date.now() - 200_000 });
+    trackMessage('missiles', original);
+    getActiveMessage('missiles');
+
+    assert.ok(received !== null, 'callback must have been called');
+    assert.notStrictEqual(received, original);
+    assert.equal((received as TrackedMessage).messageId, original.messageId);
+  });
+
+  it('clearAllCloseTimers cancels the scheduled timer; lazy expiry path remains independent', () => {
+    const firedTypes: string[] = [];
+    setWindowCloseCallback((alertType) => firedTypes.push(alertType));
+
+    // Track a fresh message — scheduleCloseTimer sets a real setTimeout for ~120s
+    trackMessage('missiles', makeMsg());
+    // Cancel all scheduled timers (simulates graceful shutdown)
+    clearAllCloseTimers();
+
+    // Lazy expiry still works independently: evict the fresh entry and add an expired one
+    clearMemoryOnly();
+    setWindowCloseCallback((alertType) => firedTypes.push(alertType));
+    trackMessage('earthQuake', makeMsg({ sentAt: Date.now() - 200_000, alert: { type: 'earthQuake', cities: [] } }));
+    getActiveMessage('earthQuake'); // lazy path fires for earthQuake only
+
+    // Only earthQuake fired — missiles timer was cancelled, never fired
+    assert.equal(firedTypes.length, 1);
+    assert.equal(firedTypes[0], 'earthQuake');
   });
 });
