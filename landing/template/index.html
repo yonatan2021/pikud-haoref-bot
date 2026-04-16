@@ -497,6 +497,7 @@
 
       </div>
     </div>
+    <p class="screenshots-pause-hint" aria-hidden="true">⏸ מושהה</p>
   </section>
 
   <!-- ⑦ What's New ---------------------------------------------------------- -->
@@ -1054,6 +1055,17 @@
       });
     }
 
+    // ── 8a. Screenshots — touch pause/resume ─────────────────────────────────
+    var screenshotsTrack = document.querySelector('.screenshots-track');
+    if (screenshotsTrack) {
+      screenshotsTrack.addEventListener('touchstart', function() {
+        screenshotsTrack.style.animationPlayState = 'paused';
+      }, { passive: true });
+      screenshotsTrack.addEventListener('touchend', function() {
+        screenshotsTrack.style.animationPlayState = '';
+      }, { passive: true });
+    }
+
     // ── 8. FAQ chat bubbles ───────────────────────────────────────────────────
     document.querySelectorAll('.faq-item').forEach(function(item) {
       var btn = item.querySelector('.faq-q');
@@ -1070,6 +1082,7 @@
             ob.classList.remove('faq-q--open');
             oa.setAttribute('aria-hidden', 'true');
             oa.style.maxHeight = '';
+            oa.style.opacity = '';
           }
         });
         // Toggle this one
@@ -1079,8 +1092,10 @@
         ans.setAttribute('aria-hidden', String(!opening));
         if (opening) {
           ans.style.maxHeight = ans.scrollHeight + 'px';
+          ans.style.opacity = '1';
         } else {
           ans.style.maxHeight = '';
+          ans.style.opacity = '';
         }
       });
     });

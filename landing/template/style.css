@@ -1085,6 +1085,16 @@ img {
 .screenshots-overflow:hover .screenshots-track {
   animation-play-state: paused;
 }
+.screenshots-pause-hint {
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  padding-block: 0.5rem;
+  user-select: none;
+}
+.screenshots-overflow:hover ~ .screenshots-pause-hint { opacity: 1; }
 
 .screenshot-item {
   flex: 0 0 auto;
@@ -1608,6 +1618,8 @@ img {
   /* Show only first left-side alert card statically; hide rest + right-side card */
   .alert-sim--1 { animation: none; opacity: 1; }
   .alert-sim--2, .alert-sim--3, .alert-sim--4 { display: none; }
+  /* FAQ opacity — skip fade animation, show immediately */
+  .faq-a { opacity: 1; transition: max-height var(--dur-medium) ease; }
 }
 
 /* ----------------------------------------------------------
@@ -1989,6 +2001,12 @@ img {
   border-radius: var(--radius-card);
   transition: border-color var(--transition), box-shadow var(--transition);
 }
+/* Freshness hierarchy — most recent card brightest top border */
+.wn-card:nth-child(1)   { border-top-color: rgba(34,158,217,0.65); }
+.wn-card:nth-child(2)   { border-top-color: rgba(34,158,217,0.45); }
+.wn-card:nth-child(3)   { border-top-color: rgba(34,158,217,0.35); }
+.wn-card:nth-child(n+4) { border-top-color: rgba(34,158,217,0.22); }
+
 .wn-card:hover {
   border-color: rgba(34, 158, 217, 0.45);
   box-shadow: 0 0 20px var(--accent-glow);
@@ -2062,7 +2080,8 @@ img {
 .faq-a {
   max-height: 0;
   overflow: hidden;
-  transition: max-height var(--dur-medium) ease;
+  opacity: 0;
+  transition: max-height var(--dur-medium) ease, opacity var(--dur-fast) ease;
 }
 
 .faq-bubble--bot {
