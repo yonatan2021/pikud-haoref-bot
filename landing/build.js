@@ -586,6 +586,16 @@ function buildGa4Snippet() {
 
 // ---- Page render ----------------------------------------------------------
 
+function buildRoutesJson() {
+  const routes = PAGES.map((p) => ({
+    slug: p.slug,
+    title: p.title
+      ? p.title.split('—')[0].split('–')[0].trim()
+      : p.slug.replace(/^\/|\/$/g, '') || 'בית',
+  }));
+  return JSON.stringify(routes);
+}
+
 function globalContext(sources) {
   return {
     VERSION: sources.version,
@@ -604,6 +614,7 @@ function globalContext(sources) {
     WHATSAPP_LINK: escapeHtml(sources.whatsappLink),
     ACCESSIBILITY_CONTACT_NAME: process.env.ACCESSIBILITY_CONTACT_NAME || 'יונתן גלפמן',
     ACCESSIBILITY_CONTACT_EMAIL: process.env.ACCESSIBILITY_CONTACT_EMAIL || 'a11y@example.com',
+    ROUTES_JSON: buildRoutesJson(),
   };
 }
 
@@ -739,6 +750,10 @@ async function main() {
     const html = renderPage(page, partials, sources, globals);
     writePage(page, html);
   }
+
+  // OG image generation — degrades gracefully if sharp is absent.
+  const { generateAllOgImages } = require('./generate-og');
+  await generateAllOgImages(PAGES, TEMPLATE_DIR, DIST_DIR);
 
   generateSitemap(PAGES);
   copyAssets();
