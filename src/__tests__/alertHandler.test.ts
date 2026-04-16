@@ -352,7 +352,7 @@ describe('handleNewAlert', () => {
 
       const calls = (scheduleNeighborCheck as ReturnType<typeof mock.fn>).mock.calls;
       assert.equal(calls.length, 1, 'scheduleNeighborCheck should be called once');
-      assert.deepEqual(calls[0].arguments[0].cities, BASE_ALERT.cities, 'should pass all cities on fresh send');
+      assert.deepEqual((calls[0].arguments[0] as Alert).cities, BASE_ALERT.cities, 'should pass all cities on fresh send');
     });
 
     it('calls scheduleNeighborCheck with ONLY new cities on edit (dmCities filter)', async () => {
@@ -369,7 +369,7 @@ describe('handleNewAlert', () => {
       const calls = (scheduleNeighborCheck as ReturnType<typeof mock.fn>).mock.calls;
       assert.equal(calls.length, 1, 'should be called once for the new city');
       assert.deepEqual(
-        calls[0].arguments[0].cities,
+        (calls[0].arguments[0] as Alert).cities,
         ['חיפה'],
         'should only include cities not already in the active window'
       );
