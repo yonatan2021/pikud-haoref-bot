@@ -10,6 +10,9 @@ on:
       - 'package.json'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   deploy:
     name: Build & push to landing repo
@@ -17,10 +20,10 @@ jobs:
 
     steps:
       - name: Checkout main repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
         with:
           node-version: '22'
 
@@ -39,7 +42,7 @@ jobs:
           Host github-landing
             HostName github.com
             IdentityFile ~/.ssh/landing_deploy_key
-            StrictHostKeyChecking no
+            StrictHostKeyChecking accept-new
           SSHEOF
 
       - name: Push dist to landing repo
