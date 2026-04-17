@@ -25,11 +25,14 @@ const Community          = lazy(() => import('./pages/Community').then(m => ({ d
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000 } } });
 
 const PageFallback = () => <Skeleton className="h-full min-h-screen" />;
+const routerBasename = window.location.pathname === '/dashboard' || window.location.pathname.startsWith('/dashboard/')
+  ? '/dashboard'
+  : '/';
 
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
+      <BrowserRouter basename={routerBasename}>
         <ErrorBoundary>
         <Suspense fallback={<PageFallback />}>
           <Routes>
@@ -51,6 +54,7 @@ export function App() {
               <Route path="safety-check" element={<SafetyCheck />} />
               <Route path="community" element={<Community />} />
             </Route>
+            <Route path="*" element={<Navigate to="/overview" replace />} />
           </Routes>
         </Suspense>
         </ErrorBoundary>
