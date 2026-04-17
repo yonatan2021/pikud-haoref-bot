@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { AlertPoller } from './alertPoller';
 import { generateMapImage } from './mapService';
-import { sendAlert, getBot, editAlert } from './telegramBot';
+import { sendAlert, getBot, editAlert, setCityLimitProvider } from './telegramBot';
 import { getActiveMessage, trackMessage, loadActiveMessages, setWindowCloseCallback, clearAllCloseTimers } from './alertWindowTracker';
 import { getTopicId } from './topicRouter';
 import { Alert } from './types';
@@ -47,7 +47,7 @@ import { scheduleNeighborCheck, cancelAll as cancelNeighborCheckAll } from './se
 import { setNeighborCheckHandlerDb } from './bot/neighborCheckHandler.js';
 import { initCrypto } from './dashboard/crypto.js';
 import { getSetting, setSetting } from './dashboard/settingsRepository.js';
-import { resolveConfig, resolveRequiredConfigs, ConfigMissingError, SECRET_KEYS, envKeyFor } from './config/configResolver.js';
+import { resolveConfig, resolveRequiredConfigs, ConfigMissingError, SECRET_KEYS, envKeyFor, getNumber, getBool } from './config/configResolver.js';
 import { isCryptoReady } from './dashboard/crypto.js';
 import { getPrimaryLocalIPv4Address } from './localNetwork.js';
 
@@ -136,6 +136,9 @@ function autoMigrateEnvSecrets(db: ReturnType<typeof getDb>): void {
     loadActiveMessages();
     loadTemplateCache();
     loadRoutingCache(getDb());
+    // Hot-configurable DM queue concurrency — read per drain() decision.
+    dmQueue.setConcurrencyProvider(() => getNumber(getDb(), 'dm_queue_concurrency', 10));
+    setCityLimitProvider(() => getNumber(getDb(), 'map_city_display_limit', 25));
     setMenuHandlerDb(getDb());
     setSafetyStatusHandlerDeps(getDb());
     setNeighborCheckHandlerDb(getDb());
@@ -277,6 +280,9 @@ function autoMigrateEnvSecrets(db: ReturnType<typeof getDb>): void {
 
   const allClearTracker = createAllClearTracker({
     getCityZone: (city) => getCityData(city)?.zone,
+    // Read on every recordAlert() so dashboard edits to
+    // `all_clear_quiet_window_seconds` take effect without restart.
+    getQuietWindowMs: () => getNumber(getDb(), 'all_clear_quiet_window_seconds', 600) * 1000,
     onAllClear: (events) => {
       allClearService.handleAllClear(events).catch(err =>
         log('error', 'Index', `handleAllClear נכשל: ${String(err)}`)
@@ -321,7 +327,8 @@ function autoMigrateEnvSecrets(db: ReturnType<typeof getDb>): void {
       getActiveMessage,
       trackMessage,
       notifySubscribers,
-      shouldSkipMap,
+      shouldSkipMap: (alertType, instructions) =>
+        shouldSkipMap(alertType, instructions, () => getBool(getDb(), 'mapbox_skip_drills', false)),
       getTopicId,
       insertAlertHistory,
       broadcastToWhatsApp,

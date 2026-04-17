@@ -1,6 +1,10 @@
 import { Alert } from './types';
 import { upsertWindow, deleteWindow, clearAllWindows, loadAllWindows } from './db/alertWindowRepository.js';
 import { log } from './logger.js';
+import { getDb } from './db/schema.js';
+import { getNumber } from './config/configResolver.js';
+
+const DEFAULT_WINDOW_SECONDS = 120;
 
 export interface TrackedMessage {
   messageId: number;
@@ -25,11 +29,20 @@ export function setWindowCloseCallback(
 }
 
 function windowMs(): number {
-  // Re-read on each call — caching at module load would capture the env before .env is loaded;
-  // also allows test overrides of the env var without requiring a module reload. Default: 120s.
-  const raw = process.env.ALERT_UPDATE_WINDOW_SECONDS;
-  const parsed = parseInt(raw ?? '', 10);
-  return (isNaN(parsed) || parsed <= 0 ? 120 : parsed) * 1000;
+  // Re-read on each call so dashboard edits to `alert_window_seconds` take effect
+  // without a process restart. getNumber resolves DB → env (ALERT_UPDATE_WINDOW_SECONDS) → default.
+  // The try/catch keeps unit tests working when DB schema isn't initialised — they rely on
+  // env fallback. Guard pattern mirrors dmQueue/allClearTracker.
+  let seconds = DEFAULT_WINDOW_SECONDS;
+  try {
+    seconds = getNumber(getDb(), 'alert_window_seconds', DEFAULT_WINDOW_SECONDS);
+  } catch {
+    const raw = process.env.ALERT_UPDATE_WINDOW_SECONDS;
+    const parsed = Number(raw);
+    seconds = Number.isFinite(parsed) && parsed >= 1 ? parsed : DEFAULT_WINDOW_SECONDS;
+  }
+  const valid = Number.isFinite(seconds) && seconds >= 1 ? seconds : DEFAULT_WINDOW_SECONDS;
+  return valid * 1000;
 }
 
 /** Schedule (or reschedule) the close timer for a given alertType. */

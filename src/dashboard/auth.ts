@@ -2,6 +2,7 @@ import { randomUUID, timingSafeEqual } from 'node:crypto';
 import type { Request, Response, NextFunction } from 'express';
 import type Database from 'better-sqlite3';
 import { log } from '../logger.js';
+import { getNumber } from '../config/configResolver.js';
 
 function safeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
@@ -10,7 +11,14 @@ function safeEqual(a: string, b: string): boolean {
 
 const COOKIE_NAME = 'dashboard_token';
 const CSRF_COOKIE_NAME = 'csrf-token';
-const SESSION_TTL_DAYS = 7;
+const DEFAULT_SESSION_TTL_HOURS = 168; // 7 days
+
+function resolveSessionTtlHours(db: Database.Database): number {
+  const n = getNumber(db, 'dashboard_session_ttl_hours', DEFAULT_SESSION_TTL_HOURS);
+  return Number.isFinite(n) && Number.isInteger(n) && n >= 1
+    ? n
+    : DEFAULT_SESSION_TTL_HOURS;
+}
 
 const RATE_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 const RATE_MAX = 10;                    // max attempts per window
@@ -92,21 +100,22 @@ export function createSessionStore(db: Database.Database, secret: string) {
       clearLoginAttempts(ip);
       const token = randomUUID();
       const csrfToken = randomUUID();
+      const ttlHours = resolveSessionTtlHours(db);
       db.prepare(
-        "INSERT INTO sessions (token, expires_at) VALUES (?, datetime('now', '+' || cast(? as text) || ' days'))"
-      ).run(token, SESSION_TTL_DAYS);
+        "INSERT INTO sessions (token, expires_at) VALUES (?, datetime('now', '+' || cast(? as text) || ' hours'))"
+      ).run(token, ttlHours);
       const secureCookie = process.env['DASHBOARD_SECURE_COOKIE'] === 'true' || process.env.NODE_ENV === 'production';
       res.cookie(COOKIE_NAME, token, {
         httpOnly: true,
         sameSite: 'strict',
-        maxAge: SESSION_TTL_DAYS * 24 * 60 * 60 * 1000,
+        maxAge: ttlHours * 60 * 60 * 1000,
         secure: secureCookie,
       });
       // CSRF token: httpOnly:false so the browser JS can read it and send as X-CSRF-Token header
       res.cookie(CSRF_COOKIE_NAME, csrfToken, {
         httpOnly: false,
         sameSite: 'strict',
-        maxAge: SESSION_TTL_DAYS * 24 * 60 * 60 * 1000,
+        maxAge: ttlHours * 60 * 60 * 1000,
         secure: secureCookie,
       });
       res.json({ ok: true });
