@@ -16,6 +16,23 @@ interface LandingConfig {
   deployStatus: 'deployed' | 'never';
 }
 
+/**
+ * Validate URL protocol and return an encodeURI-encoded safe href, or undefined
+ * if the URL is invalid / uses a non-http(s) protocol (e.g. javascript:).
+ * Returning encodeURI output (rather than the raw string) satisfies CodeQL's
+ * DOM-XSS taint-tracking check by escaping HTML meta-characters in the value.
+ */
+function toSafeHref(url: string): string | undefined {
+  if (!url) return undefined;
+  try {
+    const { protocol } = new URL(url);
+    if (protocol !== 'https:' && protocol !== 'http:') return undefined;
+    return encodeURI(url);
+  } catch {
+    return undefined;
+  }
+}
+
 function relTime(iso: string): string {
   const s = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
   if (s < 60) return `לפני ${s} שנ׳`;
@@ -139,9 +156,11 @@ export function LandingPage() {
                 <span className="inline-flex items-center gap-1.5 text-xs text-green mt-1.5">
                   <LiveDot color="green" />
                   האתר פעיל
-                  <a href={siteUrl} target="_blank" rel="noopener noreferrer" className="text-blue hover:underline inline-flex items-center gap-0.5">
-                    פתח <ExternalLink className="w-3 h-3" />
-                  </a>
+                  {toSafeHref(siteUrl) && (
+                    <a href={toSafeHref(siteUrl)} target="_blank" rel="noopener noreferrer" className="text-blue hover:underline inline-flex items-center gap-0.5">
+                      פתח <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
                 </span>
               ) : (
                 <span className="text-text-muted text-xs mt-1.5 block">הכנס כתובת לאחר פרסום ראשון</span>
@@ -179,9 +198,9 @@ export function LandingPage() {
                   GitHub Actions <ExternalLink className="w-3 h-3" />
                 </a>
               )}
-              {siteUrl && (
+              {toSafeHref(siteUrl) && (
                 <a
-                  href={siteUrl}
+                  href={toSafeHref(siteUrl)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-blue text-sm hover:underline"

@@ -17,6 +17,7 @@ export const SECRET_KEYS: ReadonlySet<string> = new Set([
   'github_pat',
   'telegram_api_id',
   'telegram_api_hash',
+  'telegram_listener_session',
 ]);
 
 /** Non-secret config keys that can be stored in the DB (many already are). */
@@ -103,6 +104,7 @@ export const ENV_KEY_MAP: Readonly<Record<string, string>> = {
   github_pat:                    'GITHUB_PAT',
   telegram_api_id:               'TELEGRAM_API_ID',
   telegram_api_hash:             'TELEGRAM_API_HASH',
+  telegram_listener_session:     'TELEGRAM_LISTENER_SESSION',
   // Config with non-obvious env var names
   alert_window_seconds:          'ALERT_UPDATE_WINDOW_SECONDS',
   mapbox_monthly_limit:          'MAPBOX_MONTHLY_LIMIT',

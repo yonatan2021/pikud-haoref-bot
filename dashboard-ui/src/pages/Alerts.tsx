@@ -2,13 +2,14 @@ import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bell } from 'lucide-react';
+import { Bell, BellOff } from 'lucide-react';
 import { api } from '../api/client';
 import { EmptyState } from '../components/EmptyState';
 import { Skeleton } from '../components/Skeleton';
 import { GlassCard } from '../components/ui/GlassCard';
 import { PageTransition } from '../components/ui/PageTransition';
 import { AlertCategoryStats } from '../components/AlertCategoryStats';
+import { Pagination } from '../components/Pagination';
 
 interface Alert {
   id: number;
@@ -250,7 +251,7 @@ export function Alerts() {
               </div>
             ) : alerts.length === 0 ? (
               <EmptyState
-                icon="🔔"
+                icon={<BellOff size={36} />}
                 message={isFiltered ? 'אין תוצאות עבור הסינון הנוכחי' : 'אין התראות לתקופה זו'}
               />
             ) : (
@@ -332,24 +333,12 @@ export function Alerts() {
                   </AnimatePresence>
                 </div>
 
-                {/* Pagination */}
-                <div className="flex items-center justify-between px-4 py-3 border-t border-[var(--color-border)]">
-                  <button
-                    disabled={page === 0}
-                    onClick={() => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('page', String(page - 1)); return n; })}
-                    className="text-text-muted text-xs hover:text-text-primary disabled:opacity-40"
-                  >
-                    הקודם →
-                  </button>
-                  <span className="text-text-muted text-xs">עמוד {page + 1}</span>
-                  <button
-                    disabled={alerts.length < PAGE_SIZE}
-                    onClick={() => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('page', String(page + 1)); return n; })}
-                    className="text-text-muted text-xs hover:text-text-primary disabled:opacity-40"
-                  >
-                    ← הבא
-                  </button>
-                </div>
+                <Pagination
+                  page={page}
+                  hasNext={alerts.length >= PAGE_SIZE}
+                  onPrev={() => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('page', String(page - 1)); return n; })}
+                  onNext={() => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('page', String(page + 1)); return n; })}
+                />
               </>
             )}
           </GlassCard>

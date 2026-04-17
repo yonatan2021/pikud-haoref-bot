@@ -59,6 +59,6 @@ export function startHealthServer(port: number): http.Server {
   server.on('error', (err: NodeJS.ErrnoException) => {
     log('error', 'Health', `כישלון בהפעלת שרת על פורט ${port}: ${err.message}`);
   });
-  server.listen(port);
+  server.listen(port, '0.0.0.0');
   return server;
 }

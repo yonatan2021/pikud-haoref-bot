@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { BarChart2 } from 'lucide-react';
 import { EmptyState } from './EmptyState';
 import { GlassCard } from './ui/GlassCard';
 
@@ -24,7 +25,7 @@ export function AlertCategoryStats({ data, total }: AlertCategoryStatsProps) {
       </div>
 
       {data.length === 0 ? (
-        <EmptyState icon="📊" message="אין נתונים" />
+        <EmptyState icon={<BarChart2 size={36} />} message="אין נתונים" />
       ) : (
         <div className="space-y-3 max-h-80 overflow-y-auto">
           {data.map((row, index) => (
@@ -44,7 +45,7 @@ export function AlertCategoryStats({ data, total }: AlertCategoryStatsProps) {
                   </span>
                 </div>
               </div>
-              <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
+              <div className="h-2 rounded-full bg-white/5 overflow-hidden">
                 <motion.div
                   className="h-full rounded-full"
                   style={{ backgroundColor: row.color }}

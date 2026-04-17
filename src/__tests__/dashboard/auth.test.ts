@@ -5,7 +5,7 @@ import { createSessionStore } from '../../dashboard/auth.js';
 import { initSchema } from '../../db/schema.js';
 import type { Request, Response, NextFunction } from 'express';
 
-const SECRET = 'test-secret';
+const SECRET = 'test-secret-1234567'; // must be ≥ 16 chars (SEC-M7)
 
 // Each test gets a fresh in-memory DB to isolate session state
 function makeDb(): Database.Database {
@@ -15,10 +15,15 @@ function makeDb(): Database.Database {
 }
 
 function mockRes() {
-  const res: any = { _status: 200, _body: null, _cookie: null, _clearedCookie: null };
+  const res: any = { _status: 200, _body: null, _cookie: null, _clearedCookie: null, _cookies: [] as Array<{ name: string; val: string; opts?: Record<string, unknown> }> };
   res.status = (code: number) => { res._status = code; return res; };
   res.json = (body: unknown) => { res._body = body; return res; };
-  res.cookie = (name: string, val: string, opts?: Record<string, unknown>) => { res._cookie = { name, val, opts }; return res; };
+  res.cookie = (name: string, val: string, opts?: Record<string, unknown>) => {
+    res._cookies.push({ name, val, opts });
+    // _cookie tracks the session token cookie specifically (dashboard_token)
+    if (name === 'dashboard_token') res._cookie = { name, val, opts };
+    return res;
+  };
   res.set = (key: string, val: string) => { (res._headers ??= {} as Record<string, string>)[key] = val; return res; };
   res.clearCookie = (name: string) => { res._clearedCookie = name; return res; };
   return res;
@@ -269,6 +274,47 @@ describe('createSessionStore', () => {
       loginHandler(mockLoginReq(SECRET, '1.2.3.4'), mockRes() as Response);
       const row = db.prepare('SELECT count FROM login_attempts WHERE ip = ?').get('1.2.3.4');
       assert.equal(row, undefined, 'login_attempts row should be deleted after successful login');
+    });
+  });
+
+  describe('SEC-M7 — DASHBOARD_SECRET length validation', () => {
+    it('throws when secret is shorter than 16 characters', () => {
+      assert.throws(
+        () => createSessionStore(makeDb(), 'short'),
+        /at least 16 characters/,
+      );
+    });
+
+    it('throws when secret is empty string', () => {
+      assert.throws(
+        () => createSessionStore(makeDb(), ''),
+        /at least 16 characters/,
+      );
+    });
+
+    it('accepts a secret that is exactly 16 characters', () => {
+      assert.doesNotThrow(() => createSessionStore(makeDb(), 'exactly16charsok'));
+    });
+  });
+
+  describe('SEC-C1 — CSRF cookie set on successful login', () => {
+    it('sets a csrf-token cookie alongside the session cookie on successful login', () => {
+      const { loginHandler } = createSessionStore(makeDb(), SECRET);
+      const res = mockRes();
+      // Capture multiple cookies
+      const cookies: Array<{ name: string; val: string; opts?: Record<string, unknown> }> = [];
+      res.cookie = (name: string, val: string, opts?: Record<string, unknown>) => {
+        cookies.push({ name, val, opts });
+        res._cookie = { name, val, opts };
+        return res;
+      };
+      loginHandler(mockLoginReq(SECRET), res as Response);
+      assert.equal(res._status, 200);
+      const csrfCookie = cookies.find(c => c.name === 'csrf-token');
+      assert.ok(csrfCookie, 'csrf-token cookie must be set');
+      assert.match(csrfCookie.val, /^[0-9a-f-]{36}$/, 'csrf-token must be a UUID');
+      assert.equal(csrfCookie.opts?.httpOnly, false, 'csrf-token must NOT be httpOnly so JS can read it');
+      assert.equal(csrfCookie.opts?.sameSite, 'strict', 'csrf-token sameSite must be strict');
     });
   });
 });

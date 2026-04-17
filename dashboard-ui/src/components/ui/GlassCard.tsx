@@ -49,7 +49,7 @@ export function GlassCard({
   const whileHoverProp =
     hoverable && !reducedMotion
       ? {
-          scale: 1.01,
+          scale: 1.015,
           borderColor: glowBorderColor[glow],
           backgroundColor: glowBgColor[glow],
         }
