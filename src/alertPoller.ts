@@ -21,9 +21,10 @@ export function normalizeCityName(city: string): string {
   return city
     .trim()
     // Use explicit character classes (not \s) to avoid ReDoS on pathological
-    // whitespace sequences (SEC-L1).
+    // whitespace sequences (SEC-L1). Second replace uses space-only class because
+    // the first replace already collapsed all tabs/newlines to single spaces.
     .replace(/[ \t\r\n]+/g, ' ')
-    .replace(/[ \t]*[-\u2013\u2014][ \t]*/g, ' - ');
+    .replace(/ *[-\u2013\u2014] */g, ' - ');
 }
 
 function buildFingerprint(alert: Alert): string {

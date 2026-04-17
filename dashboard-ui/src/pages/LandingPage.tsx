@@ -16,12 +16,20 @@ interface LandingConfig {
   deployStatus: 'deployed' | 'never';
 }
 
-function isSafeUrl(url: string): boolean {
+/**
+ * Validate URL protocol and return an encodeURI-encoded safe href, or undefined
+ * if the URL is invalid / uses a non-http(s) protocol (e.g. javascript:).
+ * Returning encodeURI output (rather than the raw string) satisfies CodeQL's
+ * DOM-XSS taint-tracking check by escaping HTML meta-characters in the value.
+ */
+function toSafeHref(url: string): string | undefined {
+  if (!url) return undefined;
   try {
     const { protocol } = new URL(url);
-    return protocol === 'https:' || protocol === 'http:';
+    if (protocol !== 'https:' && protocol !== 'http:') return undefined;
+    return encodeURI(url);
   } catch {
-    return false;
+    return undefined;
   }
 }
 
@@ -148,8 +156,8 @@ export function LandingPage() {
                 <span className="inline-flex items-center gap-1.5 text-xs text-green mt-1.5">
                   <LiveDot color="green" />
                   האתר פעיל
-                  {isSafeUrl(siteUrl) && (
-                    <a href={siteUrl} target="_blank" rel="noopener noreferrer" className="text-blue hover:underline inline-flex items-center gap-0.5">
+                  {toSafeHref(siteUrl) && (
+                    <a href={toSafeHref(siteUrl)} target="_blank" rel="noopener noreferrer" className="text-blue hover:underline inline-flex items-center gap-0.5">
                       פתח <ExternalLink className="w-3 h-3" />
                     </a>
                   )}
@@ -190,9 +198,9 @@ export function LandingPage() {
                   GitHub Actions <ExternalLink className="w-3 h-3" />
                 </a>
               )}
-              {siteUrl && isSafeUrl(siteUrl) && (
+              {toSafeHref(siteUrl) && (
                 <a
-                  href={siteUrl}
+                  href={toSafeHref(siteUrl)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-blue text-sm hover:underline"
