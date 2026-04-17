@@ -611,7 +611,7 @@ function buildGa4Snippet() {
 
 function buildRoutesJson() {
   const routes = PAGES.map((p) => ({
-    slug: p.slug,
+    slug: BASE_URL + p.slug,
     title: p.title
       ? p.title.split('—')[0].split('–')[0].trim()
       : p.slug.replace(/^\/|\/$/g, '') || 'בית',
@@ -691,6 +691,11 @@ function renderPage(page, partials, sources, globals) {
   }
   composed = composed.replace('<!-- GA4_PLACEHOLDER -->', buildGa4Snippet());
 
+  // Rebase absolute paths for GitHub Pages subdirectory hosting.
+  // Templates use root-relative paths (e.g. /style.css) which resolve correctly
+  // on a custom domain but break on github.io/<repo>/ subdirectory URLs.
+  composed = composed.replace(/\b(href|src)="\/(?!\/)/g, `$1="${BASE_URL}/`);
+
   return composed;
 }
 
@@ -714,9 +719,17 @@ function copyDir(src, dst) {
   }
 }
 
+function rebaseCss(src, dest) {
+  const css = fs.readFileSync(src, 'utf8');
+  const rebased = css.replace(/url\('\/(?!\/)/g, `url('${BASE_URL}/`)
+                     .replace(/url\("\/(?!\/)/g, `url("${BASE_URL}/`)
+                     .replace(/url\(\/(?![/']|")/g, `url(${BASE_URL}/`);
+  fs.writeFileSync(dest, rebased, 'utf8');
+}
+
 function copyAssets() {
-  // Stylesheet
-  fs.copyFileSync(path.join(TEMPLATE_DIR, 'style.css'), path.join(DIST_DIR, 'style.css'));
+  // Stylesheet — rebase absolute url() paths for GitHub Pages subdirectory
+  rebaseCss(path.join(TEMPLATE_DIR, 'style.css'), path.join(DIST_DIR, 'style.css'));
 
   // Sub-page stylesheets (styles/ directory)
   copyDir(path.join(TEMPLATE_DIR, 'styles'), path.join(DIST_DIR, 'styles'));
