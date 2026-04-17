@@ -86,7 +86,10 @@ export function createOperationsRouter(db: Database.Database, bot: Bot): Router 
 
   router.post('/test-alert', testAlertLimiter, async (req, res) => {
     const { chatId, text } = req.body as { chatId?: number; text?: string };
-    if (!chatId || !text) { res.status(400).json({ error: 'חסר chatId או טקסט' }); return; }
+    if (typeof chatId !== 'number' || !Number.isInteger(chatId) || chatId === 0 || !text?.trim()) {
+      res.status(400).json({ error: 'חסר chatId או טקסט' });
+      return;
+    }
     try {
       await bot.api.sendMessage(chatId, `🧪 <b>בדיקה</b>\n\n${text}`, { parse_mode: 'HTML' });
       res.json({ ok: true });
