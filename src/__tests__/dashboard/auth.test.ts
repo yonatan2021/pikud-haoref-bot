@@ -5,7 +5,7 @@ import { createSessionStore } from '../../dashboard/auth.js';
 import { initSchema } from '../../db/schema.js';
 import type { Request, Response, NextFunction } from 'express';
 
-const SECRET = 'test-secret';
+const SECRET = 'test-secret-1234';
 
 // Each test gets a fresh in-memory DB to isolate session state
 function makeDb(): Database.Database {
@@ -269,6 +269,15 @@ describe('createSessionStore', () => {
       loginHandler(mockLoginReq(SECRET, '1.2.3.4'), mockRes() as Response);
       const row = db.prepare('SELECT count FROM login_attempts WHERE ip = ?').get('1.2.3.4');
       assert.equal(row, undefined, 'login_attempts row should be deleted after successful login');
+    });
+  });
+
+  describe('SEC-M7 — DASHBOARD_SECRET length validation', () => {
+    it('throws when secret is shorter than 16 characters', () => {
+      assert.throws(
+        () => createSessionStore(makeDb(), 'short'),
+        /DASHBOARD_SECRET must be at least 16 characters/,
+      );
     });
   });
 });

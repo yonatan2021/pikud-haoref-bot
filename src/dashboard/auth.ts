@@ -19,6 +19,10 @@ function getClientIp(req: Request): string {
 }
 
 export function createSessionStore(db: Database.Database, secret: string) {
+  if (!secret || secret.length < 16) {
+    throw new Error('DASHBOARD_SECRET must be at least 16 characters');
+  }
+
   // Purge any sessions that expired before this startup
   db.prepare("DELETE FROM sessions WHERE expires_at < datetime('now')").run();
 
