@@ -23,6 +23,14 @@ async function getHealthWithStatus(port: number): Promise<{ status: number; body
   });
 }
 
+/** Wait for the server to finish binding and return the assigned port. */
+function awaitListening(server: http.Server): Promise<number> {
+  return new Promise((resolve, reject) => {
+    server.once('listening', () => resolve((server.address() as { port: number }).port));
+    server.once('error', reject);
+  });
+}
+
 describe('metrics', () => {
   it('returns null lastAlertAt before any update', async () => {
     const { getMetrics } = await import('../metrics.js');
@@ -43,7 +51,7 @@ describe('healthServer', () => {
   it('GET /health returns required fields', async () => {
     const { startHealthServer } = await import('../healthServer.js');
     const server = startHealthServer(0);
-    const port = (server.address() as { port: number }).port;
+    const port = await awaitListening(server);
     const body = await getHealth(port);
     assert.ok(typeof body.uptime === 'number');
     assert.ok('lastAlertAt' in body);
@@ -52,6 +60,7 @@ describe('healthServer', () => {
     assert.ok('pollStuck' in body, 'pollStuck must be present');
     assert.ok(typeof body.memoryMb === 'number', 'memoryMb must be a number');
     assert.ok(typeof body.dmQueueDepth === 'number', 'dmQueueDepth must be a number');
+    server.closeAllConnections();
     server.close();
   });
 
@@ -60,10 +69,11 @@ describe('healthServer', () => {
     updateLastPollAt(); // mark poll as recent
     const { startHealthServer } = await import('../healthServer.js');
     const server = startHealthServer(0);
-    const port = (server.address() as { port: number }).port;
+    const port = await awaitListening(server);
     const { status, body } = await getHealthWithStatus(port);
     assert.equal(status, 200);
     assert.equal(body.pollStuck, false);
+    server.closeAllConnections();
     server.close();
   });
 
@@ -71,7 +81,7 @@ describe('healthServer', () => {
     const { startHealthServer } = await import('../healthServer.js');
     const { getMetrics } = await import('../metrics.js');
     const server = startHealthServer(0);
-    const port = (server.address() as { port: number }).port;
+    const port = await awaitListening(server);
     // Verify the stuck path by fast-forwarding Date.now past the 30s threshold.
     // lastPollAt was set in the previous test — advance time by 35 seconds.
     const metrics = getMetrics();
@@ -84,26 +94,29 @@ describe('healthServer', () => {
     } finally {
       Date.now = origNow;
     }
+    server.closeAllConnections();
     server.close();
   });
 
   it('GET /unknown returns 404', async () => {
     const { startHealthServer } = await import('../healthServer.js');
     const server = startHealthServer(0);
-    const port = (server.address() as { port: number }).port;
+    const port = await awaitListening(server);
     const status = await new Promise<number>((resolve) => {
       http.get(`http://localhost:${port}/unknown`, (res) => resolve(res.statusCode ?? 0));
     });
     assert.equal(status, 404);
+    server.closeAllConnections();
     server.close();
   });
 
   it('alertsTodayError is absent from response when DB is healthy', async () => {
     const { startHealthServer } = await import('../healthServer.js');
     const server = startHealthServer(0);
-    const port = (server.address() as { port: number }).port;
+    const port = await awaitListening(server);
     const body = await getHealth(port);
     assert.ok(!('alertsTodayError' in body), 'alertsTodayError must not appear on success path');
+    server.closeAllConnections();
     server.close();
   });
 
