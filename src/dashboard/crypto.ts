@@ -91,6 +91,13 @@ export function initCrypto(db: Database.Database, dashboardSecret: string): void
   // 1. Resolve or create salt
   let saltHex = getSettingRaw(db, SETTINGS_KEY_SALT);
   if (!saltHex) {
+    const existingDek = getSettingRaw(db, SETTINGS_KEY_WRAPPED_DEK);
+    if (existingDek) {
+      throw new Error(
+        'FATAL: _encryption_salt is missing but _wrapped_dek exists. ' +
+        'The encryption salt was lost — restore it from a DB backup before restarting.'
+      );
+    }
     const salt = randomBytes(SALT_LENGTH);
     saltHex = salt.toString('hex');
     setSettingRaw(db, SETTINGS_KEY_SALT, saltHex);
