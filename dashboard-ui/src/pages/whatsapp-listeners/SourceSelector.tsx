@@ -142,7 +142,7 @@ export function SourceSelector({ chats, value, onChange, disabled, whatsappConne
                   }`}
                 >
                   {tab.label}
-                  <span className="mr-1 text-text-muted">({tab.count})</span>
+                  <span className="ms-1 text-text-muted">({tab.count})</span>
                 </button>
               ))}
             </div>

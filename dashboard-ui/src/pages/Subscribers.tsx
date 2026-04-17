@@ -10,6 +10,7 @@ import { EmptyState } from '../components/EmptyState';
 import { Skeleton } from '../components/Skeleton';
 import { GlassCard } from '../components/ui/GlassCard';
 import { PageTransition } from '../components/ui/PageTransition';
+import { Pagination } from '../components/Pagination';
 
 interface User {
   chat_id: number;
@@ -284,9 +285,10 @@ export function Subscribers() {
               ))}
             </div>
           ) : users.length === 0 ? (
-            <EmptyState icon="👥" message="לא נמצאו מנויים" />
+            <EmptyState icon={<Users size={36} />} message="לא נמצאו מנויים" />
           ) : (
             <>
+              <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[var(--color-border)] text-text-muted text-xs">
@@ -470,7 +472,7 @@ export function Subscribers() {
                                               onClick={() =>
                                                 removeCityMutation.mutate({ id: user.chat_id, city })
                                               }
-                                              className="text-text-muted hover:text-red-400 mr-1"
+                                              className="text-text-muted hover:text-red-400 ms-1"
                                               title={`הסר ${city}`}
                                             >
                                               ×
@@ -534,27 +536,15 @@ export function Subscribers() {
                   ))}
                 </tbody>
               </table>
-
-              {/* Pagination */}
-              <div className="flex items-center justify-between px-4 py-3 border-t border-[var(--color-border)]">
-                <button
-                  disabled={page === 0}
-                  onClick={() => setPage(p => p - 1)}
-                  className="text-text-muted text-xs hover:text-text-primary disabled:opacity-40"
-                >
-                  הקודם →
-                </button>
-                <span className="text-text-muted text-xs">
-                  עמוד {page + 1} · {total} סה״כ
-                </span>
-                <button
-                  disabled={users.length < PAGE_SIZE}
-                  onClick={() => setPage(p => p + 1)}
-                  className="text-text-muted text-xs hover:text-text-primary disabled:opacity-40"
-                >
-                  ← הבא
-                </button>
               </div>
+
+              <Pagination
+                page={page}
+                hasNext={users.length >= PAGE_SIZE}
+                onPrev={() => setPage(p => p - 1)}
+                onNext={() => setPage(p => p + 1)}
+                total={total}
+              />
             </>
           )}
         </GlassCard>

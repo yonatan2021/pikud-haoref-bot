@@ -1,3 +1,14 @@
-export function Skeleton({ className = '' }: { className?: string }) {
-  return <div className={`animate-pulse bg-surface rounded-lg ${className}`} />;
+interface SkeletonProps {
+  className?: string;
+  height?: string | number;
+  width?: string | number;
+}
+
+export function Skeleton({ className = '', height, width }: SkeletonProps) {
+  return (
+    <div
+      className={`skeleton-shimmer rounded-lg ${className}`}
+      style={{ height, width }}
+    />
+  );
 }

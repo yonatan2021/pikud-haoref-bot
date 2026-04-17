@@ -137,25 +137,25 @@ function HebrewYAxisTick({ x, y, payload }: { x?: number; y?: number; payload?: 
 export function Overview() {
   const reducedMotion = useReducedMotion();
 
-  const { data: stats, isLoading: statsLoading } = useQuery<OverviewStats>({
+  const { data: stats, isLoading: statsLoading, isError: statsError } = useQuery<OverviewStats>({
     queryKey: ['overview'],
     queryFn: () => api.get('/api/stats/overview'),
     refetchInterval: 30_000,
   });
 
-  const { data: liveAlerts = [] } = useQuery<Alert[]>({
+  const { data: liveAlerts, isLoading: liveAlertsLoading, isError: liveAlertsError } = useQuery<Alert[]>({
     queryKey: ['alerts-live'],
     queryFn: () => api.get('/api/stats/alerts?days=1&limit=10'),
     refetchInterval: 5_000,
   });
 
-  const { data: byCategory = [], isLoading: byCategoryLoading } = useQuery<CategoryDay[]>({
+  const { data: byCategory = [], isLoading: byCategoryLoading, isError: byCategoryError } = useQuery<CategoryDay[]>({
     queryKey: ['alerts-by-category'],
     queryFn: () => api.get('/api/stats/alerts/by-category'),
     refetchInterval: 60_000,
   });
 
-  const { data: topCities = [], isLoading: topCitiesLoading } = useQuery<TopCity[]>({
+  const { data: topCities = [], isLoading: topCitiesLoading, isError: topCitiesError } = useQuery<TopCity[]>({
     queryKey: ['top-cities'],
     queryFn: () => api.get('/api/stats/alerts/top-cities'),
     refetchInterval: 60_000,
@@ -193,6 +193,10 @@ export function Overview() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28" />)}
           </div>
+        ) : statsError ? (
+          <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-sm text-center">
+            שגיאה בטעינת נתוני KPI — <button onClick={() => window.location.reload()} className="underline">רענן</button>
+          </div>
         ) : (
           <motion.div
             className="grid grid-cols-2 lg:grid-cols-4 gap-4"
@@ -226,6 +230,8 @@ export function Overview() {
           </motion.div>
         )}
 
+        <hr className="border-t border-border" />
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Live Alert Feed */}
           <GlassCard className="p-5">
@@ -233,8 +239,12 @@ export function Overview() {
               <Bell size={14} className="text-amber-400 flex-shrink-0" />
               <span>התראות היום (עדכון חי)</span>
             </h2>
-            {liveAlerts.length === 0 ? (
-              <EmptyState icon="🔔" message="אין התראות היום" />
+            {liveAlertsLoading ? (
+              <Skeleton className="h-40" />
+            ) : liveAlertsError ? (
+              <div className="py-8 text-center text-red-300 text-sm">שגיאה בטעינת התראות</div>
+            ) : !liveAlerts?.length ? (
+              <EmptyState icon={<Bell size={36} />} message="אין התראות היום" />
             ) : (
               <div className="space-y-2 max-h-72 overflow-y-auto">
                 <AnimatePresence initial={false}>
@@ -282,8 +292,10 @@ export function Overview() {
             </h2>
             {topCitiesLoading ? (
               <Skeleton className="h-[220px]" />
+            ) : topCitiesError ? (
+              <div className="h-[220px] flex items-center justify-center text-red-300 text-sm">שגיאה בטעינת ערים</div>
             ) : topCities.length === 0 ? (
-              <EmptyState icon="📍" message="אין נתונים" />
+              <EmptyState icon={<MapPin size={36} />} message="אין נתונים" />
             ) : (
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={topCities} layout="vertical" margin={{ right: 170, left: 8 }}>
@@ -312,8 +324,10 @@ export function Overview() {
           </h2>
           {byCategoryLoading ? (
             <Skeleton className="h-[260px]" />
+          ) : byCategoryError ? (
+            <div className="h-[260px] flex items-center justify-center text-red-300 text-sm">שגיאה בטעינת גרף</div>
           ) : byCategory.length === 0 ? (
-            <EmptyState icon="📊" message="אין נתונים לתקופה זו" />
+            <EmptyState icon={<BarChart2 size={36} />} message="אין נתונים לתקופה זו" />
           ) : (
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={chartData} margin={{ right: 16, bottom: 8 }}>

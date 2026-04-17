@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, CheckCircle, Radio } from 'lucide-react';
+import { Loader2, CheckCircle, Radio, Inbox, MessageSquare } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '../api/client';
 import { ConfirmModal } from '../components/ConfirmModal';
@@ -311,7 +311,7 @@ export function Operations() {
             חלון כפילויות — התראה שנשלחה נשארת &quot;פתוחה&quot; לעדכונים. עדכון פיקוד העורף באותו סוג+ערים יעדכן את ההודעה ולא ישלח חדשה. ניקוי ידני מאפשר קבלת התראה מחדש.
           </p>
           {alertWindow.length === 0 ? (
-            <EmptyState icon="🪟" message="חלון ההתראות ריק" />
+            <EmptyState icon={<Inbox size={36} />} message="חלון ההתראות ריק" />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -419,7 +419,7 @@ export function Operations() {
             חוויות שמשתמשים שיתפו מהמקלט — ממתינות לאישור לפני פרסום בערוץ
           </p>
           {pendingStories.length === 0 ? (
-            <EmptyState icon="🏠" message="אין הודעות ממתינות לסקירה" />
+            <EmptyState icon={<MessageSquare size={36} />} message="אין הודעות ממתינות לסקירה" />
           ) : (
             <div className="flex flex-col gap-3">
               {pendingStories.map((story) => (

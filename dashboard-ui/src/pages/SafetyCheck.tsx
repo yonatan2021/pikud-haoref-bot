@@ -66,14 +66,30 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
 
 export function SafetyCheck() {
   const prefersReducedMotion = useReducedMotion();
-  const { data, isLoading } = useQuery<SafetyCheckData>({
+  const { data, isLoading, isError } = useQuery<SafetyCheckData>({
     queryKey: ['safety-check'],
     queryFn: () => api.get<SafetyCheckData>('/api/stats/safety-check'),
     refetchInterval: 30_000,
   });
 
-  if (isLoading || !data) {
+  if (isLoading) {
     return <Skeleton className="h-full min-h-[60vh]" />;
+  }
+
+  if (isError || !data) {
+    return (
+      <PageTransition>
+        <div className="p-8 text-center space-y-2">
+          <p className="text-red-300 text-sm">שגיאה בטעינת נתוני בדיקת שלומות</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="text-xs text-text-muted underline"
+          >
+            רענן דף
+          </button>
+        </div>
+      </PageTransition>
+    );
   }
 
   const { kpis, trend, recentPrompts } = data;

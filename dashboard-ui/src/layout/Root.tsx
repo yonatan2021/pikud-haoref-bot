@@ -15,7 +15,9 @@ export function Root() {
         <StatusStrip onUptime={setUptime} />
         <RestartBanner />
         <div className="flex-1 overflow-y-auto p-6">
-          <Outlet />
+          <div className="max-w-[1600px] mx-auto">
+            <Outlet />
+          </div>
         </div>
       </main>
     </div>
