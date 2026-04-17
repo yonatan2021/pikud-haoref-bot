@@ -9,16 +9,23 @@ function safeEqual(a: string, b: string): boolean {
 }
 
 const COOKIE_NAME = 'dashboard_token';
+const CSRF_COOKIE_NAME = 'csrf-token';
 const SESSION_TTL_DAYS = 7;
 
 const RATE_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 const RATE_MAX = 10;                    // max attempts per window
+
+const MIN_SECRET_LENGTH = 16;
 
 function getClientIp(req: Request): string {
   return req.ip ?? req.socket.remoteAddress ?? 'unknown';
 }
 
 export function createSessionStore(db: Database.Database, secret: string) {
+  if (!secret || secret.length < MIN_SECRET_LENGTH) {
+    throw new Error(`DASHBOARD_SECRET must be at least ${MIN_SECRET_LENGTH} characters`);
+  }
+
   // Purge any sessions that expired before this startup
   db.prepare("DELETE FROM sessions WHERE expires_at < datetime('now')").run();
 
@@ -84,12 +91,20 @@ export function createSessionStore(db: Database.Database, secret: string) {
       // Successful login — clear the rate limit counter for this IP
       clearLoginAttempts(ip);
       const token = randomUUID();
+      const csrfToken = randomUUID();
       db.prepare(
         "INSERT INTO sessions (token, expires_at) VALUES (?, datetime('now', '+' || cast(? as text) || ' days'))"
       ).run(token, SESSION_TTL_DAYS);
       const secureCookie = process.env['DASHBOARD_SECURE_COOKIE'] === 'true' || process.env.NODE_ENV === 'production';
       res.cookie(COOKIE_NAME, token, {
         httpOnly: true,
+        sameSite: 'strict',
+        maxAge: SESSION_TTL_DAYS * 24 * 60 * 60 * 1000,
+        secure: secureCookie,
+      });
+      // CSRF token: httpOnly:false so the browser JS can read it and send as X-CSRF-Token header
+      res.cookie(CSRF_COOKIE_NAME, csrfToken, {
+        httpOnly: false,
         sameSite: 'strict',
         maxAge: SESSION_TTL_DAYS * 24 * 60 * 60 * 1000,
         secure: secureCookie,

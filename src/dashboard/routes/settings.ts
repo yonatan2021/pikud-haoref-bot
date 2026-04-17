@@ -3,7 +3,7 @@ import type Database from 'better-sqlite3';
 import path from 'path';
 import { statSync, readFileSync } from 'fs';
 import { getAllSettings, getAllSettingsWithMeta, setSetting } from '../settingsRepository.js';
-import { createRateLimitMiddleware } from '../rateLimiter.js';
+import { createRateLimitMiddleware, readLimiter } from '../rateLimiter.js';
 import { loadRoutingCache } from '../../config/routingCache.js';
 
 const pkgPath = path.resolve(__dirname, '..', '..', '..', 'package.json');
@@ -232,8 +232,24 @@ export function createSettingsRouter(db: Database.Database): Router {
     res.json({ ok: true, note: 'חלק מההגדרות ייכנסו לתוקף לאחר הפעלה מחדש' });
   });
 
-  router.get('/backup', backupLimiter, (_req, res) => {
-    const dbPath = path.resolve(process.env.DB_PATH ?? 'data/subscriptions.db');
+  router.get('/backup', readLimiter, backupLimiter, (_req, res) => {
+    const rawPath = process.env.DB_PATH ?? 'data/subscriptions.db';
+    // In-memory DB cannot be downloaded — return a clear error instead of
+    // attempting to stream a non-existent file (SEC-L4).
+    if (rawPath === ':memory:') {
+      res.status(400).json({ error: 'גיבוי לא זמין במצב :memory:' });
+      return;
+    }
+    // Path-traversal guard: only allow files under the project `data/` directory
+    // (or the default location). Prevents `DB_PATH=../../etc/passwd` from being
+    // served as a "backup" (CodeQL SEC-L4).
+    const dbPath = path.resolve(rawPath);
+    const allowedDir = path.resolve('data');
+    const defaultPath = path.resolve('data/subscriptions.db');
+    if (!dbPath.startsWith(allowedDir + path.sep) && dbPath !== defaultPath) {
+      res.status(400).json({ error: 'Invalid DB path' });
+      return;
+    }
     res.download(dbPath, 'backup.db');
   });
 

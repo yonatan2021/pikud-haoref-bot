@@ -1,6 +1,12 @@
 export { escapeHtml } from './telegramBot.js';
 
-/** Strip HTML tags from user input */
+/**
+ * Strip HTML tags from user input.
+ *
+ * NOTE: This strip is display-use only — it does not handle nested tags, malformed HTML,
+ * or HTML entities. Do NOT use as a security boundary. For trusted display of user-facing
+ * text only (e.g., log messages, short labels). If security-relevant, use DOMPurify.
+ */
 export function stripHtml(text: string): string {
   return text.replace(/<[^>]*>/g, '');
 }

@@ -60,3 +60,14 @@ export function createRateLimitMiddleware(opts: RateLimitOptions): RateLimitHand
 
   return handler;
 }
+
+/**
+ * Shared read limiter for sensitive GET endpoints.
+ * 100 requests per minute per IP — generous enough for normal dashboard use,
+ * but blocks brute-force enumeration / scraping of secrets metadata, CSV exports, etc.
+ */
+export const readLimiter = createRateLimitMiddleware({
+  maxRequests: 100,
+  windowMs: 60_000,
+  message: 'יותר מדי בקשות — נסה שוב בעוד דקה',
+});
