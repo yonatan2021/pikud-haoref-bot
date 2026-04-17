@@ -20,8 +20,10 @@ const ALERTS_HEADERS = {
 export function normalizeCityName(city: string): string {
   return city
     .trim()
-    .replace(/\s+/g, ' ')
-    .replace(/\s*[-–—]\s*/g, ' - ');
+    // Use explicit character classes (not \s) to avoid ReDoS on pathological
+    // whitespace sequences (SEC-L1).
+    .replace(/[ \t\r\n]+/g, ' ')
+    .replace(/[ \t]*[-\u2013\u2014][ \t]*/g, ' - ');
 }
 
 function buildFingerprint(alert: Alert): string {
