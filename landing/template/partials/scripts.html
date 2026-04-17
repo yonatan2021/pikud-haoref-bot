@@ -1,0 +1,680 @@
+  <script>
+    // ── 1. Cursor spotlight ─────────────────────────────────────────────────
+    document.addEventListener('mousemove', function(e) {
+      document.documentElement.style.setProperty('--cursor-x', e.clientX + 'px');
+      document.documentElement.style.setProperty('--cursor-y', e.clientY + 'px');
+    });
+
+    // ── 2. Scroll reveal (.reveal elements) ─────────────────────────────────
+    var revealObserver = new IntersectionObserver(function(entries) {
+      entries.forEach(function(e) {
+        if (e.isIntersecting) {
+          e.target.classList.add('visible');
+          revealObserver.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.05 }); /* reduced from 0.1 — prevents tall sections failing to trigger on short mobile viewports */
+
+    document.querySelectorAll('.reveal').forEach(function(el) {
+      revealObserver.observe(el);
+    });
+
+    // ── 3. Feature cards stagger reveal ─────────────────────────────────────
+    var featureObserver = new IntersectionObserver(function(entries) {
+      entries.forEach(function(e) {
+        if (e.isIntersecting) {
+          e.target.classList.add('visible');
+          featureObserver.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.08 });
+
+    document.querySelectorAll('.feature-card').forEach(function(el, i) {
+      // Cap stagger at 300ms — prevents 1.3s wait for last card in a 19-card grid
+      el.style.setProperty('--reveal-delay', Math.min(i * 0.07, 0.3) + 's');
+      featureObserver.observe(el);
+    });
+
+    // ── 4. Count-up animation (stats strip + live counters) ─────────────────
+    var countObserver = new IntersectionObserver(function(entries) {
+      entries.forEach(function(e) {
+        if (!e.isIntersecting) return;
+        var el = e.target;
+        var target = parseInt(el.dataset.target);
+        if (!target || el.classList.contains('counted')) return;
+        el.classList.add('counted');
+        var startTime = null;
+        var duration = 1400;
+        var animate = function(ts) {
+          if (!startTime) startTime = ts;
+          var progress = Math.min((ts - startTime) / duration, 1);
+          var eased = 1 - Math.pow(1 - progress, 3);
+          el.textContent = Math.floor(eased * target).toLocaleString('he-IL');
+          if (progress < 1) {
+            requestAnimationFrame(animate);
+          } else {
+            el.textContent = target.toLocaleString('he-IL');
+            el.classList.add('stat-counted');
+            setTimeout(function() { el.classList.remove('stat-counted'); }, 600);
+          }
+        };
+        requestAnimationFrame(animate);
+      });
+    }, { threshold: 0.5 });
+
+    document.querySelectorAll('[data-target]').forEach(function(el) {
+      countObserver.observe(el);
+    });
+
+    // ── 5. How It Works — connector line animation on scroll ────────────────
+    var howSection = document.querySelector('.how-it-works');
+    if (howSection) {
+      var howObserver = new IntersectionObserver(function(entries) {
+        if (entries[0].isIntersecting) {
+          howSection.classList.add('animated');
+          howObserver.disconnect();
+        }
+      }, { threshold: 0.3 });
+      howObserver.observe(howSection);
+    }
+
+    // ── 6. Mobile: feature tabs, show-more, compact cards ─────────────────
+    var isMobile = window.matchMedia('(max-width: 900px)');
+
+    // 6a. Tab switcher for feature panels
+    var tabs = document.querySelectorAll('.features-tab');
+    var panels = [document.getElementById('panel-user'), document.getElementById('panel-dev')];
+
+    function activateTab(selectedTab) {
+      tabs.forEach(function(tab) {
+        var isSelected = tab === selectedTab;
+        tab.classList.toggle('features-tab--active', isSelected);
+        tab.setAttribute('aria-selected', isSelected);
+      });
+      var activeId = selectedTab.getAttribute('aria-controls');
+      panels.forEach(function(panel) {
+        if (!panel) return;
+        var show = panel.id === activeId;
+        panel.hidden = !show;
+        panel.style.display = show ? '' : 'none';
+      });
+    }
+
+    function initMobileTabs() {
+      if (isMobile.matches) {
+        // On mobile: show only user panel initially
+        if (panels[1]) { panels[1].hidden = true; panels[1].style.display = 'none'; }
+      } else {
+        // On desktop: show both, remove hidden
+        panels.forEach(function(p) { if (p) { p.hidden = false; p.style.display = ''; } });
+      }
+    }
+
+    tabs.forEach(function(tab) {
+      tab.addEventListener('click', function() { activateTab(tab); });
+    });
+
+    initMobileTabs();
+    isMobile.addEventListener('change', initMobileTabs);
+
+    // 6b. "Show more" buttons for feature grids
+    document.querySelectorAll('.features-show-more').forEach(function(btn) {
+      var grid = btn.previousElementSibling;
+      if (!grid || !grid.classList.contains('features-grid')) return;
+      var total = grid.querySelectorAll('.feature-card').length;
+      var hiddenCount = Math.max(0, total - 6);
+      if (hiddenCount > 0) {
+        btn.textContent = 'הצג עוד (' + hiddenCount + ')';
+      }
+      btn.addEventListener('click', function() {
+        var expanded = grid.classList.toggle('expanded');
+        btn.setAttribute('aria-expanded', expanded);
+        btn.textContent = expanded ? 'הצג פחות' : 'הצג עוד (' + hiddenCount + ')';
+      });
+    });
+
+    // 6c. Compact cards — tap to expand description on mobile
+    document.querySelectorAll('.feature-card').forEach(function(card) {
+      card.addEventListener('click', function() {
+        if (!isMobile.matches) return;
+        card.classList.toggle('expanded');
+      });
+    });
+
+    // 6d. What's New show-more
+    var clBtn = document.querySelector('.changelog-show-more');
+    if (clBtn) {
+      var wnGrid = document.querySelector('.wn-grid');
+      clBtn.addEventListener('click', function() {
+        if (!wnGrid) return;
+        var expanded = wnGrid.classList.toggle('expanded');
+        clBtn.setAttribute('aria-expanded', expanded);
+        clBtn.textContent = expanded ? 'הצג פחות' : 'עוד עדכונים';
+      });
+    }
+
+    // 6e. FAB auto-hide near CTA section
+    var fab = document.querySelector('.mobile-fab');
+    var ctaSection = document.querySelector('.cta-section');
+    if (fab && ctaSection) {
+      var fabObserver = new IntersectionObserver(function(entries) {
+        fab.classList.toggle('mobile-fab--hidden', entries[0].isIntersecting);
+      }, { threshold: 0.2 });
+      fabObserver.observe(ctaSection);
+    }
+
+    // ── 7. Interactive city preview — custom dropdown ────────────────────────
+    var cityBubble     = document.getElementById('city-preview-bubble');
+    var previewCity    = document.getElementById('preview-city');
+    var previewZone    = document.getElementById('preview-zone');
+    var previewSeconds = document.getElementById('preview-seconds');
+    var previewBar     = document.getElementById('preview-bar');
+
+    function buildBar(seconds) {
+      var bar = '';
+      for (var b = 0; b < 5; b++) { bar += '🟥'; }
+      return bar;
+    }
+
+    function showCityPreview(val) {
+      if (!val) { if (cityBubble) cityBubble.hidden = true; return; }
+      var parts = val.split('|');
+      var city = parts[0] || '';
+      var zone = parts[1] || '';
+      var secs = parseInt(parts[2], 10) || 45;
+      if (previewCity)    previewCity.textContent    = city;
+      if (previewZone)    previewZone.textContent    = zone;
+      if (previewSeconds) previewSeconds.textContent = String(secs);
+      if (previewBar)     previewBar.textContent     = buildBar(secs) + ' ▸ ' + zone + ' (1)';
+      if (cityBubble) {
+        cityBubble.hidden = false;
+        cityBubble.classList.add('city-preview-bubble--animate');
+        setTimeout(function() { cityBubble.classList.remove('city-preview-bubble--animate'); }, 400);
+      }
+    }
+
+    var cityDropdown     = document.getElementById('city-dropdown');
+    var cityDropdownBtn  = document.getElementById('city-dropdown-btn');
+    var cityDropdownList = document.getElementById('city-dropdown-list');
+    var cityDropdownVal  = document.getElementById('city-dropdown-value');
+
+    function closeCityDd() { if (cityDropdown) cityDropdown.setAttribute('aria-expanded','false'); }
+    function openCityDd()  { if (cityDropdown) cityDropdown.setAttribute('aria-expanded','true');  }
+
+    if (cityDropdownBtn) {
+      cityDropdownBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        cityDropdown.getAttribute('aria-expanded') === 'true' ? closeCityDd() : openCityDd();
+      });
+    }
+
+    if (cityDropdownList) {
+      cityDropdownList.querySelectorAll('.city-dropdown-item').forEach(function(item) {
+        item.addEventListener('click', function() {
+          var val  = item.dataset.value;
+          var text = item.textContent.trim();
+          if (cityDropdownVal) cityDropdownVal.textContent = val ? text : '— בחר עיר —';
+          cityDropdownList.querySelectorAll('.city-dropdown-item').forEach(function(i) {
+            i.classList.remove('city-dropdown-item--selected');
+            i.setAttribute('aria-selected', 'false');
+          });
+          item.classList.add('city-dropdown-item--selected');
+          item.setAttribute('aria-selected', 'true');
+          closeCityDd();
+          showCityPreview(val);
+        });
+      });
+    }
+
+    document.addEventListener('click', function(e) {
+      if (cityDropdown && !cityDropdown.contains(e.target)) closeCityDd();
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && cityDropdown && cityDropdown.getAttribute('aria-expanded') === 'true') {
+        closeCityDd();
+        if (cityDropdownBtn) cityDropdownBtn.focus();
+      }
+    });
+
+    // ── Keyboard navigation for city dropdown ────────────────────────────────
+    if (cityDropdownBtn) {
+      cityDropdownBtn.addEventListener('keydown', function(e) {
+        if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          openCityDd();
+          var firstItem = cityDropdownList
+            ? cityDropdownList.querySelector('.city-dropdown-item:not(.city-dropdown-item--placeholder)')
+            : null;
+          if (firstItem) {
+            firstItem.setAttribute('tabindex', '0');
+            firstItem.focus();
+          }
+        }
+      });
+    }
+
+    if (cityDropdownList) {
+      var allItems = Array.from(
+        cityDropdownList.querySelectorAll('.city-dropdown-item:not(.city-dropdown-item--placeholder)')
+      );
+      allItems.forEach(function(item, idx) {
+        item.setAttribute('tabindex', '-1');
+        item.addEventListener('keydown', function(e) {
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            var next = allItems[idx + 1];
+            if (next) { next.setAttribute('tabindex', '0'); next.focus(); }
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (idx === 0) {
+              if (cityDropdownBtn) cityDropdownBtn.focus();
+            } else {
+              var prev = allItems[idx - 1];
+              if (prev) { prev.setAttribute('tabindex', '0'); prev.focus(); }
+            }
+          } else if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            item.click();
+            if (cityDropdownBtn) cityDropdownBtn.focus();
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            closeCityDd();
+            if (cityDropdownBtn) cityDropdownBtn.focus();
+          }
+        });
+        /* Reset tabindex on blur so only one item is reachable at a time */
+        item.addEventListener('blur', function() {
+          item.setAttribute('tabindex', '-1');
+        });
+      });
+    }
+
+    // ── 8a. Screenshots — touch pause/resume ─────────────────────────────────
+    var screenshotsTrack = document.querySelector('.screenshots-track');
+    if (screenshotsTrack) {
+      screenshotsTrack.addEventListener('touchstart', function() {
+        screenshotsTrack.style.animationPlayState = 'paused';
+      }, { passive: true });
+      screenshotsTrack.addEventListener('touchend', function() {
+        screenshotsTrack.style.animationPlayState = '';
+      }, { passive: true });
+    }
+
+    // ── 8. FAQ chat bubbles ───────────────────────────────────────────────────
+    document.querySelectorAll('.faq-item').forEach(function(item) {
+      var btn = item.querySelector('.faq-q');
+      var ans = item.querySelector('.faq-a');
+      if (!btn || !ans) return;
+      btn.addEventListener('click', function() {
+        var isOpen = btn.getAttribute('aria-expanded') === 'true';
+        // Close all others
+        document.querySelectorAll('.faq-item').forEach(function(other) {
+          var ob = other.querySelector('.faq-q');
+          var oa = other.querySelector('.faq-a');
+          if (ob && oa && other !== item) {
+            ob.setAttribute('aria-expanded', 'false');
+            ob.classList.remove('faq-q--open');
+            oa.setAttribute('aria-hidden', 'true');
+            oa.style.maxHeight = '';
+            oa.style.opacity = '';
+          }
+        });
+        // Toggle this one
+        var opening = !isOpen;
+        btn.setAttribute('aria-expanded', String(opening));
+        btn.classList.toggle('faq-q--open', opening);
+        ans.setAttribute('aria-hidden', String(!opening));
+        if (opening) {
+          ans.style.maxHeight = ans.scrollHeight + 'px';
+          ans.style.opacity = '1';
+        } else {
+          ans.style.maxHeight = '';
+          ans.style.opacity = '';
+        }
+      });
+    });
+
+    // ── 9. Command palette ────────────────────────────────────────────────────
+    var cmdOverlay = document.getElementById('cmd-overlay');
+    var cmdInput   = document.getElementById('cmd-input');
+    var cmdList    = document.getElementById('cmd-list');
+    var cmdClose   = document.getElementById('cmd-close');
+    var cmdTrigger = document.getElementById('cmd-trigger');
+
+    function openCmdPalette() {
+      if (!cmdOverlay) return;
+      cmdOverlay.hidden = false;
+      filterCmdItems('');
+      setTimeout(function() { if (cmdInput) cmdInput.focus(); }, 50);
+    }
+
+    function closeCmdPalette() {
+      if (!cmdOverlay) return;
+      cmdOverlay.hidden = true;
+      if (cmdInput) cmdInput.value = '';
+      setCmdActive(null);
+    }
+
+    function filterCmdItems(query) {
+      if (!cmdList) return;
+      var items = cmdList.querySelectorAll('.cmd-item');
+      var q = query.replace(/^\//, '').toLowerCase();
+      items.forEach(function(item) {
+        var cmd = (item.dataset.cmd || '').toLowerCase();
+        var desc = (item.querySelector('.cmd-desc') || {}).textContent || '';
+        item.style.display = (!q || cmd.includes(q) || desc.includes(q)) ? '' : 'none';
+      });
+      // Auto-select first visible
+      var first = cmdList.querySelector('.cmd-item:not([style*="none"])');
+      setCmdActive(first || null);
+    }
+
+    var activeCmd = null;
+    function setCmdActive(el) {
+      if (activeCmd) activeCmd.classList.remove('cmd-item--active');
+      activeCmd = el;
+      if (activeCmd) activeCmd.classList.add('cmd-item--active');
+    }
+
+    function activateCmd(el) {
+      if (!el) return;
+      closeCmdPalette();
+      var target = el.dataset.target;
+      var href   = el.dataset.href;
+      var isExternal = el.dataset.external === 'true';
+      if (target) {
+        var section = document.querySelector(target);
+        if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else if (href) {
+        if (isExternal) {
+          window.open(href, '_blank', 'noopener,noreferrer');
+        } else {
+          window.location.href = href;
+        }
+      }
+    }
+
+    if (cmdInput) {
+      cmdInput.addEventListener('input', function() { filterCmdItems(cmdInput.value); });
+      cmdInput.addEventListener('keydown', function(e) {
+        var items = Array.prototype.slice.call(
+          cmdList ? cmdList.querySelectorAll('.cmd-item:not([style*="none"])') : []
+        );
+        var idx = items.indexOf(activeCmd);
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          setCmdActive(items[Math.min(idx + 1, items.length - 1)]);
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          setCmdActive(items[Math.max(idx - 1, 0)]);
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          activateCmd(activeCmd);
+        } else if (e.key === 'Escape') {
+          closeCmdPalette();
+        }
+      });
+    }
+
+    if (cmdList) {
+      cmdList.querySelectorAll('.cmd-item').forEach(function(item) {
+        item.addEventListener('mouseenter', function() { setCmdActive(item); });
+        item.addEventListener('click', function() { activateCmd(item); });
+      });
+    }
+
+    if (cmdClose)   { cmdClose.addEventListener('click', closeCmdPalette); }
+    if (cmdTrigger) { cmdTrigger.addEventListener('click', openCmdPalette); }
+
+    if (cmdOverlay) {
+      cmdOverlay.addEventListener('click', function(e) {
+        if (e.target === cmdOverlay) closeCmdPalette();
+      });
+    }
+
+    // "/" key opens palette (not when inside an input/textarea/select)
+    document.addEventListener('keydown', function(e) {
+      if (e.key === '/' && !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)) {
+        e.preventDefault();
+        openCmdPalette();
+      }
+      if (e.key === 'Escape' && cmdOverlay && !cmdOverlay.hidden) {
+        closeCmdPalette();
+      }
+    });
+
+    // ── 11. Copy-to-clipboard (npx command) ──────────────────────────────────
+    document.querySelectorAll('.copy-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var text = btn.dataset.copy;
+        var apply = function() {
+          btn.classList.add('copied');
+          setTimeout(function() { btn.classList.remove('copied'); }, 2000);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(apply).catch(function(err) {
+            console.warn('[copy-btn] Clipboard API write failed:', err);
+          });
+        } else {
+          var ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.cssText = 'position:fixed;opacity:0;';
+          document.body.appendChild(ta);
+          ta.select();
+          try {
+            document.execCommand('copy');
+            apply();
+          } catch(err) {
+            console.warn('[copy-btn] execCommand copy failed:', err);
+          }
+          document.body.removeChild(ta);
+        }
+      });
+    });
+
+    // ── 12. Alert Simulator v2 — Telegram-clone bubble ───────────────────────
+    (function() {
+      var SIM_DATA = {
+        'חיפה':        { zone: 'חיפה',              cities: ['חיפה','קריית ים','קריית אתא','חוף הכרמל'],       seconds: 90 },
+        'תל אביב':     { zone: 'גוש דן',             cities: ['תל אביב','רמת גן','גבעתיים','בני ברק'],          seconds: 90 },
+        'באר שבע':     { zone: 'שפלת יהודה',         cities: ['באר שבע','אשקלון','קריית גת','נתיבות'],          seconds: 60 },
+        'אשדוד':       { zone: 'שפלת יהודה',         cities: ['אשדוד','אשקלון','קריית מלאכי','גן יבנה'],        seconds: 45 },
+        'ירושלים':     { zone: 'ירושלים',            cities: ['ירושלים','מבשרת ציון','מעלה אדומים','בית שמש'],  seconds: 90 },
+        'נתניה':       { zone: 'השרון',               cities: ['נתניה','רעננה','הוד השרון','כפר סבא'],            seconds: 90 },
+        'פתח תקווה':   { zone: 'גוש דן',             cities: ['פתח תקווה','ראש העין','אלעד','רמלה'],             seconds: 90 },
+        'ראשון לציון': { zone: 'גוש דן',             cities: ['ראשון לציון','חולון','בת ים','אור יהודה'],        seconds: 90 },
+        'חדרה':        { zone: 'חדרה ועמק יזרעאל',   cities: ['חדרה','פרדס חנה','זיכרון יעקב','בנימינה'],        seconds: 90 },
+        'אשקלון':      { zone: 'שפלת יהודה',         cities: ['אשקלון','שקמים','מיגדל הנגב','ברכיה'],           seconds: 30 },
+        'עכו':         { zone: 'חיפה',               cities: ['עכו','נהריה','כרמיאל','מעלות-תרשיחא'],           seconds: 90 },
+        'נצרת':        { zone: 'הגליל',              cities: ['נצרת','עפולה','יזרעאל','שפרעם'],                  seconds: 90 },
+        'אילת':        { zone: 'אילת',               cities: ['אילת'],                                           seconds: 180 },
+        'מודיעין':     { zone: 'ירושלים',            cities: ['מודיעין','מכבים-רעות','שוהם','אבן יהודה'],        seconds: 90 },
+        'רחובות':      { zone: 'גוש דן',             cities: ['רחובות','נס ציונה','יבנה','גדרה'],                seconds: 90 },
+        'כפר סבא':     { zone: 'השרון',              cities: ['כפר סבא','רעננה','אלקנה','עמנואל'],               seconds: 90 },
+        'טבריה':       { zone: 'כינרת',              cities: ['טבריה','כינרת','מגדל','גינוסר'],                  seconds: 90 },
+        'צפת':         { zone: 'הגליל העליון',        cities: ['צפת','מירון','ביריה','עמוקה'],                    seconds: 90 },
+        'דימונה':      { zone: 'הנגב',               cities: ['דימונה','ערד','ירוחם','מצפה רמון'],               seconds: 60 },
+        'קריית שמונה': { zone: 'הגליל העליון',        cities: ['קריית שמונה','מטולה','מנרה','כפר בלום'],          seconds: 30 }
+      };
+      var CAT_EMOJI = '🔴';
+      var CAT_NAME  = 'ירי רקטות וטילים';
+      var CAT_INSTR = '\u{1F6E1} להיכנס למרחב מוגן ולהישאר בו 10 דקות';
+
+      var simInput    = document.getElementById('sim-city-input');
+      var simSugList  = document.getElementById('sim-city-suggestions');
+      var simRun      = document.getElementById('sim-run');
+      var simPulse    = document.getElementById('sim-pulse');
+      var tgBubble    = document.getElementById('tg-bubble');
+      var tgHeader    = document.getElementById('tg-alert-header');
+      var tgZones     = document.getElementById('tg-alert-zones');
+      var tgCities    = document.getElementById('tg-alert-cities');
+      var tgInstr     = document.getElementById('tg-alert-instructions');
+      var tgCountdown = document.getElementById('tg-countdown-value');
+      var tgFill      = document.getElementById('tg-countdown-fill');
+      var tgTime      = document.getElementById('tg-bubble-time');
+
+      if (!simInput) return;
+
+      var allCities = Object.keys(SIM_DATA);
+      var selectedCity = null;
+      var cdTimer = null;
+
+      function fmtMmSs(s) {
+        var m = Math.floor(s / 60), sec = s % 60;
+        return (m < 10 ? '0' + m : String(m)) + ':' + (sec < 10 ? '0' + sec : String(sec));
+      }
+
+      function buildSuggestions(q) {
+        if (!simSugList) return;
+        while (simSugList.firstChild) simSugList.removeChild(simSugList.firstChild);
+        var matches = q
+          ? allCities.filter(function(c) { return c.indexOf(q) !== -1; })
+          : ['חיפה','תל אביב','באר שבע','אשדוד'];
+        if (!matches.length) { simSugList.hidden = true; return; }
+        matches.slice(0, 6).forEach(function(city) {
+          var li = document.createElement('li');
+          li.className = 'sim-suggestion';
+          li.setAttribute('role', 'option');
+          li.textContent = city;
+          li.addEventListener('mousedown', function(ev) {
+            ev.preventDefault();
+            selectCity(city);
+          });
+          simSugList.appendChild(li);
+        });
+        simSugList.hidden = false;
+      }
+
+      function selectCity(city) {
+        selectedCity = city;
+        if (simInput) simInput.value = city;
+        if (simSugList) simSugList.hidden = true;
+      }
+
+      simInput.addEventListener('input',  function() { buildSuggestions(simInput.value.trim()); });
+      simInput.addEventListener('focus',  function() { buildSuggestions(simInput.value.trim()); });
+      simInput.addEventListener('blur',   function() { setTimeout(function() { if (simSugList) simSugList.hidden = true; }, 150); });
+      simInput.addEventListener('keydown', function(ev) {
+        if (ev.key === 'Enter') {
+          if (simSugList && !simSugList.hidden) {
+            var first = simSugList.querySelector('.sim-suggestion');
+            if (first) selectCity(first.textContent.trim());
+          }
+          runSim();
+        }
+      });
+
+      // Wire static suggestion items already in HTML
+      if (simSugList) {
+        simSugList.querySelectorAll('.sim-suggestion').forEach(function(li) {
+          li.addEventListener('mousedown', function(ev) {
+            ev.preventDefault();
+            selectCity(li.dataset.city || li.textContent.trim());
+          });
+        });
+      }
+
+      function runSim() {
+        var city = selectedCity || (simInput ? simInput.value.trim() : '') || 'תל אביב';
+        var data = SIM_DATA[city] || SIM_DATA['תל אביב'];
+
+        if (tgHeader) {
+          while (tgHeader.firstChild) tgHeader.removeChild(tgHeader.firstChild);
+          tgHeader.appendChild(document.createTextNode(CAT_EMOJI + ' '));
+          var b = document.createElement('b');
+          b.textContent = CAT_NAME;
+          tgHeader.appendChild(b);
+        }
+        if (tgZones) {
+          while (tgZones.firstChild) tgZones.removeChild(tgZones.firstChild);
+          var bz = document.createElement('b');
+          bz.textContent = '\u25B8 ' + data.zone;
+          tgZones.appendChild(bz);
+        }
+        if (tgCities) tgCities.textContent = data.cities.join(' \u00B7 ');
+        if (tgInstr)  tgInstr.textContent  = CAT_INSTR;
+
+        var now = new Date();
+        var hh = now.getHours(), mm = now.getMinutes();
+        if (tgTime) tgTime.textContent = (hh < 10 ? '0' + hh : hh) + ':' + (mm < 10 ? '0' + mm : mm);
+
+        var total = data.seconds;
+        var remaining = total;
+        if (tgCountdown) tgCountdown.textContent = fmtMmSs(remaining);
+        if (tgFill) {
+          tgFill.style.transition = 'none';
+          tgFill.style.transform  = 'scaleX(1)';
+        }
+        if (simPulse) simPulse.hidden = false;
+        if (tgBubble) tgBubble.hidden = false;
+
+        requestAnimationFrame(function() {
+          if (tgFill) {
+            tgFill.style.transition = 'transform ' + total + 's linear';
+            tgFill.style.transform  = 'scaleX(0)';
+          }
+        });
+
+        if (cdTimer) clearInterval(cdTimer);
+        cdTimer = setInterval(function() {
+          remaining = Math.max(0, remaining - 1);
+          if (tgCountdown) tgCountdown.textContent = fmtMmSs(remaining);
+          if (remaining === 0) clearInterval(cdTimer);
+        }, 1000);
+      }
+
+      if (simRun) simRun.addEventListener('click', runSim);
+    })();
+
+    // ── 13. Light/Dark theme toggle ───────────────────────────────────────────
+    document.addEventListener('click', function(ev) {
+      var btn = ev.target.closest('[data-theme-toggle]');
+      if (!btn) return;
+      var cur = document.documentElement.dataset.theme;
+      var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      var next = cur === 'dark' ? 'light' : cur === 'light' ? 'dark' : (prefersDark ? 'light' : 'dark');
+      document.documentElement.dataset.theme = next;
+      try { localStorage.setItem('theme', next); } catch(e) {}
+    });
+
+  </script>
+
+  <!-- All routes for command palette — injected at build time -->
+  <script>window.__ROUTES = {{ROUTES_JSON}};</script>
+
+  <script>
+    // ── 14. Command Palette — routes extension ────────────────────────────────
+    (function() {
+      var cmdList = document.getElementById('cmd-list');
+      if (!cmdList || !window.__ROUTES) return;
+      window.__ROUTES.forEach(function(route) {
+        var li = document.createElement('li');
+        li.className = 'cmd-item cmd-item--route';
+        li.setAttribute('data-href', route.slug);
+        li.setAttribute('data-cmd', route.title);
+        var iconSpan = document.createElement('span');
+        iconSpan.className = 'cmd-icon';
+        iconSpan.textContent = '\uD83D\uDD17';
+        var labelSpan = document.createElement('span');
+        labelSpan.className = 'cmd-label';
+        labelSpan.textContent = '\u05E0\u05D5\u05D5\u05D8: ' + route.title;
+        var descSpan = document.createElement('span');
+        descSpan.className = 'cmd-desc';
+        descSpan.textContent = route.slug;
+        li.appendChild(iconSpan);
+        li.appendChild(labelSpan);
+        li.appendChild(descSpan);
+        li.addEventListener('mouseenter', function() {
+          if (typeof setCmdActive === 'function') setCmdActive(li);
+        });
+        li.addEventListener('click', function() {
+          if (typeof closeCmdPalette === 'function') closeCmdPalette();
+          window.location.href = route.slug;
+        });
+        cmdList.appendChild(li);
+      });
+    })();
+  </script>
+
+</body>
+</html>

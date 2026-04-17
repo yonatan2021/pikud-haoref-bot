@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://yonatan2021.github.io/pikud-haoref-bot-landing/sitemap.xml

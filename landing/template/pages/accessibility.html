@@ -1,0 +1,53 @@
+<main class="subpage" id="main">
+  <nav class="breadcrumb" aria-label="פירורי לחם">
+    <ol><li><a href="/">בית</a></li><li aria-current="page">הצהרת נגישות</li></ol>
+  </nav>
+
+  <header class="subpage-hero">
+    <h1>הצהרת נגישות</h1>
+    <p class="subtitle">מחויבות לנגישות — תקנות שוויון זכויות לאנשים עם מוגבלות, התשע"ג-2013. עדכון אחרון: {{BUILD_DATE}}.</p>
+  </header>
+
+  <article class="prose">
+    <h2>1. מחויבות</h2>
+    <p>אתר זה והבוט הנלווה שואפים לספק חוויה נגישה לכל אדם, ללא תלות במוגבלות, מכשיר או יכולת. אנו פועלים לעמוד בתקן <strong>WCAG 2.1 רמה AA</strong> ובתקנות שוויון זכויות לאנשים עם מוגבלות (התאמות נגישות לשירות), התשע"ג–2013. יצוין כי מדובר בפרוייקט אישי המופעל בהתנדבות על ידי מפעיל יחיד — פניות נגישות יטופלו תוך 14 ימי עבודה בהתאם לתקנות, אך זמן התגובה בפועל תלוי בזמינות המתנדב.</p>
+
+    <h2>2. התאמות שבוצעו</h2>
+    <ul>
+      <li><strong>ניגודיות</strong>: יחס 4.5:1 מינימום לטקסט רגיל, 3:1 לגרפיקה ורכיבי ממשק.</li>
+      <li><strong>ניווט במקלדת</strong>: כל האזורים האינטראקטיביים נגישים באמצעות Tab/Enter/Escape.</li>
+      <li><strong>קוראי מסך</strong>: aria-labels לאיקונים, <code>alt</code> לתמונות, ניווט עם landmarks (<code>role="banner"</code>, <code>role="main"</code>, <code>role="contentinfo"</code>).</li>
+      <li><strong>יעדי מגע</strong>: כפתורים ברוחב מינימלי של 44×44 פיקסלים.</li>
+      <li><strong>גודל טקסט</strong>: 16px כברירת מחדל, ניתן להגדלה דרך הדפדפן ללא שבירת הפריסה.</li>
+      <li><strong>הימנעות מהבהוב/תנועה</strong>: תכונת <code>prefers-reduced-motion</code> נתמכת — אנימציות מושבתות לפי בחירת המערכת.</li>
+      <li><strong>עברית RTL</strong>: <code>lang="he" dir="rtl"</code>, סדר קריאה הגיוני, אין שבירה של טקסט.</li>
+      <li><strong>דלג-לתוכן</strong>: קישור "דלג לתוכן הראשי" בראש כל עמוד, נחשף בפוקוס.</li>
+      <li><strong>צבע אינו ערוץ יחיד</strong>: משמעות לא מועברת באמצעות צבע בלבד.</li>
+    </ul>
+
+    <h2>3. רכיבים שאינם נגישים</h2>
+    <p>נעשה מאמץ לעמוד בתקן המלא, אך ייתכנו רכיבים שטרם עמדו בו. אם נתקלת ברכיב לא נגיש — נבקש לדווח ונטפל תוך <strong>14 ימי עבודה</strong>.</p>
+
+    <h2>4. פרטי רכז נגישות</h2>
+    <div class="callout callout-info">
+      <p>
+        <strong>שם:</strong> {{ACCESSIBILITY_CONTACT_NAME}}<br>
+        <strong>דוא"ל:</strong> <a href="mailto:{{ACCESSIBILITY_CONTACT_EMAIL}}">{{ACCESSIBILITY_CONTACT_EMAIL}}</a><br>
+        <strong>ערוץ נוסף:</strong> <a href="https://github.com/yonatan2021/pikud-haoref-bot/issues" rel="noopener">GitHub Issues</a>
+      </p>
+    </div>
+    <p><em>הערה לבעלים: מלא את הערכים ב-<code>pages.config.js</code> דרך <code>process.env.ACCESSIBILITY_CONTACT_*</code> לפני deploy. אסור להשאיר placeholder בעמוד בייצור.</em></p>
+
+    <h2>5. הנגשת הבוט</h2>
+    <p>הבוט מבוסס על Telegram ו-WhatsApp — לקוחות אלה מספקים תמיכה מובנית בקוראי מסך, הגדלת טקסט ומצב ניגודיות גבוהה. הבוט משתמש בטקסט בלבד למעט תמונות מפה אופציונליות שמלוות תמיד בגרסת טקסט מלאה של ההתראה.</p>
+
+    <h2>6. מגבלות ידועות</h2>
+    <ul>
+      <li>סימולציית ההתראה החיה בדף הבית משתמשת בהבהובי אור — ניתן להשבית דרך <code>prefers-reduced-motion</code>.</li>
+      <li>תמונות מפה הנשלחות בבוט אינן מוקראות על ידי קורא מסך — ההתראה הטקסטואלית מכילה את כל המידע.</li>
+    </ul>
+
+    <h2>7. נספחים</h2>
+    <p>הצהרה זו נסקרה לאחרונה בתאריך {{BUILD_DATE}}. עדכון תקופתי אחת לשנה לפחות.</p>
+  </article>
+</main>

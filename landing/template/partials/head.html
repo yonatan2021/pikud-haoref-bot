@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <!-- Flash prevention: apply saved theme before first paint -->
+  <script>(function(){try{var t=localStorage.getItem('theme');if(t==='light'||t==='dark'){document.documentElement.dataset.theme=t;}}catch(e){}}());</script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{PAGE_TITLE}}</title>
+  <meta name="description" content="{{PAGE_DESCRIPTION}}">
+  <link rel="canonical" href="{{PAGE_CANONICAL}}">
+  <link rel="alternate" hreflang="he" href="{{PAGE_CANONICAL}}">
+  {{ROBOTS_META}}
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="he_IL">
+  <meta property="og:site_name" content="התראות פיקוד העורף">
+  <meta property="og:title" content="{{PAGE_TITLE}}">
+  <meta property="og:description" content="{{PAGE_DESCRIPTION}}">
+  <meta property="og:url" content="{{PAGE_CANONICAL}}">
+  <meta property="og:image" content="{{PAGE_CANONICAL_BASE}}{{PAGE_OG_IMAGE}}">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{{PAGE_TITLE}}">
+  <meta name="twitter:description" content="{{PAGE_DESCRIPTION}}">
+  <meta name="twitter:image" content="{{PAGE_CANONICAL_BASE}}{{PAGE_OG_IMAGE}}">
+
+  <!-- Theme + icons -->
+  <meta name="theme-color" content="#07080f">
+  <link rel="icon" href="/logo.jpg">
+
+  <!-- Fonts: self-hosted Heebo woff2 preload (critical weights) -->
+  <link rel="preload" href="/fonts/heebo-400.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/fonts/heebo-700.woff2" as="font" type="font/woff2" crossorigin>
+
+  <!-- Hero image preload (home only) -->
+  {{HERO_PRELOAD}}
+
+  <link rel="stylesheet" href="/style.css">
+  {{SUBPAGE_STYLES}}
+
+  <!-- JSON-LD structured data -->
+  {{JSON_LD}}
+
+  <!-- GA4 -->
+  <!-- GA4_PLACEHOLDER -->
+</head>
+<body>

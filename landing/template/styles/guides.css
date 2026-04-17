@@ -1,0 +1,308 @@
+/* ============================================================
+   Guides design system — loaded on kind:'guide' pages
+   in addition to subpage.css.
+   Direction: RTL / Hebrew
+   ============================================================ */
+
+/* ----------------------------------------------------------
+   Step list — numbered steps with CSS counter
+   ---------------------------------------------------------- */
+
+.step-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 2rem;
+  counter-reset: step;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.step-block {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  counter-increment: step;
+}
+
+.step-block-num {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--accent, #229ed9);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  content: counter(step);
+  margin-top: 0.1rem;
+}
+
+.step-block-num::before {
+  content: counter(step);
+}
+
+.step-block-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.step-block-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 0.35rem;
+  line-height: 1.4;
+}
+
+.step-block-body {
+  font-size: 0.93rem;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.65;
+}
+
+.step-block-body a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ----------------------------------------------------------
+   Keycap — inline command / key pill
+   ---------------------------------------------------------- */
+
+.keycap,
+.kbd-command {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.55rem;
+  background: var(--surface, rgba(30,41,59,0.9));
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.85em;
+  color: var(--accent, #229ed9);
+  white-space: nowrap;
+  user-select: text;
+  font-weight: 600;
+}
+
+/* ----------------------------------------------------------
+   Screenshot frame — figure with rounded border
+   ---------------------------------------------------------- */
+
+.screenshot-frame {
+  margin: 1.5rem 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface-glass, rgba(15,17,28,0.85));
+}
+
+.screenshot-frame img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 0;
+}
+
+.screenshot-frame figcaption {
+  padding: 0.6rem 1rem;
+  font-size: 0.82rem;
+  color: var(--text-muted, #64748b);
+  text-align: center;
+  border-top: 1px solid var(--border);
+}
+
+/* Row of screenshots side by side on desktop */
+.screenshot-row {
+  display: flex;
+  gap: 1rem;
+  margin: 1.5rem 0;
+  flex-wrap: wrap;
+}
+
+.screenshot-row .screenshot-frame {
+  flex: 1;
+  min-width: 200px;
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .screenshot-row {
+    flex-direction: column;
+  }
+}
+
+/* ----------------------------------------------------------
+   Guide TOC — sticky aside on >= 1024px, <details> on mobile
+   ---------------------------------------------------------- */
+
+.guide-toc {
+  background: var(--surface-glass, rgba(15,17,28,0.85));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card, 16px);
+  padding: 1.25rem 1.5rem;
+  font-size: 0.88rem;
+  margin-bottom: 2rem;
+}
+
+.guide-toc summary {
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  list-style: none;
+  padding-bottom: 0.5rem;
+}
+.guide-toc summary::-webkit-details-marker { display: none; }
+.guide-toc summary::before {
+  content: '\25B6\FE0E ';
+  font-size: 0.75em;
+  transition: transform 0.2s ease;
+  display: inline-block;
+}
+.guide-toc[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.guide-toc ol {
+  padding-inline-start: 1.25rem;
+  margin: 0.5rem 0 0;
+  list-style: decimal;
+}
+.guide-toc li { margin-bottom: 0.3rem; }
+.guide-toc a {
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+.guide-toc a:hover { color: var(--text-primary); }
+
+@media (min-width: 1024px) {
+  .guide-toc {
+    position: sticky;
+    top: calc(var(--nav-height) + 1.5rem);
+    max-height: calc(100vh - var(--nav-height) - 3rem);
+    overflow-y: auto;
+    scrollbar-width: thin;
+    margin-bottom: 0;
+  }
+}
+
+/* ----------------------------------------------------------
+   Guide CTA — end-of-guide next-steps block
+   ---------------------------------------------------------- */
+
+.guide-cta {
+  margin-top: 3rem;
+  padding: 1.5rem 1.75rem;
+  background: var(--surface-glass, rgba(15,17,28,0.85));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card, 16px);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.guide-cta-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.guide-cta-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.guide-cta-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.88rem;
+  font-weight: 500;
+  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+
+.guide-cta-link:hover {
+  border-color: var(--accent, #229ed9);
+  color: var(--accent, #229ed9);
+  background: var(--accent-deep, rgba(34,158,217,0.07));
+}
+
+.guide-cta-link-primary {
+  background: var(--accent, #229ed9);
+  border-color: var(--accent, #229ed9);
+  color: #fff;
+}
+
+.guide-cta-link-primary:hover {
+  background: var(--accent-hover, #1a8ac4);
+  border-color: var(--accent-hover, #1a8ac4);
+  color: #fff;
+}
+
+/* ----------------------------------------------------------
+   Guide commands table — responsive
+   ---------------------------------------------------------- */
+
+.commands-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1.5rem;
+  font-size: 0.88rem;
+}
+
+.commands-table th,
+.commands-table td {
+  padding: 0.55rem 0.85rem;
+  border: 1px solid var(--border);
+  text-align: start;
+  vertical-align: top;
+}
+
+.commands-table th {
+  background: var(--surface, rgba(30,41,59,0.9));
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.commands-table td:first-child {
+  white-space: nowrap;
+}
+
+.commands-table tr:nth-child(even) td {
+  background: rgba(255,255,255,0.02);
+}
+
+@media (max-width: 640px) {
+  .commands-table { font-size: 0.78rem; }
+  .commands-table th, .commands-table td { padding: 0.4rem 0.5rem; }
+}
+
+/* ----------------------------------------------------------
+   Read-time badge in guide hero
+   ---------------------------------------------------------- */
+
+.read-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.82rem;
+  color: var(--text-muted, #64748b);
+  margin-top: 0.5rem;
+}

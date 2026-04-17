@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1200" height="630" viewBox="0 0 1200 630" direction="rtl">
+  <defs>
+    <!-- Full-bleed background gradient -->
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#07080f"/>
+      <stop offset="100%" stop-color="#0f1423"/>
+    </linearGradient>
+    <!-- Aurora blob gradient -->
+    <radialGradient id="aurora" cx="35%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#229ED9" stop-opacity="0.22"/>
+      <stop offset="60%" stop-color="#229ED9" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#229ED9" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Logo clip circle -->
+    <clipPath id="logoClip">
+      <circle cx="1104" cy="72" r="44"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- Aurora blob -->
+  <ellipse cx="420" cy="315" rx="520" ry="380" fill="url(#aurora)"/>
+
+  <!-- Subtle top border -->
+  <rect x="0" y="0" width="1200" height="3" fill="#229ED9" opacity="0.7"/>
+
+  <!-- Logo circle background -->
+  <circle cx="1104" cy="72" r="50" fill="#0d1526" opacity="0.85"/>
+  <circle cx="1104" cy="72" r="47" fill="#229ED9" opacity="0.15"/>
+
+  <!-- Logo image (base64 injected at build time) -->
+  <image href="{{LOGO_BASE64}}" x="1060" y="28" width="88" height="88" clip-path="url(#logoClip)" preserveAspectRatio="xMidYMid slice"/>
+
+  <!-- Brand name — top right (visual left of logo in RTL) -->
+  <text
+    x="1044"
+    y="65"
+    font-family="Heebo, Arial, sans-serif"
+    font-weight="700"
+    font-size="26"
+    fill="#e2e8f0"
+    text-anchor="end"
+    direction="rtl"
+  >התראות פיקוד העורף</text>
+
+  <!-- Sub-brand tagline under brand name -->
+  <text
+    x="1044"
+    y="90"
+    font-family="Heebo, Arial, sans-serif"
+    font-weight="400"
+    font-size="17"
+    fill="#64748b"
+    text-anchor="end"
+    direction="rtl"
+  >בוט קוד-פתוח לטלגרם ו-WhatsApp</text>
+
+  <!-- Divider line -->
+  <line x1="60" y1="140" x2="1140" y2="140" stroke="#1e2d4a" stroke-width="1.5"/>
+
+  <!-- Main title line 1 — centered vertically in lower half -->
+  <text
+    x="1140"
+    y="305"
+    font-family="Heebo, Arial, sans-serif"
+    font-weight="900"
+    font-size="58"
+    fill="#ffffff"
+    text-anchor="end"
+    direction="rtl"
+  >{{TITLE_LINE1}}</text>
+
+  <!-- Main title line 2 — second line (empty if title fits on one line) -->
+  <text
+    x="1140"
+    y="378"
+    font-family="Heebo, Arial, sans-serif"
+    font-weight="900"
+    font-size="58"
+    fill="#f1f5f9"
+    text-anchor="end"
+    direction="rtl"
+  >{{TITLE_LINE2}}</text>
+
+  <!-- Bottom tagline -->
+  <text
+    x="1140"
+    y="565"
+    font-family="Heebo, Arial, sans-serif"
+    font-weight="400"
+    font-size="22"
+    fill="#94a3b8"
+    text-anchor="end"
+    direction="rtl"
+  >קוד-פתוח · Apache 2.0 · github.com/yonatan2021/pikud-haoref-bot</text>
+
+  <!-- Bottom accent bar -->
+  <rect x="0" y="628" width="1200" height="2" fill="#229ED9"/>
+</svg>

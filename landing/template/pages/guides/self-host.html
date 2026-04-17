@@ -1,0 +1,145 @@
+<main class="subpage" id="main">
+  <nav class="breadcrumb" aria-label="פירורי לחם">
+    <ol>
+      <li><a href="/">בית</a></li>
+      <li><a href="/guides/">מדריכים</a></li>
+      <li aria-current="page">הפעלה עצמית</li>
+    </ol>
+  </nav>
+
+  <header class="subpage-hero">
+    <h1>🛠️ הפעלה עצמית — Docker &amp; Node</h1>
+    <p class="subpage-subtitle">איך להריץ מופע משלך — למפתחים ו-DevOps · זמן קריאה: ~8 דק׳</p>
+  </header>
+
+  <article class="prose">
+    <p>
+      הבוט הוא פרויקט קוד פתוח. ניתן להריץ מופע פרטי משלך — שימושי אם אתה רוצה שליטה מלאה,
+      ניתוח מותאם, או הרחבת הפונקציונליות.
+    </p>
+
+    <h2 id="prereqs">דרישות מקדימות</h2>
+    <ul>
+      <li><strong>Node.js 22+</strong> — <a href="https://nodejs.org" rel="noopener noreferrer" target="_blank">nodejs.org</a></li>
+      <li><strong>Telegram Bot Token</strong> — צור בוט חדש דרך <a href="https://t.me/BotFather" rel="noopener noreferrer" target="_blank">@BotFather</a> ב-Telegram</li>
+      <li><strong>Telegram Channel/Group ID</strong> — המספר השלילי של ערוץ/קבוצה שהבוט הוסף אליה</li>
+      <li><strong>Mapbox Access Token</strong> (אופציונלי) — ל<a href="https://account.mapbox.com" rel="noopener noreferrer" target="_blank">mapbox.com</a> ליצירת מפות; ללא זה ההתראות נשלחות כטקסט בלבד</li>
+      <li><strong>Proxy URL</strong> (נדרש מחוץ לישראל) — ה-API של פיקוד העורף מוגבל גיאוגרפית</li>
+    </ul>
+
+    <h2 id="quickstart">התקנה מהירה</h2>
+
+    <pre><code>git clone https://github.com/yonatan2021/pikud-haoref-bot.git
+cd pikud-haoref-bot
+npm install
+cp .env.example .env
+# ערוך .env — מלא TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID ועוד
+npm run build
+npm start</code></pre>
+
+    <p>לאחר ההפעלה הבוט יתחיל לסקור את ה-API של פיקוד העורף ולשלוח התראות לערוץ שהגדרת.</p>
+
+    <h2 id="docker">הפעלה עם Docker</h2>
+
+    <pre><code># בנה את ה-image
+docker build -t pikud-haoref-bot:local .
+
+# הרץ עם mount לתיקיית data/ עבור SQLite
+docker run \
+  --env-file .env \
+  -v $(pwd)/data:/app/data \
+  pikud-haoref-bot:local</code></pre>
+
+    <p>
+      קובץ SQLite נשמר ב-<code>data/bot.db</code> — עשה mount כדי שהנתונים ישרדו הפעלות מחדש.
+      ב-Docker, קבע גם <code>PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium</code> אם אתה מפעיל WhatsApp.
+    </p>
+
+    <h2 id="wizard">Wizard CLI — התקנה אינטראקטיבית</h2>
+    <p>אם אינך רוצה לערוך את <code>.env</code> ידנית, הרץ את ה-Wizard:</p>
+
+    <pre><code>npx @haoref-boti/pikud-haoref-bot</code></pre>
+
+    <p>
+      האשף מנחה אותך שלב אחרי שלב — בחירת פלטפורמה (Telegram / WhatsApp / שניהם),
+      הזנת הטוקנים, ובחירת פרופיל הגדרות (מינימלי / מומלץ / מלא).
+      בסיום הוא יוצר <code>.env</code> ואופציונלית מבצע <code>git clone</code> של הפרויקט.
+    </p>
+
+    <h2 id="dashboard">Dashboard ניהולי</h2>
+    <p>
+      הבוט כולל ממשק ניהול React. להפעלה, הגדר בקובץ <code>.env</code>:
+    </p>
+
+    <pre><code>DASHBOARD_SECRET=your-admin-password
+DASHBOARD_PORT=4000  # ברירת מחדל</code></pre>
+
+    <p>לאחר הפעלת הבוט, גש ל- <code>http://localhost:4000</code> בדפדפן.</p>
+
+    <h2 id="health">Health Check</h2>
+    <p>שרת ה-health רץ בנפרד:</p>
+
+    <pre><code>GET http://localhost:3000/health</code></pre>
+
+    <p>מחזיר: uptime, <code>lastAlertAt</code>, <code>lastPollAt</code>, <code>alertsToday</code>.</p>
+
+    <h2 id="env-vars">משתני סביבה עיקריים</h2>
+    <table class="commands-table">
+      <thead>
+        <tr>
+          <th>משתנה</th>
+          <th>חובה?</th>
+          <th>תיאור</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>TELEGRAM_BOT_TOKEN</code></td>
+          <td>כן</td>
+          <td>טוקן הבוט מ-BotFather</td>
+        </tr>
+        <tr>
+          <td><code>TELEGRAM_CHAT_ID</code></td>
+          <td>כן</td>
+          <td>מספר שלילי לערוץ/קבוצה</td>
+        </tr>
+        <tr>
+          <td><code>MAPBOX_ACCESS_TOKEN</code></td>
+          <td>לא</td>
+          <td>ליצירת מפות סטטיות; ללא זה — טקסט בלבד</td>
+        </tr>
+        <tr>
+          <td><code>PROXY_URL</code></td>
+          <td>מחוץ לישראל</td>
+          <td>פרוקסי לגישה ל-API של פיקוד העורף</td>
+        </tr>
+        <tr>
+          <td><code>DASHBOARD_SECRET</code></td>
+          <td>לא</td>
+          <td>סיסמת Dashboard; ללא זה הממשק מושבת</td>
+        </tr>
+        <tr>
+          <td><code>WHATSAPP_ENABLED</code></td>
+          <td>לא</td>
+          <td><code>true</code> להפעלת לקוח WhatsApp (QR נדרש בהפעלה ראשונה)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>
+      לרשימה המלאה של כל משתני הסביבה, ראה
+      <a href="https://github.com/yonatan2021/pikud-haoref-bot#readme" rel="noopener noreferrer" target="_blank">README.md בגיטהאב</a>.
+    </p>
+
+    <nav class="guide-cta" aria-label="המשך קריאה">
+      <p class="guide-cta-title">קישורים שימושיים</p>
+      <div class="guide-cta-links">
+        <a class="guide-cta-link guide-cta-link-primary" href="https://github.com/yonatan2021/pikud-haoref-bot" rel="noopener noreferrer" target="_blank">📦 GitHub — קוד המקור</a>
+        <a class="guide-cta-link" href="/security/">🔒 אבטחה וחשיפה אחראית</a>
+        <a class="guide-cta-link" href="/faq/">❓ שאלות נפוצות</a>
+      </div>
+    </nav>
+  </article>
+</main>
+
+<!--[partial:footer]-->
