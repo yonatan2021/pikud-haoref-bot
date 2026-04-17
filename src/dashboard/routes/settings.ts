@@ -3,7 +3,7 @@ import type Database from 'better-sqlite3';
 import path from 'path';
 import { statSync, readFileSync } from 'fs';
 import { getAllSettings, getAllSettingsWithMeta, setSetting } from '../settingsRepository.js';
-import { createRateLimitMiddleware } from '../rateLimiter.js';
+import { createRateLimitMiddleware, readLimiter } from '../rateLimiter.js';
 import { loadRoutingCache } from '../../config/routingCache.js';
 
 const pkgPath = path.resolve(__dirname, '..', '..', '..', 'package.json');
@@ -232,7 +232,7 @@ export function createSettingsRouter(db: Database.Database): Router {
     res.json({ ok: true, note: 'חלק מההגדרות ייכנסו לתוקף לאחר הפעלה מחדש' });
   });
 
-  router.get('/backup', backupLimiter, (_req, res) => {
+  router.get('/backup', readLimiter, backupLimiter, (_req, res) => {
     const dbPath = path.resolve(process.env.DB_PATH ?? 'data/subscriptions.db');
     res.download(dbPath, 'backup.db');
   });

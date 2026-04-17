@@ -5,6 +5,7 @@ import express from 'express';
 import request from 'supertest';
 import { initSchema } from '../../../db/schema.js';
 import { createSecretsRouter, secretsMutateLimiter } from '../../../dashboard/routes/secrets.js';
+import { readLimiter } from '../../../dashboard/rateLimiter.js';
 import { initCrypto, _resetCryptoForTesting } from '../../../dashboard/crypto.js';
 import { getSetting } from '../../../dashboard/settingsRepository.js';
 
@@ -24,7 +25,10 @@ before(() => {
   app.use('/api/secrets', createSecretsRouter(db));
 });
 
-beforeEach(() => secretsMutateLimiter.clearStore());
+beforeEach(() => {
+  secretsMutateLimiter.clearStore();
+  readLimiter.clearStore();
+});
 
 after(() => {
   _resetCryptoForTesting();
