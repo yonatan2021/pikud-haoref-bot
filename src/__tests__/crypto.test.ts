@@ -86,6 +86,33 @@ describe('crypto module', () => {
         /Unsupported state or unable to authenticate data/
       );
     });
+
+    it('throws FATAL error when _wrapped_dek exists but _encryption_salt is missing', () => {
+      // Simulate the corruption scenario: DEK exists but salt was lost
+      initCrypto(db, TEST_SECRET);
+      db.prepare("DELETE FROM settings WHERE key = '_encryption_salt'").run();
+      _resetCryptoForTesting();
+
+      assert.throws(
+        () => initCrypto(db, TEST_SECRET),
+        /FATAL: _encryption_salt is missing but _wrapped_dek exists/
+      );
+    });
+
+    it('does not write a new salt when _wrapped_dek exists and salt is missing', () => {
+      initCrypto(db, TEST_SECRET);
+      db.prepare("DELETE FROM settings WHERE key = '_encryption_salt'").run();
+      _resetCryptoForTesting();
+
+      try {
+        initCrypto(db, TEST_SECRET);
+      } catch {
+        // expected
+      }
+
+      const saltRow = db.prepare("SELECT value FROM settings WHERE key = '_encryption_salt'").get();
+      assert.equal(saltRow, undefined, 'must not write a new salt when DEK already exists');
+    });
   });
 
   // ── Encrypt / Decrypt ───────────────────────────────────────────────────
