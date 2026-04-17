@@ -23,6 +23,17 @@ if (sectionEnd === -1) {
 
 const featuresSection = readme.slice(sectionStart, sectionEnd);
 
+// Complete HTML escape — covers &, <, >, ", ' for defence-in-depth against XSS
+// from README/CHANGELOG content (CodeQL SEC-M9).
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+}
+
 // Parse a markdown table block into feature-card HTML
 function parseFeatureTable(text) {
   return text
@@ -43,10 +54,10 @@ function parseFeatureTable(text) {
       const title = spaceIdx !== -1 ? fullName.slice(spaceIdx + 1) : fullName;
       return [
         `<div class="feature-card">`,
-        `  <span class="feature-icon">${icon}</span>`,
+        `  <span class="feature-icon">${escapeHtml(icon)}</span>`,
         `  <span class="feature-text">`,
-        `    <span class="feature-title">${title}</span>`,
-        `    <span class="feature-desc">${detail}</span>`,
+        `    <span class="feature-title">${escapeHtml(title)}</span>`,
+        `    <span class="feature-desc">${escapeHtml(detail)}</span>`,
         `  </span>`,
         `</div>`,
       ].join('\n');
@@ -81,10 +92,6 @@ if (!devFeaturesHtml.trim()) {
 
 // Step 3: Parse CHANGELOG.md — extract latest version highlights
 const changelog = fs.readFileSync('CHANGELOG.md', 'utf8');
-
-function escapeHtml(s) {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
 
 function parseLatestChangelog(changelogContent) {
   // Find the first real version entry (skip [Unreleased])
@@ -254,7 +261,7 @@ function buildPathsHtml(paths) {
 
     return `
         <div class="path-card path-card--${escapeHtml(p.style)} glass-card reveal"${delay}>
-          ${badgeHtml}<div class="path-icon" aria-hidden="true">${p.icon}</div>
+          ${badgeHtml}<div class="path-icon" aria-hidden="true">${escapeHtml(p.icon)}</div>
           <h3 class="path-title">${escapeHtml(p.title)}</h3>
           <p class="path-desc">${escapeHtml(p.desc)}</p>
           <ul class="path-features">
