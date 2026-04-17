@@ -64,7 +64,8 @@ describe('configResolver', () => {
       assert.ok(SECRET_KEYS.has('github_pat'));
       assert.ok(SECRET_KEYS.has('telegram_api_id'));
       assert.ok(SECRET_KEYS.has('telegram_api_hash'));
-      assert.equal(SECRET_KEYS.size, 5);
+      assert.ok(SECRET_KEYS.has('telegram_listener_session'));
+      assert.equal(SECRET_KEYS.size, 6);
     });
 
     it('RESTART_REQUIRED_KEYS is a subset of SECRET_KEYS + CONFIG_KEYS', () => {

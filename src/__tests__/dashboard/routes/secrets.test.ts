@@ -34,10 +34,10 @@ after(() => {
 // ── GET /api/secrets ────────────────────────────────────────────────────────
 
 describe('GET /api/secrets', () => {
-  it('returns all 5 secret keys', async () => {
+  it('returns all 6 secret keys', async () => {
     const res = await request(app).get('/api/secrets');
     assert.equal(res.status, 200);
-    assert.equal(res.body.secrets.length, 5);
+    assert.equal(res.body.secrets.length, 6);
     const keys = res.body.secrets.map((s: { key: string }) => s.key).sort();
     assert.deepEqual(keys, [
       'github_pat',
@@ -45,6 +45,7 @@ describe('GET /api/secrets', () => {
       'telegram_api_hash',
       'telegram_api_id',
       'telegram_bot_token',
+      'telegram_listener_session',
     ]);
   });
 
