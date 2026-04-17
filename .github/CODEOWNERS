@@ -1,0 +1,8 @@
+# Security-sensitive paths require owner review
+.github/workflows/              @yonatan2021
+.github/CODEOWNERS              @yonatan2021
+src/dashboard/auth.ts           @yonatan2021
+src/dashboard/crypto.ts         @yonatan2021
+src/config/configResolver.ts    @yonatan2021
+Dockerfile                      @yonatan2021
+package.json                    @yonatan2021
