@@ -3,7 +3,7 @@ import type Database from 'better-sqlite3';
 import { getSetting, setSetting } from '../settingsRepository.js';
 import { SECRET_KEYS, RESTART_REQUIRED_KEYS, envKeyFor } from '../../config/configResolver.js';
 import { isCryptoReady } from '../crypto.js';
-import { createRateLimitMiddleware } from '../rateLimiter.js';
+import { createRateLimitMiddleware, readLimiter } from '../rateLimiter.js';
 
 // ── Restart tracking ─────────────────────────────────────────────────────────
 
@@ -52,7 +52,7 @@ export function createSecretsRouter(db: Database.Database): Router {
    * GET /api/secrets
    * List all secret keys with metadata. Never returns plaintext values.
    */
-  router.get('/', (_req, res) => {
+  router.get('/', readLimiter, (_req, res) => {
     const secrets = [...SECRET_KEYS].map(key => {
       // Try DB first (getSetting auto-decrypts)
       const dbValue = getSetting(db, key);

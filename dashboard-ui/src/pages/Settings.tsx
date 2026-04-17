@@ -1,62 +1,34 @@
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { useState, useEffect, useRef } from 'react';
+/**
+ * Settings — schema-driven tabbed configuration page.
+ *
+ * All field rendering is delegated to SettingField via SettingsTabContent.
+ * The registry (settingsSchema.ts) is the single source of truth — adding
+ * a new setting means adding one entry there (+ backend ALLOWED_KEYS).
+ *
+ * Three non-schema sections are rendered inline per active tab:
+ *   - Maps tab: Mapbox usage bar (reads live /api/stats/overview)
+ *   - System tab: read-only ports / version / DB size + backup button
+ */
+
+import { useQuery } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, Loader2, SlidersHorizontal } from 'lucide-react';
-import toast from 'react-hot-toast';
 import { api } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
 import { GlassCard } from '../components/ui/GlassCard';
 import { PageTransition } from '../components/ui/PageTransition';
-import { ToggleSwitch } from '../components/ui/ToggleSwitch';
+import { useSettingsForm } from './settings/useSettingsForm';
+import { SettingsTabBar } from './settings/SettingsTabBar';
+import { SettingsTabContent } from './settings/SettingsTabContent';
+import {
+  ALL_SETTING_KEYS,
+  ALL_SETTING_DEFAULTS,
+  SETTINGS_TABS,
+} from './settings/settingsSchema';
+import type { SettingTab } from './settings/settingsSchema';
 
-interface SettingMeta {
-  value: string;
-  source: 'env' | 'db';
-  updatedAt?: string;
-}
-
-interface Settings {
-  alert_window_seconds?: string;
-  mapbox_monthly_limit?: string;
-  mapbox_skip_drills?: string;
-  quiet_hours_global?: string;
-  mapbox_image_cache_size?: string;
-  telegram_invite_link?: string;
-  whatsapp_enabled?: string;
-  whatsapp_map_debounce_seconds?: string;
-  all_clear_mode?: string;
-  all_clear_topic_id?: string;
-  health_port?: string;
-  dashboard_port?: string;
-  bot_version?: string;
-  db_size_bytes?: string;
-  _settingsMeta?: Record<string, SettingMeta>;
-}
-
-function SettingSourceBadge({ meta }: { meta?: SettingMeta }) {
-  if (!meta) return null;
-  if (meta.source === 'env') {
-    return (
-      <span
-        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono bg-blue-500/15 text-blue-400 border border-blue-500/30"
-        title="ערך מקובץ .env — דורש הפעלה מחדש לשינוי"
-      >
-        ENV
-      </span>
-    );
-  }
-  const date = meta.updatedAt
-    ? new Date(meta.updatedAt).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' })
-    : null;
-  return (
-    <span
-      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono bg-green-500/15 text-green-400 border border-green-500/30"
-      title={meta.updatedAt ? `נשמר ב-DB בתאריך ${meta.updatedAt}` : 'נשמר ב-DB'}
-    >
-      DB{date ? ` · ${date}` : ''}
-    </span>
-  );
-}
+const ACTIVE_TAB_STORAGE_KEY = 'settings_active_tab';
 
 interface Overview {
   mapboxMonth: number;
@@ -68,82 +40,43 @@ function formatBytes(n: number): string {
     : `${(n / (1024 * 1024)).toFixed(2)} MB`;
 }
 
+function isValidTab(v: string | null): v is SettingTab {
+  return v !== null && SETTINGS_TABS.some(t => t.id === v);
+}
+
 export function Settings() {
-  const { data: settings, isLoading, isError: settingsError } = useQuery<Settings>({
-    queryKey: ['settings'],
-    queryFn: () => api.get('/api/settings'),
+  // Active tab persists in localStorage — user returning to Settings
+  // lands on the same tab they left.
+  const [activeTab, setActiveTab] = useState<SettingTab>(() => {
+    const stored = typeof window !== 'undefined'
+      ? localStorage.getItem(ACTIVE_TAB_STORAGE_KEY)
+      : null;
+    return isValidTab(stored) ? stored : 'bot';
   });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, activeTab);
+    }
+  }, [activeTab]);
+
+  const {
+    rawSettings,
+    form,
+    dirty,
+    hasErrors,
+    saveState,
+    updateField,
+    save,
+    isLoading,
+    isError,
+    meta,
+  } = useSettingsForm(ALL_SETTING_KEYS, ALL_SETTING_DEFAULTS);
 
   const { data: overview } = useQuery<Overview>({
     queryKey: ['overview'],
     queryFn: () => api.get('/api/stats/overview'),
   });
-
-  const [form, setForm] = useState<Settings>({});
-  const [dirty, setDirty] = useState(false);
-  const [saveState, setSaveState] = useState<'idle' | 'loading' | 'success'>('idle');
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); }, []);
-
-  useEffect(() => {
-    if (settings) {
-      setForm({
-        alert_window_seconds:    settings.alert_window_seconds ?? '120',
-        mapbox_monthly_limit:    settings.mapbox_monthly_limit ?? '',
-        mapbox_skip_drills:      settings.mapbox_skip_drills ?? 'false',
-        quiet_hours_global:      settings.quiet_hours_global ?? 'false',
-        mapbox_image_cache_size: settings.mapbox_image_cache_size ?? '20',
-        telegram_invite_link:    settings.telegram_invite_link ?? '',
-        whatsapp_enabled:        settings.whatsapp_enabled ?? 'false',
-        whatsapp_map_debounce_seconds: settings.whatsapp_map_debounce_seconds ?? '15',
-        all_clear_mode:          settings.all_clear_mode ?? 'dm',
-        all_clear_topic_id:      settings.all_clear_topic_id ?? '',
-      });
-      setDirty(false);
-    }
-  }, [settings]);
-
-  const saveMutation = useMutation({
-    mutationFn: () => {
-      const body: Record<string, string> = {
-        alert_window_seconds:    form.alert_window_seconds ?? '120',
-        mapbox_monthly_limit:    form.mapbox_monthly_limit ?? '',
-        mapbox_skip_drills:      form.mapbox_skip_drills ?? 'false',
-        quiet_hours_global:      form.quiet_hours_global ?? 'false',
-        mapbox_image_cache_size: form.mapbox_image_cache_size ?? '20',
-        telegram_invite_link:    form.telegram_invite_link ?? '',
-        whatsapp_enabled:        form.whatsapp_enabled ?? 'false',
-        whatsapp_map_debounce_seconds: form.whatsapp_map_debounce_seconds ?? '15',
-        all_clear_mode:          form.all_clear_mode ?? 'dm',
-        all_clear_topic_id:      form.all_clear_topic_id ?? '',
-      };
-      return api.patch('/api/settings', body);
-    },
-    onMutate: () => setSaveState('loading'),
-    onSuccess: () => {
-      toast.success('הגדרות נשמרו');
-      setDirty(false);
-      setSaveState('success');
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-      saveTimerRef.current = setTimeout(() => setSaveState('idle'), 2000);
-    },
-    onError: () => {
-      toast.error('שגיאה בשמירה');
-      setSaveState('idle');
-    },
-  });
-
-  const updateField = (key: keyof Settings, value: string) => {
-    setForm(f => ({ ...f, [key]: value }));
-    setDirty(true);
-  };
-
-  const mapboxLimit = parseInt(form.mapbox_monthly_limit ?? '0', 10);
-  const mapboxUsed = overview?.mapboxMonth ?? 0;
-  const mapboxPct = mapboxLimit > 0 ? Math.min((mapboxUsed / mapboxLimit) * 100, 100) : 0;
-  const mapboxColor = mapboxPct > 90 ? 'bg-red-500' : mapboxPct > 70 ? 'bg-amber' : 'bg-green';
-  const dbSize = parseInt(settings?.db_size_bytes ?? '0', 10);
 
   if (isLoading) {
     return (
@@ -153,7 +86,7 @@ export function Settings() {
     );
   }
 
-  if (settingsError) {
+  if (isError) {
     return (
       <div className="p-8 text-center text-text-muted text-sm">
         שגיאה בטעינת הגדרות — רענן את הדף
@@ -161,21 +94,33 @@ export function Settings() {
     );
   }
 
+  // Mapbox usage numbers for the Maps tab
+  const mapboxLimit = parseInt(form['mapbox_monthly_limit'] ?? '0', 10);
+  const mapboxUsed = overview?.mapboxMonth ?? 0;
+  const mapboxPct = mapboxLimit > 0 ? Math.min((mapboxUsed / mapboxLimit) * 100, 100) : 0;
+  const mapboxColor = mapboxPct > 90 ? 'bg-red-500' : mapboxPct > 70 ? 'bg-amber' : 'bg-green';
+  const dbSize = parseInt(rawSettings?.['db_size_bytes'] ?? '0', 10);
+
+  const saveDisabled = !dirty || hasErrors || saveState === 'loading';
+
   return (
     <PageTransition>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
+      <div className="space-y-4">
+        <div className="flex items-center justify-between gap-4 mb-2">
+          <div className="flex items-center gap-3 min-w-0">
             <SlidersHorizontal size={22} className="text-[var(--color-tg)] flex-shrink-0" />
-            <div>
-              <h1 className="text-2xl font-bold text-text-primary leading-tight">הגדרות</h1>
-              <p className="text-sm text-text-muted mt-0.5">הגדרות בוט, מפות, ערוצים וחיבורים</p>
+            <div className="min-w-0">
+              <h1 className="text-2xl font-bold text-text-primary leading-tight truncate">הגדרות</h1>
+              <p className="text-sm text-text-muted mt-0.5 truncate">
+                ניהול מלא של הבוט, הערוצים, המפות והחברתי — הכל ממקום אחד
+              </p>
             </div>
           </div>
           <button
-            disabled={!dirty || saveState === 'loading'}
-            onClick={() => saveMutation.mutate()}
-            className={`px-6 py-2 text-sm font-bold rounded-lg disabled:opacity-40 transition-colors flex items-center gap-2 min-w-[140px] justify-center ${
+            disabled={saveDisabled}
+            onClick={save}
+            title={hasErrors ? 'יש לתקן שגיאות ולידציה לפני שמירה' : undefined}
+            className={`px-6 py-2 text-sm font-bold rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-2 min-w-[140px] justify-center flex-shrink-0 ${
               saveState === 'success'
                 ? 'bg-green text-white'
                 : 'bg-amber hover:bg-amber-dark text-black'
@@ -203,257 +148,93 @@ export function Settings() {
           </button>
         </div>
 
-        {/* Bot Settings */}
-        <GlassCard className="p-4 space-y-5">
-          <h2 className="font-semibold text-text-primary border-b border-border pb-3">הגדרות בוט</h2>
+        <SettingsTabBar
+          tabs={SETTINGS_TABS}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        />
 
-          <div>
-            <label className="text-text-secondary text-sm flex items-center gap-2 mb-1">
-              חלון כפילויות (שניות)
-              <SettingSourceBadge meta={settings?._settingsMeta?.['alert_window_seconds']} />
-            </label>
-            <input
-              type="number"
-              min={30}
-              max={600}
-              value={form.alert_window_seconds ?? '120'}
-              onChange={e => updateField('alert_window_seconds', e.target.value)}
-              className="bg-base border border-border rounded-lg px-4 py-2.5 text-sm text-text-primary outline-none focus:border-amber w-48"
-            />
-            <p className="text-text-muted text-xs mt-1">
-              כמה שניות ההתראה &quot;פתוחה&quot; לעדכונים מפיקוד העורף לפני שנחשבת כהתראה חדשה (30–600)
-            </p>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <label className="text-text-secondary text-sm flex items-center gap-2">
-                שעות שקט גלובליות
-                <SettingSourceBadge meta={settings?._settingsMeta?.['quiet_hours_global']} />
-              </label>
-              <p className="text-text-muted text-xs">כבה התראות לכל המנויים בלילה</p>
+        {/* Mapbox usage bar sits above the Maps tab schema fields */}
+        {activeTab === 'maps' && mapboxLimit > 0 && (
+          <GlassCard className="p-4">
+            <div className="flex justify-between text-xs text-text-muted mb-1">
+              <span>{mapboxUsed.toLocaleString()} / {mapboxLimit.toLocaleString()} בקשות החודש</span>
+              <span>{mapboxPct.toFixed(1)}%</span>
             </div>
-            <ToggleSwitch
-              value={form.quiet_hours_global === 'true'}
-              onChange={v => updateField('quiet_hours_global', v ? 'true' : 'false')}
-            />
-          </div>
-        </GlassCard>
+            <div className="h-2 bg-base rounded-full overflow-hidden">
+              <div className={`h-full rounded-full transition-all ${mapboxColor}`} style={{ width: `${mapboxPct}%` }} />
+            </div>
+          </GlassCard>
+        )}
 
-        {/* Mapbox Settings */}
-        <GlassCard className="p-4 space-y-5">
-          <h2 className="font-semibold text-text-primary border-b border-border pb-3">מפות ו-Mapbox</h2>
+        <SettingsTabContent
+          tab={activeTab}
+          form={form}
+          updateField={updateField}
+          meta={meta}
+        />
 
-          <div>
-            <label className="text-text-secondary text-sm flex items-center gap-2 mb-1">
-              מכסת Mapbox חודשית
-              <SettingSourceBadge meta={settings?._settingsMeta?.['mapbox_monthly_limit']} />
-            </label>
-            <input
-              type="number"
-              min={0}
-              value={form.mapbox_monthly_limit ?? ''}
-              onChange={e => updateField('mapbox_monthly_limit', e.target.value)}
-              placeholder="ללא מגבלה"
-              className="bg-base border border-border rounded-lg px-4 py-2.5 text-sm text-text-primary outline-none focus:border-amber w-48"
-            />
-            {mapboxLimit > 0 && (
-              <div className="mt-2">
-                <div className="flex justify-between text-xs text-text-muted mb-1">
-                  <span>{mapboxUsed.toLocaleString()} / {mapboxLimit.toLocaleString()} בקשות</span>
-                  <span>{mapboxPct.toFixed(1)}%</span>
+        {/* System tab: non-schema read-only info + DB backup button */}
+        {activeTab === 'system' && (
+          <>
+            <GlassCard className="p-4 space-y-4">
+              <h2 className="font-semibold text-text-primary border-b border-border pb-3">
+                מידע מערכת (לקריאה בלבד)
+              </h2>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-text-muted text-xs block mb-1">Health Port</label>
+                  <input
+                    disabled
+                    value={rawSettings?.['health_port'] ?? '3000'}
+                    className="bg-base border border-border rounded-lg px-4 py-2.5 text-sm text-text-muted w-full opacity-60"
+                  />
                 </div>
-                <div className="h-2 bg-base rounded-full overflow-hidden">
-                  <div className={`h-full rounded-full transition-all ${mapboxColor}`} style={{ width: `${mapboxPct}%` }} />
+                <div>
+                  <label className="text-text-muted text-xs block mb-1">Dashboard Port</label>
+                  <input
+                    disabled
+                    value={rawSettings?.['dashboard_port'] ?? '4000'}
+                    className="bg-base border border-border rounded-lg px-4 py-2.5 text-sm text-text-muted w-full opacity-60"
+                  />
                 </div>
               </div>
-            )}
-          </div>
 
-          <div>
-            <label className="text-text-secondary text-sm flex items-center gap-2 mb-1">
-              גודל מטמון מפות (מספר תמונות)
-              <SettingSourceBadge meta={settings?._settingsMeta?.['mapbox_image_cache_size']} />
-            </label>
-            <input
-              type="number"
-              min={1}
-              max={200}
-              value={form.mapbox_image_cache_size ?? '20'}
-              onChange={e => updateField('mapbox_image_cache_size', e.target.value)}
-              className="bg-base border border-border rounded-lg px-4 py-2.5 text-sm text-text-primary outline-none focus:border-amber w-48"
-            />
-            <p className="text-text-muted text-xs mt-1">
-              כמה מפות שמורות בזיכרון לשימוש חוזר (ברירת מחדל: 20). שינוי ייכנס לתוקף לאחר הפעלה מחדש.
-            </p>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <label className="text-text-secondary text-sm flex items-center gap-2">
-                דלג על מפות לתרגילים
-                <SettingSourceBadge meta={settings?._settingsMeta?.['mapbox_skip_drills']} />
-              </label>
-              <p className="text-text-muted text-xs">לא להציג מפת Mapbox בהתראות תרגיל</p>
-            </div>
-            <ToggleSwitch
-              value={form.mapbox_skip_drills === 'true'}
-              onChange={v => updateField('mapbox_skip_drills', v ? 'true' : 'false')}
-            />
-          </div>
-        </GlassCard>
-
-        {/* Telegram Settings */}
-        <GlassCard className="p-4 space-y-5">
-          <h2 className="font-semibold text-text-primary border-b border-border pb-3">ערוץ ו-Telegram</h2>
-
-          <div>
-            <label className="text-text-secondary text-sm flex items-center gap-2 mb-1">
-              קישור הזמנה לערוץ
-              <SettingSourceBadge meta={settings?._settingsMeta?.['telegram_invite_link']} />
-            </label>
-            <input
-              type="url"
-              value={form.telegram_invite_link ?? ''}
-              onChange={e => updateField('telegram_invite_link', e.target.value)}
-              placeholder="https://t.me/+..."
-              className="w-full bg-base border border-border rounded-lg px-4 py-2.5 text-sm text-text-primary outline-none focus:border-amber"
-              dir="ltr"
-            />
-            <p className="text-text-muted text-xs mt-1">
-              הקישור שמוצג בכפתור &quot;הצטרף לערוץ&quot; בבוט. עדכון ייכנס לתוקף בהודעה הבאה ללא הפעלה מחדש.
-            </p>
-          </div>
-        </GlassCard>
-
-        {/* All-Clear Settings */}
-        <GlassCard className="p-4 space-y-5">
-          <h2 className="font-semibold text-text-primary border-b border-border pb-3">הגדרות שקט חזר</h2>
-
-          <div>
-            <label className="text-text-secondary text-sm block mb-1">אופן שליחת הודעת שקט חזר</label>
-            <select
-              value={form.all_clear_mode ?? 'dm'}
-              onChange={e => updateField('all_clear_mode', e.target.value)}
-              className="bg-base border border-border rounded-lg px-4 py-2.5 text-sm text-text-primary outline-none focus:border-amber"
-            >
-              <option value="dm">הודעה פרטית (DM) — למנויי האזור</option>
-              <option value="channel">ערוץ/נושא — שידור ציבורי</option>
-              <option value="both">שניהם — DM + ערוץ</option>
-            </select>
-            <p className="text-text-muted text-xs mt-1">
-              לאחר 10 דקות ללא התראות חדשות באזור, ישלח &quot;שקט חזר&quot; לפי ההגדרה שנבחרה
-            </p>
-          </div>
-
-          {(form.all_clear_mode === 'channel' || form.all_clear_mode === 'both') && (
-            <div>
-              <label className="text-text-secondary text-sm block mb-1">מזהה נושא להודעות שקט חזר</label>
-              <input
-                type="number"
-                min={2}
-                value={form.all_clear_topic_id ?? ''}
-                onChange={e => updateField('all_clear_topic_id', e.target.value)}
-                placeholder="מזהה topic ב-Telegram"
-                className="bg-base border border-border rounded-lg px-4 py-2.5 text-sm text-text-primary outline-none focus:border-amber w-48"
-                dir="ltr"
-              />
-              <p className="text-text-muted text-xs mt-1">
-                מזהה הנושא (Topic ID) בערוץ הטלגרם לשידור הודעות שקט חזר. ריק = שידור לערוץ הראשי.
+              <p className="text-text-muted text-xs">
+                שינוי פורטים זמין רק דרך משתני סביבה (HEALTH_PORT / DASHBOARD_PORT) ודורש הפעלה מחדש
               </p>
-            </div>
-          )}
-        </GlassCard>
 
-        {/* WhatsApp Settings */}
-        <GlassCard className="p-4 space-y-5">
-          <h2 className="font-semibold text-text-primary border-b border-border pb-3">WhatsApp</h2>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <label className="text-text-secondary text-sm flex items-center gap-2">
-                WhatsApp פעיל
-                <SettingSourceBadge meta={settings?._settingsMeta?.['whatsapp_enabled']} />
-              </label>
-              <p className="text-text-muted text-xs">הפעל/כבה את שירות הגישור מ-WhatsApp לטלגרם. שינוי ייכנס לתוקף לאחר הפעלה מחדש.</p>
-            </div>
-            <ToggleSwitch
-              value={form.whatsapp_enabled === 'true'}
-              onChange={v => updateField('whatsapp_enabled', v ? 'true' : 'false')}
-            />
-          </div>
-
-          <div>
-            <label className="text-text-secondary text-sm flex items-center gap-2 mb-1">
-              עיכוב שליחת מפה (שניות)
-              <SettingSourceBadge meta={settings?._settingsMeta?.['whatsapp_map_debounce_seconds']} />
-            </label>
-            <input
-              type="number"
-              min={5}
-              max={60}
-              value={form.whatsapp_map_debounce_seconds ?? '15'}
-              onChange={e => updateField('whatsapp_map_debounce_seconds', e.target.value)}
-              className="bg-base border border-border rounded-lg px-4 py-2.5 text-sm text-text-primary outline-none focus:border-amber w-48"
-            />
-            <p className="text-text-muted text-xs mt-1">
-              זמן המתנה לאחר העדכון האחרון לפני שליחת תמונת המפה לקבוצות WhatsApp. טקסט נשלח מיידית ונערך בזמן אמת.
-            </p>
-          </div>
-        </GlassCard>
-
-        {/* System Info */}
-        <GlassCard className="p-4 space-y-4">
-          <h2 className="font-semibold text-text-primary border-b border-border pb-3">מידע מערכת</h2>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-text-muted text-xs block mb-1">Health Port</label>
-              <input
-                disabled
-                value={settings?.health_port ?? '3000'}
-                className="bg-base border border-border rounded-lg px-4 py-2.5 text-sm text-text-muted w-full opacity-60"
-              />
-            </div>
-            <div>
-              <label className="text-text-muted text-xs block mb-1">Dashboard Port</label>
-              <input
-                disabled
-                value={settings?.dashboard_port ?? '4000'}
-                className="bg-base border border-border rounded-lg px-4 py-2.5 text-sm text-text-muted w-full opacity-60"
-              />
-            </div>
-          </div>
-
-          <div className="flex gap-6 pt-1">
-            <div>
-              <span className="text-text-muted text-xs block mb-1">גרסת בוט</span>
-              <span className="text-xs px-2 py-1 rounded-full bg-amber/10 border border-amber/30 text-amber font-mono">
-                v{settings?.bot_version ?? '—'}
-              </span>
-            </div>
-            {dbSize > 0 && (
-              <div>
-                <span className="text-text-muted text-xs block mb-1">גודל מסד נתונים</span>
-                <span className="text-text-secondary text-sm font-medium" style={{ direction: 'ltr', display: 'inline-block' }}>
-                  {formatBytes(dbSize)}
-                </span>
+              <div className="flex gap-6 pt-1 flex-wrap">
+                <div>
+                  <span className="text-text-muted text-xs block mb-1">גרסת בוט</span>
+                  <span className="text-xs px-2 py-1 rounded-full bg-amber/10 border border-amber/30 text-amber font-mono">
+                    v{rawSettings?.['bot_version'] ?? '—'}
+                  </span>
+                </div>
+                {dbSize > 0 && (
+                  <div>
+                    <span className="text-text-muted text-xs block mb-1">גודל מסד נתונים</span>
+                    <span className="text-text-secondary text-sm font-medium" style={{ direction: 'ltr', display: 'inline-block' }}>
+                      {formatBytes(dbSize)}
+                    </span>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        </GlassCard>
+            </GlassCard>
 
-        {/* DB Backup */}
-        <GlassCard className="p-4">
-          <h2 className="font-semibold text-text-primary mb-3">גיבוי מסד נתונים</h2>
-          <p className="text-text-muted text-sm mb-4">הורד עותק מלא של מסד הנתונים SQLite</p>
-          <button
-            onClick={() => { window.location.href = '/api/settings/backup'; }}
-            className="px-6 py-2 bg-surface border border-border hover:bg-base text-text-secondary text-sm rounded-lg"
-          >
-            ⬇️ הורד גיבוי
-          </button>
-        </GlassCard>
+            <GlassCard className="p-4">
+              <h2 className="font-semibold text-text-primary mb-2">גיבוי מסד נתונים</h2>
+              <p className="text-text-muted text-sm mb-4">הורד עותק מלא של מסד הנתונים SQLite</p>
+              <button
+                onClick={() => { window.location.href = '/api/settings/backup'; }}
+                className="px-6 py-2 bg-surface border border-border hover:bg-base text-text-secondary text-sm rounded-lg"
+              >
+                ⬇️ הורד גיבוי
+              </button>
+            </GlassCard>
+          </>
+        )}
       </div>
     </PageTransition>
   );

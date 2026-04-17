@@ -3,7 +3,7 @@ import type Database from 'better-sqlite3';
 import path from 'path';
 import { statSync, readFileSync } from 'fs';
 import { getAllSettings, getAllSettingsWithMeta, setSetting } from '../settingsRepository.js';
-import { createRateLimitMiddleware } from '../rateLimiter.js';
+import { createRateLimitMiddleware, readLimiter } from '../rateLimiter.js';
 import { loadRoutingCache } from '../../config/routingCache.js';
 
 const pkgPath = path.resolve(__dirname, '..', '..', '..', 'package.json');
@@ -31,6 +31,10 @@ const ALLOWED_KEYS = new Set([
   'privacy_defaults',
   'all_clear_mode',
   'all_clear_topic_id',
+  'all_clear_quiet_window_seconds',
+  'dm_queue_concurrency',
+  'map_city_display_limit',
+  'dashboard_session_ttl_hours',
   'dm_all_clear_text',
   'dm_relevance_in_area',
   'dm_relevance_nearby',
@@ -105,6 +109,24 @@ function validatePositiveInt(value: string): string | null {
   return null;
 }
 
+/**
+ * Factory for bounded integer validators. Use when a setting must stay within
+ * operational limits (e.g. all-clear window 60–3600s — too short fires false
+ * all-clears, too long feels unresponsive).
+ */
+function validateIntInRange(min: number, max: number): (value: string) => string | null {
+  return (value: string) => {
+    const n = Number(value);
+    if (!Number.isFinite(n) || !Number.isInteger(n)) {
+      return `הערך חייב להיות מספר שלם, התקבל: ${value}`;
+    }
+    if (n < min || n > max) {
+      return `הערך חייב להיות בטווח ${min}–${max}, התקבל: ${value}`;
+    }
+    return null;
+  };
+}
+
 function validateBoolish(value: string): string | null {
   return value === 'true' || value === 'false'
     ? null
@@ -128,6 +150,10 @@ const VALIDATORS: Record<string, (value: string) => string | null> = {
   topic_id_general:              validateNonNegativeInt,
   topic_id_whatsapp:             validateNonNegativeInt,
   all_clear_topic_id:            validateNonNegativeInt,
+  all_clear_quiet_window_seconds: validateIntInRange(60, 3600),
+  dm_queue_concurrency:           validateIntInRange(1, 50),
+  map_city_display_limit:         validateIntInRange(5, 100),
+  dashboard_session_ttl_hours:    validateIntInRange(1, 720),
   mapbox_skip_drills:            validateBoolish,
   quiet_hours_global:            validateBoolish,
   whatsapp_enabled:              validateBoolish,
@@ -232,8 +258,24 @@ export function createSettingsRouter(db: Database.Database): Router {
     res.json({ ok: true, note: 'חלק מההגדרות ייכנסו לתוקף לאחר הפעלה מחדש' });
   });
 
-  router.get('/backup', backupLimiter, (_req, res) => {
-    const dbPath = path.resolve(process.env.DB_PATH ?? 'data/subscriptions.db');
+  router.get('/backup', readLimiter, backupLimiter, (_req, res) => {
+    const rawPath = process.env.DB_PATH ?? 'data/subscriptions.db';
+    // In-memory DB cannot be downloaded — return a clear error instead of
+    // attempting to stream a non-existent file (SEC-L4).
+    if (rawPath === ':memory:') {
+      res.status(400).json({ error: 'גיבוי לא זמין במצב :memory:' });
+      return;
+    }
+    // Path-traversal guard: only allow files under the project `data/` directory
+    // (or the default location). Prevents `DB_PATH=../../etc/passwd` from being
+    // served as a "backup" (CodeQL SEC-L4).
+    const dbPath = path.resolve(rawPath);
+    const allowedDir = path.resolve('data');
+    const defaultPath = path.resolve('data/subscriptions.db');
+    if (!dbPath.startsWith(allowedDir + path.sep) && dbPath !== defaultPath) {
+      res.status(400).json({ error: 'Invalid DB path' });
+      return;
+    }
     res.download(dbPath, 'backup.db');
   });
 

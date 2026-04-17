@@ -6,8 +6,25 @@ class ApiError extends Error {
   }
 }
 
+/** Read the CSRF token from the csrf-token cookie set by the server on login. */
+function getCsrfToken(): string {
+  const match = document.cookie.match(/(?:^|;\s*)csrf-token=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : '';
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, { credentials: 'include', ...init });
+  const method = (init?.method ?? 'GET').toUpperCase();
+  const isMutation = !['GET', 'HEAD', 'OPTIONS'].includes(method);
+
+  const csrfHeaders: Record<string, string> = isMutation
+    ? { 'X-CSRF-Token': getCsrfToken() }
+    : {};
+
+  const res = await fetch(path, {
+    credentials: 'include',
+    ...init,
+    headers: { ...csrfHeaders, ...(init?.headers as Record<string, string> | undefined) },
+  });
   if (res.status === 401) {
     window.location.href = '/login';
     throw new ApiError(401, 'Unauthorized');

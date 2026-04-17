@@ -12,6 +12,24 @@ export { DEFAULT_ALERT_TYPE_HE as ALERT_TYPE_HE, DEFAULT_ALERT_TYPE_EMOJI as ALE
 
 const MAX_CITIES_DISPLAYED = 25;
 
+/**
+ * Module-level hook for dashboard-configurable city display limit.
+ * index.ts wires a provider after initDb so edits to
+ * `map_city_display_limit` take effect on the next alert without restart.
+ * Tests leave this unset — calls fall back to MAX_CITIES_DISPLAYED.
+ */
+let cityLimitProvider: (() => number) | null = null;
+
+export function setCityLimitProvider(fn: () => number): void {
+  cityLimitProvider = fn;
+}
+
+function resolveCityLimit(): number {
+  if (!cityLimitProvider) return MAX_CITIES_DISPLAYED;
+  const n = cityLimitProvider();
+  return Number.isFinite(n) && Number.isInteger(n) && n >= 1 ? n : MAX_CITIES_DISPLAYED;
+}
+
 /** Alert types that require shelter action (excludes newsFlash, generalDrill, general, unknown). */
 const SHELTER_TYPES = new Set([
   'missiles', 'terroristInfiltration', 'earthQuake', 'tsunami',
@@ -59,8 +77,9 @@ export function escapeHtml(text: string): string {
 
 export function buildCityList(cities: string[]): string {
   if (cities.length === 0) return '';
-  const displayed = cities.slice(0, MAX_CITIES_DISPLAYED);
-  const remaining = cities.length - MAX_CITIES_DISPLAYED;
+  const limit = resolveCityLimit();
+  const displayed = cities.slice(0, limit);
+  const remaining = cities.length - limit;
   const cityStr = displayed.map(escapeHtml).join(', ');
   if (remaining <= 0) return cityStr;
   return `${cityStr}\n<i>ועוד ${remaining} ערים נוספות</i>`;
