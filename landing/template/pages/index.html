@@ -1,0 +1,659 @@
+
+  <!-- ① Hero ---------------------------------------------------------------- -->
+  <header class="hero" id="main">
+    <!-- Aurora background blobs -->
+    <div class="aurora" aria-hidden="true">
+      <div class="aurora-blob aurora-blob--1"></div>
+      <div class="aurora-blob aurora-blob--2"></div>
+      <!-- 3rd blob: subtle red urgency warmth, max opacity 0.09 -->
+      <div class="aurora-blob aurora-blob--3"></div>
+    </div>
+
+    <!-- Cursor spotlight (position driven by JS CSS vars) -->
+    <div class="spotlight" aria-hidden="true"></div>
+
+    <!-- Main glass panel -->
+    <div class="hero-panel glass-card">
+      <img
+        src="logo.jpg"
+        alt="לוגו בוט התראות פיקוד העורף"
+        class="hero-logo"
+        width="86"
+        height="86"
+        decoding="sync"
+      />
+
+      <h1 class="hero-title">בוט התראות פיקוד העורף</h1>
+
+      <p class="hero-subtitle-wrap">
+        <span class="typing-text">התראות IDF בזמן אמת — ישירות לטלגרם ולוואטסאפ, עם מפות ו-DM אישי</span><span class="typing-cursor" aria-hidden="true"></span>
+      </p>
+
+      <aside class="hero-disclaimer" role="note" aria-label="הבהרה חשובה">
+        <span class="hero-disclaimer-icon" aria-hidden="true">&#x26A0;&#xFE0F;</span>
+        <p>
+          <b>פרוייקט אישי בהתנדבות.</b>
+          המקור המוסמך הוא <b>אפליקציית פיקוד העורף</b> והצפירות — הישמעו להוראותיהן בראש ובראשונה.
+          השירות תלוי בגורמים חיצוניים ועשוי להפסיק לפעול ללא התראה. ללא אחריות.
+          <a href="/terms/">תנאי שימוש מלאים &rarr;</a>
+        </p>
+      </aside>
+
+      <div class="cta-group">
+        <a
+          href="https://t.me/phalaret"
+          class="btn btn-primary btn--large"
+          style="--btn-delay: 0s"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          🔔 הצטרף בטלגרם
+        </a>
+        <a
+          href="{{WHATSAPP_LINK}}"
+          class="btn btn-whatsapp btn--large"
+          style="--btn-delay: 0.1s"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          💬 הצטרף בוואטסאפ
+        </a>
+        <a
+          href="#paths"
+          class="btn btn-secondary btn--large"
+          style="--btn-delay: 0.2s"
+        >
+          🚀 הרץ instance משלך
+        </a>
+      </div>
+
+      <div class="hero-ticker" aria-label="סטטוס מערכת">
+        <span class="badge-pulse" aria-hidden="true"></span>
+        <span class="hero-ticker-text">3 התראות היום</span>
+        <span class="hero-ticker-sep" aria-hidden="true">·</span>
+        <span>עדכון כל 2 שניות</span>
+        <span class="hero-ticker-sep" aria-hidden="true">·</span>
+        <span>כל ישראל מכוסה</span>
+      </div>
+    </div>
+
+    <!-- Alert Simulator v2 — interactive Telegram-clone bubble -->
+    <div class="sim-container" aria-label="הדמיית הודעת התראה">
+      <div class="sim-controls">
+        <label for="sim-city-input" class="sim-label">הדמה התראה לעיר שלך</label>
+        <div class="sim-input-wrap">
+          <input
+            type="text"
+            id="sim-city-input"
+            class="sim-city-input"
+            placeholder="חפש עיר להדמיה..."
+            autocomplete="off"
+            aria-autocomplete="list"
+            aria-controls="sim-city-suggestions"
+          >
+          <ul id="sim-city-suggestions" class="sim-suggestions" role="listbox" aria-label="הצעות ערים" hidden>
+            <li class="sim-suggestion" role="option" data-city="חיפה" data-zone="חיפה" data-seconds="90">חיפה</li>
+            <li class="sim-suggestion" role="option" data-city="תל אביב" data-zone="גוש דן" data-seconds="90">תל אביב</li>
+            <li class="sim-suggestion" role="option" data-city="באר שבע" data-zone="שפלת יהודה" data-seconds="60">באר שבע</li>
+            <li class="sim-suggestion" role="option" data-city="אשדוד" data-zone="שפלת יהודה" data-seconds="45">אשדוד</li>
+          </ul>
+        </div>
+        <button id="sim-run" class="sim-run-btn btn btn-primary" type="button" aria-label="הפעל הדמיית התראה">
+          &#9654; הפעל הדמיה
+        </button>
+      </div>
+
+      <!-- Pulse waves container -->
+      <div class="sim-pulse-container" id="sim-pulse" aria-hidden="true" hidden>
+        <!-- Telegram-clone bubble -->
+        <article class="tg-bubble" id="tg-bubble" role="alert" aria-label="הדמיית הודעת טלגרם" hidden>
+          <span class="tg-watermark" aria-hidden="true">הדמיה</span>
+          <aside class="tg-bubble-avatar">
+            <img src="/logo.jpg" alt="" width="36" height="36" loading="lazy" decoding="async">
+          </aside>
+          <div class="tg-bubble-body">
+            <header class="tg-bubble-sender">
+              <span class="tg-sender-name">📢 פיקוד העורף</span>
+              <span class="tg-sender-verified" aria-label="ערוץ מאומת">✓</span>
+            </header>
+            <div class="tg-bubble-content">
+              <div class="tg-alert-header" id="tg-alert-header">🔴 <b>ירי רקטות וטילים</b></div>
+              <div class="tg-alert-zones" id="tg-alert-zones"><b>▸ גוש דן</b></div>
+              <div class="tg-alert-cities" id="tg-alert-cities">תל אביב · רמת גן · גבעתיים · בני ברק</div>
+              <div class="tg-alert-instructions" id="tg-alert-instructions">🛡 להיכנס למרחב מוגן ולהישאר בו 10 דקות</div>
+              <div class="tg-alert-countdown">
+                <span class="tg-countdown-label">זמן כניסה למרחב מוגן:</span>
+                <span class="tg-countdown-value" id="tg-countdown-value">01:30</span>
+                <div class="tg-countdown-bar"><div class="tg-countdown-fill" id="tg-countdown-fill"></div></div>
+              </div>
+            </div>
+            <footer class="tg-bubble-meta">
+              <time id="tg-bubble-time">16:42</time>
+              <span class="tg-bubble-views">👁 1.2K</span>
+              <span class="tg-bubble-forwards">🔁 342</span>
+            </footer>
+          </div>
+        </article>
+      </div>
+    </div>
+  </header>
+
+  <!-- ② Stats Strip --------------------------------------------------------- -->
+  <section class="stats-strip" aria-label="נתוני מפתח">
+    <div class="stats-inner">
+
+      <div class="stat-item reveal">
+        <span class="stat-icon">⚡</span>
+        <div class="stat-value">
+          <span class="stat-num" data-target="2">0</span>
+          <span class="stat-unit">s</span>
+        </div>
+        <span class="stat-label">עדכון API</span>
+      </div>
+
+      <div class="stat-item reveal" style="--reveal-delay: 0.1s">
+        <span class="stat-icon">🗺️</span>
+        <div class="stat-value">
+          <span class="stat-num" data-target="{{STAT_ZONES}}">0</span>
+        </div>
+        <span class="stat-label">אזורים מכוסים</span>
+      </div>
+
+      <div class="stat-item reveal" style="--reveal-delay: 0.15s">
+        <span class="stat-icon">🏙️</span>
+        <div class="stat-value">
+          <span class="stat-num" data-target="{{STAT_CITIES}}">0</span>
+          <span class="stat-unit">+</span>
+        </div>
+        <span class="stat-label">ערים מכוסות</span>
+      </div>
+
+      <div class="stat-item reveal" style="--reveal-delay: 0.2s">
+        <span class="stat-icon">🏷️</span>
+        <div class="stat-value">
+          <span class="stat-num" data-target="{{STAT_CATS}}">0</span>
+        </div>
+        <span class="stat-label">קטגוריות נושא</span>
+      </div>
+
+      <div class="stat-item reveal" style="--reveal-delay: 0.3s">
+        <span class="stat-icon">👤</span>
+        <div class="stat-value">
+          <span class="stat-num">DM</span>
+        </div>
+        <span class="stat-label">התראה אישית</span>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ③ Platform Comparison ------------------------------------------------- -->
+  <section class="compare section" id="compare" aria-label="השוואת פלטפורמות">
+    <div class="container">
+      <h2 class="section-title reveal">📲 באיזו פלטפורמה לבחור?</h2>
+
+      <div class="compare-grid">
+
+        <!-- Telegram card -->
+        <div class="compare-card compare-card--telegram glass-card reveal">
+          <div class="compare-card-badge">&#11088; מומלץ</div>
+          <div class="compare-card-header">
+            <span class="compare-platform-icon" aria-hidden="true">✈️</span>
+            <span class="compare-platform-name">Telegram</span>
+          </div>
+          <div class="compare-terminal">
+            <div class="compare-terminal-bar">
+              <span class="terminal-dot terminal-dot--red"    aria-hidden="true"></span>
+              <span class="terminal-dot terminal-dot--yellow" aria-hidden="true"></span>
+              <span class="terminal-dot terminal-dot--green"  aria-hidden="true"></span>
+              <span class="terminal-title">DM אישי — @phalaret_bot</span>
+            </div>
+            <div class="compare-terminal-body" dir="rtl">
+              <div class="terminal-line terminal-line--alert">🔴 ירי טילים ורקטות</div>
+              <div class="terminal-line terminal-line--meta">⏰ 14:32 · 3 ערים · <span class="terminal-highlight">אזור שלך ⚡</span></div>
+              <div class="terminal-line terminal-line--instruction">🛡 היכנסו למרחב המוגן — 45 שנ׳</div>
+              <div class="terminal-line terminal-line--bar">🟥🟥🟥🟥🟥 ▸ שפלה (3)</div>
+              <div class="terminal-line terminal-line--cities">תל אביב · רמת גן · גבעתיים</div>
+            </div>
+          </div>
+          <div class="compare-chips">
+            <span class="chip chip--yes">✅ DM אישי</span>
+            <span class="chip chip--yes">✅ שעות שקט</span>
+            <span class="chip chip--yes">✅ 6 נושאים</span>
+            <span class="chip chip--yes">✅ מפות</span>
+            <span class="chip chip--yes">✅ היסטוריה</span>
+          </div>
+          <a href="https://t.me/phalaret" class="btn btn-primary btn--path"
+             target="_blank" rel="noopener noreferrer">🔔 הצטרף עכשיו</a>
+        </div>
+
+        <!-- WhatsApp card -->
+        <div class="compare-card compare-card--whatsapp glass-card reveal"
+             style="--reveal-delay: 0.15s">
+          <div class="compare-card-header">
+            <span class="compare-platform-icon" aria-hidden="true">💬</span>
+            <span class="compare-platform-name">WhatsApp</span>
+          </div>
+          <div class="compare-terminal compare-terminal--wa">
+            <div class="compare-terminal-bar compare-terminal-bar--wa">
+              <span class="terminal-title">קבוצת WhatsApp — פיקוד העורף</span>
+            </div>
+            <div class="compare-terminal-body" dir="rtl">
+              <div class="terminal-line terminal-line--alert">🔴 ירי טילים ורקטות</div>
+              <div class="terminal-line terminal-line--cities">תל אביב · רמת גן · גבעתיים</div>
+              <div class="terminal-line terminal-line--instruction">היכנסו למרחב המוגן</div>
+            </div>
+          </div>
+          <div class="compare-chips">
+            <span class="chip chip--yes">✅ מיידי</span>
+            <span class="chip chip--yes">✅ ללא הגדרות</span>
+            <span class="chip chip--no">⚪ קבוצה משותפת</span>
+            <span class="chip chip--no">⚪ ללא DM אישי</span>
+          </div>
+          <a href="{{WHATSAPP_LINK}}" class="btn btn-whatsapp btn--path"
+             target="_blank" rel="noopener noreferrer">💬 הצטרף לקבוצה</a>
+        </div>
+
+      </div>
+
+      <!-- Interactive city preview -->
+      <div class="city-preview reveal" style="--reveal-delay: 0.25s">
+        <label class="city-preview-label">
+          בחר את העיר שלך וראה איך ההתראה תיראה:
+        </label>
+
+        <!-- Custom styled dropdown (native <select> can't be styled in open state) -->
+        <div class="city-dropdown" id="city-dropdown"
+             role="combobox" aria-expanded="false" aria-haspopup="listbox"
+             aria-label="בחירת עיר">
+          <button class="city-dropdown-btn" id="city-dropdown-btn" type="button">
+            <span class="city-dropdown-value" id="city-dropdown-value">— בחר עיר —</span>
+            <span class="city-dropdown-arrow" aria-hidden="true">▾</span>
+          </button>
+          <ul class="city-dropdown-list" id="city-dropdown-list"
+              role="listbox" aria-label="רשימת ערים">
+            <li class="city-dropdown-item city-dropdown-item--placeholder"
+                role="option" aria-selected="true" data-value="">— בחר עיר —</li>
+            <li class="city-dropdown-item" role="option" data-value="תל אביב|שפלה|45">תל אביב</li>
+            <li class="city-dropdown-item" role="option" data-value="ירושלים|ירושלים|90">ירושלים</li>
+            <li class="city-dropdown-item" role="option" data-value="חיפה|חיפה|60">חיפה</li>
+            <li class="city-dropdown-item" role="option" data-value="באר שבע|הנגב|180">באר שבע</li>
+            <li class="city-dropdown-item" role="option" data-value="ראשון לציון|שפלה|45">ראשון לציון</li>
+            <li class="city-dropdown-item" role="option" data-value="פתח תקווה|שפלה|45">פתח תקווה</li>
+            <li class="city-dropdown-item" role="option" data-value="אשדוד|שפלה|45">אשדוד</li>
+            <li class="city-dropdown-item" role="option" data-value="נתניה|השרון|60">נתניה</li>
+            <li class="city-dropdown-item" role="option" data-value="רמת גן|שפלה|45">רמת גן</li>
+            <li class="city-dropdown-item" role="option" data-value="חולון|שפלה|45">חולון</li>
+            <li class="city-dropdown-item" role="option" data-value="בני ברק|שפלה|45">בני ברק</li>
+            <li class="city-dropdown-item" role="option" data-value="רחובות|שפלה|45">רחובות</li>
+            <li class="city-dropdown-item" role="option" data-value="הרצליה|השרון|60">הרצליה</li>
+            <li class="city-dropdown-item" role="option" data-value="כפר סבא|השרון|60">כפר סבא</li>
+            <li class="city-dropdown-item" role="option" data-value="מודיעין|ירושלים|90">מודיעין</li>
+            <li class="city-dropdown-item" role="option" data-value="אשקלון|שפלה|45">אשקלון</li>
+            <li class="city-dropdown-item" role="option" data-value="נצרת|הצפון|30">נצרת</li>
+            <li class="city-dropdown-item" role="option" data-value="טבריה|הצפון|30">טבריה</li>
+            <li class="city-dropdown-item" role="option" data-value="אילת|הנגב|180">אילת</li>
+            <li class="city-dropdown-item" role="option" data-value="צפת|הצפון|30">צפת</li>
+            <li class="city-dropdown-item" role="option" data-value="קריית שמונה|הצפון|30">קריית שמונה</li>
+            <li class="city-dropdown-item" role="option" data-value="דימונה|הנגב|180">דימונה</li>
+          </ul>
+        </div>
+
+        <div class="city-preview-bubble" id="city-preview-bubble" hidden aria-live="polite">
+          <div class="preview-bubble-header">DM אישי — @phalaret_bot</div>
+          <div class="preview-bubble-body" dir="rtl">
+            <div class="terminal-line terminal-line--alert">🔴 ירי טילים ורקטות</div>
+            <div class="terminal-line terminal-line--meta">⏰ עכשיו · <span class="terminal-highlight">אזור שלך ⚡</span></div>
+            <div class="terminal-line terminal-line--instruction">🛡 היכנסו למרחב המוגן — <span id="preview-seconds">45</span> שנ׳</div>
+            <div class="terminal-line terminal-line--bar" id="preview-bar">🟥🟥🟥🟥🟥</div>
+            <div class="terminal-line terminal-line--cities">▸ <span id="preview-zone">שפלה</span> (1)</div>
+            <div class="terminal-line terminal-line--cities" id="preview-city">תל אביב</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ④ How It Works --------------------------------------------------------- -->
+  <section class="how-it-works section" id="how">
+    <div class="container">
+      <h2 class="section-title reveal">איך זה עובד</h2>
+
+      <div class="steps">
+
+        <div class="step glass-card reveal">
+          <span class="step-number">01</span>
+          <span class="step-icon">🏛️</span>
+          <h3>פיקוד העורף מפרסם</h3>
+          <p>נתוני פיקוד העורף, מתעדכנים כל 2 שניות סביב השעון</p>
+        </div>
+
+        <div class="step-connector" aria-hidden="true">
+          <div class="step-connector-line"></div>
+          <div class="step-connector-dot"></div>
+        </div>
+
+        <div class="step glass-card reveal" style="--reveal-delay: 0.15s">
+          <span class="step-number">02</span>
+          <span class="step-icon">⚡</span>
+          <h3>הבוט קולט ומעבד</h3>
+          <p>זיהוי כפילויות, ניתוב לפי עיר ונושא, תורים חכמים</p>
+        </div>
+
+        <div class="step-connector" aria-hidden="true">
+          <div class="step-connector-line"></div>
+          <div class="step-connector-dot"></div>
+        </div>
+
+        <div class="step glass-card reveal" style="--reveal-delay: 0.3s">
+          <span class="step-number">03</span>
+          <span class="step-icon">📱</span>
+          <h3>אתה מקבל</h3>
+          <p>DM אישי לטלגרם, רק על הערים שבחרת, כולל מפה</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ④ Features ------------------------------------------------------------ -->
+  <section class="features section section--alt" id="features">
+    <div class="container">
+      <h2 class="section-title reveal">✨ תכונות</h2>
+
+      <!-- Mobile-only tab switcher -->
+      <div class="features-tabs" role="tablist" aria-label="בחירת קטגוריית תכונות">
+        <button class="features-tab features-tab--active" role="tab"
+                aria-selected="true" aria-controls="panel-user" id="tab-user">
+          🔔 למשתמש
+        </button>
+        <button class="features-tab" role="tab"
+                aria-selected="false" aria-controls="panel-dev" id="tab-dev">
+          ⚙️ למתכנתים
+        </button>
+      </div>
+
+      <div class="features-columns">
+
+        <div class="features-panel features-panel--user glass-card reveal"
+             id="panel-user" role="tabpanel" aria-labelledby="tab-user">
+          <div class="features-panel-header">
+            <span class="features-panel-icon">🔔</span>
+            <div>
+              <h3 class="features-panel-title">אם תצטרף לבוט והקבוצה הקיימים</h3>
+              <p class="features-panel-sub">ללא התקנה, ללא קוד</p>
+            </div>
+          </div>
+          <div class="features-grid">
+            {{USER_FEATURES_HTML}}
+          </div>
+          <button class="features-show-more" aria-expanded="false">
+            הצג עוד
+          </button>
+        </div>
+
+        <div class="features-panel features-panel--dev glass-card reveal"
+             id="panel-dev" role="tabpanel" aria-labelledby="tab-dev" style="--reveal-delay: 0.1s">
+          <div class="features-panel-header">
+            <span class="features-panel-icon">⚙️</span>
+            <div>
+              <h3 class="features-panel-title">מתחת למכסה</h3>
+              <p class="features-panel-sub">למתכנתים ו-DevOps</p>
+            </div>
+          </div>
+          <div class="features-grid">
+            {{DEV_FEATURES_HTML}}
+          </div>
+          <button class="features-show-more" aria-expanded="false">
+            הצג עוד
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ⑤ Paths (auto-generated from README) ---------------------------------- -->
+  <section class="paths section" id="paths">
+    <div class="container">
+      <h2 class="section-title reveal">{{PATHS_SECTION_TITLE}}</h2>
+      <p class="section-subtitle reveal" style="--reveal-delay: 0.05s">בחר מה מתאים לך — אפשר גם וגם</p>
+
+      <div class="paths-grid">
+{{PATHS_HTML}}
+      </div>
+    </div>
+  </section>
+
+  <!-- ⑥ Screenshots --------------------------------------------------------- -->
+  <section class="screenshots section section--alt" id="screenshots">
+    <div class="container">
+      <h2 class="section-title reveal">📸 תצוגה מקדימה</h2>
+    </div>
+
+    <!-- LTR wrapper for seamless infinite auto-scroll -->
+    <div class="screenshots-overflow" role="list" aria-label="צילומי מסך מהבוט">
+      <div class="screenshots-track">
+
+        <div class="screenshot-item" role="listitem">
+          <div class="screenshot-frame">
+            <img src="screenshots/start.jpg" alt="תפריט ראשי של הבוט" loading="lazy" width="200" height="356" decoding="async" />
+          </div>
+          <p class="screenshot-caption">תפריט ראשי</p>
+        </div>
+
+        <div class="screenshot-item" role="listitem">
+          <div class="screenshot-frame">
+            <img src="screenshots/zones.jpg" alt="ממשק בחירת אזור" loading="lazy" width="200" height="356" decoding="async" />
+          </div>
+          <p class="screenshot-caption">בחירת אזור</p>
+        </div>
+
+        <div class="screenshot-item" role="listitem">
+          <div class="screenshot-frame">
+            <img src="screenshots/add.jpg" alt="חיפוש עיר להוספה" loading="lazy" width="200" height="356" decoding="async" />
+          </div>
+          <p class="screenshot-caption">חיפוש עיר</p>
+        </div>
+
+        <div class="screenshot-item" role="listitem">
+          <div class="screenshot-frame">
+            <img src="screenshots/mycities.jpg" alt="רשימת הערים שהמשתמש עקב אחריהן" loading="lazy" width="200" height="356" decoding="async" />
+          </div>
+          <p class="screenshot-caption">הערים שלי</p>
+        </div>
+
+        <div class="screenshot-item" role="listitem">
+          <div class="screenshot-frame">
+            <img src="screenshots/settings.jpg" alt="הגדרות הבוט" loading="lazy" width="200" height="356" decoding="async" />
+          </div>
+          <p class="screenshot-caption">הגדרות</p>
+        </div>
+
+        <!-- Duplicate set for seamless loop -->
+        <div class="screenshot-item" aria-hidden="true">
+          <div class="screenshot-frame">
+            <img src="screenshots/start.jpg" alt="" loading="lazy" width="200" height="356" decoding="async" />
+          </div>
+          <p class="screenshot-caption">תפריט ראשי</p>
+        </div>
+
+        <div class="screenshot-item" aria-hidden="true">
+          <div class="screenshot-frame">
+            <img src="screenshots/zones.jpg" alt="" loading="lazy" width="200" height="356" decoding="async" />
+          </div>
+          <p class="screenshot-caption">בחירת אזור</p>
+        </div>
+
+        <div class="screenshot-item" aria-hidden="true">
+          <div class="screenshot-frame">
+            <img src="screenshots/add.jpg" alt="" loading="lazy" width="200" height="356" decoding="async" />
+          </div>
+          <p class="screenshot-caption">חיפוש עיר</p>
+        </div>
+
+        <div class="screenshot-item" aria-hidden="true">
+          <div class="screenshot-frame">
+            <img src="screenshots/mycities.jpg" alt="" loading="lazy" width="200" height="356" decoding="async" />
+          </div>
+          <p class="screenshot-caption">הערים שלי</p>
+        </div>
+
+        <div class="screenshot-item" aria-hidden="true">
+          <div class="screenshot-frame">
+            <img src="screenshots/settings.jpg" alt="" loading="lazy" width="200" height="356" decoding="async" />
+          </div>
+          <p class="screenshot-caption">הגדרות</p>
+        </div>
+
+      </div>
+    </div>
+    <p class="screenshots-pause-hint" aria-hidden="true">⏸ מושהה</p>
+  </section>
+
+  <!-- ⑦ What's New ---------------------------------------------------------- -->
+  <section class="whats-new section" id="whats-new">
+    <div class="container">
+      <div class="wn-header reveal">
+        <h2 class="section-title">✨ מה חדש</h2>
+        <div class="wn-ticker" aria-label="גרסה נוכחית">
+          <span class="badge-pulse" aria-hidden="true"></span>
+          <span>LIVE</span>
+          <span class="hero-ticker-sep" aria-hidden="true">·</span>
+          <span>גרסה {{CHANGELOG_VERSION}}</span>
+          <span class="hero-ticker-sep" aria-hidden="true">·</span>
+          <span>{{BUILD_DATE}}</span>
+        </div>
+      </div>
+      <div class="wn-grid reveal" style="--reveal-delay: 0.1s">
+        {{WHATS_NEW_HTML}}
+      </div>
+      <button class="changelog-show-more" aria-expanded="false">עוד עדכונים</button>
+      <div class="changelog-footer reveal" style="--reveal-delay: 0.2s">
+        <a href="/changelog/" class="btn btn-ghost">כל היומן &rarr;</a>
+        <a
+          href="https://github.com/yonatan2021/pikud-haoref-bot/blob/main/CHANGELOG.md"
+          class="changelog-link"
+          target="_blank"
+          rel="noopener noreferrer"
+        >← GitHub</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ⑧ FAQ ----------------------------------------------------------------- -->
+  <section class="faq section section--alt" id="faq" aria-label="שאלות נפוצות">
+    <div class="container">
+      <h2 class="section-title reveal">❓ שאלות נפוצות</h2>
+
+      <div class="faq-list">
+        {{HOME_FAQ_HTML}}
+      </div>
+      <div class="faq-footer reveal" style="--reveal-delay: 0.5s">
+        <a href="/faq/" class="btn btn-ghost">כל 20 השאלות &rarr;</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ⑨ CTA Final ----------------------------------------------------------- -->
+  <section class="cta-section section section--alt" id="join">
+    <div class="container">
+      <h2 class="reveal">מוכן להצטרף?</h2>
+      <p class="reveal" style="--reveal-delay: 0.1s">קבל התראות ישירות לטלגרם או ל-WhatsApp — או הרץ instance פרטי משלך</p>
+      <div class="cta-buttons reveal" style="--reveal-delay: 0.2s">
+        <a
+          href="https://t.me/phalaret"
+          class="btn btn-primary btn--large"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          🔔 הצטרף בטלגרם
+        </a>
+        <a
+          href="{{WHATSAPP_LINK}}"
+          class="btn btn-whatsapp btn--large"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          💬 הצטרף בוואטסאפ
+        </a>
+        <a
+          href="#paths"
+          class="btn btn-secondary btn--large"
+        >
+          🚀 הרץ instance משלך
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!--[partial:footer]-->
+
+  <!-- Mobile FAB — quick join link, hidden on desktop -->
+  <a href="https://t.me/phalaret" class="mobile-fab" target="_blank"
+     rel="noopener noreferrer" aria-label="הצטרף בטלגרם">🔔</a>
+
+  <!-- ⌘ Command palette — triggered by "/" key or fixed ⌘ button -->
+  <div class="cmd-overlay" id="cmd-overlay" role="dialog" aria-modal="true"
+       aria-label="פלטת פקודות" hidden>
+    <div class="cmd-modal">
+      <div class="cmd-search-row">
+        <span class="cmd-prefix" aria-hidden="true">/</span>
+        <input type="text" class="cmd-input" id="cmd-input"
+               placeholder="הקלד פקודה..." autocomplete="off" spellcheck="false"
+               aria-autocomplete="list" aria-controls="cmd-list" />
+        <button class="cmd-close" id="cmd-close" aria-label="סגור פלטה">✕</button>
+      </div>
+      <ul class="cmd-list" id="cmd-list" role="listbox">
+        <li class="cmd-item" role="option" data-cmd="start" data-href="https://t.me/phalaret_bot?start=1" data-external="true">
+          <span class="cmd-icon" aria-hidden="true">🔔</span>
+          <span class="cmd-label">/start</span>
+          <span class="cmd-desc">הצטרף לבוט</span>
+        </li>
+        <li class="cmd-item" role="option" data-cmd="features" data-target="#features">
+          <span class="cmd-icon" aria-hidden="true">✨</span>
+          <span class="cmd-label">/features</span>
+          <span class="cmd-desc">גלול לתכונות</span>
+        </li>
+        <li class="cmd-item" role="option" data-cmd="compare" data-target="#compare">
+          <span class="cmd-icon" aria-hidden="true">📲</span>
+          <span class="cmd-label">/compare</span>
+          <span class="cmd-desc">גלול להשוואת פלטפורמות</span>
+        </li>
+        <li class="cmd-item" role="option" data-cmd="faq" data-target="#faq">
+          <span class="cmd-icon" aria-hidden="true">❓</span>
+          <span class="cmd-label">/faq</span>
+          <span class="cmd-desc">גלול לשאלות נפוצות</span>
+        </li>
+        <li class="cmd-item" role="option" data-cmd="screenshots" data-target="#screenshots">
+          <span class="cmd-icon" aria-hidden="true">📸</span>
+          <span class="cmd-label">/screenshots</span>
+          <span class="cmd-desc">גלול לצילומי מסך</span>
+        </li>
+        <li class="cmd-item" role="option" data-cmd="whats-new" data-target="#whats-new">
+          <span class="cmd-icon" aria-hidden="true">🆕</span>
+          <span class="cmd-label">/whats-new</span>
+          <span class="cmd-desc">גלול למה חדש</span>
+        </li>
+        <li class="cmd-item" role="option" data-cmd="github" data-href="https://github.com/yonatan2021/pikud-haoref-bot" data-external="true">
+          <span class="cmd-icon" aria-hidden="true">⭐</span>
+          <span class="cmd-label">/github</span>
+          <span class="cmd-desc">פתח GitHub</span>
+        </li>
+        <li class="cmd-item" role="option" data-cmd="join" data-target="#join">
+          <span class="cmd-icon" aria-hidden="true">🚀</span>
+          <span class="cmd-label">/join</span>
+          <span class="cmd-desc">גלול להצטרפות</span>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Fixed ⌘ trigger button (desktop only) -->
+  <button class="cmd-trigger" id="cmd-trigger" aria-label="פתח פלטת פקודות (/)">⌘</button>
+
+  <!-- -----------------------------------------------------------------------
+       Inline JS — cursor spotlight, scroll reveal, counters,
+                   How It Works connector, copy button, mobile interactions
+  ------------------------------------------------------------------------ -->

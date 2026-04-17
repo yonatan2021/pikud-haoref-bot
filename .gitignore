@@ -29,6 +29,6 @@ AGENTS.md
 .claude-flow/*
 .mcp.json
 .swarm/*
-output/*
 skills-lock.json
 .playwright-cli/*
+output/*

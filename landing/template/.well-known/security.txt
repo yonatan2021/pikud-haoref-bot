@@ -1,0 +1,4 @@
+Contact: https://github.com/yonatan2021/pikud-haoref-bot/security/advisories/new
+Expires: 2027-01-01T00:00:00Z
+Preferred-Languages: he, en
+Canonical: https://yonatan2021.github.io/pikud-haoref-bot-landing/.well-known/security.txt

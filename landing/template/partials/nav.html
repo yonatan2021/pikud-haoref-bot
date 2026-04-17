@@ -1,0 +1,32 @@
+<!-- sticky top nav; hamburger via :has + checkbox on mobile -->
+<a class="skip-link" href="#main">דלג לתוכן הראשי</a>
+<input type="checkbox" id="nav-toggle" class="nav-toggle-input" hidden>
+<header class="nav-bar" role="banner">
+  <div class="nav-inner">
+    <a class="nav-brand" href="/" aria-label="דף הבית">
+      <img src="/logo.jpg" alt="" width="32" height="32" aria-hidden="true">
+      <span>התראות פיקוד העורף</span>
+    </a>
+    <label for="nav-toggle" class="nav-hamburger" aria-label="פתח תפריט" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </label>
+    <nav class="nav-links" aria-label="ניווט ראשי">
+      <a href="/" data-slug="/">בית</a>
+      <a href="/guides/" data-slug="/guides/">מדריכים</a>
+      <a href="/faq/" data-slug="/faq/">שאלות</a>
+      <a href="/changelog/" data-slug="/changelog/">שינויים</a>
+      <a href="https://github.com/yonatan2021/pikud-haoref-bot" rel="noopener" target="_blank">GitHub</a>
+      <button class="nav-theme-toggle" aria-label="החלף בין מצב בהיר לכהה" type="button" data-theme-toggle>🌓</button>
+      <kbd class="nav-palette-hint" title="פתח פלטה מהירה">/</kbd>
+    </nav>
+  </div>
+</header>
+<script>
+  // highlight active route — runs before main scripts
+  (function(){
+    var active = '{{ACTIVE_SLUG}}' || (location.pathname.endsWith('/') ? location.pathname : location.pathname + '/');
+    document.querySelectorAll('.nav-links a[data-slug]').forEach(function(a){
+      if (a.dataset.slug === active) { a.setAttribute('aria-current','page'); a.classList.add('is-active'); }
+    });
+  })();
+</script>
