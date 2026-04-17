@@ -669,6 +669,7 @@ function renderPage(page, partials, sources, globals) {
     PAGE_CANONICAL_BASE: BASE_URL,
     PAGE_OG_IMAGE: page.ogImage || '/og/home.png',
     JSON_LD: jsonLdHtml,
+    ROBOTS_META: page.noindex ? '<meta name="robots" content="noindex, nofollow">' : '',
   };
   composed = replacePlaceholders(composed, ctx);
 
