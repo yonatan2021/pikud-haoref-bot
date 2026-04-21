@@ -117,13 +117,23 @@ describe('initSchema', () => {
     for (const name of expected) {
       assert.ok(tableNames.includes(name), `table "${name}" must be created by initSchema`);
     }
+
+    // Verify idx_subscriptions_city index creation
+    const indexes = db.prepare("PRAGMA index_list('subscriptions')").all() as { name: string }[];
+    const indexNames = indexes.map(idx => idx.name);
+    assert.ok(indexNames.includes('idx_subscriptions_city'), 'index "idx_subscriptions_city" must be created');
   });
 
   it('is idempotent — running twice on the same DB does not throw', () => {
     initSchema(db);
     // All the ALTER TABLE statements inside initSchema will fire again — each
     // one should hit the "duplicate column name" branch and be swallowed.
+    // ALSO verifies that CREATE INDEX IF NOT EXISTS works on repeat runs.
     assert.doesNotThrow(() => initSchema(db), 'second initSchema call must be a no-op');
+
+    // Index must still exist
+    const indexes = db.prepare("PRAGMA index_list('subscriptions')").all() as { name: string }[];
+    assert.ok(indexes.some(idx => idx.name === 'idx_subscriptions_city'), 'index must survive re-init');
   });
 
   it('users table has all the profile/onboarding columns after init', () => {

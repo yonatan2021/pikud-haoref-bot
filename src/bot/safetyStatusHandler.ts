@@ -76,7 +76,7 @@ function parseCallback(data: string): { status: SafetyStatus; promptId: number }
 }
 
 export function registerSafetyStatusHandler(bot: Bot): void {
-  const cooldown = createUserCooldown(1000);
+  const cooldown = createUserCooldown(1500);
 
   bot.command('status', async (ctx) => {
     const chatId = ctx.from?.id;

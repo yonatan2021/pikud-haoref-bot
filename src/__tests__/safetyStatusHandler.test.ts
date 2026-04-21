@@ -118,6 +118,26 @@ describe('safetyStatusHandler', () => {
     const answerCalls = (ctx.answerCallbackQuery as unknown as ReturnType<typeof mock.fn>).mock.calls;
     assert.ok(String(answerCalls[0].arguments[0]).includes('כבר עדכנת'));
   });
+
+  it('cooldown prevents rapid taps (within 1500ms)', async () => {
+    const handler = captureHandler(db);
+    const ctx1 = makeCtx(`safety:ok:${promptId}`, 1001);
+
+    // First tap — succeeds
+    await handler(ctx1);
+    assert.equal(getSafetyStatus(db, 1001)!.status, 'ok');
+
+    // Second tap immediately — blocked by cooldown
+    // (We reset responded=0 to ensure it's the cooldown blocking it, not the "already responded" logic)
+    db.prepare('UPDATE safety_prompts SET responded = 0 WHERE chat_id = 1001').run();
+    const ctx2 = makeCtx(`safety:help:${promptId}`, 1001);
+    await handler(ctx2);
+
+    // Status should STILL be 'ok' because 'help' was blocked
+    assert.equal(getSafetyStatus(db, 1001)!.status, 'ok');
+    const answers = (ctx2.answerCallbackQuery as unknown as ReturnType<typeof mock.fn>).mock.calls;
+    assert.ok(String(answers[0].arguments[0]).includes('אנא המתן'), `Expected cooldown message, got: ${answers[0].arguments[0]}`);
+  });
 });
 
 // ─── /status command + contacts view tests ──────────────────────────────────

@@ -53,6 +53,7 @@ export function initSchema(database: Database.Database): void {
       PRIMARY KEY (chat_id, city_name),
       FOREIGN KEY (chat_id) REFERENCES users(chat_id) ON DELETE CASCADE
     );
+    CREATE INDEX IF NOT EXISTS idx_subscriptions_city ON subscriptions(city_name);
 
     CREATE TABLE IF NOT EXISTS mapbox_usage (
       month         TEXT PRIMARY KEY,
