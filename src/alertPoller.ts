@@ -1,8 +1,13 @@
 import { EventEmitter } from 'events';
+import https from 'https';
 import axios from 'axios';
 import { Alert } from './types';
 import { updateLastPollAt } from './metrics.js';
 import { log } from './logger.js';
+
+// Fresh connection per request — prevents ECONNRESET/EPIPE from stale keep-alive sockets
+// when the oref.org.il server closes idle connections (typically after ~30 min quiet periods).
+const NO_KEEPALIVE_AGENT = new https.Agent({ keepAlive: false });
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const pikudHaoref = require('pikud-haoref-api');
@@ -86,6 +91,15 @@ export class AlertPoller extends EventEmitter {
   }
 
   private pollViaLibrary(): Promise<void> {
+    return this._doLibraryPoll().catch((err: Error) => {
+      if (err.message.includes('ECONNRESET') || err.message.includes('EPIPE')) {
+        return this._doLibraryPoll();
+      }
+      throw err;
+    });
+  }
+
+  private _doLibraryPoll(): Promise<void> {
     return new Promise((resolve, reject) => {
       const options: Record<string, string> = {};
       if (process.env.PROXY_URL) {
@@ -139,6 +153,7 @@ export class AlertPoller extends EventEmitter {
         url: `${ALERTS_URL}?${Math.round(Date.now() / 1000)}`,
         responseType: 'arraybuffer' as const,
         headers: ALERTS_HEADERS,
+        httpsAgent: NO_KEEPALIVE_AGENT,
       };
       if (process.env.PROXY_URL) {
         axiosOptions.proxy = process.env.PROXY_URL;
