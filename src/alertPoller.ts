@@ -92,7 +92,7 @@ export class AlertPoller extends EventEmitter {
 
   private pollViaLibrary(): Promise<void> {
     return this._doLibraryPoll().catch((err: Error) => {
-      if (err.message.includes('ECONNRESET') || err.message.includes('EPIPE')) {
+      if (err.message.includes('ECONNRESET') || err.message.includes('EPIPE') || err.message.includes('ENOTFOUND')) {
         return this._doLibraryPoll();
       }
       throw err;
@@ -147,7 +147,16 @@ export class AlertPoller extends EventEmitter {
     });
   }
 
-  private async pollCitylessNewsFlash(): Promise<void> {
+  private pollCitylessNewsFlash(): Promise<void> {
+    return this._doCitylessNewsFlashPoll().catch((err: Error) => {
+      if (err.message.includes('ECONNRESET') || err.message.includes('EPIPE') || err.message.includes('ENOTFOUND')) {
+        return this._doCitylessNewsFlashPoll();
+      }
+      throw err;
+    });
+  }
+
+  private async _doCitylessNewsFlashPoll(): Promise<void> {
     try {
       const axiosOptions: Record<string, unknown> = {
         url: `${ALERTS_URL}?${Math.round(Date.now() / 1000)}`,
@@ -163,7 +172,7 @@ export class AlertPoller extends EventEmitter {
       let buffer = Buffer.from(res.data as ArrayBuffer);
 
       if (buffer.length < 2) {
-        log('warn', 'Poller', 'תגובת newsFlash קצרה מדי — מדלג');
+        log('info', 'Poller', 'תגובת newsFlash קצרה מדי — מדלג');
         return;
       }
 
