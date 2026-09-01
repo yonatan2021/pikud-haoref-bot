@@ -12,128 +12,149 @@
     <!-- Cursor spotlight (position driven by JS CSS vars) -->
     <div class="spotlight" aria-hidden="true"></div>
 
-    <!-- Main glass panel -->
-    <div class="hero-panel glass-card">
-      <img
-        src="logo.jpg"
-        alt="לוגו בוט התראות פיקוד העורף"
-        class="hero-logo"
-        width="86"
-        height="86"
-        decoding="sync"
-      />
-
-      <h1 class="hero-title">בוט התראות פיקוד העורף</h1>
-
-      <p class="hero-subtitle-wrap">
-        <span class="typing-text">התראות IDF בזמן אמת — ישירות לטלגרם ולוואטסאפ, עם מפות ו-DM אישי</span><span class="typing-cursor" aria-hidden="true"></span>
-      </p>
-
-      <aside class="hero-disclaimer" role="note" aria-label="הבהרה חשובה">
-        <span class="hero-disclaimer-icon" aria-hidden="true">&#x26A0;&#xFE0F;</span>
-        <p>
-          <b>פרוייקט אישי בהתנדבות.</b>
-          המקור המוסמך הוא <b>אפליקציית פיקוד העורף</b> והצפירות — הישמעו להוראותיהן בראש ובראשונה.
-          השירות תלוי בגורמים חיצוניים ועשוי להפסיק לפעול ללא התראה. ללא אחריות.
-          <a href="/terms/">תנאי שימוש מלאים &rarr;</a>
-        </p>
-      </aside>
-
-      <div class="cta-group">
-        <a
-          href="https://t.me/phalaret"
-          class="btn btn-primary btn--large"
-          style="--btn-delay: 0s"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          🔔 הצטרף בטלגרם
-        </a>
-        <a
-          href="{{WHATSAPP_LINK}}"
-          class="btn btn-whatsapp btn--large"
-          style="--btn-delay: 0.1s"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          💬 הצטרף בוואטסאפ
-        </a>
-        <a
-          href="#paths"
-          class="btn btn-secondary btn--large"
-          style="--btn-delay: 0.2s"
-        >
-          🚀 הרץ instance משלך
-        </a>
-      </div>
-
-      <div class="hero-ticker" aria-label="סטטוס מערכת">
-        <span class="badge-pulse" aria-hidden="true"></span>
-        <span class="hero-ticker-text">3 התראות היום</span>
-        <span class="hero-ticker-sep" aria-hidden="true">·</span>
-        <span>עדכון כל 2 שניות</span>
-        <span class="hero-ticker-sep" aria-hidden="true">·</span>
-        <span>כל ישראל מכוסה</span>
-      </div>
-    </div>
-
-    <!-- Alert Simulator v2 — interactive Telegram-clone bubble -->
-    <div class="sim-container" aria-label="הדמיית הודעת התראה">
-      <div class="sim-controls">
-        <label for="sim-city-input" class="sim-label">הדמה התראה לעיר שלך</label>
-        <div class="sim-input-wrap">
-          <input
-            type="text"
-            id="sim-city-input"
-            class="sim-city-input"
-            placeholder="חפש עיר להדמיה..."
-            autocomplete="off"
-            aria-autocomplete="list"
-            aria-controls="sim-city-suggestions"
-          >
-          <ul id="sim-city-suggestions" class="sim-suggestions" role="listbox" aria-label="הצעות ערים" hidden>
-            <li class="sim-suggestion" role="option" data-city="חיפה" data-zone="חיפה" data-seconds="90">חיפה</li>
-            <li class="sim-suggestion" role="option" data-city="תל אביב" data-zone="גוש דן" data-seconds="90">תל אביב</li>
-            <li class="sim-suggestion" role="option" data-city="באר שבע" data-zone="שפלת יהודה" data-seconds="60">באר שבע</li>
-            <li class="sim-suggestion" role="option" data-city="אשדוד" data-zone="שפלת יהודה" data-seconds="45">אשדוד</li>
-          </ul>
+    <div class="hero-container">
+      <!-- Main content column -->
+      <div class="hero-content glass-card">
+        <div class="bersaglio-pill" aria-label="ייחוס פרויקט">
+          <span class="bersaglio-pill-dot" aria-hidden="true"></span>
+          <span>יוזמה מבית <b>Bersaglio</b> · קוד פתוח עצמאי</span>
         </div>
-        <button id="sim-run" class="sim-run-btn btn btn-primary" type="button" aria-label="הפעל הדמיית התראה">
-          &#9654; הפעל הדמיה
-        </button>
+
+        <div class="hero-brand-header">
+          <img
+            src="logo.jpg"
+            alt="לוגו בוט התראות פיקוד העורף"
+            class="hero-logo"
+            width="82"
+            height="82"
+            decoding="sync"
+          />
+          <h1 class="hero-title">בוט התראות פיקוד העורף</h1>
+        </div>
+
+        <p class="hero-subtitle-wrap">
+          <span class="typing-text">התראות IDF בזמן אמת — ישירות לטלגרם ולוואטסאפ, עם מפות ו-DM אישי</span><span class="typing-cursor" aria-hidden="true"></span>
+        </p>
+
+        <aside class="hero-disclaimer" role="note" aria-label="הבהרה חשובה">
+          <span class="hero-disclaimer-icon" aria-hidden="true">&#x26A0;&#xFE0F;</span>
+          <p>
+            <b>פרוייקט אישי בהתנדבות.</b>
+            המקור המוסמך הוא <b>אפליקציית פיקוד העורף</b> והצפירות — הישמעו להוראותיהן בראש ובראשונה.
+            השירות תלוי בגורמים חיצוניים ועשוי להפסיק לפעול ללא התראה. ללא אחריות.
+            <a href="/terms/">תנאי שימוש מלאים &rarr;</a>
+          </p>
+        </aside>
+
+        <div class="cta-group">
+          <a
+            href="https://t.me/phalaret"
+            class="btn btn-primary btn--large"
+            style="--btn-delay: 0s"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            🔔 הצטרף בטלגרם
+          </a>
+          <a
+            href="{{WHATSAPP_LINK}}"
+            class="btn btn-whatsapp btn--large"
+            style="--btn-delay: 0.1s"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            💬 הצטרף בוואטסאפ
+          </a>
+          <a
+            href="#paths"
+            class="btn btn-secondary btn--large"
+            style="--btn-delay: 0.2s"
+          >
+            🚀 הרץ instance משלך
+          </a>
+        </div>
+
+        <div class="hero-ticker" aria-label="סטטוס מערכת">
+          <span class="badge-pulse" aria-hidden="true"></span>
+          <span class="hero-ticker-text">3 התראות היום</span>
+          <span class="hero-ticker-sep" aria-hidden="true">·</span>
+          <span>עדכון כל 2 שניות</span>
+          <span class="hero-ticker-sep" aria-hidden="true">·</span>
+          <span>כל ישראל מכוסה</span>
+        </div>
       </div>
 
-      <!-- Pulse waves container -->
-      <div class="sim-pulse-container" id="sim-pulse" aria-hidden="true" hidden>
-        <!-- Telegram-clone bubble -->
-        <article class="tg-bubble" id="tg-bubble" role="alert" aria-label="הדמיית הודעת טלגרם" hidden>
-          <span class="tg-watermark" aria-hidden="true">הדמיה</span>
-          <aside class="tg-bubble-avatar">
-            <img src="/logo.jpg" alt="" width="36" height="36" loading="lazy" decoding="async">
-          </aside>
-          <div class="tg-bubble-body">
-            <header class="tg-bubble-sender">
-              <span class="tg-sender-name">📢 פיקוד העורף</span>
-              <span class="tg-sender-verified" aria-label="ערוץ מאומת">✓</span>
-            </header>
-            <div class="tg-bubble-content">
-              <div class="tg-alert-header" id="tg-alert-header">🔴 <b>ירי רקטות וטילים</b></div>
-              <div class="tg-alert-zones" id="tg-alert-zones"><b>▸ גוש דן</b></div>
-              <div class="tg-alert-cities" id="tg-alert-cities">תל אביב · רמת גן · גבעתיים · בני ברק</div>
-              <div class="tg-alert-instructions" id="tg-alert-instructions">🛡 להיכנס למרחב מוגן ולהישאר בו 10 דקות</div>
-              <div class="tg-alert-countdown">
-                <span class="tg-countdown-label">זמן כניסה למרחב מוגן:</span>
-                <span class="tg-countdown-value" id="tg-countdown-value">01:30</span>
-                <div class="tg-countdown-bar"><div class="tg-countdown-fill" id="tg-countdown-fill"></div></div>
-              </div>
-            </div>
-            <footer class="tg-bubble-meta">
-              <time id="tg-bubble-time">16:42</time>
-              <span class="tg-bubble-views">👁 1.2K</span>
-              <span class="tg-bubble-forwards">🔁 342</span>
-            </footer>
+      <!-- Simulator Column (Responsive & integrated, zero collision) -->
+      <div class="hero-sim-col">
+        <div class="sim-container glass-card" aria-label="הדמיית הודעת התראה">
+          <div class="sim-header">
+            <span class="sim-header-title">הדמיית התראה חיה</span>
+            <span class="sim-header-badge">Live Demo</span>
           </div>
-        </article>
+
+          <div class="sim-controls">
+            <label for="sim-city-input" class="sim-label">חפש או בחר עיר להדמיה:</label>
+            <div class="sim-input-wrap">
+              <input
+                type="text"
+                id="sim-city-input"
+                class="sim-city-input"
+                placeholder="למשל: תל אביב, חיפה, באר שבע..."
+                autocomplete="off"
+                aria-autocomplete="list"
+                aria-controls="sim-city-suggestions"
+              >
+              <ul id="sim-city-suggestions" class="sim-suggestions" role="listbox" aria-label="הצעות ערים" hidden>
+                <li class="sim-suggestion" role="option" data-city="חיפה" data-zone="חיפה" data-seconds="90">חיפה</li>
+                <li class="sim-suggestion" role="option" data-city="תל אביב" data-zone="גוש דן" data-seconds="90">תל אביב</li>
+                <li class="sim-suggestion" role="option" data-city="באר שבע" data-zone="שפלת יהודה" data-seconds="60">באר שבע</li>
+                <li class="sim-suggestion" role="option" data-city="אשדוד" data-zone="שפלת יהודה" data-seconds="45">אשדוד</li>
+              </ul>
+            </div>
+            <div class="sim-quick-cities" aria-label="ערים לבחירה מהירה">
+              <button type="button" class="sim-chip-btn" data-city="תל אביב">תל אביב</button>
+              <button type="button" class="sim-chip-btn" data-city="חיפה">חיפה</button>
+              <button type="button" class="sim-chip-btn" data-city="באר שבע">באר שבע</button>
+              <button type="button" class="sim-chip-btn" data-city="אשדוד">אשדוד</button>
+            </div>
+            <button id="sim-run" class="sim-run-btn btn btn-primary" type="button" aria-label="הפעל הדמיית התראה">
+              &#9654; הפעל הדמיה
+            </button>
+          </div>
+
+          <!-- Pulse waves container -->
+          <div class="sim-pulse-container" id="sim-pulse" aria-hidden="true" hidden>
+            <!-- Telegram-clone bubble -->
+            <article class="tg-bubble" id="tg-bubble" role="alert" aria-label="הדמיית הודעת טלגרם" hidden>
+              <span class="tg-watermark" aria-hidden="true">הדמיה</span>
+              <aside class="tg-bubble-avatar">
+                <img src="/logo.jpg" alt="" width="36" height="36" loading="lazy" decoding="async">
+              </aside>
+              <div class="tg-bubble-body">
+                <header class="tg-bubble-sender">
+                  <span class="tg-sender-name">📢 פיקוד העורף</span>
+                  <span class="tg-sender-verified" aria-label="ערוץ מאומת">✓</span>
+                </header>
+                <div class="tg-bubble-content">
+                  <div class="tg-alert-header" id="tg-alert-header">🔴 <b>ירי רקטות וטילים</b></div>
+                  <div class="tg-alert-zones" id="tg-alert-zones"><b>▸ גוש דן</b></div>
+                  <div class="tg-alert-cities" id="tg-alert-cities">תל אביב · רמת גן · גבעתיים · בני ברק</div>
+                  <div class="tg-alert-instructions" id="tg-alert-instructions">🛡 להיכנס למרחב מוגן ולהישאר בו 10 דקות</div>
+                  <div class="tg-alert-countdown">
+                    <span class="tg-countdown-label">זמן כניסה למרחב מוגן:</span>
+                    <span class="tg-countdown-value" id="tg-countdown-value">01:30</span>
+                    <div class="tg-countdown-bar"><div class="tg-countdown-fill" id="tg-countdown-fill"></div></div>
+                  </div>
+                </div>
+                <footer class="tg-bubble-meta">
+                  <time id="tg-bubble-time">16:42</time>
+                  <span class="tg-bubble-views">👁 1.2K</span>
+                  <span class="tg-bubble-forwards">🔁 342</span>
+                </footer>
+              </div>
+            </article>
+          </div>
+        </div>
       </div>
     </div>
   </header>

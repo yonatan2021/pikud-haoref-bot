@@ -574,6 +574,14 @@
         });
       }
 
+      // Wire quick city chips
+      document.querySelectorAll('.sim-chip-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          selectCity(btn.dataset.city);
+          runSim();
+        });
+      });
+
       function runSim() {
         var city = selectedCity || (simInput ? simInput.value.trim() : '') || 'תל אביב';
         var data = SIM_DATA[city] || SIM_DATA['תל אביב'];
