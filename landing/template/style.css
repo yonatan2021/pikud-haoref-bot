@@ -487,18 +487,11 @@ img {
   position: relative;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  text-align: start;
+  align-items: center;
+  text-align: center;
   gap: 1.25rem;
   padding: clamp(2rem, 3.5vw, 2.75rem);
   border-top: 3px solid var(--accent);
-}
-
-@media (max-width: 1040px) {
-  .hero-content {
-    align-items: center;
-    text-align: center;
-  }
 }
 
 /* Bersaglio Pill Badge */
@@ -536,17 +529,10 @@ img {
 /* Hero Brand Header */
 .hero-brand-header {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 1.25rem;
+  gap: 0.85rem;
   width: 100%;
-}
-
-@media (max-width: 1040px) {
-  .hero-brand-header {
-    flex-direction: column;
-    justify-content: center;
-    text-align: center;
-  }
 }
 
 @keyframes logoPulse {
@@ -2637,7 +2623,7 @@ img {
     flex-direction: column;
     align-items: flex-start;
     gap: 0;
-    background: rgba(7,8,15,0.97);
+    background: var(--nav-mobile-bg, rgba(7,8,15,0.97));
     border-bottom: 1px solid var(--border);
     padding: 0.5rem 0;
     max-height: 0;
@@ -2677,9 +2663,9 @@ img {
    ---------------------------------------------------------- */
 
 .footer-legal {
-  padding: 3rem 1.5rem 2rem;
+  padding: 3.5rem 1.5rem 2.5rem;
   border-top: 1px solid var(--border);
-  background: rgba(7,8,15,0.6);
+  background: var(--footer-bg, rgba(10, 14, 26, 0.9));
 }
 
 .footer-grid {
@@ -2687,29 +2673,29 @@ img {
   grid-template-columns: repeat(3, 1fr);
   gap: 2rem;
   max-width: 1100px;
-  margin: 0 auto 2rem;
+  margin: 0 auto 2.5rem;
 }
 .footer-grid section {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 0.65rem;
 }
 .footer-grid h3 {
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--text-muted);
-  margin: 0 0 0.25rem;
+  color: var(--text-primary);
+  margin: 0 0 0.35rem;
 }
 .footer-grid a {
   color: var(--text-secondary);
   text-decoration: none;
-  font-size: 0.9rem;
-  transition: color 0.2s ease;
+  font-size: 0.92rem;
+  transition: color var(--dur-fast) ease;
 }
 .footer-grid a:hover {
-  color: var(--text-primary);
+  color: var(--accent);
 }
 .footer-grid .sponsor-link {
   color: var(--sponsor-color);
@@ -2721,22 +2707,23 @@ img {
 .footer-meta {
   max-width: 1100px;
   margin: 0 auto;
-  padding-top: 1.5rem;
+  padding-top: 1.75rem;
   border-top: 1px solid var(--border);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
-  color: var(--text-muted);
-  font-size: 0.85rem;
+  gap: 0.6rem;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
 }
 
 .footer-endorsement {
   display: block;
   width: 100%;
-  margin-top: 0.5rem;
-  font-size: 0.88rem;
+  margin-top: 0.6rem;
+  font-size: 0.92rem;
   color: var(--text-secondary);
+  font-weight: 500;
 }
 
 .footer-brand-link {
@@ -2754,10 +2741,10 @@ img {
 .footer-disclaimer {
   display: block;
   width: 100%;
-  margin-top: 0.5rem;
-  font-size: 0.8rem;
-  color: var(--legal-muted, #8b94a8);
-  line-height: 1.6;
+  margin-top: 0.6rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.65;
 }
 
 @media (max-width: 640px) {
@@ -2934,33 +2921,27 @@ img {
 }
 
 .sim-run-btn {
-  align-self: flex-start;
+  width: 100%;
+  justify-content: center;
+  font-weight: 700;
+  margin-top: 0.25rem;
 }
 
-/* ── Pulse waves (motion-safe only) ── */
+/* ── Pulse glow (motion-safe only) ── */
 .sim-pulse-container {
   position: relative;
   display: flex;
   justify-content: center;
+  width: 100%;
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .sim-pulse-container::before,
-  .sim-pulse-container::after {
-    content: '';
-    position: absolute;
-    inset: -20px;
-    border-radius: 16px;
-    border: 2px solid rgba(239,68,68,0.4);
-    animation: sim-pulse-ring 2s ease-out infinite;
-    pointer-events: none;
+  .sim-pulse-container:not([hidden]) {
+    animation: sim-pulse-glow 2.5s ease-in-out infinite alternate;
   }
-  .sim-pulse-container::after {
-    animation-delay: 1s;
-  }
-  @keyframes sim-pulse-ring {
-    0%   { transform: scale(0.9); opacity: 0.6; }
-    100% { transform: scale(1.15); opacity: 0; }
+  @keyframes sim-pulse-glow {
+    0%   { filter: drop-shadow(0 2px 8px rgba(239, 68, 68, 0.25)); }
+    100% { filter: drop-shadow(0 4px 20px rgba(239, 68, 68, 0.5)); }
   }
 }
 
@@ -3365,6 +3346,134 @@ img {
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) .aurora-blob {
     opacity: 0.25;
+  }
+}
+
+/* Footer in light mode */
+:root[data-theme="light"] .footer-legal {
+  background: #ffffff;
+  border-top-color: rgba(15, 23, 42, 0.08);
+}
+:root[data-theme="light"] .footer-grid h3 {
+  color: #0f172a;
+}
+:root[data-theme="light"] .footer-grid a {
+  color: #475569;
+}
+:root[data-theme="light"] .footer-grid a:hover {
+  color: #0284c7;
+}
+:root[data-theme="light"] .footer-meta {
+  border-top-color: rgba(15, 23, 42, 0.08);
+  color: #475569;
+}
+:root[data-theme="light"] .footer-endorsement {
+  color: #334155;
+}
+:root[data-theme="light"] .footer-disclaimer {
+  color: #64748b;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .footer-legal {
+    background: #ffffff;
+    border-top-color: rgba(15, 23, 42, 0.08);
+  }
+  :root:not([data-theme="dark"]) .footer-grid h3 {
+    color: #0f172a;
+  }
+  :root:not([data-theme="dark"]) .footer-grid a {
+    color: #475569;
+  }
+  :root:not([data-theme="dark"]) .footer-grid a:hover {
+    color: #0284c7;
+  }
+  :root:not([data-theme="dark"]) .footer-meta {
+    border-top-color: rgba(15, 23, 42, 0.08);
+    color: #475569;
+  }
+  :root:not([data-theme="dark"]) .footer-endorsement {
+    color: #334155;
+  }
+  :root:not([data-theme="dark"]) .footer-disclaimer {
+    color: #64748b;
+  }
+}
+
+/* Mobile nav in light mode */
+:root[data-theme="light"] .nav-links {
+  background: rgba(255, 255, 255, 0.98);
+  border-bottom-color: rgba(15, 23, 42, 0.1);
+}
+:root[data-theme="light"] .nav-links a {
+  color: #334155;
+}
+:root[data-theme="light"] .nav-links a:hover,
+:root[data-theme="light"] .nav-links a.is-active {
+  color: #0284c7;
+  background: rgba(2, 132, 199, 0.06);
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .nav-links {
+    background: rgba(255, 255, 255, 0.98);
+    border-bottom-color: rgba(15, 23, 42, 0.1);
+  }
+  :root:not([data-theme="dark"]) .nav-links a {
+    color: #334155;
+  }
+  :root:not([data-theme="dark"]) .nav-links a:hover,
+  :root:not([data-theme="dark"]) .nav-links a.is-active {
+    color: #0284c7;
+    background: rgba(2, 132, 199, 0.06);
+  }
+}
+
+/* Telegram bubble in light mode */
+:root[data-theme="light"] .tg-bubble,
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .tg-bubble {
+    background: #ffffff;
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.08);
+  }
+  :root:not([data-theme="dark"]) .tg-bubble-content {
+    color: #0f172a;
+  }
+  :root:not([data-theme="dark"]) .tg-sender-name {
+    color: #0284c7;
+  }
+  :root:not([data-theme="dark"]) .tg-sender-verified {
+    color: #0369a1;
+  }
+  :root:not([data-theme="dark"]) .tg-alert-zones {
+    color: #1e293b;
+  }
+  :root:not([data-theme="dark"]) .tg-alert-cities {
+    color: #475569;
+  }
+  :root:not([data-theme="dark"]) .tg-alert-instructions {
+    background: #fef2f2;
+    border-inline-end-color: #ef4444;
+    color: #991b1b;
+  }
+  :root:not([data-theme="dark"]) .tg-countdown-label {
+    color: #64748b;
+  }
+  :root:not([data-theme="dark"]) .tg-countdown-value {
+    color: #dc2626;
+  }
+  :root:not([data-theme="dark"]) .tg-countdown-bar {
+    background: #fee2e2;
+  }
+  :root:not([data-theme="dark"]) .tg-countdown-fill {
+    background: #dc2626;
+  }
+  :root:not([data-theme="dark"]) .tg-bubble-meta {
+    color: #64748b;
+  }
+  :root:not([data-theme="dark"]) .tg-watermark {
+    color: rgba(15, 23, 42, 0.25);
   }
 }
 
