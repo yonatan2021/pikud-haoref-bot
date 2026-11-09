@@ -1,6 +1,5 @@
-<!-- sticky top nav; hamburger via :has + checkbox on mobile -->
+<!-- sticky top nav; on mobile the hamburger <button> toggles the menu (aria-expanded) -->
 <a class="skip-link" href="#main">דלג לתוכן הראשי</a>
-<input type="checkbox" id="nav-toggle" class="nav-toggle-input" hidden>
 <header class="nav-bar" role="banner">
   <div class="nav-inner">
     <div class="nav-brand-wrap">
@@ -10,10 +9,10 @@
       </a>
       <span class="nav-endorsement" title="יוזמה עצמאית מבית Bersaglio">מבית Bersaglio</span>
     </div>
-    <label for="nav-toggle" class="nav-hamburger" aria-label="פתח תפריט" aria-expanded="false">
-      <span></span><span></span><span></span>
-    </label>
-    <nav class="nav-links" aria-label="ניווט ראשי">
+    <button type="button" class="nav-hamburger" aria-label="תפריט" aria-expanded="false" aria-controls="nav-menu">
+      <span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span>
+    </button>
+    <nav class="nav-links" id="nav-menu" aria-label="ניווט ראשי">
       <a href="/" data-slug="/">בית</a>
       <a href="/guides/" data-slug="/guides/">מדריכים</a>
       <a href="/faq/" data-slug="/faq/">שאלות</a>
@@ -31,5 +30,38 @@
     document.querySelectorAll('.nav-links a[data-slug]').forEach(function(a){
       if (a.dataset.slug === active) { a.setAttribute('aria-current','page'); a.classList.add('is-active'); }
     });
+  })();
+
+  // mobile menu: closed menu is inert (not focusable), Esc closes and returns focus
+  (function(){
+    var btn = document.querySelector('.nav-hamburger');
+    var menu = document.getElementById('nav-menu');
+    if (!btn || !menu) return;
+    var mobile = window.matchMedia ? window.matchMedia('(max-width: 900px)') : null;
+    function isMobile() { return mobile ? mobile.matches : false; }
+    function sync() {
+      var open = btn.getAttribute('aria-expanded') === 'true';
+      if (isMobile() && !open) menu.setAttribute('inert', '');
+      else menu.removeAttribute('inert');
+    }
+    function setOpen(open) {
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      sync();
+    }
+    btn.addEventListener('click', function(){
+      setOpen(btn.getAttribute('aria-expanded') !== 'true');
+    });
+    document.addEventListener('keydown', function(e){
+      if (e.key === 'Escape' && btn.getAttribute('aria-expanded') === 'true') {
+        setOpen(false);
+        btn.focus();
+      }
+    });
+    if (mobile) {
+      var onChange = function(){ if (!isMobile()) btn.setAttribute('aria-expanded', 'false'); sync(); };
+      if (mobile.addEventListener) mobile.addEventListener('change', onChange);
+      else if (mobile.addListener) mobile.addListener(onChange);
+    }
+    sync();
   })();
 </script>
