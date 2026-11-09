@@ -2593,7 +2593,10 @@ img {
   width: 24px;
   height: 18px;
   cursor: pointer;
-  padding: 0;
+  /* 44×44 hit area around the 24×18 icon; negative margin keeps layout and icon position unchanged */
+  box-sizing: content-box;
+  padding: 13px 10px;
+  margin: -13px -10px;
   background: none;
   border: none;
   color: inherit;

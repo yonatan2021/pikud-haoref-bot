@@ -47,6 +47,18 @@ describe('landing nav — mobile menu keyboard accessibility', () => {
     assert.equal(document.getElementById('nav-toggle'), null, 'no hidden checkbox/label toggle remains');
   });
 
+  it('button label is a constant «תפריט»; state is conveyed only by aria-expanded', () => {
+    const { btn } = render(true);
+    assert.equal(btn.getAttribute('aria-label'), 'תפריט');
+    assert.equal(btn.getAttribute('aria-expanded'), 'false');
+    btn.click();
+    assert.equal(btn.getAttribute('aria-expanded'), 'true');
+    assert.equal(btn.getAttribute('aria-label'), 'תפריט');
+    btn.click();
+    assert.equal(btn.getAttribute('aria-expanded'), 'false');
+    assert.equal(btn.getAttribute('aria-label'), 'תפריט');
+  });
+
   it('closed menu on mobile is inert, opening removes inert and syncs aria-expanded', () => {
     const { btn, menu } = render(true);
     assert.ok(menu.hasAttribute('inert'), 'closed mobile menu must be inert');
@@ -91,5 +103,21 @@ describe('landing nav — mobile menu keyboard accessibility', () => {
     assert.equal(resized.btn.getAttribute('aria-expanded'), 'false');
     resized.setViewport(true);
     assert.ok(resized.menu.hasAttribute('inert'));
+  });
+
+  it('hamburger CSS gives a 44×44 hit area without moving the 24×18 icon', () => {
+    const css = fs.readFileSync(path.join(__dirname, '..', '..', 'landing', 'template', 'style.css'), 'utf8');
+    const rule = css.match(/\n\.nav-hamburger \{([^}]*)\}/);
+    assert.ok(rule, '.nav-hamburger rule exists');
+    const decl = (name: string) => rule![1].match(new RegExp(`\\b${name}:\\s*([^;]+);`))?.[1].trim();
+    const px = (v: string | undefined) => (v ?? '').split(/\s+/).map((x) => parseFloat(x));
+    assert.equal(decl('box-sizing'), 'content-box');
+    const [w, h] = [parseFloat(decl('width') ?? ''), parseFloat(decl('height') ?? '')];
+    const [padY, padX] = px(decl('padding'));
+    const [marY, marX] = px(decl('margin'));
+    assert.ok(w + 2 * padX >= 44, `hit width ${w + 2 * padX}px`);
+    assert.ok(h + 2 * padY >= 44, `hit height ${h + 2 * padY}px`);
+    assert.equal(marX, -padX, 'horizontal margin offsets padding');
+    assert.equal(marY, -padY, 'vertical margin offsets padding');
   });
 });
